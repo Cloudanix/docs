@@ -1,0 +1,65 @@
+### Remediation
+
+How to enable MFA Delete protection for CloudTrail logging bucket via AWS CLI?
+
+#### Using AWS Console
+
+- Step 1: You need to enable MFA Delete at the same time when you set the versioning state for your bucket. Run put-bucket-versioning command (OSX/Linux/UNIX) to enable versioning and MFA delete for the selected bucket. Use the MFA device enabled for your AWS root account and replace the highlighted details with your own details: the --mfa parameter value should have the following format: arn:aws:iam::aws_account_id:mfa/root-account-mfa-device mfa_device_passcode
+  aws s3api put-bucket-versioning
+  --bucket cloudtrail-global-logging
+  --versioning-configuration MFADelete=Enabled,Status=Enabled
+  --mfa 'arn:aws:iam::123456789012:mfa/root-account-mfa-device 993475'
+
+- Step 2: Run get-bucket-versioning command (OSX/Linux/UNIX) using the bucket name to determine if versioning and MFA delete protection were enabled:
+  aws s3api get-bucket-versioning
+  --bucket cloudtrail-global-logging
+
+- Step 3: If enabled, the command output should look like the following:
+  \{
+  "MFADelete": "Enabled",
+  "Status": "Enabled"
+  \}
+
+- Step 4: Once the MFA Delete feature is enabled, for each DELETE request you must provide your MFA token: the MFA serial number (the full
+  ARN associated with the device) and the generated passcode. To test this feature, try to delete a CloudTrail log file object version with and without the MFA token:
+  A: Run list-object-versions command (OSX/Linux/UNIX) to return version information for a CloudTrail log file called my-cloudtrail-log.json.gz available in the selected bucket:
+  aws s3api list-object-versions
+  --bucket cloudtrail-global-logging
+  --key my-cloudtrail-log.json.gz
+
+      B:            \{
+      		    "LastModified": "2016-04-14T10:51:05.000Z",
+      		    "VersionId": "lftlddyQBw1v7y68Z42UBSEWZodwGQBQ",
+      		    "ETag": "\"07b921ba540251657f5c01eb38e1f074\"",
+      		    "StorageClass": "STANDARD",
+      		    "Key": "my-cloudtrail-log.json.gz",
+      				"Owner": \{
+      									"DisplayName": "john.doe",
+      					        "ID": "718f3e58089ec3bd00296f84056525d78415fd5e56dcfda3f8309358e99896"
+      						\},
+      					    "IsLatest": false,
+      					    "Size": 4386
+      				\}
+
+      C: Run s3api delete-object command (OSX/Linux/UNIX) without MFA authentication and try to delete the selected log file version:
+      			aws s3api delete-object
+      			--bucket cloudtrail-global-logging
+      			--version-id '9ULMaOOrT_KhwC04uIS4ognIj0GOrhsL'
+      			--key my-cloudtrail-log.json.gz
+
+      D: Without MFA authentication, the command output should return an error message (access denied error) like the following:
+      			A client error (AccessDenied) occurred: Mfa Authentication must be used for this request.
+      			You can see that it will not let you delete an object version without MFA authentication.
+
+      E: Now run s3api delete-object command (OSX/Linux/UNIX) with MFA authentication to delete the selected CloudTrail log file version (replace the highlighted details with your own details):
+      			aws aws s3api delete-object
+      				--bucket cloudtrail-global-logging
+      				--mfa 'arn:aws:iam::123456789012:mfa/root-account-mfa-device 058452'
+      				--version-id '9ULMaOOrT_KhwC04uIS4ognIj0GOrhsL'
+      				--key my-cloudtrail-log.json.gz
+
+      F: With MFA authentication, the command output should return the version ID of the delete marker:
+      			\{
+      			  "VersionId": "9ULMaOOrT_KhwC04uIS4ognIj0GOrhsL",
+      			  "DeleteMarker": true
+      			\}
