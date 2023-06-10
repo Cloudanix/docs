@@ -20,6 +20,180 @@ Reliability, Operational Maturity, Security
 
 HITRUST, SOC2, NISTCSF, PCIDSS
 
+### Remediation
+
+#### Using Console
+
+In GCP, the equivalent of Multi-AZ in AWS is called "Instance Group". Here are the step-by-step instructions to remediate the misconfiguration:
+
+1. Open the GCP console and navigate to the Compute Engine section.
+2. Select the instance that needs to be remediated.
+3. Click on the "Edit" button at the top of the page.
+4. Scroll down to the "Availability Policy" section.
+5. Check the box next to "Create a new instance group" and select the region where the group will be created.
+6. Choose the "Regional" option for the instance group type.
+7. In the "Size" field, enter the number of instances you want to create in the group.
+8. Click on "Save" to create the instance group.
+
+Once the instance group is created, the instance will automatically be replicated across multiple zones within the selected region, providing Multi-AZ functionality.
+
+#### Using CLI
+
+In GCP, the equivalent of Multi AZ is called Regional Managed Instance Groups. Here are the step-by-step instructions to remediate the misconfiguration:
+
+1. Open the Cloud Shell in the GCP Console.
+2. Run the following command to create a new regional managed instance group:
+
+```
+gcloud compute instance-groups managed create [INSTANCE_GROUP_NAME] --region [REGION] --template [INSTANCE_TEMPLATE_NAME] --size [SIZE]
+```
+
+Replace [INSTANCE_GROUP_NAME] with the name you want to give your instance group, [REGION] with the region where you want to create the group, [INSTANCE_TEMPLATE_NAME] with the name of the instance template you want to use, and [SIZE] with the desired number of instances in the group.
+
+3. Verify that the instance group has been created successfully by running the following command:
+
+```
+gcloud compute instance-groups list
+```
+
+This command will display a list of all the instance groups in your project. Verify that the new instance group is listed.
+
+4. Once the instance group is created, you can add instances to it by running the following command:
+
+```
+gcloud compute instance-groups managed set-autoscaling [INSTANCE_GROUP_NAME] --region [REGION] --max-num-replicas [MAX_REPLICAS] --target-cpu-utilization [CPU_UTILIZATION]
+```
+
+Replace [INSTANCE_GROUP_NAME] with the name of your instance group, [REGION] with the region where the group is located, [MAX_REPLICAS] with the maximum number of instances you want in the group, and [CPU_UTILIZATION] with the target CPU utilization percentage that triggers the autoscaling.
+
+5. Verify that the autoscaling has been set up successfully by running the following command:
+
+```
+gcloud compute instance-groups managed describe-autoscaler [INSTANCE_GROUP_NAME] --region [REGION]
+```
+
+This command will display the details of the autoscaler for the specified instance group.
+
+With these steps, you have successfully created a regional managed instance group with autoscaling enabled. This will ensure that your instances are highly available and can handle increased traffic or workload.
+
+#### Using Python
+
+In GCP, instances can be made highly available by using instance groups and regional managed instance groups. The regional managed instance groups provide high availability by automatically distributing instances across multiple zones within a region. Follow the below steps to remediate the misconfiguration:
+
+1. First, create an instance template that specifies the configuration for the instances that you want to create.
+
+```python
+from googleapiclient import discovery
+
+compute = discovery.build('compute', 'v1')
+
+project = 'my-project' # Replace with your project ID
+zone = 'us-central1-a' # Replace with your desired zone
+name = 'my-instance-template' # Replace with the desired name for your instance template
+
+config = {
+    'name': name,
+    'properties': {
+        'machineType': f'zones/{zone}/machineTypes/n1-standard-1',
+        'disks': [
+            {
+                'boot': True,
+                'autoDelete': True,
+                'initializeParams': {
+                    'sourceImage': 'projects/debian-cloud/global/images/family/debian-10'
+                }
+            }
+        ],
+        'networkInterfaces': [
+            {
+                'network': 'global/networks/default',
+                'accessConfigs': [
+                    {
+                        'type': 'ONE_TO_ONE_NAT',
+                        'name': 'External NAT'
+                    }
+                ]
+            }
+        ],
+        'metadata': {
+            'items': [
+                {
+                    'key': 'startup-script',
+                    'value': '#!/bin/bash\napt-get update\napt-get install apache2 -y\n'
+                }
+            ]
+        },
+        'serviceAccounts': [
+            {
+                'email': 'default',
+                'scopes': [
+                    'https://www.googleapis.com/auth/devstorage.read_write',
+                    'https://www.googleapis.com/auth/logging.write'
+                ]
+            }
+        ]
+    }
+}
+
+request = compute.instanceTemplates().insert(project=project, body=config)
+response = request.execute()
+
+print(f'Instance template {name} created.')
+```
+
+2. Next, create a regional managed instance group using the instance template. This will automatically distribute instances across multiple zones within the region.
+
+```python
+from googleapiclient import discovery
+
+compute = discovery.build('compute', 'v1')
+
+project = 'my-project' # Replace with your project ID
+zone = 'us-central1' # Replace with your desired zone
+name = 'my-instance-group' # Replace with the desired name for your instance group
+template = 'projects/my-project/global/instanceTemplates/my-instance-template' # Replace with the name of your instance template
+
+config = {
+    'name': name,
+    'region': f'{zone}-b',
+    'baseInstanceName': 'my-instance',
+    'instanceTemplate': template,
+    'targetSize': 2,
+    'autoHealingPolicies': [
+        {
+            'initialDelaySec': 300,
+            'healthCheck': 'projects/my-project/global/httpHealthChecks/my-http-health-check'
+        }
+    ]
+}
+
+request = compute.regionInstanceGroups().insert(project=project, body=config)
+response = request.execute()
+
+print(f'Regional managed instance group {name} created.')
+```
+
+3. Finally, verify that the instances are running in multiple zones within the region.
+
+```python
+from googleapiclient import discovery
+
+compute = discovery.build('compute', 'v1')
+
+project = 'my-project' # Replace with your project ID
+zone = 'us-central1' # Replace with your desired zone
+name = 'my-instance-group' # Replace with the name of your instance group
+
+request = compute.regionInstanceGroups().listInstances(project=project, region=f'{zone}-b', instanceGroup=name)
+response = request.execute()
+
+for instance in response['items']:
+    print(f'{instance["name"]} is running in zone {instance["zone"]}.')
+```
+
+This will ensure that the instances are running in multiple zones within the region, providing high availability and ensuring that your application remains available even if one zone experiences an outage.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/sql/docs/mysql/instance-settings](https://cloud.google.com/sql/docs/mysql/instance-settings) 

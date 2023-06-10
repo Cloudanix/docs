@@ -20,120 +20,97 @@ Security
 
 #### Using Console
 
-To remediate the "Outside Collaborator MFA required" misconfiguration in GitHub console, please follow the steps below:
+To remediate the "Outside Collaborator MFA required" misconfiguration on GitHub using the GitHub console, follow these steps:
 
-1. Log in to your GitHub account and navigate to the repository where the misconfiguration exists.
+1. Log in to your GitHub account and navigate to the repository with the misconfiguration.
 
-2. Click on the "Settings" tab in the top right corner of the repository.
+2. Click on the "Settings" tab in the repository menu.
 
-3. Scroll down to the "Manage access" section and click on the "Invite teams or people" button.
+3. Scroll down to the "Collaborators & teams" section and click on "Manage access."
 
-4. Find the outside collaborator who needs to have MFA enabled and click on their name.
+4. Locate the outside collaborator in the list of collaborators and click on their name.
 
-5. In the "Access" dropdown menu, select "Admin".
+5. In the "Outside collaborator" section, click on the "Require two-factor authentication" checkbox.
 
-6. Check the box next to "Require two-factor authentication" to enable MFA for the outside collaborator.
+6. Click "Save changes" to apply the changes.
 
-7. Click on the "Invite" button to send the invitation to the outside collaborator.
-
-8. The outside collaborator will receive an email inviting them to the repository and prompting them to enable MFA on their account.
-
-9. Once the outside collaborator has enabled MFA, they will be able to access the repository as an admin.
-
-10. Repeat these steps for any other outside collaborators who need to have MFA enabled.
-
-By following these steps, you can remediate the "Outside Collaborator MFA required" misconfiguration in GitHub console.
+This will require the outside collaborator to set up two-factor authentication on their GitHub account before they can access the repository. This will help to ensure that their account is secure and that they are who they say they are when accessing the repository.
 
 #### Using CLI
 
-To remediate the "Outside Collaborator MFA required" misconfiguration in GitHub CLI, follow these steps:
+To remediate the "Outside Collaborator MFA required" misconfiguration in GitHub using GitHub CLI, follow these steps:
 
-1. Open the GitHub CLI and log in to your GitHub account.
-2. Navigate to the repository where the outside collaborator is added.
-3. Run the following command to check the current status of the collaborator's MFA requirement:
+1. Install GitHub CLI by following the instructions provided in the GitHub CLI documentation.
 
-    ```
-    gh api -X GET /repos/{owner}/{repo}/collaborators/{username}/permission
-    ```
+2. Open your terminal and authenticate to GitHub using the command `gh auth login`.
 
-    Replace `{owner}` with the repository owner's username, `{repo}` with the repository name, and `{username}` with the collaborator's username.
+3. Once you are authenticated, run the following command to check if any outside collaborator is missing MFA:
 
-4. If the MFA requirement is not enabled, run the following command to enable it:
+   ```
+   gh api /orgs/{org}/outside_collaborators --paginate --jq 'map(select(.login | test("^[^@]+@[^@]+\\.[^@]+$"))) | .[] | select(.login != "{your_username}") | select(.site_admin == false) | select(.has_two_factor_enabled == false) | .login'
+   ```
 
-    ```
-    gh api -X PUT /repos/{owner}/{repo}/collaborators/{username}/permission \
-    -f required_mfa=true
-    ```
+   Replace `{org}` with your organization name and `{your_username}` with your GitHub username.
 
-    Replace `{owner}`, `{repo}`, and `{username}` with the same values as before.
+4. This command will return a list of outside collaborators who are missing MFA. Reach out to each collaborator and ask them to enable MFA.
 
-5. Verify that the MFA requirement is enabled by running the first command again.
+5. Once all the outside collaborators have enabled MFA, run the following command to verify that all outside collaborators now have MFA enabled:
 
-6. If the collaborator has not set up MFA, instruct them to do so by following the instructions provided by GitHub.
+   ```
+   gh api /orgs/{org}/outside_collaborators --paginate --jq 'map(select(.login | test("^[^@]+@[^@]+\\.[^@]+$"))) | .[] | select(.login != "{your_username}") | select(.site_admin == false) | select(.has_two_factor_enabled == false) | .login'
+   ```
 
-By following these steps, you will remediate the "Outside Collaborator MFA required" misconfiguration in GitHub CLI.
+   This command should not return any results, indicating that all outside collaborators now have MFA enabled.
+
+6. You have now remediated the "Outside Collaborator MFA required" misconfiguration for GitHub using GitHub CLI.
 
 #### Using Python
 
-To remediate the misconfiguration "Outside Collaborator MFA required" in GitHub using Python, you can use the PyGithub library. Here are the steps to follow:
+To remediate the "Outside Collaborator MFA required" misconfiguration in GitHub using Python, you can use the PyGithub library. Here are the step-by-step instructions:
 
-1. Install PyGithub library using pip:
+1. Install the PyGithub library using the following command:
 
 ```
 pip install PyGithub
 ```
 
-2. Import the necessary libraries:
+2. Create a GitHub API token with the necessary permissions to access the organization and repositories that you want to remediate.
+
+3. Use the following Python code to check if the "Require two-factor authentication" setting is enabled for outside collaborators:
 
 ```python
 from github import Github
-from github import GithubException
+
+# Replace <api_token> with your GitHub API token
+g = Github("<api_token>")
+
+# Replace <org_name> with the name of your organization
+org = g.get_organization("<org_name>")
+
+# Iterate through all repositories in the organization
+for repo in org.get_repos():
+    # Iterate through all outside collaborators in the repository
+    for user in repo.get_collaborators(affiliation="outside"):
+        # Check if the user has two-factor authentication enabled
+        if not user.has_two_factor_authentication():
+            print(f"User {user.login} does not have two-factor authentication enabled in repo {repo.name}")
 ```
 
-3. Authenticate with GitHub using a personal access token:
+4. If the above code prints any users who do not have two-factor authentication enabled, you can use the following code to enable it:
 
 ```python
-g = Github("<personal_access_token>")
+# Iterate through all repositories in the organization
+for repo in org.get_repos():
+    # Iterate through all outside collaborators in the repository
+    for user in repo.get_collaborators(affiliation="outside"):
+        # Check if the user has two-factor authentication enabled
+        if not user.has_two_factor_authentication():
+            # Enable two-factor authentication for the user
+            user.create_mfa_requirement()
+            print(f"Enabled two-factor authentication for user {user.login} in repo {repo.name}")
 ```
 
-4. Get the repository object:
-
-```python
-repo = g.get_repo("<repository_name>")
-```
-
-5. Get the list of collaborators:
-
-```python
-collaborators = repo.get_collaborators()
-```
-
-6. Loop through the collaborators and check if MFA is enabled:
-
-```python
-for collaborator in collaborators:
-    try:
-        collaborator.get_mfa_status()
-    except GithubException as e:
-        print("Error: ", e)
-```
-
-7. If MFA is not enabled, enable it:
-
-```python
-for collaborator in collaborators:
-    try:
-        if not collaborator.get_mfa_status():
-            collaborator.create_mfa()
-            print("MFA enabled for collaborator: ", collaborator.login)
-    except GithubException as e:
-        print("Error: ", e)
-```
-
-Note: The personal access token used to authenticate with GitHub must have the necessary permissions to access the repository and enable MFA for collaborators.
-
-With these steps, you should be able to remediate the "Outside Collaborator MFA required" misconfiguration in GitHub using Python.
-
+5. Run the above code and verify that all outside collaborators now have two-factor authentication enabled.
 
 ### Additional Reading:
 

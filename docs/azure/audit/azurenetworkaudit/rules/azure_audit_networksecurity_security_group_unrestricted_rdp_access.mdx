@@ -19,4 +19,112 @@ Security
 ### Compliance Standards
 
 CISAZURE, CBP, SOC2, PCIDSS, ISO27001, HIPAA, HITRUST, GDPR, NISTCSF, FedRAMP
+### Remediation
+
+#### Using Console
+
+To remediate the unrestricted RDP access issue in Azure, you can follow the below steps:
+
+1. Login to the Azure portal (https://portal.azure.com/)
+2. Select the virtual machine that has unrestricted RDP access.
+3. Click on the "Networking" option from the left-hand side menu.
+4. Under the "Inbound port rules" section, click on "Add inbound port rule".
+5. In the "Add inbound security rule" blade, provide the following details:
+   - Name: Enter a name for the rule (e.g. RDP Restricted)
+   - Priority: Set a priority number for the rule (e.g. 100)
+   - Source: Select "IP Addresses" and enter the IP address range that you want to allow RDP access from. If you want to allow RDP access from a specific IP address, enter that IP address.
+   - Protocol: Select "TCP"
+   - Destination port ranges: Enter "3389"
+   - Action: Select "Allow"
+   - Description: Enter a description for the rule (optional)
+6. Click on "Add" to create the rule.
+7. Once the rule is created, delete the existing rule that allows unrestricted RDP access.
+8. To delete the existing rule, click on the rule in the "Inbound port rules" section, and then click on the "Delete" button.
+
+By following these steps, you can remediate the unrestricted RDP access issue in Azure.
+
+#### Using CLI
+
+The following steps can be taken to remediate unrestricted RDP access in Azure using Azure CLI:
+
+1. Open the Azure CLI command prompt.
+2. Run the following command to get the list of virtual machines in the subscription:
+
+```
+az vm list
+```
+
+3. Identify the virtual machine(s) that have unrestricted RDP access.
+4. Run the following command to restrict RDP access to a specific IP address range:
+
+```
+az vm open-port --port 3389 --resource-group <resource-group-name> --name <vm-name> --priority 1001 --source-address-prefixes <ip-address-range> --protocol tcp
+```
+
+Note: Replace `<resource-group-name>` with the name of the resource group where the virtual machine is located, `<vm-name>` with the name of the virtual machine, and `<ip-address-range>` with the IP address range that should be allowed RDP access.
+
+5. Verify that RDP access is now restricted to the specified IP address range by attempting to connect to the virtual machine from a different IP address.
+
+By following these steps, you can remediate unrestricted RDP access in Azure using Azure CLI.
+
+#### Using Python
+
+To remediate the unrestricted RDP access issue in Azure using Python, you can use the Azure SDK for Python. Here are the steps to follow:
+
+1. Install the Azure SDK for Python using the following command:
+
+```
+pip install azure-mgmt-compute
+```
+
+2. Authenticate with Azure using the Azure CLI or Service Principal credentials.
+
+3. Use the following code to retrieve the virtual machine:
+
+```
+from azure.mgmt.compute import ComputeManagementClient
+from azure.identity import AzureCliCredential
+
+credential = AzureCliCredential()
+
+subscription_id = '<your-subscription-id>'
+resource_group_name = '<your-resource-group-name>'
+vm_name = '<your-vm-name>'
+
+compute_client = ComputeManagementClient(credential, subscription_id)
+
+vm = compute_client.virtual_machines.get(resource_group_name, vm_name, expand='instanceView')
+```
+
+4. Check if the virtual machine has any inbound rules that allow RDP access:
+
+```
+rdp_rule = None
+for rule in vm.network_profile.network_interfaces[0].ip_configurations[0].load_balancer_backend_address_pools[0].backend_ip_configurations[0].load_balancer_inbound_nat_rules:
+    if rule.protocol == 'tcp' and rule.backend_port == 3389:
+        rdp_rule = rule
+        break
+
+if rdp_rule:
+    print('RDP access is allowed')
+else:
+    print('RDP access is not allowed')
+```
+
+5. If the virtual machine has an inbound rule that allows RDP access, remove the rule using the following code:
+
+```
+if rdp_rule:
+    lb_client = NetworkManagementClient(credential, subscription_id)
+    lb_name = vm.network_profile.network_interfaces[0].ip_configurations[0].load_balancer_backend_address_pools[0].load_balancer.id.split('/')[-1]
+    rule_name = rdp_rule.id.split('/')[-1]
+    lb_client.load_balancer_inbound_nat_rules.delete(resource_group_name, lb_name, rule_name)
+    print('RDP access rule has been removed')
+else:
+    print('RDP access is not allowed')
+```
+
+Note: This code assumes that the virtual machine is behind a load balancer and the inbound rule that allows RDP access is a NAT rule. If your virtual machine is not behind a load balancer, you need to modify the code accordingly.
+
+
 

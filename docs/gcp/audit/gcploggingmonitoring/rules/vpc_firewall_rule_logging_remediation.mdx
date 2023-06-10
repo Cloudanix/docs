@@ -1,0 +1,107 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "Firewall Change Log Alerts Should Be Enabled" for GCP using GCP console, follow the below steps:
+
+1. Login to your GCP console.
+2. Navigate to the Security Command Center.
+3. Click on the "Security Health Analytics" option from the left-hand menu.
+4. Click on the "Firewall rules" option.
+5. Select the project for which you want to enable Firewall Change Log Alerts.
+6. Click on the "Edit" button.
+7. Scroll down to the "Logging" section and enable the "Firewall Change Log" option.
+8. Click on the "Save" button to save the changes.
+
+By following the above steps, you have successfully enabled the Firewall Change Log Alerts for the selected project in GCP. This will help you to track any changes made to the firewall rules and take necessary actions in case of any unauthorized changes.
+
+#### Using CLI
+
+To remediate the misconfiguration "Firewall Change Log Alerts Should Be Enabled" for GCP using GCP CLI, follow these steps:
+
+1. Open the Cloud Shell in the GCP Console.
+2. Run the following command to enable firewall log exports:
+
+```
+gcloud logging sinks create firewall_logs_sink storage.googleapis.com/[BUCKET_NAME] --log-filter="resource.type=gce_firewall_rule AND protoPayload.methodName=compute.firewalls.patch AND protoPayload.serviceData.rule.direction=INGRESS" --include-children --organization=[ORGANIZATION_ID] --project=[PROJECT_ID]
+```
+
+Replace `[BUCKET_NAME]` with the name of the GCS bucket where you want to store the logs, `[ORGANIZATION_ID]` with the ID of your GCP organization, and `[PROJECT_ID]` with the ID of the GCP project where you want to enable the firewall log exports.
+
+3. Run the following command to grant the `Logs Writer` role to the `cloud-logs@google.com` service account:
+
+```
+gcloud projects add-iam-policy-binding [PROJECT_ID] --member="serviceAccount:cloud-logs@google.com" --role="roles/logging.logWriter"
+```
+
+Replace `[PROJECT_ID]` with the ID of the GCP project where you enabled the firewall log exports.
+
+4. Run the following command to create a firewall rule to allow traffic from the `cloud-logs@google.com` service account:
+
+```
+gcloud compute firewall-rules create allow-cloud-logs --direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:22 --source-service-account=cloud-logs@google.com --target-tags=allow-cloud-logs
+```
+
+5. Run the following command to add the `allow-cloud-logs` tag to the instances where you want to allow traffic from the `cloud-logs@google.com` service account:
+
+```
+gcloud compute instances add-tags [INSTANCE_NAME] --tags=allow-cloud-logs --zone=[ZONE]
+```
+
+Replace `[INSTANCE_NAME]` with the name of the instance where you want to allow traffic from the `cloud-logs@google.com` service account, and `[ZONE]` with the zone where the instance is located.
+
+By following these steps, you will enable firewall log exports and allow the `cloud-logs@google.com` service account to access the logs.
+
+#### Using Python
+
+To remediate the misconfiguration "Firewall Change Log Alerts Should Be Enabled" in GCP using Python, you can follow the below steps:
+
+Step 1: Install the necessary libraries
+
+```
+pip install google-cloud-logging google-auth
+```
+
+Step 2: Authenticate with GCP
+
+```
+from google.oauth2 import service_account
+from google.cloud import logging_v2
+
+credentials = service_account.Credentials.from_service_account_file(
+    '/path/to/your/credentials.json')
+client = logging_v2.LoggingServiceV2Client(credentials=credentials)
+```
+
+Step 3: Create a log sink
+
+```
+from google.cloud.logging_v2.types import LogSink
+
+sink_name = "firewall-change-log-alerts"
+destination_uri = "pubsub://projects/{project_id}/topics/{topic_name}"
+filter_ = "logName=projects/{project_id}/logs/compute.googleapis.com%2Ffirewall"
+sink = LogSink(
+    name=sink_name,
+    destination=destination_uri,
+    filter=filter_,
+    include_children=True
+)
+parent = f"projects/{project_id}"
+client.create_sink(parent=parent, sink=sink)
+```
+
+Step 4: Verify the log sink
+
+```
+sinks = client.list_sinks(parent=f"projects/{project_id}")
+for sink in sinks:
+    if sink.name == sink_name:
+        print("Log sink created successfully")
+        break
+else:
+    print("Log sink creation failed")
+```
+
+After running these steps, the log sink for Firewall Change Log Alerts will be created successfully in GCP using Python.
+

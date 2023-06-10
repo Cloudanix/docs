@@ -19,4 +19,164 @@ Reliability, Operational Maturity, Security
 ### Compliance Standards
 
 HIPAA, SOC2, PCIDSS, NIST
+### Remediation
+
+#### Using Console
+
+Sure, here are the step by step instructions to remediate the PubSub Lite subscription without Dead Letter Queue in GCP:
+
+1. Open the GCP console and navigate to the Pub/Sub page.
+2. From the left-hand menu, select "Subscriptions".
+3. Select the subscription that needs to be remediated.
+4. Click on the "Edit" button at the top of the page.
+5. Scroll down to the "Dead Letter Policy" section and click on the "Add Dead Letter Topic" button.
+6. In the "Dead Letter Topic" field, enter the name of the topic that will receive dead letter messages.
+7. In the "Max Delivery Attempts" field, enter the maximum number of delivery attempts before a message is considered a dead letter.
+8. Click on the "Save" button to apply the changes.
+
+Once the above steps are completed, the PubSub Lite subscription will have a Dead Letter Queue configured. Any messages that fail to be delivered after the specified number of attempts will be sent to the Dead Letter Queue topic.
+
+#### Using CLI
+
+To remediate the misconfiguration of PubSub Lite Subscription not having a Dead Letter Queue in GCP, you can follow the below steps using GCP CLI:
+
+1. Open the Cloud Shell in the GCP Console.
+
+2. Set the environment variables for your GCP project ID and the name of the PubSub Lite subscription that you want to remediate. Replace [PROJECT_ID] and [SUBSCRIPTION_NAME] with your actual project ID and subscription name.
+
+```
+export PROJECT_ID=[PROJECT_ID]
+export SUBSCRIPTION_NAME=[SUBSCRIPTION_NAME]
+```
+
+3. Create a Dead Letter Topic for the subscription using the following gcloud command. Replace [DEAD_LETTER_TOPIC_NAME] with the name of the topic that you want to create.
+
+```
+gcloud pubsub topics create [DEAD_LETTER_TOPIC_NAME] --project=$PROJECT_ID
+```
+
+4. Grant the Pub/Sub service account permission to publish messages to the Dead Letter Topic using the following gcloud command.
+
+```
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com --role=roles/pubsub.publisher
+```
+
+5. Update the subscription to set the Dead Letter Policy using the following gcloud command. Replace [DEAD_LETTER_TOPIC_NAME] with the name of the topic that you created in step 3.
+
+```
+gcloud pubsub lite-subscriptions update $SUBSCRIPTION_NAME --project=$PROJECT_ID --dead-letter-topic=projects/$PROJECT_ID/topics/[DEAD_LETTER_TOPIC_NAME]
+```
+
+6. Verify that the Dead Letter Policy has been set for the subscription using the following gcloud command.
+
+```
+gcloud pubsub lite-subscriptions describe $SUBSCRIPTION_NAME --project=$PROJECT_ID
+```
+
+7. You can also verify that the Dead Letter Topic has been created and that the Pub/Sub service account has been granted permission to publish messages to it using the following gcloud commands.
+
+```
+gcloud pubsub topics describe [DEAD_LETTER_TOPIC_NAME] --project=$PROJECT_ID
+
+gcloud projects get-iam-policy $PROJECT_ID --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com"
+```
+
+After following these steps, the PubSub Lite Subscription would have a Dead Letter Queue configured, and messages that cannot be delivered to the original subscriber will be redirected to the Dead Letter Topic for further analysis and processing.
+
+#### Using Python
+
+To remediate the misconfiguration of PubSub Lite Subscription should have a Dead Letter Queue in GCP using Python, follow the steps below:
+
+1. First, you need to create a Dead Letter Topic. You can use the following code to create a Dead Letter Topic:
+
+```python
+from google.cloud import pubsub_v1
+
+project_id = "your-project-id"
+dead_letter_topic_id = "dead-letter-topic"
+
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(project_id, dead_letter_topic_id)
+
+try:
+    topic = publisher.create_topic(request={"name": topic_path})
+    print(f"Topic created: {topic.name}")
+except Exception as e:
+    print(f"Error creating topic: {e}")
+```
+
+2. Once the Dead Letter Topic is created, you can create a subscription with the Dead Letter Topic attached to it. You can use the following code to create a subscription:
+
+```python
+from google.cloud import pubsub_v1
+
+project_id = "your-project-id"
+subscription_id = "your-subscription-id"
+topic_id = "your-topic-id"
+dead_letter_topic_id = "dead-letter-topic"
+
+subscriber = pubsub_v1.SubscriberClient()
+subscription_path = subscriber.subscription_path(project_id, subscription_id)
+topic_path = subscriber.topic_path(project_id, topic_id)
+dead_letter_topic_path = subscriber.topic_path(project_id, dead_letter_topic_id)
+
+push_config = pubsub_v1.types.PushConfig(dead_letter_topic=dead_letter_topic_path)
+
+try:
+    subscription = subscriber.create_subscription(
+        request={"name": subscription_path, "topic": topic_path, "push_config": push_config}
+    )
+    print(f"Subscription created: {subscription.name}")
+except Exception as e:
+    print(f"Error creating subscription: {e}")
+```
+
+3. Now, you can test the subscription by publishing a message to the topic and checking if the message is delivered to the Dead Letter Topic. You can use the following code to publish a message:
+
+```python
+from google.cloud import pubsub_v1
+
+project_id = "your-project-id"
+topic_id = "your-topic-id"
+
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(project_id, topic_id)
+
+message = b"Test message"
+try:
+    future = publisher.publish(topic_path, message)
+    print(f"Message published: {future.result()}")
+except Exception as e:
+    print(f"Error publishing message: {e}")
+```
+
+4. Check the Dead Letter Topic to confirm that the message was delivered there. You can use the following code to check the messages in the Dead Letter Topic:
+
+```python
+from google.cloud import pubsub_v1
+
+project_id = "your-project-id"
+dead_letter_topic_id = "dead-letter-topic"
+
+subscriber = pubsub_v1.SubscriberClient()
+dead_letter_topic_path = subscriber.topic_path(project_id, dead_letter_topic_id)
+
+def callback(message):
+    print(f"Received message: {message.data}")
+    message.ack()
+
+subscription_path = subscriber.subscription_path(project_id, subscription_id)
+subscriber.subscribe(subscription_path, callback=callback)
+
+print(f"Listening for messages on {subscription_path}...\n")
+while True:
+    try:
+        subscriber.consume(dead_letter_topic_path, timeout=10)
+    except Exception as e:
+        print(f"Error consuming messages: {e}")
+```
+
+By following these steps, you can remediate the misconfiguration of PubSub Lite Subscription should have a Dead Letter Queue in GCP using Python.
+
+
 

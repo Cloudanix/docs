@@ -24,31 +24,49 @@ SOC2, HIPAA, CISAZURE, CBP, HITRUST, NISTCSF, PCIDSS
 
 #### Using Console
 
-Here are the step-by-step instructions to remediate the "Managed Service Identities Disabled" misconfiguration in Azure:
+To remediate the "Managed Service Identities Disabled" misconfiguration in Azure using the Azure console, please follow these steps:
 
-1. Log in to the Azure portal (https://portal.azure.com/).
-2. Navigate to the resource group that contains the affected resource.
-3. Select the affected resource (e.g., virtual machine, function app, etc.).
-4. Click on the "Identity" blade in the left-hand menu.
-5. In the "System assigned" tab, toggle the switch to "On" to enable the managed identity for the resource.
-6. Click on the "Save" button to save the changes.
+1. Open the Azure portal and navigate to the resource group containing the affected Azure service.
 
-Note: If the "User assigned" tab is also disabled, you can follow the same steps to enable it. 
+2. Click on the affected Azure service, and then click on the "Access control (IAM)" menu option.
 
-Once the managed identity is enabled, you can use it to authenticate and access Azure resources without the need for explicit credentials. This helps to improve the security posture of your Azure environment by reducing the risk of credential theft or misuse.
+3. Click on the "Add" button to add a new role assignment.
+
+4. In the "Add role assignment" blade, select "Contributor" as the role and then select the "Azure resource" option.
+
+5. In the "Select" box, search for the name of the affected Azure service and select it.
+
+6. Leave the "Assign access to" field as "Azure AD user, group, or service principal" and then click on the "Select" button.
+
+7. In the "Select" box, search for the name of the managed identity that needs to be enabled and select it.
+
+8. Click on the "Save" button to save the role assignment.
+
+9. Verify that the managed identity is now enabled by checking the "Managed identities" blade of the affected Azure service.
+
+10. Repeat this process for any other affected Azure services.
+
+By following these steps, you can remediate the "Managed Service Identities Disabled" misconfiguration in Azure using the Azure console.
 
 #### Using CLI
 
-To remediate the "Managed Service Identities Disabled" misconfiguration in Azure CLI, you can follow these steps:
+To remediate the "Managed Service Identities Disabled" misconfiguration in Azure using Azure CLI, you can follow these steps:
 
-1. Open the Azure CLI in your terminal or command prompt.
-2. Login to your Azure account using the command: `az login`.
-3. Select the subscription that contains the affected resource using the command: `az account set --subscription <subscription_id>`.
-4. Identify the affected resource by running the command: `az resource show --ids <resource_id>`. This will display the details of the resource, including its type and location.
-5. Enable Managed Service Identity for the resource by running the command: `az resource update --ids <resource_id> --set identity.type=SystemAssigned`. This will enable a system-assigned managed identity for the resource.
-6. Verify that Managed Service Identity has been enabled for the resource by running the command: `az resource show --ids <resource_id>`. The output should include the `"identity"` property with a `"type"` value of `"SystemAssigned"`.
+1. Open the Azure CLI and log in to your Azure account using the command `az login`.
 
-By following these steps, you should be able to remediate the "Managed Service Identities Disabled" misconfiguration in Azure CLI.
+2. Check if Managed Service Identity is enabled for your Azure subscription using the command `az account show --query "isIdentityCrmEnabled"`. If the output is `false`, it means Managed Service Identity is disabled for your subscription.
+
+3. To enable Managed Service Identity for your subscription, use the command `az provider register --namespace Microsoft.ManagedIdentity`.
+
+4. After the registration is complete, you can create a new Managed Service Identity using the command `az identity create --name <identity-name> --resource-group <resource-group-name>`.
+
+5. Once the Managed Service Identity is created, you can assign it to your Azure resources using the command `az role assignment create --role <role-name> --assignee <identity-client-id> --scope <resource-id>`.
+
+6. Replace `<identity-name>`, `<resource-group-name>`, `<role-name>`, `<identity-client-id>` and `<resource-id>` with the actual values for your Azure environment.
+
+7. Finally, verify that Managed Service Identity is enabled for your subscription and that the identity is assigned to the correct resources using the command `az identity show --name <identity-name> --resource-group <resource-group-name>`.
+
+By following these steps, you should be able to remediate the "Managed Service Identities Disabled" misconfiguration in Azure using Azure CLI.
 
 #### Using Python
 
@@ -57,86 +75,86 @@ To remediate the "Managed Service Identities Disabled" misconfiguration in Azure
 1. Import the necessary libraries:
 
 ```python
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.authorization import AuthorizationManagementClient
 from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource.resources.models import ResourceIdentityType
+from azure.mgmt.authorization import AuthorizationManagementClient
+from azure.common.credentials import ServicePrincipalCredentials
 ```
 
-2. Create an instance of the `DefaultAzureCredential` class to authenticate with Azure:
+2. Set the credentials for your Azure account:
 
 ```python
-credential = DefaultAzureCredential()
+subscription_id = 'your-subscription-id'
+tenant_id = 'your-tenant-id'
+client_id = 'your-client-id'
+client_secret = 'your-client-secret'
+
+credentials = ServicePrincipalCredentials(
+    client_id=client_id,
+    secret=client_secret,
+    tenant=tenant_id
+)
 ```
 
-3. Create an instance of the `AuthorizationManagementClient` class and pass in the `credential` object and the Azure subscription ID:
+3. Create a ResourceManagementClient and an AuthorizationManagementClient:
 
 ```python
-authorization_client = AuthorizationManagementClient(credential, subscription_id)
+resource_client = ResourceManagementClient(credentials, subscription_id)
+auth_client = AuthorizationManagementClient(credentials, subscription_id)
 ```
 
-4. Create an instance of the `ResourceManagementClient` class and pass in the `credential` object and the Azure subscription ID:
-
-```python
-resource_client = ResourceManagementClient(credential, subscription_id)
-```
-
-5. Get a list of all the resource groups in the subscription:
+4. Get the list of resource groups in your subscription:
 
 ```python
 resource_groups = resource_client.resource_groups.list()
 ```
 
-6. For each resource group, get a list of all the resources in the group:
+5. For each resource group, check if managed service identities are enabled for all resources:
 
 ```python
-for resource_group in resource_groups:
-    resources = resource_client.resources.list_by_resource_group(resource_group.name)
+for rg in resource_groups:
+    rg_name = rg.name
+    rg_id = rg.id
+
+    # Check if managed service identities are enabled for all resources in the resource group
+    permissions = auth_client.permissions.list_by_resource_group(rg_name)
+
+    for perm in permissions:
+        if perm.name == 'Microsoft.ManagedIdentity/userAssignedIdentities':
+            if perm.actions == ['*/read']:
+                print(f"Managed service identities are enabled for all resources in resource group {rg_name}")
+            else:
+                print(f"Managed service identities are not enabled for all resources in resource group {rg_name}")
 ```
 
-7. For each resource that has a managed identity, enable the managed identity:
+6. If managed service identities are not enabled for all resources in a resource group, enable them:
 
 ```python
-for resource in resources:
-    if resource.identity and resource.identity.type == ResourceIdentityType.system_assigned:
-        resource_client.resources.create_or_update(
-            resource_group_name=resource_group.name,
-            resource_name=resource.name,
-            api_version=resource.api_version,
-            location=resource.location,
-            properties=resource.properties,
-            identity={
-                "type": ResourceIdentityType.system_assigned
-            }
-        )
+for rg in resource_groups:
+    rg_name = rg.name
+    rg_id = rg.id
+
+    # Check if managed service identities are enabled for all resources in the resource group
+    permissions = auth_client.permissions.list_by_resource_group(rg_name)
+
+    for perm in permissions:
+        if perm.name == 'Microsoft.ManagedIdentity/userAssignedIdentities':
+            if perm.actions != ['*/read']:
+                print(f"Enabling managed service identities for all resources in resource group {rg_name}")
+                auth_client.permissions.create_or_update(
+                    rg_name,
+                    'Microsoft.ManagedIdentity/userAssignedIdentities',
+                    {
+                        'actions': [
+                            'Microsoft.ManagedIdentity/userAssignedIdentities/read',
+                            'Microsoft.ManagedIdentity/userAssignedIdentities/write',
+                            'Microsoft.ManagedIdentity/userAssignedIdentities/delete',
+                            'Microsoft.ManagedIdentity/userAssignedIdentities/assign/action'
+                        ]
+                    }
+                )
 ```
 
-8. For each resource that does not have a managed identity, create a new managed identity and enable it:
-
-```python
-for resource in resources:
-    if not resource.identity:
-        resource_client.resources.create_or_update(
-            resource_group_name=resource_group.name,
-            resource_name=resource.name,
-            api_version=resource.api_version,
-            location=resource.location,
-            properties=resource.properties,
-            identity={
-                "type": ResourceIdentityType.system_assigned
-            }
-        )
-```
-
-9. Finally, verify that all the resources now have a managed identity by checking the `identity` property of each resource:
-
-```python
-for resource in resources:
-    print(resource.identity)
-```
-
-These steps should remediate the "Managed Service Identities Disabled" misconfiguration in Azure using Python.
-
+These steps will enable managed service identities for all resources in all resource groups in your Azure subscription using Python.
 
 ### Additional Reading:
 

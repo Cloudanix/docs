@@ -24,123 +24,127 @@ CISGCP, CBP, HITRUST, GDPR, SOC2, NISTCSF, PCIDSS, FedRAMP
 
 #### Using Console
 
-To remediate the misconfiguration of BigQuery datasets being anonymously or publicly accessible in GCP Console, please follow the below steps:
+To remediate this misconfiguration in GCP using GCP console, you can follow these steps:
 
-1. Open the Google Cloud Console and go to the BigQuery page.
-2. Select the dataset that you want to remediate.
-3. Click on the "Share dataset" button at the top of the page.
-4. In the sharing panel, click on the "Advanced" button at the bottom.
-5. In the "Access" section, check for any entries that have "allUsers" or "allAuthenticatedUsers" listed in the "Entity" field.
-6. Remove any such entries by clicking on the "X" button next to them.
-7. Click on the "Save" button to save the changes.
+1. Open the GCP console and navigate to the BigQuery section.
 
-By following the above steps, you will remediate the misconfiguration and ensure that the BigQuery datasets are not anonymously or publicly accessible.
+2. Click on the dataset that you want to remediate.
+
+3. In the dataset details page, click on the "Share dataset" button.
+
+4. In the "Share dataset" dialog box, review the current access controls.
+
+5. If the dataset is publicly accessible, click on the "X" next to the "allUsers" entry to remove it.
+
+6. If the dataset is anonymously accessible, click on the "X" next to the "allAuthenticatedUsers" entry to remove it.
+
+7. If you want to grant access to specific users or groups, click on the "Add item" button and enter their email addresses.
+
+8. Choose the appropriate access level for the users or groups, such as "Viewer" or "Editor".
+
+9. Click on the "Save" button to apply the changes.
+
+10. Finally, verify that the dataset is no longer publicly or anonymously accessible by reviewing the access controls again.
 
 #### Using CLI
 
-To remediate the misconfiguration of BigQuery datasets being anonymously or publicly accessible in GCP, you can follow these steps in the GCP CLI:
+To remediate the misconfiguration of BigQuery datasets being anonymously or publicly accessible in GCP using GCP CLI, follow these steps:
 
-1. Open the Cloud Shell in the GCP console.
-2. Run the following command to list all the BigQuery datasets in your project: 
-
+1. Open the Cloud Shell from the GCP console.
+2. Run the following command to list all the datasets in your project:
 ```
-bq ls --format=prettyjson
+bq ls
 ```
-
-3. Identify the dataset(s) that are anonymously or publicly accessible by checking the "access" field in the output. If the "access" field includes "READER" or "WRITER" with "SpecialGroup:allAuthenticatedUsers" or "allUsers", then the dataset is publicly accessible.
-
-4. Run the following command to remove the public access from the identified dataset(s):
-
+3. For each dataset that is publicly accessible, run the following command to revoke the public access:
 ```
-bq update --default_table_expiration 0 --default_partition_expiration 0 --view_encryption_kms_key=projects/<project_id>/locations/<location>/keyRings/<keyring_name>/cryptoKeys/<cryptokey_name> <project_id>:<dataset_name>
+bq update --default_table_expiration <dataset_id>
 ```
+Note: Replace <dataset_id> with the ID of the dataset that you want to remediate.
 
-Replace the `<project_id>` with your project ID, `<location>` with the location of your KMS keyring, `<keyring_name>` with the name of your KMS keyring, `<cryptokey_name>` with the name of your crypto key, and `<dataset_name>` with the name of the identified dataset.
+4. After running the above command, you will see the following prompt:
+```
+This update will modify table(s) <dataset_id>:*. Do you want to continue? (y/N):
+```
+5. Type `y` and press enter to confirm the update.
 
-5. After running the command, check the "access" field again using the command in step 2 to ensure that the public access has been removed.
+6. Repeat steps 3-5 for all the datasets that are publicly accessible.
 
-By following these steps, you can remediate the misconfiguration of BigQuery datasets being anonymously or publicly accessible in GCP.
+7. Run the following command to verify that the datasets are no longer publicly accessible:
+```
+bq show <dataset_id>
+```
+Note: Replace <dataset_id> with the ID of the dataset that you want to verify.
+
+8. Verify that the `defaultTableExpirationMs` field is set to `-1` in the output. This indicates that the dataset is not publicly accessible.
+
+9. Repeat step 8 for all the datasets that you have remediated.
+
+By following these steps, you can remediate the misconfiguration of BigQuery datasets being anonymously or publicly accessible in GCP using GCP CLI.
 
 #### Using Python
 
-To remediate this misconfiguration in Google Cloud Platform (GCP), you can use the Google Cloud Client Library for Python. Here are the steps to remediate the issue:
+To remediate the misconfiguration of BigQuery datasets being publicly accessible, you can use the following Python code:
 
-1. Install the Google Cloud Client Library for Python by running the following command in your terminal:
+1. First, you need to authenticate and authorize your Python script to access the Google Cloud Platform. For this, you can use the `google-auth` and `google-auth-oauthlib` libraries. Here is an example of how to authenticate and authorize:
 
-   ```
-   pip install google-cloud-bigquery
-   ```
+```
+from google.oauth2 import service_account
+from google.auth.transport.requests import AuthorizedSession
 
-2. Authenticate your application to access your GCP project. You can follow the instructions in this link to set up authentication: https://cloud.google.com/docs/authentication/getting-started
+# Load the service account credentials
+credentials = service_account.Credentials.from_service_account_file(
+    'path/to/service_account.json'
+)
 
-3. Use the following Python code to check if any of your BigQuery datasets are publicly or anonymously accessible:
+# Create an authorized session using the credentials
+session = AuthorizedSession(credentials)
+```
 
-   ```python
-   from google.cloud import bigquery
+2. Once you have authenticated and authorized your script, you can use the `google-cloud-bigquery` library to access the BigQuery API. Here is an example of how to check if a dataset is publicly accessible:
 
-   client = bigquery.Client()
+```
+from google.cloud import bigquery
 
-   datasets = client.list_datasets()
+# Create a BigQuery client
+client = bigquery.Client()
 
-   for dataset in datasets:
-       if dataset.access_entries:
-           for entry in dataset.access_entries:
-               if entry.role == "READER" and (
-                   entry.entity_type == "userByEmail"
-                   and entry.entity_id == "allUsers"
-               ):
-                   print(f"{dataset.dataset_id} is publicly accessible.")
-               elif entry.role == "READER" and (
-                   entry.entity_type == "specialGroup"
-                   and entry.entity_id == "allAuthenticatedUsers"
-               ):
-                   print(f"{dataset.dataset_id} is anonymously accessible.")
-   ```
+# Get the dataset reference
+dataset_ref = client.dataset('my_dataset')
 
-4. If the code above outputs any datasets that are publicly or anonymously accessible, you can use the following code to revoke the access:
+# Get the dataset metadata
+dataset = client.get_dataset(dataset_ref)
 
-   ```python
-   from google.cloud import bigquery
+# Check if the dataset is publicly accessible
+if dataset.acl_entries:
+    for entry in dataset.acl_entries:
+        if entry.role == 'READER' and entry.entity_type == 'userByEmail' and entry.entity_id == '':
+            print('Dataset is publicly accessible')
+```
 
-   client = bigquery.Client()
+3. If the dataset is publicly accessible, you can revoke the public access by removing the `READER` role for the anonymous user. Here is an example of how to do this:
 
-   dataset_ref = client.dataset("my_dataset")
-   dataset = client.get_dataset(dataset_ref)
+```
+from google.cloud import bigquery
 
-   access_entries = dataset.access_entries
-   access_entries = [
-       entry
-       for entry in access_entries
-       if not (
-           entry.role == "READER"
-           and (
-               entry.entity_type == "userByEmail"
-               and entry.entity_id == "allUsers"
-           )
-       )
-   ]
-   access_entries = [
-       entry
-       for entry in access_entries
-       if not (
-           entry.role == "READER"
-           and (
-               entry.entity_type == "specialGroup"
-               and entry.entity_id == "allAuthenticatedUsers"
-           )
-       )
-   ]
+# Create a BigQuery client
+client = bigquery.Client()
 
-   dataset.access_entries = access_entries
-   dataset = client.update_dataset(dataset, ["access_entries"])
-   ```
+# Get the dataset reference
+dataset_ref = client.dataset('my_dataset')
 
-   Replace `"my_dataset"` with the name of the dataset that you want to remediate.
+# Get the dataset metadata
+dataset = client.get_dataset(dataset_ref)
 
-5. Repeat step 4 for any other datasets that are publicly or anonymously accessible.
+# Remove the public access
+if dataset.acl_entries:
+    for entry in dataset.acl_entries:
+        if entry.role == 'READER' and entry.entity_type == 'userByEmail' and entry.entity_id == '':
+            dataset.acl_entries.remove(entry)
+            client.update_dataset(dataset, ['acl_entries'])
+            print('Public access revoked')
+```
 
-By following these steps, you can remediate the misconfiguration where BigQuery datasets are publicly or anonymously accessible in GCP using Python.
-
+By following these steps, you can remediate the misconfiguration of BigQuery datasets being publicly accessible in GCP using Python.
 
 ### Additional Reading:
 

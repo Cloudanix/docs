@@ -1,0 +1,160 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of not monitoring database uptime check in GCP using the GCP console, follow these steps:
+
+1. Go to the Cloud Console and navigate to the Cloud SQL instances page.
+
+2. Select the instance that you want to monitor and click on the "Edit" button.
+
+3. Scroll down to the "Alerting" section and click on the "Add alerting policy" button.
+
+4. In the "Add alerting policy" dialog box, select "Metric" as the "Condition type".
+
+5. From the "Metric" drop-down list, select "Cloud SQL Database".
+
+6. From the "Metric type" drop-down list, select "Uptime Check".
+
+7. In the "Filter" section, select the specific database that you want to monitor.
+
+8. In the "Condition" section, set the threshold for the uptime check that you want to monitor.
+
+9. Click on the "Add" button to create the alerting policy.
+
+10. Finally, click on the "Save" button to save the changes.
+
+Once you have completed these steps, you will receive an alert if the database uptime check falls below the threshold that you have set. This will help you to ensure that your database is always available and accessible to your users.
+
+#### Using CLI
+
+To remediate the misconfiguration of not monitoring the database uptime check in GCP using GCP CLI, you can follow these step-by-step instructions:
+
+1. Open the Google Cloud Console and navigate to the Cloud SQL instances page.
+2. Select the instance that you want to monitor and click on the "Edit" button.
+3. In the "Settings" section, click on the "Monitoring" tab.
+4. Scroll down to the "Uptime check" section and click on the "Add uptime check" button.
+5. In the "Add uptime check" dialog box, enter the following information:
+   - Check name: A descriptive name for the uptime check.
+   - Resource type: Select "Cloud SQL instance" from the dropdown menu.
+   - Resource name: Select the name of the instance that you want to monitor.
+   - Protocol: Select "HTTP" or "HTTPS" depending on your needs.
+   - Request path: Enter "/". This will check if the server is responding to requests.
+   - Port: Enter the port number that the database is running on (default is 3306).
+   - Monitoring interval: Select how often you want to check the uptime (e.g. every 1 minute).
+   - Timeout: Select the maximum amount of time that the check should wait for a response (e.g. 5 seconds).
+6. Click on the "Save" button to add the uptime check to the instance.
+7. Verify that the uptime check is working by checking the "Uptime checks" tab in the Cloud SQL instance details page.
+
+By following these steps, you will be able to remediate the misconfiguration of not monitoring the database uptime check in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration of not monitoring database uptime check on GCP, you can follow the below steps using Python:
+
+1. First, you need to create a Cloud Monitoring uptime check for your database. You can do this using the Google Cloud Console or the Cloud Monitoring API. Here is an example Python code to create an uptime check using the Cloud Monitoring API:
+
+```python
+from google.cloud import monitoring_v3
+
+client = monitoring_v3.UptimeCheckServiceClient()
+
+project_name = f"projects/{project_id}"
+config = monitoring_v3.types.UptimeCheckConfig(
+    display_name="Database Uptime Check",
+    resource=monitoring_v3.types.MonitoredResource(
+        type="cloudsql_database",
+        labels={
+            "project_id": project_id,
+            "database_id": database_id
+        }
+    ),
+    http_check=monitoring_v3.types.UptimeCheckConfig.HttpCheck(
+        path="/",
+        port=5432,
+        use_ssl=False
+    ),
+    timeout=monitoring_v3.types.Duration(seconds=10),
+    period=monitoring_v3.types.Duration(seconds=60),
+    content_matchers=[
+        monitoring_v3.types.UptimeCheckConfig.ContentMatcher(
+            content="Database is up",
+            matcher=monitoring_v3.types.UptimeCheckConfig.ContentMatcher.Matcher.REGEXP_MATCH
+        )
+    ]
+)
+
+response = client.create_uptime_check_config(request={"parent": project_name, "uptime_check_config": config})
+print("Uptime check created: ", response)
+```
+
+This code creates an uptime check for a Cloud SQL database, which checks the database's root URL every minute and looks for the string "Database is up" in the response.
+
+2. Once you have created the uptime check, you need to create a notification channel to receive alerts if the check fails. You can do this using the Cloud Monitoring API or the Google Cloud Console. Here is an example Python code to create a notification channel using the Cloud Monitoring API:
+
+```python
+from google.cloud import monitoring_v3
+
+client = monitoring_v3.NotificationChannelServiceClient()
+
+project_name = f"projects/{project_id}"
+channel = monitoring_v3.types.NotificationChannel(
+    type_="email",
+    display_name="Database Alert",
+    labels={
+        "email_address": "youremail@example.com"
+    },
+    user_labels={
+        "severity": "high"
+    }
+)
+
+response = client.create_notification_channel(request={"name": project_name, "notification_channel": channel})
+print("Notification channel created: ", response)
+```
+
+This code creates an email notification channel for the email address "youremail@example.com" and sets the severity label to "high".
+
+3. Finally, you need to create an alerting policy that uses the uptime check and notification channel to send alerts if the database goes down. You can do this using the Cloud Monitoring API or the Google Cloud Console. Here is an example Python code to create an alerting policy using the Cloud Monitoring API:
+
+```python
+from google.cloud import monitoring_v3
+
+client = monitoring_v3.AlertPolicyServiceClient()
+
+project_name = f"projects/{project_id}"
+policy = monitoring_v3.types.AlertPolicy(
+    display_name="Database Alert Policy",
+    combiner=monitoring_v3.types.AlertPolicy.ConditionCombinerType.AND,
+    conditions=[
+        monitoring_v3.types.AlertPolicy.Condition(
+            display_name="Database Down",
+            condition_threshold=monitoring_v3.types.AlertPolicy.Condition.MetricThreshold(
+                filter='metric.type="cloudsql_database/uptime_ratio"',
+                threshold_value=0.99,
+                comparison=monitoring_v3.types.ComparisonType.LESS_THAN,
+                duration=monitoring_v3.types.Duration(seconds=300),
+                trigger=monitoring_v3.types.AlertPolicy.Condition.Trigger(
+                    count=1,
+                    percent=0.0
+                )
+            ),
+            duration=monitoring_v3.types.Duration(seconds=0),
+            trigger=monitoring_v3.types.AlertPolicy.Condition.Trigger(
+                count=1,
+                percent=0.0
+            )
+        )
+    ],
+    notification_channels=["projects/{project_id}/notificationChannels/{channel_id}".format(project_id=project_id, channel_id=channel_id)],
+    documentation=monitoring_v3.types.AlertPolicy.Documentation(content="Database is down alert.")
+)
+
+response = client.create_alert_policy(request={"name": project_name, "alert_policy": policy})
+print("Alerting policy created: ", response)
+```
+
+This code creates an alerting policy that triggers when the uptime ratio of the Cloud SQL database drops below 99% for 5 minutes. The policy sends an email notification to the "youremail@example.com" address when triggered.
+
+By following these steps, you can remediate the misconfiguration of not monitoring database uptime check on GCP using Python.
+

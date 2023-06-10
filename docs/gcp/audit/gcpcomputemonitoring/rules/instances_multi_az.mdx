@@ -20,6 +20,133 @@ Reliability, Security
 
 HIPAA, NIST, HITRUST, SOC2, NISTCSF, PCIDSS
 
+### Remediation
+
+#### Using Console
+
+In GCP, the equivalent of Multi AZ in AWS is the "Regional Managed Instance Group". To remediate the misconfiguration of instances not being Multi AZ in GCP, you can follow these steps:
+
+1. Open the GCP console and go to the Compute Engine section.
+2. Click on "Instance groups" in the left-hand menu.
+3. Click on the name of the instance group that you want to make Multi AZ.
+4. Click on the "Edit" button at the top of the page.
+5. In the "Autohealing" section, select "On" for "Enable autohealing".
+6. In the "Location" section, select the region where you want the instance group to be Multi AZ.
+7. In the "Size" section, set the "Number of instances" to the desired number of instances for the Multi AZ group.
+8. Click on the "Save" button at the bottom of the page.
+
+Once you have completed these steps, your instance group will be Multi AZ and will automatically heal and distribute instances across multiple zones within the selected region.
+
+#### Using CLI
+
+In GCP, the concept of Multi-AZ is called "High Availability" and can be achieved by using Managed Instance Groups. To remediate the misconfiguration, you can follow these steps:
+
+1. Open the Cloud Shell from the GCP Console.
+2. Create a Managed Instance Group using the following command:
+
+```
+gcloud compute instance-groups managed create [GROUP_NAME] \
+    --size [GROUP_SIZE] \
+    --template [INSTANCE_TEMPLATE] \
+    --base-instance-name [INSTANCE_NAME] \
+    --zone [ZONE] \
+    --health-check [HEALTH_CHECK]
+```
+
+Replace the placeholders in the command with the following values:
+- [GROUP_NAME]: Name of the Managed Instance Group you want to create
+- [GROUP_SIZE]: Number of instances you want to create in the group
+- [INSTANCE_TEMPLATE]: Name of the instance template you want to use to create instances in the group
+- [INSTANCE_NAME]: Base name of the instances in the group
+- [ZONE]: Zone in which you want to create the instances
+- [HEALTH_CHECK]: Name of the health check that will be used to verify the health of the instances
+
+3. Once the Managed Instance Group is created, you can configure it to use the Multi-AZ feature by setting the `autohealingPolicies` property. Use the following command to set the property:
+
+```
+gcloud compute instance-groups managed update [GROUP_NAME] \
+    --update-autoscaling-policy \
+    --autohealing-policies health-check=[HEALTH_CHECK],initial-delay-sec=120
+```
+
+Replace the [GROUP_NAME] and [HEALTH_CHECK] placeholders with the actual values.
+
+4. Verify that the Managed Instance Group has been configured for High Availability by checking the Instance Group details in the GCP Console.
+
+By following these steps, you can remediate the misconfiguration of instances not being Multi-AZ in GCP using GCP CLI.
+
+#### Using Python
+
+In GCP, the equivalent of Multi-AZ is called "Regionalization". To remediate the misconfiguration of instances not being multi-AZ, you can use the following steps:
+
+1. Identify the instances that are not regionalized. You can use the following Python code to get a list of all the instances that are not regionalized:
+
+```
+from google.cloud import compute_v1
+
+compute_client = compute_v1.InstancesClient()
+
+project_id = '[PROJECT_ID]'
+zone = '[ZONE]'
+
+instances = compute_client.list(project=project_id, zone=zone).items
+
+for instance in instances:
+    if not instance.region:
+        print(f"Instance {instance.name} is not regionalized.")
+```
+
+Replace `[PROJECT_ID]` and `[ZONE]` with your GCP project ID and the zone in which your instances are running.
+
+2. For each instance that is not regionalized, create a new instance in a regionalized zone and migrate the data.
+
+```
+from google.cloud import compute_v1
+
+compute_client = compute_v1.InstancesClient()
+
+project_id = '[PROJECT_ID]'
+zone = '[ZONE]'
+region = '[REGION]'
+
+instances = compute_client.list(project=project_id, zone=zone).items
+
+for instance in instances:
+    if not instance.region:
+        new_instance_name = f"{instance.name}-regionalized"
+        new_instance_body = {
+            "name": new_instance_name,
+            "machine_type": f"zones/{region}/machineTypes/{instance.machine_type.split('/')[-1]}",
+            "network_interfaces": instance.network_interfaces,
+            "disks": instance.disks,
+            "metadata": instance.metadata,
+            "service_accounts": instance.service_accounts,
+            "tags": instance.tags,
+            "labels": instance.labels,
+            "scheduling": instance.scheduling,
+            "shielded_instance_config": instance.shielded_instance_config,
+            "reservation_affinity": instance.reservation_affinity,
+            "guest_accelerators": instance.guest_accelerators,
+            "deletion_protection": instance.deletion_protection
+        }
+
+        operation = compute_client.insert(project=project_id, zone=region, body=new_instance_body)
+        operation.wait()
+
+        # Migrate data from the old instance to the new instance
+
+        # Delete the old instance
+        operation = compute_client.delete(project=project_id, zone=zone, instance=instance.name)
+        operation.wait()
+
+        print(f"Instance {instance.name} has been regionalized to {new_instance_name}.")
+```
+
+Replace `[PROJECT_ID]`, `[ZONE]` and `[REGION]` with your GCP project ID, the zone in which your instances are running, and the region to which you want to regionalize your instances. 
+
+Note that this code will create a new instance in the specified region, migrate the data from the old instance to the new instance, and then delete the old instance. You should test this code thoroughly in a non-production environment before running it in production.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/vpc/docs/vpc](https://cloud.google.com/vpc/docs/vpc) 

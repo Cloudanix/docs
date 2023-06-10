@@ -1,0 +1,160 @@
+### Remediation
+
+#### Using Console
+
+To remediate unrestricted SSH access in Azure, you can follow these steps:
+
+1. Log in to the Azure portal (https://portal.azure.com/).
+2. Navigate to the virtual machine that has unrestricted SSH access.
+3. Click on the "Networking" tab in the left-hand menu.
+4. Under "Inbound port rules," click on "Add inbound port rule."
+5. In the "Add inbound security rule" window, enter a name for the rule (e.g., "SSH access restricted").
+6. Under "Destination port ranges," enter "22" (or the port number that SSH is using).
+7. Under "Source," select "IP Addresses."
+8. Under "Source IP addresses," enter the IP address or range that should have access to SSH (e.g., your own IP address or a specific subnet).
+9. Under "Action," select "Allow."
+10. Click "Add" to create the rule.
+11. Repeat steps 4-10 for any other virtual machines that have unrestricted SSH access.
+
+By following these steps, you have now restricted SSH access to only the specified IP address or range, thereby reducing the risk of unauthorized access to your virtual machines.
+
+#### Using CLI
+
+The following are the steps to remediate unrestricted SSH access in AZURE using AZURE CLI:
+
+1. Login to your Azure account using the Azure CLI command: 
+
+   `az login`
+
+2. Once you are logged in, select the subscription that contains the virtual machine you want to remediate by using the command:
+
+   `az account set --subscription <subscription-id>`
+
+3. Get the name of the virtual machine you want to remediate by using the command:
+
+   `az vm list --query "[].{name:name}" -o table`
+
+4. Once you have identified the virtual machine, get the resource group name by using the command:
+
+   `az vm show --name <vm-name> --query "resourceGroup" -o tsv`
+
+5. Next, get the network security group associated with the virtual machine by using the command:
+
+   `az vm show --name <vm-name> --resource-group <resource-group-name> --query "networkProfile.networkInterfaces[].id" -o tsv | xargs az network nic show --ids --query "networkSecurityGroup.id" -o tsv`
+
+6. Get the name of the network security group by using the command:
+
+   `az network nsg list --query "[].{name:name}" -o table`
+
+7. Once you have identified the network security group, get the name of the security rule that allows unrestricted SSH access by using the command:
+
+   `az network nsg rule list --nsg-name <nsg-name> --query "[?access=='Allow' && protocol=='Tcp' && destinationPortRange=='22' && destinationAddressPrefix=='*'].name" -o tsv`
+
+8. Finally, delete the security rule that allows unrestricted SSH access by using the command:
+
+   `az network nsg rule delete --name <rule-name> --nsg-name <nsg-name>`
+
+   Note: Replace `<subscription-id>`, `<vm-name>`, `<resource-group-name>`, `<nsg-name>`, and `<rule-name>` with the actual values from your Azure environment.
+
+After following these steps, the security rule that allows unrestricted SSH access will be deleted from the network security group associated with the virtual machine, thereby remediating the misconfiguration.
+
+#### Using Python
+
+To remediate unrestricted SSH access in Azure using Python, you can follow these steps:
+
+1. Import the necessary libraries:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.network import NetworkManagementClient
+```
+
+2. Authenticate to Azure using the DefaultAzureCredential:
+
+```python
+credential = DefaultAzureCredential()
+network_client = NetworkManagementClient(
+    credential=credential,
+    subscription_id="<subscription-id>"
+)
+```
+
+3. Get the network security group (NSG) that needs to be remediated:
+
+```python
+nsg_name = "<nsg-name>"
+resource_group_name = "<resource-group-name>"
+
+nsg = network_client.network_security_groups.get(
+    resource_group_name=resource_group_name,
+    network_security_group_name=nsg_name
+)
+```
+
+4. Get the NSG rules and find the rule that allows unrestricted SSH access:
+
+```python
+for rule in nsg.security_rules:
+    if rule.name == "AllowSSH":
+        if rule.destination_address_prefix == "*":
+            if rule.destination_port_range == "22":
+                # this is the rule that needs to be remediated
+                break
+```
+
+5. Create a new NSG rule that allows SSH access only from a specific IP range:
+
+```python
+from azure.mgmt.network.v2021_03_01.models import SecurityRule
+
+new_rule = SecurityRule(
+    name="AllowSSH",
+    access=rule.access,
+    direction=rule.direction,
+    priority=rule.priority,
+    protocol=rule.protocol,
+    source_address_prefix="<ip-range>",
+    source_port_range="*",
+    destination_address_prefix=rule.destination_address_prefix,
+    destination_port_range=rule.destination_port_range
+)
+
+network_client.security_rules.begin_create_or_update(
+    resource_group_name=resource_group_name,
+    network_security_group_name=nsg_name,
+    security_rule_name=new_rule.name,
+    security_rule_parameters=new_rule
+)
+```
+
+6. Delete the old NSG rule that allows unrestricted SSH access:
+
+```python
+network_client.security_rules.begin_delete(
+    resource_group_name=resource_group_name,
+    network_security_group_name=nsg_name,
+    security_rule_name=rule.name
+)
+```
+
+7. Verify that the new NSG rule has been created and the old rule has been deleted:
+
+```python
+nsg = network_client.network_security_groups.get(
+    resource_group_name=resource_group_name,
+    network_security_group_name=nsg_name
+)
+
+for rule in nsg.security_rules:
+    if rule.name == "AllowSSH":
+        if rule.destination_address_prefix == "<ip-range>":
+            if rule.destination_port_range == "22":
+                # the new rule has been created successfully
+                break
+    else:
+        # the old rule has been deleted successfully
+        pass
+```
+
+This will remediate unrestricted SSH access in Azure by creating a new NSG rule that allows SSH access only from a specific IP range and deleting the old NSG rule that allows unrestricted SSH access.
+

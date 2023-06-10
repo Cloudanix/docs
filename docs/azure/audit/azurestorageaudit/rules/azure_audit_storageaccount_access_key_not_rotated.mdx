@@ -20,6 +20,134 @@ Security
 
 CISAZURE, CBP
 
+### Remediation
+
+#### Using Console
+
+To remediate the issue of Access Keys not rotated in Azure, you can follow the below steps:
+
+1. Login to the Azure portal with your credentials.
+2. Navigate to 'Azure Active Directory' from the left-hand menu.
+3. Click on 'Users' from the 'Manage' section.
+4. Select the user whose access keys need to be rotated.
+5. Click on 'Reset Password' from the top menu.
+6. In the 'Reset Password' window, select 'Auto-generate password'.
+7. Click on 'Reset'.
+8. The new password will be displayed on the screen. Copy this password to a secure location.
+9. Click on 'Show Password' to view the password again if required.
+10. Click on 'Close' to exit the 'Reset Password' window.
+
+Once you have reset the password, you will need to update the access keys for the user in all the applications and services that use them. This will ensure that the user has the latest access keys and the old keys are no longer in use.
+
+#### Using CLI
+
+Access keys not being rotated can pose a security risk as it increases the chances of unauthorized access to your Azure resources. To remediate this issue, you can follow the below steps using Azure CLI:
+
+1. Login to your Azure account using Azure CLI by running the command `az login`.
+
+2. Once you are logged in, run the following command to list all the storage accounts in your subscription: 
+
+   `az storage account list --query [*].name --output tsv`
+
+3. Select the storage account that you want to remediate and run the following command to list all the access keys associated with it: 
+
+   `az storage account keys list --account-name <storage-account-name> --query [*].value --output tsv`
+
+4. Once you have the access keys, create a new access key to replace the existing one by running the following command: 
+
+   `az storage account keys renew --account-name <storage-account-name> --key primary`
+
+   This will generate a new access key and invalidate the old one.
+
+5. Repeat step 4 for the secondary key as well by running the following command: 
+
+   `az storage account keys renew --account-name <storage-account-name> --key secondary`
+
+6. Finally, verify that the keys have been rotated successfully by running the command in step 3 again. 
+
+   Note: It is recommended to automate the access key rotation process using Azure Key Vault or Azure Functions to ensure that the keys are rotated on a regular basis.
+
+#### Using Python
+
+To remediate the issue of Access Keys not rotated in Azure using Python, you can follow the below steps:
+
+Step 1: Install the Azure SDK for Python using pip.
+
+```python
+pip install azure
+```
+
+Step 2: Create a connection to Azure using the `ServicePrincipalCredentials` class. You will need to provide the `tenant_id`, `client_id`, and `client_secret`.
+
+```python
+from azure.common.credentials import ServicePrincipalCredentials
+
+tenant_id = 'your_tenant_id'
+client_id = 'your_client_id'
+client_secret = 'your_client_secret'
+
+credentials = ServicePrincipalCredentials(
+    client_id=client_id,
+    secret=client_secret,
+    tenant=tenant_id
+)
+```
+
+Step 3: Use the `azure.mgmt.authorization` package to get a list of all the users in your Azure subscription.
+
+```python
+from azure.mgmt.authorization import AuthorizationManagementClient
+
+subscription_id = 'your_subscription_id'
+
+authorization_client = AuthorizationManagementClient(
+    credentials=credentials,
+    subscription_id=subscription_id
+)
+
+users = authorization_client.role_assignments.list()
+```
+
+Step 4: For each user, check if the access key has been rotated in the last `n` days (where `n` is a value you define).
+
+```python
+from datetime import datetime, timedelta
+
+n_days = 90
+
+for user in users:
+    if user.properties.created_time < datetime.now() - timedelta(days=n_days):
+        # Access key has not been rotated in the last n_days days
+        # Remediation steps go here
+```
+
+Step 5: Remediate the issue by rotating the access key for the user.
+
+```python
+from azure.graphrbac import GraphRbacManagementClient
+
+graph_client = GraphRbacManagementClient(
+    credentials=credentials,
+    tenant_id=tenant_id
+)
+
+user_object_id = user.properties.principal_id
+
+# Get the user's current access keys
+user = graph_client.users.get(user_object_id)
+access_keys = user.get_service_principals().current().get_password_credentials()
+
+# Generate a new access key
+new_access_key = generate_access_key()
+
+# Update the user's access key
+access_keys.password = new_access_key
+graph_client.service_principals.update_password_credentials(user_object_id, access_keys)
+```
+
+Note: You will need to define the `generate_access_key()` function to generate a new access key. This function should return a string that meets the Azure password requirements.
+
+
 ### Additional Reading:
 
 - [https://docs.microsoft.com/en-us/azure/storage/common/storage-create-storage-account](https://docs.microsoft.com/en-us/azure/storage/common/storage-create-storage-account) 

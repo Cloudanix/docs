@@ -2,100 +2,160 @@
 
 #### Using Console
 
-To remediate the misconfiguration of GCP BigQuery not having audit logging enabled, you can follow the below steps in the GCP console:
+To remediate the misconfiguration "GCP BigQuery Should Have Audit Logging Enabled" for GCP using GCP console, you can follow the below steps:
 
-1. Open the GCP Console and navigate to the BigQuery section.
-2. Click on the name of the project that contains the BigQuery dataset that needs to be remediated.
-3. On the left-hand side menu, select "IAM & Admin" and then select "Audit Logs".
-4. In the Audit Logs page, click on the "ADD AUDIT LOGS" button.
-5. In the "Add audit logs" page, select the "Data Access" option.
-6. Under the "Service" section, select "BigQuery".
-7. Under the "Logs" section, select the "Admin Read", "Data Read", and "Data Write" options.
-8. Click on the "ADD" button to enable audit logging for BigQuery.
-9. Wait for a few minutes for the changes to take effect.
+1. Open the Google Cloud Console and select the project where BigQuery is enabled.
 
-Once the above steps are completed, audit logs will be enabled for the BigQuery dataset in the GCP project. You can now monitor and analyze the audit logs to identify any security issues or suspicious activity.
+2. Go to the Navigation menu and select "BigQuery".
+
+3. In the BigQuery console, click on the "More" button (three dots) on the left-hand side and select "View in APIs Explorer".
+
+4. In the APIs Explorer, search for "tables.insert" in the search bar.
+
+5. In the "tables.insert" API, scroll down to the "Request body" section and add the following JSON code:
+
+```
+{
+  "tableReference": {
+    "projectId": "project-id",
+    "datasetId": "dataset-id",
+    "tableId": "table-id"
+  },
+  "schema": {
+    "fields": [
+      {
+        "name": "column1",
+        "type": "STRING"
+      },
+      {
+        "name": "column2",
+        "type": "INTEGER"
+      }
+    ]
+  },
+  "labels": {
+    "key": "value"
+  },
+  "timePartitioning": {
+    "type": "DAY",
+    "field": "timestamp"
+  }
+}
+```
+
+6. Click on the "Authorize and execute" button.
+
+7. On the next screen, click on the "Execute" button.
+
+8. Go back to the BigQuery console and click on the "More" button (three dots) on the left-hand side.
+
+9. Select "Audit logs" and ensure that the logs are enabled.
+
+By following these steps, you will remediate the misconfiguration "GCP BigQuery Should Have Audit Logging Enabled" for GCP using GCP console.
 
 #### Using CLI
 
-To remediate the misconfiguration of not having audit logging enabled in GCP BigQuery, you can follow these steps:
+To remediate the misconfiguration of GCP BigQuery not having audit logging enabled, follow these steps using GCP CLI:
 
-1. Open the Cloud Shell from the GCP console.
+1. Open the Cloud Shell in your GCP console.
 
-2. Run the following command to enable audit logging for BigQuery:
+2. Run the following command to verify if audit logging is enabled for BigQuery:
+```
+gcloud logging logs list | grep bigquery
+```
+If you see any results, it means audit logging is already enabled. If not, proceed to the next step.
 
-   ```
-   gcloud logging sinks create [SINK-NAME] bigquery.googleapis.com/projects/[PROJECT-ID]/datasets/[DATASET-ID] --log-filter='protoPayload.serviceName="bigquery.googleapis.com" protoPayload.methodName="google.cloud.bigquery.v2.JobService.InsertJob" protoPayload.resourceName="projects/[PROJECT-ID]/jobs"'
+3. Run the following command to enable audit logging for BigQuery:
+```
+gcloud config set project <project-id>
+gcloud services enable bigquery.googleapis.com
+gcloud logging sinks create bigquery-audit \
+  bigquery.googleapis.com/activity \
+  --log-filter='protoPayload.serviceName="bigquery.googleapis.com"'
+```
+Note: Replace `<project-id>` with your GCP project ID.
 
-   ```
-   Note: Replace [SINK-NAME], [PROJECT-ID], and [DATASET-ID] with your own values.
+4. Run the following command to verify if the sink was created successfully:
+```
+gcloud logging sinks list
+```
 
-3. After running the command, you will be prompted to authorize the Cloud Logging API to access your BigQuery dataset. Follow the prompts to complete the authorization.
+5. Run the following command to grant the necessary permissions to the sink:
+```
+gcloud projects add-iam-policy-binding <project-id> \
+  --member=serviceAccount:cloud-logs@system.gserviceaccount.com \
+  --role=roles/bigquery.dataViewer
+```
 
-4. Once the authorization is complete, the audit logs for BigQuery will be exported to your specified dataset.
+6. Run the following command to create a dataset in BigQuery to store the audit logs:
+```
+bq mk <dataset-name>
+```
+Note: Replace `<dataset-name>` with the desired name for your dataset.
 
-5. You can verify that the audit logging is enabled by running the following command:
+7. Run the following command to create a table in the dataset to store the audit logs:
+```
+bq mk --table <dataset-name>.<table-name> \
+  protoPayload \
+  'timestamp:TIMESTAMP,protoPayload:STRING,severity:STRING,logName:STRING,resource:STRUCT<type:string,labels:map<string,string>>,operation:STRUCT<id:string,producer:string,first:BOOL,last:BOOL>,trace:STRING,spanId:STRING,receiveTimestamp:TIMESTAMP'
+```
+Note: Replace `<dataset-name>` and `<table-name>` with the desired names for your dataset and table.
 
-   ```
-   gcloud logging sinks describe [SINK-NAME]
-   ```
-   This command will display the details of the sink you just created, including the filter and destination dataset.
+8. Run the following command to create a sink to export the audit logs to the BigQuery table:
+```
+gcloud logging sinks create bigquery-audit \
+  bigquery.googleapis.com/activity \
+  --log-filter='protoPayload.serviceName="bigquery.googleapis.com"' \
+  --destination=<project-id>:<dataset-name>.<table-name> \
+  --include-children \
+  --format='json'
+```
+Note: Replace `<project-id>`, `<dataset-name>` and `<table-name>` with the names you used in steps 6 and 7.
 
-6. Finally, you can test that the audit logging is working by performing an action in BigQuery, such as running a query, and then checking the logs in the destination dataset.
+9. Run the following command to verify if the sink was created successfully:
+```
+gcloud logging sinks describe bigquery-audit
+```
 
-By following these steps, you can remediate the misconfiguration of not having audit logging enabled in GCP BigQuery.
+After following these steps, audit logging will be enabled for BigQuery in your GCP project, and the audit logs will be exported to the BigQuery table you created.
 
 #### Using Python
 
-To remediate the misconfiguration of GCP BigQuery not having audit logging enabled using Python, you can follow these steps:
+To remediate the misconfiguration "GCP BigQuery should have audit logging enabled" for GCP using Python, follow the below steps:
 
-1. Import the necessary libraries:
-
-```python
-from google.cloud import bigquery_v2
-from google.cloud.bigquery_v2.gapic.enums import (
-    log_config_pb2,
-    audit_log_config_pb2
-)
+1. Install the Google Cloud SDK and authenticate using the following command:
+```
+gcloud auth login
 ```
 
-2. Set up the BigQuery client:
-
-```python
-client = bigquery_v2.BigQueryLoggingServiceV2Client()
-project_id = "YOUR_PROJECT_ID"
+2. Install the necessary Python libraries:
+```
+pip install google-cloud-bigquery google-auth google-auth-oauthlib google-auth-httplib2
 ```
 
-3. Check if audit logging is already enabled:
-
+3. Create a Python script with the following code:
 ```python
-parent = client.project_path(project_id)
-response = client.get_bucket_iam_policy(request={"resource": parent})
+from google.cloud import bigquery
+
+client = bigquery.Client()
+
+dataset_id = 'my_dataset'
+
+dataset = client.get_dataset(dataset_id)
+
+if not dataset.auditing_logs:
+    dataset.auditing_logs = True
+    dataset = client.update_dataset(dataset, ['auditing_logs'])
+
+print('Audit logging enabled for dataset {}'.format(dataset_id))
 ```
 
-4. If audit logging is not enabled, update the logging configuration:
+4. Replace `my_dataset` with the ID of the dataset you want to enable audit logging for.
 
-```python
-audit_config = audit_log_config_pb2.AuditLogConfig(
-    log_types=[
-        log_config_pb2.LogType.DATA_READ,
-        log_config_pb2.LogType.DATA_WRITE,
-        log_config_pb2.LogType.ADMIN_READ,
-        log_config_pb2.LogType.ADMIN_WRITE,
-        log_config_pb2.LogType.SYSTEM_EVENT,
-    ]
-)
-update_mask = audit_log_config_pb2.AuditLogConfig(
-    update_mask=audit_log_config_pb2.AuditLogConfig.LOG_TYPES_FIELD_NUMBER
-)
-client.update_bucket(request={"bucket": parent, "audit_config": audit_config, "update_mask": update_mask})
+5. Run the script using the following command:
+```
+python script.py
 ```
 
-5. Verify that audit logging is now enabled:
-
-```python
-response = client.get_bucket_iam_policy(request={"resource": parent})
-```
-
-By following these steps, you can remediate the misconfiguration of GCP BigQuery not having audit logging enabled using Python.
+This will enable audit logging for the specified dataset in GCP BigQuery.
 

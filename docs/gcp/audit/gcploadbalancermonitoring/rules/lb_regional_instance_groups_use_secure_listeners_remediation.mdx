@@ -1,0 +1,139 @@
+### Remediation
+
+#### Using Console
+
+To remediate the "Load Balancers Regional Instance Groups Should Use Secure Listeners" misconfiguration for GCP using GCP console, you can follow the below steps:
+
+1. Login to your GCP console.
+2. Go to the "Navigation menu" and select "Network Services" and then "Load balancing".
+3. Select the load balancer that you want to remediate.
+4. Click on the "Edit" button at the top of the page.
+5. In the "Backend configuration" section, you will see a list of backend services. Click on the backend service that you want to remediate.
+6. In the "Backend service configuration" section, click on the "Edit" button.
+7. In the "Frontend configuration" section, click on the "Add Frontend IP and Port" button.
+8. Select "HTTPS" from the "Protocol" drop-down menu.
+9. In the "IP" field, select the IP address that you want to use for the listener.
+10. In the "Port" field, enter the port number that you want to use for the listener.
+11. Click on the "Create" button.
+12. In the "Backend service configuration" section, click on the "Update" button to save the changes.
+
+By following these steps, you will have successfully remediated the "Load Balancers Regional Instance Groups Should Use Secure Listeners" misconfiguration for GCP using GCP console.
+
+#### Using CLI
+
+To remediate the misconfiguration "Load Balancers Regional Instance Groups Should Use Secure Listeners" for GCP using GCP CLI, follow the below steps:
+
+1. Open the Cloud Shell from the GCP console.
+
+2. Run the following command to list all the regional instance groups:
+
+```
+gcloud compute instance-groups list
+```
+
+3. Identify the instance group that is associated with the load balancer that is not using the secure listener.
+
+4. Run the following command to update the instance group to use a secure listener:
+
+```
+gcloud compute instance-groups set-named-ports [INSTANCE_GROUP_NAME] --named-ports=[PORT_NAME]:[PORT_NUMBER]/tcp --region=[REGION_NAME]
+```
+
+Replace the [INSTANCE_GROUP_NAME], [PORT_NAME], [PORT_NUMBER] and [REGION_NAME] with the actual values.
+
+For example, if the instance group name is "my-instance-group", the port name is "https", the port number is "443" and the region is "us-central1", the command would be:
+
+```
+gcloud compute instance-groups set-named-ports my-instance-group --named-ports=https:443/tcp --region=us-central1
+```
+
+5. Verify that the instance group is updated by running the following command:
+
+```
+gcloud compute instance-groups list
+```
+
+The load balancer associated with the instance group should now be using a secure listener.
+
+Note: Make sure to update the instance group name and region name as per your requirement.
+
+#### Using Python
+
+To remediate the misconfiguration "Load Balancers Regional Instance Groups Should Use Secure Listeners" in GCP using python, follow the below steps:
+
+1. Import necessary libraries:
+
+```python
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
+```
+
+2. Authenticate and create a client object:
+
+```python
+credentials = GoogleCredentials.get_application_default()
+compute = discovery.build('compute', 'v1', credentials=credentials)
+```
+
+3. Get the list of all regional instance groups:
+
+```python
+project = 'your-project-id'
+zone = 'your-zone' # Example: us-central1-a
+region = '-'.join(zone.split('-')[:-1])
+instance_group_list = compute.instanceGroups().list(project=project, region=region).execute()
+```
+
+4. Iterate through the instance groups and check if they are associated with a load balancer and if so, check if they are using secure listeners:
+
+```python
+for instance_group in instance_group_list['items']:
+    instance_group_name = instance_group['name']
+    backend_service_list = compute.backendServices().list(project=project, filter=f'backendType=INSTANCE_GROUP&backendGroup={instance_group_name}').execute()
+    if 'items' in backend_service_list:
+        for backend_service in backend_service_list['items']:
+            backend_service_name = backend_service['name']
+            backend_service = compute.backendServices().get(project=project, backendService=backend_service_name).execute()
+            if 'backends' in backend_service:
+                for backend in backend_service['backends']:
+                    if 'balancingMode' in backend and backend['balancingMode'] == 'UTILIZATION':
+                        continue
+                    instance_url = backend['group']
+                    instance_group_name = instance_url.split('/')[-1]
+                    instance_group = compute.instanceGroups().get(project=project, zone=zone, instanceGroup=instance_group_name).execute()
+                    if 'namedPorts' in instance_group:
+                        for named_port in instance_group['namedPorts']:
+                            if named_port['name'] == 'http' or named_port['name'] == 'https':
+                                if named_port['name'] == 'http':
+                                    print(f'Instance group {instance_group_name} is associated with a load balancer and is using an unsecured listener. Please update the listener to use HTTPS.')
+                                break
+                    else:
+                        print(f'Instance group {instance_group_name} is associated with a load balancer but no named ports were found.')
+```
+
+5. If an instance group is found to be using an unsecured listener, update the listener to use HTTPS:
+
+```python
+backend_service_name = 'your-backend-service-name'
+backend_service = compute.backendServices().get(project=project, backendService=backend_service_name).execute()
+if 'backends' in backend_service:
+    for backend in backend_service['backends']:
+        instance_url = backend['group']
+        instance_group_name = instance_url.split('/')[-1]
+        named_port = backend['name']
+        compute.backendServices().update(project=project, backendService=backend_service_name, body={
+            'name': backend_service_name,
+            'backends': [{
+                'group': instance_url,
+                'balancingMode': 'UTILIZATION',
+                'maxUtilization': 0.8
+            }],
+            'healthChecks': backend_service['healthChecks'],
+            'protocol': 'HTTPS',
+            'port': named_port
+        }).execute()
+        print(f'Listener for instance group {instance_group_name} has been updated to use HTTPS.')
+```
+
+Note: Replace "your-project-id" and "your-zone" with your actual project ID and zone. Also, replace "your-backend-service-name" with the name of the backend service that needs to be updated.
+

@@ -1,0 +1,186 @@
+### Remediation
+
+#### Using Console
+
+To remediate SSL certificate expiry misconfiguration in GCP using GCP console, please follow the below steps:
+
+1. Open the GCP Console and navigate to the Cloud Monitoring page.
+2. Click on the "Uptime Checks" tab on the left-hand side of the page.
+3. Click on the "Create Uptime Check" button.
+4. In the "Create Uptime Check" page, provide the following details:
+   - Check Type: HTTPS
+   - Hostname: The hostname of the website that needs to be monitored
+   - Path: The path to the SSL certificate on the website
+   - Check Frequency: The frequency at which the check needs to be performed
+   - Timeout: The maximum time allowed for the check to complete
+   - Content Match: The content to match on the website to ensure that the SSL certificate is valid
+5. Click on the "Save" button to create the uptime check.
+
+Once the uptime check is created, it will monitor the SSL certificate expiry and notify you if the certificate is about to expire. You can configure notification channels to receive notifications via email, SMS, or other channels.
+
+#### Using CLI
+
+To remediate the misconfiguration of not monitoring SSL certificate expiry in GCP using GCP CLI, you can follow the below steps:
+
+1. Open the Cloud Shell in the GCP Console.
+
+2. Run the following command to list all the SSL certificates in the project:
+
+   ```
+   gcloud compute ssl-certificates list
+   ```
+
+3. Identify the SSL certificate that needs to be monitored for expiry.
+
+4. Run the following command to create a health check that monitors the SSL certificate expiry:
+
+   ```
+   gcloud compute health-checks create https [HEALTH_CHECK_NAME] --port [PORT] --ssl --request-path [REQUEST_PATH] --check-interval [CHECK_INTERVAL] --timeout [TIMEOUT] --unhealthy-threshold [UNHEALTHY_THRESHOLD] --healthy-threshold [HEALTHY_THRESHOLD] --ssl-certificates [SSL_CERTIFICATE_NAME]
+   ```
+
+   Replace the placeholders with the following values:
+   
+   - `[HEALTH_CHECK_NAME]`: A name for the health check.
+   - `[PORT]`: The port number of the SSL certificate.
+   - `[REQUEST_PATH]`: The request path for the health check.
+   - `[CHECK_INTERVAL]`: The interval at which the health check should run, in seconds.
+   - `[TIMEOUT]`: The maximum time allowed for the health check to complete, in seconds.
+   - `[UNHEALTHY_THRESHOLD]`: The number of consecutive failed health checks required to mark the instance as unhealthy.
+   - `[HEALTHY_THRESHOLD]`: The number of consecutive successful health checks required to mark the instance as healthy.
+   - `[SSL_CERTIFICATE_NAME]`: The name of the SSL certificate to be monitored.
+
+5. Run the following command to create an alert policy that notifies when the SSL certificate is about to expire:
+
+   ```
+   gcloud alpha monitoring policies create [POLICY_NAME] --condition "metric.type=\"compute.googleapis.com/ssl_certificate_expiration_time\" resource.type=\"ssl_certificate\" resource.label.\"ssl_certificate_name\"=[SSL_CERTIFICATE_NAME] metric.thresholds.\"condition.threshold_value\"[COMPARISON_OPERATOR][THRESHOLD_VALUE]" --notification-channels [NOTIFICATION_CHANNELS] --combiner "OR"
+   ```
+
+   Replace the placeholders with the following values:
+   
+   - `[POLICY_NAME]`: A name for the alert policy.
+   - `[SSL_CERTIFICATE_NAME]`: The name of the SSL certificate to be monitored.
+   - `[COMPARISON_OPERATOR]`: The comparison operator for the threshold value. For example, `>` or `<`.
+   - `[THRESHOLD_VALUE]`: The threshold value for the SSL certificate expiry time, in seconds.
+   - `[NOTIFICATION_CHANNELS]`: A comma-separated list of notification channels to receive alerts.
+
+6. Verify that the alert policy is created by running the following command:
+
+   ```
+   gcloud alpha monitoring policies list
+   ```
+
+   This command lists all the alert policies in the project.
+
+With these steps, you have successfully remediated the misconfiguration of not monitoring SSL certificate expiry in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate SSL certificate expiry issue for GCP using Python, follow the steps below:
+
+1. Install the required Python libraries:
+
+```
+pip install google-cloud-monitoring google-auth
+```
+
+2. Authenticate to GCP using Application Default Credentials (ADC) by running the following command:
+
+```
+gcloud auth application-default login
+```
+
+3. Create a Python script to check the SSL certificate expiry date. Here's an example:
+
+```python
+from google.cloud import monitoring_v3
+from google.oauth2 import service_account
+import ssl
+import socket
+import datetime
+
+# Replace with your project ID
+project_id = "your-project-id"
+
+# Replace with your monitored SSL certificate
+ssl_cert = ("www.example.com", 443)
+
+# Replace with your monitored SSL certificate name
+ssl_cert_name = "example.com SSL Certificate"
+
+# Replace with the number of days before expiration to trigger an alert
+alert_days = 30
+
+# Authenticate using ADC
+credentials = service_account.Credentials.from_service_account_file(
+    filename="path/to/your/adc.json"
+)
+
+# Get the current date
+now = datetime.datetime.utcnow()
+
+# Get the SSL certificate expiration date
+context = ssl.create_default_context()
+with socket.create_connection(ssl_cert) as sock:
+    with context.wrap_socket(sock, server_hostname=ssl_cert[0]) as sslsock:
+        cert = sslsock.getpeercert()
+        expiration_date = datetime.datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+
+# Calculate the number of days until expiration
+days_until_expiration = (expiration_date - now).days
+
+# Create a metric descriptor for the SSL certificate expiration date
+client = monitoring_v3.MetricServiceClient(credentials=credentials)
+project_name = f"projects/{project_id}"
+descriptor = monitoring_v3.types.MetricDescriptor()
+descriptor.type = f"custom.googleapis.com/{ssl_cert_name}/days_until_expiration"
+descriptor.metric_kind = monitoring_v3.enums.MetricDescriptor.MetricKind.GAUGE
+descriptor.value_type = monitoring_v3.enums.MetricDescriptor.ValueType.INT64
+descriptor.description = f"Days until {ssl_cert_name} SSL certificate expires"
+descriptor.labels.append(monitoring_v3.types.LabelDescriptor(key="certificate_name", value_type=monitoring_v3.enums.LabelDescriptor.ValueType.STRING, description="Name of the SSL certificate being monitored"))
+descriptor.labels.append(monitoring_v3.types.LabelDescriptor(key="hostname", value_type=monitoring_v3.enums.LabelDescriptor.ValueType.STRING, description="Hostname of the SSL certificate being monitored"))
+descriptor.labels.append(monitoring_v3.types.LabelDescriptor(key="port", value_type=monitoring_v3.enums.LabelDescriptor.ValueType.INT64, description="Port of the SSL certificate being monitored"))
+descriptor.unit = "days"
+descriptor = client.create_metric_descriptor(project_name, descriptor)
+
+# Write the metric data to Cloud Monitoring
+series = monitoring_v3.types.TimeSeries()
+series.metric.type = f"custom.googleapis.com/{ssl_cert_name}/days_until_expiration"
+series.metric.labels["certificate_name"] = ssl_cert_name
+series.metric.labels["hostname"] = ssl_cert[0]
+series.metric.labels["port"] = ssl_cert[1]
+point = series.points.add()
+point.value.int64_value = days_until_expiration
+point.interval.end_time.seconds = int(now.timestamp())
+client.create_time_series(request={"name": project_name, "time_series": [series]})
+
+# Trigger an alert if the SSL certificate is expiring soon
+if days_until_expiration <= alert_days:
+    # Replace with your alerting policy name
+    alert_policy_name = "your-alert-policy-name"
+    alert_client = monitoring_v3.AlertPolicyServiceClient(credentials=credentials)
+    alert_policy = alert_client.get_alert_policy(request={"name": f"{project_name}/alertPolicies/{alert_policy_name}"})
+    for condition in alert_policy.conditions:
+        if condition.condition_threshold.filter.label.key == "certificate_name" and condition.condition_threshold.filter.label.value == ssl_cert_name:
+            condition.condition_threshold.threshold_value.value = alert_days
+            alert_client.update_alert_policy(request={"alert_policy": alert_policy})
+
+print(f"{ssl_cert_name} SSL certificate expires in {days_until_expiration} days")
+```
+
+4. Replace the placeholders with your own values in the script:
+
+- Replace `your-project-id` with your GCP project ID.
+- Replace `www.example.com` and `443` with your SSL certificate's hostname and port number.
+- Replace `example.com SSL Certificate` with a name for your SSL certificate.
+- Replace `path/to/your/adc.json` with the path to your ADC file.
+- Replace `30` with the number of days before expiration to trigger an alert.
+- Replace `your-alert-policy-name` with the name of your alerting policy.
+
+5. Save the script as a `.py` file and run it using the following command:
+
+```
+python your_script_name.py
+```
+
+This will check the SSL certificate expiration date, create a metric descriptor for it, write the metric data to Cloud Monitoring, and trigger an alert if the SSL certificate is expiring soon.
+

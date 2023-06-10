@@ -2,101 +2,164 @@
 
 #### Using Console
 
-To remediate the misconfiguration of allowing only HTTPS traffic in Azure console, please follow the below steps:
+To remediate the HTTPS Traffic Only misconfiguration in Azure using the Azure console, follow these steps:
 
-1. Login to your Azure portal and select the virtual machine you want to remediate.
-2. In the left-hand menu, select "Networking" and then select "Network Security Group".
-3. In the Network Security Group page, select the "Inbound Security Rules" tab.
-4. Locate the rule that allows HTTP traffic (port 80) and click on it to select it.
-5. Click on the "Delete" button to remove the HTTP rule.
-6. Click on the "Add" button to create a new inbound security rule.
-7. In the "Add inbound security rule" page, configure the following settings:
-  - Source: Any
-  - Source port ranges: *
-  - Destination: Any
-  - Destination port ranges: 443
-  - Protocol: TCP
-  - Action: Allow
-  - Priority: Choose a priority number that is higher than any existing rules.
-  - Name: Give a name to the rule that indicates that it allows only HTTPS traffic.
+1. Log in to your Azure portal and navigate to the virtual machine that you want to remediate.
 
-8. Click on the "Add" button to create the new inbound security rule.
-9. Verify that the new rule is listed in the "Inbound Security Rules" tab and that it has a higher priority than any other rule that allows HTTP traffic.
+2. Click on the "Networking" tab, and then click on the "Add inbound port rule" button.
 
-By following these steps, you have successfully remediated the misconfiguration of allowing only HTTPS traffic in Azure console.
+3. In the "Add inbound security rule" window, specify the following details:
+
+- Name: A descriptive name for the rule
+- Priority: A unique number to prioritize the rule
+- Protocol: Select "TCP"
+- Port range: Specify "443"
+- Action: Select "Allow"
+- Source: Select "Any" or specify the specific IP addresses or ranges that you want to allow
+
+4. Click on the "Add" button to create the rule.
+
+5. Repeat steps 2-4 for all the virtual machines in your Azure environment that require HTTPS traffic.
+
+6. Verify that HTTPS traffic is now allowed by accessing the virtual machine using HTTPS.
+
+By following these steps, you can remediate the HTTPS Traffic Only misconfiguration in Azure and ensure that HTTPS traffic is allowed to your virtual machines.
 
 #### Using CLI
 
-To remediate the misconfiguration of allowing only HTTPS traffic in AZURE CLI, please follow the below steps:
+To remediate the misconfiguration of allowing only HTTPS traffic in Azure using Azure CLI, follow these steps:
 
-1. Open the Azure CLI and connect to your Azure account.
+1. Open the Azure CLI in your terminal or command prompt.
 
-2. Identify the name of the network security group (NSG) associated with the virtual machine that needs to be remediated.
+2. Run the following command to get the name of the network security group (NSG) associated with the virtual machine (VM) that needs to be configured: 
 
-3. Get the existing NSG rules by running the command: 
+   ```
+   az vm show -d -g <resource-group-name> -n <vm-name> --query "networkProfile.networkInterfaces[].id" -o tsv | awk -F'/' '{print $9}'
+   ```
 
-   `az network nsg rule list --nsg-name <nsg-name> --query '[].{Name:name}' --output table`
+   Note: Replace `<resource-group-name>` and `<vm-name>` with the actual names of your resource group and VM respectively.
 
-4. Identify the rule that allows HTTP traffic and note its name.
+3. Run the following command to get the name of the NSG rule that allows HTTP traffic:
 
-5. Delete the HTTP rule by running the command:
+   ```
+   az network nsg rule list -g <resource-group-name> --nsg-name <nsg-name> --query "[?contains(properties.destinationPortRange, '80')].name" -o tsv
+   ```
 
-   `az network nsg rule delete --name <rule-name> --nsg-name <nsg-name>`
+   Note: Replace `<resource-group-name>` and `<nsg-name>` with the actual names of your resource group and NSG respectively.
 
-6. Create a new rule that only allows HTTPS traffic by running the command:
+4. Run the following command to delete the NSG rule that allows HTTP traffic:
 
-   `az network nsg rule create --name Allow-HTTPS --nsg-name <nsg-name> --priority 100 --protocol Tcp --destination-port-range 443 --access Allow --description "Allow HTTPS traffic"`
+   ```
+   az network nsg rule delete -g <resource-group-name> --nsg-name <nsg-name> -n <nsg-rule-name>
+   ```
 
-7. Verify that the new rule has been created by running the command:
+   Note: Replace `<resource-group-name>`, `<nsg-name>` and `<nsg-rule-name>` with the actual names of your resource group, NSG and NSG rule respectively.
 
-   `az network nsg rule list --nsg-name <nsg-name> --query '[].{Name:name}' --output table`
+5. Run the following command to add a new NSG rule that allows only HTTPS traffic:
 
-8. Once the new rule has been created, test that only HTTPS traffic is allowed to the virtual machine.
+   ```
+   az network nsg rule create -g <resource-group-name> --nsg-name <nsg-name> -n Allow-HTTPS --priority 100 --source-address-prefixes '*' --source-port-ranges '*' --destination-address-prefixes '*' --destination-port-ranges 443 --access Allow --protocol Tcp --description "Allow HTTPS traffic only"
+   ```
 
-By following these steps, you have successfully remediated the misconfiguration of allowing only HTTPS traffic in Azure CLI.
+   Note: Replace `<resource-group-name>` and `<nsg-name>` with the actual names of your resource group and NSG respectively.
+
+6. Verify that the NSG rule has been added successfully by running the following command:
+
+   ```
+   az network nsg rule list -g <resource-group-name> --nsg-name <nsg-name> --query "[?name=='Allow-HTTPS']"
+   ```
+
+   Note: Replace `<resource-group-name>` and `<nsg-name>` with the actual names of your resource group and NSG respectively.
+
+7. Verify that the VM is now accessible only over HTTPS by trying to access it over HTTP. If the remediation was successful, the connection should be refused.
 
 #### Using Python
 
-To remediate the misconfiguration of allowing only HTTPS traffic in a cloud environment using Python, you can follow the below steps:
+To remediate the HTTPS traffic only misconfiguration in Azure using Python, you can follow these steps:
 
-1. Identify the cloud environment where the misconfiguration exists (AWS, Azure, or GCP).
-2. Use the cloud provider's Python SDK to access the security group or network security settings where the misconfiguration exists.
-3. Identify the security group or network security setting that is allowing non-HTTPS traffic.
-4. Update the security group or network security setting to allow only HTTPS traffic using the SDK's update function.
-5. Test the updated security group or network security setting to ensure that only HTTPS traffic is allowed.
+1. Import the necessary libraries: 
 
-Here is an example of how to remediate the misconfiguration of allowing only HTTPS traffic in an AWS environment using Python:
-
+```python
+from azure.mgmt.network import NetworkManagementClient
+from azure.mgmt.network.v2019_11_01.models import SecurityRule, SecurityRuleAccess, SecurityRuleDirection, SecurityRuleProtocol, SecurityRuleDestinationAddressPrefix, SecurityRuleSourceAddressPrefix
+from azure.common.credentials import ServicePrincipalCredentials
 ```
-import boto3
 
-# Create an EC2 client
-ec2 = boto3.client('ec2')
+2. Set up the credentials to authenticate with Azure:
 
-# Get the security group ID
-sg_id = 'sg-1234567890'
+```python
+subscription_id = '<subscription_id>'
+credentials = ServicePrincipalCredentials(
+    client_id='<client_id>',
+    secret='<client_secret>',
+    tenant='<tenant_id>'
+)
+```
 
-# Update the security group to allow only HTTPS traffic
-response = ec2.authorize_security_group_ingress(
-    GroupId=sg_id,
-    IpPermissions=[
-        {
-            'IpProtocol': 'tcp',
-            'FromPort': 443,
-            'ToPort': 443,
-            'IpRanges': [
-                {
-                    'CidrIp': '0.0.0.0/0',
-                    'Description': 'HTTPS traffic only'
-                },
-            ],
-        },
-    ],
+3. Instantiate the NetworkManagementClient:
+
+```python
+network_client = NetworkManagementClient(
+    credentials=credentials,
+    subscription_id=subscription_id
+)
+```
+
+4. Get the network security group (NSG) that needs to be modified:
+
+```python
+nsg_name = '<nsg_name>'
+nsg_resource_group = '<nsg_resource_group>'
+
+nsg = network_client.network_security_groups.get(
+    resource_group_name=nsg_resource_group,
+    network_security_group_name=nsg_name
+)
+```
+
+5. Create a new security rule to allow HTTPS traffic only:
+
+```python
+https_rule = SecurityRule(
+    access=SecurityRuleAccess.allow,
+    description='Allow HTTPS traffic only',
+    destination_address_prefix=SecurityRuleDestinationAddressPrefix('*'),
+    destination_port_range='443',
+    direction=SecurityRuleDirection.inbound,
+    priority=100,
+    protocol=SecurityRuleProtocol.tcp,
+    source_address_prefix=SecurityRuleSourceAddressPrefix('*'),
+    source_port_range='*'
 )
 
-# Print the response
-print(response)
+nsg.security_rules.append(https_rule)
 ```
 
-This code uses the AWS SDK for Python (Boto3) to update the security group with ID `sg-1234567890` to allow only HTTPS traffic on port 443. The `IpRanges` parameter restricts the traffic to `0.0.0.0/0`, meaning all IP addresses. You can customize this parameter to limit the traffic to specific IP addresses or ranges.
+6. Update the NSG with the new security rule:
+
+```python
+network_client.network_security_groups.create_or_update(
+    resource_group_name=nsg_resource_group,
+    network_security_group_name=nsg_name,
+    parameters=nsg
+)
+```
+
+7. Verify that the NSG has been updated with the new security rule:
+
+```python
+updated_nsg = network_client.network_security_groups.get(
+    resource_group_name=nsg_resource_group,
+    network_security_group_name=nsg_name
+)
+
+https_rule = next((rule for rule in updated_nsg.security_rules if rule.destination_port_range == '443'), None)
+
+if https_rule:
+    print('HTTPS traffic only rule added successfully')
+else:
+    print('Failed to add HTTPS traffic only rule')
+```
+
+Note: Make sure to replace the placeholders (`<subscription_id>`, `<client_id>`, `<client_secret>`, `<tenant_id>`, `<nsg_name>`, and `<nsg_resource_group>`) with the actual values for your Azure environment.
 

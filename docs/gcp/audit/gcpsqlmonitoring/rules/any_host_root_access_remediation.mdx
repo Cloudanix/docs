@@ -1,0 +1,142 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "Root User Should Not Be Accessible From Any Host" for GCP using GCP console, follow these steps:
+
+1. Login to the GCP console at https://console.cloud.google.com/
+2. Navigate to the IAM & Admin section on the left-hand side of the console.
+3. Click on the "IAM" tab.
+4. Search for the "root" user in the list of IAM users.
+5. Click on the edit icon (pencil) next to the root user.
+6. In the "Add a member" field, enter the email address of the user you want to grant root user access to.
+7. Select the "Project" role from the dropdown menu.
+8. Click the "Save" button.
+
+Once you have completed these steps, the root user will no longer be accessible from any host. Only the new user that you granted root user access to will be able to access the root user privileges.
+
+#### Using CLI
+
+To remediate the misconfiguration "Root User Should Not Be Accessible From Any Host" for GCP using GCP CLI, follow these steps:
+
+1. Open the Google Cloud Console and navigate to the GCP project where the misconfiguration exists.
+
+2. Open the Cloud Shell by clicking on the icon in the top right corner of the console.
+
+3. Run the following command to list all the users in the project:
+
+```
+gcloud iam users list
+```
+
+4. Identify the root user in the list. The root user will have the email address format `username@<project-id>.iam.gserviceaccount.com`.
+
+5. Run the following command to remove the root user's access from all hosts:
+
+```
+gcloud compute firewall-rules create deny-root-access --direction=INGRESS --priority=1000 --action=DENY --rules=all --source-ranges=0.0.0.0/0 --target-tags=root-access
+```
+
+6. Run the following command to create a new firewall rule that allows access to all users except the root user:
+
+```
+gcloud compute firewall-rules create allow-all-except-root --direction=INGRESS --priority=1000 --action=ALLOW --rules=all --source-ranges=0.0.0.0/0 --target-tags=allow-all
+```
+
+7. Run the following command to add the `root-access` tag to the root user's account:
+
+```
+gcloud compute instances add-tags <instance-name> --tags=root-access
+```
+
+Replace `<instance-name>` with the name of the instance where the root user has access.
+
+8. Run the following command to remove the `root-access` tag from all other instances:
+
+```
+gcloud compute instances remove-tags <instance-name> --tags=root-access
+```
+
+9. Verify that the root user no longer has access to any instances in the project.
+
+By following these steps, you can remediate the misconfiguration "Root User Should Not Be Accessible From Any Host" for GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "Root User Should Not Be Accessible From Any Host" in GCP using python, follow these steps:
+
+1. First, you need to authenticate to GCP using a service account key file. You can create a service account and download the key file from the GCP console.
+
+Here's an example code snippet to authenticate using a service account key file:
+
+```python
+from google.oauth2 import service_account
+
+# Path to the service account key file
+KEY_FILE_LOCATION = '/path/to/key/file.json'
+
+# Authenticate using the key file
+credentials = service_account.Credentials.from_service_account_file(KEY_FILE_LOCATION)
+```
+
+2. Next, you need to use the `google-cloud-iam` library to list all the IAM policies for your GCP project.
+
+Here's an example code snippet to list all the IAM policies:
+
+```python
+from google.cloud import iam_v1
+
+# Create a IAM client object
+client = iam_v1.IAMClient(credentials=credentials)
+
+# The resource name of the project to list the IAM policies
+resource_name = 'projects/my-project-id'
+
+# List all the IAM policies for the project
+response = client.list_iam_policies(request={'resource': resource_name})
+
+# Print the IAM policies
+for policy in response:
+    print(policy)
+```
+
+3. Once you have the IAM policies, you need to find the policy that grants the `roles/owner` role to the `user:root` member.
+
+Here's an example code snippet to find the policy that grants the `roles/owner` role to the `user:root` member:
+
+```python
+# Find the policy that grants the roles/owner role to the user:root member
+for policy in response:
+    for binding in policy.bindings:
+        if binding.role == 'roles/owner' and 'user:root' in binding.members:
+            print('Found policy: {}'.format(policy))
+```
+
+4. Finally, you need to remove the `user:root` member from the policy that grants the `roles/owner` role.
+
+Here's an example code snippet to remove the `user:root` member from the policy that grants the `roles/owner` role:
+
+```python
+from google.iam.v1.iam_policy_pb2 import Policy
+
+# Get the policy that grants the roles/owner role to the user:root member
+policy_to_update = None
+for policy in response:
+    for binding in policy.bindings:
+        if binding.role == 'roles/owner' and 'user:root' in binding.members:
+            policy_to_update = policy
+            break
+
+# Remove the user:root member from the policy
+policy_to_update.bindings = [binding for binding in policy_to_update.bindings if 'user:root' not in binding.members]
+
+# Update the policy
+update_request = {
+    'policy': policy_to_update,
+    'update_mask': {'paths': ['bindings']}
+}
+client.set_iam_policy(request={'resource': resource_name, 'policy': update_request})
+```
+
+Note: This code snippet is just an example and may need to be modified depending on your specific use case. Please refer to the GCP documentation for more information on how to use the `google-cloud-iam` library.
+

@@ -20,6 +20,124 @@ Security, Reliability
 
 CISGKE
 
+### Remediation
+
+#### Using Console
+
+To remediate the "Basic Authentication Should Be Disabled" misconfiguration in GCP using the GCP console, you can follow these steps:
+
+1. Open the GCP console and select the project that you want to work on.
+
+2. Go to the Cloud Run service that you want to remediate.
+
+3. Click on the "Edit and deploy new revision" button.
+
+4. Scroll down to the "Container" section and click on the "Show advanced settings" link.
+
+5. In the "Container" section, locate the "Environment variables" field.
+
+6. Click on the "Add item" button to add a new environment variable.
+
+7. In the "Name" field, enter "DISABLE_BASIC_AUTH".
+
+8. In the "Value" field, enter "true".
+
+9. Click on the "Save" button to save the changes.
+
+10. Redeploy the service to apply the changes.
+
+Once you have completed these steps, Basic Authentication will be disabled for the Cloud Run service in GCP.
+
+#### Using CLI
+
+To remediate the "Basic Authentication Should Be Disabled" misconfiguration for GCP using GCP CLI, follow these steps:
+
+1. Open the Cloud Shell in your GCP console.
+2. Run the following command to list all the Cloud SQL instances in your project:
+
+```
+gcloud sql instances list
+```
+
+3. Choose the instance for which you want to disable basic authentication and run the following command to update the instance:
+
+```
+gcloud sql instances patch INSTANCE_NAME --database-flags=skip_enable_binlog_mysql=on
+```
+
+Replace `INSTANCE_NAME` with the name of your Cloud SQL instance.
+
+4. After running the above command, you will see the updated instance information. Verify that the `skip_enable_binlog_mysql` flag is set to `ON`.
+
+5. Run the following command to verify that basic authentication is disabled:
+
+```
+gcloud sql instances describe INSTANCE_NAME | grep requireSsl
+```
+
+If the output shows `requireSsl: true`, then basic authentication is disabled.
+
+Note: Disabling basic authentication may affect your application's functionality, so make sure to test your application after making this change.
+
+#### Using Python
+
+To remediate the "Basic Authentication Should Be Disabled" misconfiguration in GCP using Python, you can follow these steps:
+
+1. Import the necessary libraries:
+
+```
+from googleapiclient import errors
+from google.oauth2 import service_account
+from google.cloud import asset_v1
+```
+
+2. Set up the credentials to authenticate with the GCP API:
+
+```
+credentials = service_account.Credentials.from_service_account_file('path/to/credentials.json')
+```
+
+3. Create a function to check if basic authentication is enabled:
+
+```
+def check_basic_auth(project_id):
+    client = asset_v1.AssetServiceClient(credentials=credentials)
+    asset_query = asset_v1.AssetQuery()
+    asset_query.asset_types = ['google.compute.Instance']
+    asset_query.query = f'project = "{project_id}" AND securityConfiguration.basicAuthEnabled = true'
+    response = client.search_all_resources(scope=f'projects/{project_id}', query=asset_query)
+    return response
+```
+
+4. Create a function to disable basic authentication:
+
+```
+def disable_basic_auth(project_id, instance_name, zone):
+    from googleapiclient.discovery import build
+    compute = build('compute', 'v1', credentials=credentials)
+    instance = compute.instances().get(project=project_id, zone=zone, instance=instance_name).execute()
+    if 'securityConfiguration' not in instance:
+        instance['securityConfiguration'] = {}
+    instance['securityConfiguration']['basicAuthEnabled'] = False
+    request = compute.instances().update(project=project_id, zone=zone, instance=instance_name, body=instance)
+    response = request.execute()
+    return response
+```
+
+5. Call the check_basic_auth function to check if basic authentication is enabled:
+
+```
+response = check_basic_auth('your-project-id')
+if response.total_size > 0:
+    for result in response:
+        instance_name = result.resource.name.split('/')[-1]
+        zone = result.resource.location.split('/')[-1]
+        disable_basic_auth('your-project-id', instance_name, zone)
+```
+
+This code will check if basic authentication is enabled for any instances in the specified project and disable it if it is enabled. You can run this code periodically to ensure that basic authentication remains disabled.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster](https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster) 

@@ -1,0 +1,190 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of not monitoring IAM authentication events count in GCP, you can follow the below steps using GCP console:
+
+1. Go to the GCP console and navigate to the "Security Command Center" page.
+2. Click on the "Dashboard" tab and select the project for which you want to enable monitoring for IAM authentication events count.
+3. On the dashboard, you will see a list of security findings. Look for the finding titled "IAM Authentication Events Count" and click on it.
+4. In the finding details page, click on the "Remediation" tab.
+5. Under the "Remediation steps" section, you will see the steps to enable monitoring for IAM authentication events count.
+6. Follow the steps to enable monitoring for IAM authentication events count.
+
+Note: Enabling monitoring for IAM authentication events count in GCP involves setting up logs-based metrics and creating an alerting policy. These steps are outlined in the remediation steps section mentioned above.
+
+#### Using CLI
+
+To remediate the misconfiguration of not monitoring IAM authentication events count in GCP using GCP CLI, follow these steps:
+
+1. Open the terminal and ensure that you have installed and authenticated the GCP CLI.
+
+2. Run the following command to enable the monitoring of IAM authentication events count:
+
+```
+gcloud logging sinks create [SINK_NAME] \ 
+  bigquery.googleapis.com/projects/[PROJECT_ID]/datasets/[DATASET_NAME] \ 
+  --log-filter='resource.type="audited_resource" AND protoPayload.methodName="google.iam.v1.IAM.CheckPolicy"' \ 
+  --include-children \
+  --format='value(sink)'
+```
+
+Replace `[SINK_NAME]` with a name for the sink, `[PROJECT_ID]` with the ID of your GCP project, and `[DATASET_NAME]` with the name of the BigQuery dataset where you want to store the logs.
+
+3. Run the following command to grant the required permissions to the sink:
+
+```
+gcloud projects add-iam-policy-binding [PROJECT_ID] \
+  --member=serviceAccount:[SINK_SERVICE_ACCOUNT_EMAIL] \
+  --role=roles/bigquery.dataEditor
+```
+
+Replace `[PROJECT_ID]` with the ID of your GCP project and `[SINK_SERVICE_ACCOUNT_EMAIL]` with the email address of the service account that will be used to write logs to BigQuery.
+
+4. Run the following command to verify that the sink has been created successfully:
+
+```
+gcloud logging sinks list
+```
+
+This command will list all the sinks in your GCP project.
+
+5. Run the following command to test the sink:
+
+```
+gcloud logging write [LOG_NAME] '{ "message": "Testing GCP IAM authentication event logging" }' \
+  --severity=NOTICE \
+  --log-name=cloudaudit.googleapis.com%2Factivity \
+  --payload-type=json
+```
+
+Replace `[LOG_NAME]` with a name for the log.
+
+6. Finally, verify that the logs have been successfully written to BigQuery by running the following command:
+
+```
+bq query --use_legacy_sql=false 'SELECT * FROM [DATASET_NAME].[TABLE_NAME] WHERE logName="cloudaudit.googleapis.com/activity" AND protoPayload.methodName="google.iam.v1.IAM.CheckPolicy"'
+```
+
+Replace `[DATASET_NAME]` with the name of the BigQuery dataset and `[TABLE_NAME]` with the name of the table where the logs are stored.
+
+By following these steps, you will be able to remediate the misconfiguration of not monitoring IAM authentication events count in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration of not monitoring IAM authentication events count in GCP using Python, follow these steps:
+
+1. Install the necessary libraries: Install the Google Cloud IAM API client library using the following command:
+
+```python
+pip install --upgrade google-cloud-iam
+```
+
+2. Set up authentication: To access the GCP resources, you need to set up authentication. You can do this by creating a service account and downloading its key file. Then, set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of the key file.
+
+```python
+import os
+
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/keyfile.json"
+```
+
+3. Create a client: Create a client object to interact with the IAM API.
+
+```python
+from google.cloud import iam_v1
+
+client = iam_v1.IAMClient()
+```
+
+4. Get the project ID: Get the project ID where you want to monitor the IAM authentication events.
+
+```python
+project_id = "your-project-id"
+```
+
+5. Create a metric descriptor: Create a metric descriptor for the IAM authentication events count.
+
+```python
+from google.api import metric_pb2
+from google.cloud.monitoring_v3 import MetricServiceClient
+from google.protobuf import descriptor_pb2
+
+client = MetricServiceClient()
+
+project_name = f"projects/{project_id}"
+descriptor = metric_pb2.MetricDescriptor()
+descriptor.type = "custom.googleapis.com/iam/authentication_events_count"
+descriptor.metric_kind = metric_pb2.MetricDescriptor.MetricKind.CUMULATIVE
+descriptor.value_type = metric_pb2.MetricDescriptor.ValueType.INT64
+descriptor.description = "The count of IAM authentication events"
+descriptor.unit = "1"
+descriptor.name = f"{project_name}/metricDescriptors/custom.googleapis.com/iam/authentication_events_count"
+descriptor.labels.append(key="auth_method", value_type=descriptor_pb2.STRING)
+descriptor.labels.append(key="auth_principal_email", value_type=descriptor_pb2.STRING)
+
+descriptor = client.create_metric_descriptor(name=project_name, metric_descriptor=descriptor)
+```
+
+6. Create a time series: Create a time series for the metric descriptor to monitor the IAM authentication events count.
+
+```python
+from google.api import metric_pb2
+from google.cloud.monitoring_v3 import MetricServiceClient
+from google.protobuf import timestamp_pb2
+
+client = MetricServiceClient()
+
+project_name = f"projects/{project_id}"
+descriptor_name = f"{project_name}/metricDescriptors/custom.googleapis.com/iam/authentication_events_count"
+start_time = timestamp_pb2.Timestamp()
+start_time.GetCurrentTime()
+
+time_series = metric_pb2.TimeSeries()
+time_series.metric.type = descriptor_name
+time_series.resource.type = "global"
+time_series.metric.labels["auth_method"] = "IAM"
+time_series.metric.labels["auth_principal_email"] = "all"
+point = time_series.points.add()
+point.value.int64_value = 0
+point.interval.end_time.seconds = start_time.seconds
+point.interval.end_time.nanos = start_time.nanos
+
+time_series = client.create_time_series(name=project_name, time_series=[time_series])
+```
+
+7. Verify the monitoring: Verify that the monitoring is set up correctly by checking the metric in the Cloud Console or by using the following command:
+
+```python
+from google.cloud.monitoring_v3 import MetricServiceClient
+from google.api import metric_pb2
+from google.protobuf import timestamp_pb2
+
+client = MetricServiceClient()
+
+project_name = f"projects/{project_id}"
+metric_type = "custom.googleapis.com/iam/authentication_events_count"
+start_time = timestamp_pb2.Timestamp()
+end_time = timestamp_pb2.Timestamp()
+
+start_time.FromMilliseconds(int((time.time() - 3600) * 1000))
+end_time.GetCurrentTime()
+
+interval = metric_pb2.TimeInterval()
+interval.start_time.seconds = start_time.seconds
+interval.start_time.nanos = start_time.nanos
+interval.end_time.seconds = end_time.seconds
+interval.end_time.nanos = end_time.nanos
+
+results = client.list_time_series(
+    name=project_name,
+    filter=f'metric.type="{metric_type}"',
+    interval=interval,
+    view=metric_pb2.ListTimeSeriesRequest.TimeSeriesView.FULL,
+)
+
+for result in results:
+    print(result)
+```
+
+These steps will remediate the misconfiguration of not monitoring IAM authentication events count in GCP using Python.
+

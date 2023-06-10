@@ -20,6 +20,181 @@ Security
 
 CBP
 
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of not monitoring Storage ACL Operations Count in GCP using GCP console, please follow the below steps:
+
+1. Open the GCP console and select the desired project in which the storage bucket is located.
+2. Navigate to the Cloud Storage section from the left-hand menu.
+3. Select the storage bucket for which you want to enable monitoring of ACL operations count.
+4. Click on the "Edit bucket permissions" button located at the top of the page.
+5. In the "Bucket Permissions" section, click on the "Add members" button.
+6. Enter the email address of the user or service account that will be responsible for monitoring the Storage ACL Operations Count.
+7. Select the "Storage Legacy Bucket Reader" role from the "Select a role" dropdown menu.
+8. Click on the "Add" button to add the user or service account to the bucket permissions.
+9. Once the user or service account has been added, navigate to the "Monitoring" section of the storage bucket.
+10. In the "Monitoring" section, click on the "Create Policy" button.
+11. Enter a name for the policy and select the "Metric" option.
+12. In the "Filter" section, select the "Storage > Bucket" option from the dropdown menu.
+13. Select the storage bucket for which you want to monitor the ACL operations count.
+14. In the "Condition" section, select the "Metric Threshold" option.
+15. Set the threshold value for the ACL operations count and select the time interval for which you want to monitor the metric.
+16. Click on the "Save" button to save the policy.
+
+By following these steps, you will be able to remediate the misconfiguration of not monitoring Storage ACL Operations Count in GCP using GCP console.
+
+#### Using CLI
+
+To remediate the misconfiguration of not monitoring Storage ACL operations count in GCP using GCP CLI, you can follow the below steps:
+
+1. Open the Cloud Shell in the GCP console.
+
+2. Run the following command to create a new bucket in the project:
+
+   ```
+   gsutil mb gs://<bucket-name>
+   ```
+
+3. Run the following command to enable logging for the bucket:
+
+   ```
+   gsutil logging set on -b gs://<bucket-name> gs://<log-bucket-name>/<log-object-prefix>
+   ```
+
+   Replace `<bucket-name>` with the name of the bucket that you created in step 2, and `<log-bucket-name>` and `<log-object-prefix>` with the name of the bucket and object prefix where you want to store the logs.
+
+4. Run the following command to create a new sink for the logs:
+
+   ```
+   gcloud logging sinks create <sink-name> storage.googleapis.com/<bucket-name> --include-children --log-filter='resource.type="gcs_bucket" protoPayload.methodName="storage.buckets.updateIamPolicy" protoPayload.resourceName="projects/_/buckets/<bucket-name>"'
+   ```
+
+   Replace `<sink-name>` with a name for the new sink, and `<bucket-name>` with the name of the bucket that you created in step 2.
+
+5. Run the following command to grant the `logging.logWriter` role to the sink service account:
+
+   ```
+   gcloud projects add-iam-policy-binding <project-id> --member=serviceAccount:<sink-service-account> --role=roles/logging.logWriter
+   ```
+
+   Replace `<project-id>` with the ID of the project that contains the bucket, and `<sink-service-account>` with the email address of the service account that was created for the sink.
+
+6. Verify that the sink is working correctly by updating the IAM policy for the bucket:
+
+   ```
+   gsutil iam ch allUsers:objectViewer gs://<bucket-name>
+   ```
+
+7. Check the logs in the log bucket to verify that the sink is working correctly:
+
+   ```
+   gsutil ls gs://<log-bucket-name>/<log-object-prefix>
+   ```
+
+   This should show a log entry for the IAM policy update that you performed in step 6.
+
+By following these steps, you should be able to remediate the misconfiguration of not monitoring Storage ACL operations count in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "Cloud Monitoring Should Monitor Storage ACL Operations Count" for GCP using Python, follow these steps:
+
+1. Open the Google Cloud Console and select the project where the storage bucket is located.
+
+2. Go to the Cloud Storage section.
+
+3. Find the bucket that needs to be monitored and click on it.
+
+4. Click on the "Permissions" tab.
+
+5. Click on the "Add Members" button.
+
+6. Add the service account that will be used for monitoring. This service account must have the Cloud Monitoring Agent role.
+
+7. Click on the "Add" button.
+
+8. Open the Cloud Shell from the Google Cloud Console.
+
+9. Install the Google Cloud Storage Python library by running the following command:
+
+   ```
+   pip install google-cloud-storage
+   ```
+
+10. Create a Python script that will monitor the ACL operations count for the storage bucket. Here's an example script:
+
+   ```
+   from google.cloud import monitoring_v3
+   from google.oauth2 import service_account
+   from google.cloud import storage
+
+   # Set up credentials
+   credentials = service_account.Credentials.from_service_account_file(
+       '<path-to-service-account-key>')
+
+   # Set up the Monitoring client
+   client = monitoring_v3.MetricServiceClient(credentials=credentials)
+
+   # Set up the Storage client
+   storage_client = storage.Client(credentials=credentials)
+
+   # Set up the metric descriptor
+   project_name = '<project-name>'
+   metric_type = 'storage.googleapis.com/storage/bucket/acl/operation_count'
+   metric_descriptor = monitoring_v3.types.MetricDescriptor()
+   metric_descriptor.type = metric_type
+   metric_descriptor.metric_kind = (
+       monitoring_v3.enums.MetricDescriptor.MetricKind.CUMULATIVE)
+   metric_descriptor.value_type = (
+       monitoring_v3.enums.MetricDescriptor.ValueType.INT64)
+   metric_descriptor.description = 'The number of ACL operations on a Cloud Storage bucket.'
+   metric_descriptor.unit = '1'
+   client.create_metric_descriptor(
+       name=client.project_path(project_name),
+       metric_descriptor=metric_descriptor)
+
+   # Set up the time series
+   bucket_name = '<bucket-name>'
+   time_series = monitoring_v3.types.TimeSeries()
+   time_series.metric.type = metric_type
+   time_series.resource.type = 'gcs_bucket'
+   time_series.resource.labels['bucket_name'] = bucket_name
+   time_series.resource.labels['project_id'] = project_name
+
+   # Get the ACL operations count
+   bucket = storage_client.bucket(bucket_name)
+   acl_operations_count = bucket.acl.user("allUsers").get()["operationCount"]
+
+   # Set the data point
+   point = monitoring_v3.types.Point()
+   point.value.int64_value = acl_operations_count
+   now = time.time()
+   point.interval.end_time.seconds = int(now)
+   point.interval.end_time.nanos = int(
+       (now - point.interval.end_time.seconds) * 10**9)
+   time_series.points.append(point)
+
+   # Write the time series data
+   client.create_time_series(
+       name=client.project_path(project_name),
+       time_series=[time_series])
+   ```
+
+   Replace the placeholders `<path-to-service-account-key>`, `<project-name>`, and `<bucket-name>` with the actual values.
+
+11. Save the Python script and run it from the Cloud Shell by running the following command:
+
+    ```
+    python <script-name>.py
+    ```
+
+    Replace `<script-name>` with the actual name of the Python script.
+
+12. Verify that the metric is being collected by going to the Cloud Monitoring section of the Google Cloud Console and checking that the metric is listed under the "Metrics Explorer" tab.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/monitoring/api/metrics_gcp](https://cloud.google.com/monitoring/api/metrics_gcp) 

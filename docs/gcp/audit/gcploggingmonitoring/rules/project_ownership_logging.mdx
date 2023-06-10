@@ -20,6 +20,125 @@ Security
 
 CISGCP, CBP, HIPAA, ISO27001, HITRUST
 
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "Project Ownership Change Log Alerts Should Be Enabled" for GCP using GCP console, follow the below steps:
+
+1. Login to the GCP console.
+2. Navigate to the "Logging" section from the left-hand menu.
+3. In the "Logging" section, click on "Logs Explorer".
+4. In the "Logs Explorer" page, select the "Resource" dropdown and select the project for which you want to enable the ownership change log alerts.
+5. In the search bar, type "project ownership change" and press enter.
+6. From the search results, select "Admin Activity" and then select "Project Ownership Change".
+7. Click on "Create Metric" and give a name to the metric.
+8. Click on "Create Alert" and configure the alert as per your requirement. 
+9. Click on "Save" to save the alert configuration.
+
+By following the above steps, you will be able to enable the "Project Ownership Change Log Alerts" for the selected project in GCP.
+
+#### Using CLI
+
+To remediate the misconfiguration "Project Ownership Change Log Alerts Should Be Enabled" in GCP using GCP CLI, please follow the below steps:
+
+1. Open the Cloud Shell in the GCP console.
+
+2. Run the following command to enable project ownership change log alerts:
+
+   ```
+   gcloud alpha logging sinks create PROJECT_OWNERSHIP_CHANGE_ALERTS \
+   pubsub.googleapis.com/projects/$(gcloud config get-value project)/topics/gcp-logging-alerts \
+   --log-filter='resource.type="audited_resource" AND protoPayload.methodName="google.cloud.resourcemanager.v1.Projects.ChangeOwnership"' \
+   --format='value(writerIdentity)'
+   ```
+
+   This command creates a new sink named `PROJECT_OWNERSHIP_CHANGE_ALERTS` that sends log entries matching the specified filter to a Pub/Sub topic named `gcp-logging-alerts`.
+
+3. Run the following command to create a new Pub/Sub subscription for the `gcp-logging-alerts` topic:
+
+   ```
+   gcloud pubsub subscriptions create PROJECT_OWNERSHIP_CHANGE_ALERTS \
+   --topic=gcp-logging-alerts \
+   --ack-deadline=30 \
+   --expiration-period=never
+   ```
+
+   This command creates a new subscription named `PROJECT_OWNERSHIP_CHANGE_ALERTS` for the `gcp-logging-alerts` topic with an acknowledgement deadline of 30 seconds and no expiration period.
+
+4. Run the following command to create a new Cloud Function that processes the log entries sent to the `gcp-logging-alerts` topic:
+
+   ```
+   gcloud functions deploy process_project_ownership_change_alerts \
+   --entry-point=process_log_entry \
+   --runtime=python37 \
+   --trigger-topic=gcp-logging-alerts \
+   --memory=128MB \
+   --timeout=30s \
+   --env-vars-file=env.yaml \
+   --source=./function
+   ```
+
+   This command deploys a new Cloud Function named `process_project_ownership_change_alerts` that processes log entries sent to the `gcp-logging-alerts` topic. The function is triggered by messages sent to the topic and has a memory limit of 128MB, a timeout of 30 seconds, and uses the `env.yaml` file to set environment variables.
+
+5. Verify that the alerts are working by changing the ownership of a project in GCP. You should receive an alert in the Pub/Sub topic and the Cloud Function should process the log entry.
+
+By following the above steps, you have successfully remediated the misconfiguration "Project Ownership Change Log Alerts Should Be Enabled" in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "Project Ownership Change Log Alerts Should Be Enabled" for GCP using Python, you can follow the below steps:
+
+1. First, you need to import the necessary libraries. You can use the Google Cloud Client Library for Python to interact with GCP APIs. Install the library using the following command:
+
+   ```
+   pip install google-cloud-monitoring
+   ```
+
+2. Once you have installed the library, you need to authenticate your application. You can authenticate using a service account by setting the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of the service account key file.
+
+   ```
+   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service_account_key.json
+   ```
+
+3. After authentication, you can use the `google.cloud.monitoring_v3.MetricServiceClient` class to enable the "Project Ownership Change Log Alerts". Use the `create_alert_policy` method to create a new alert policy for the metric `gce_instance_update`.
+
+   ```
+   from google.cloud.monitoring_v3 import AlertPolicy
+   from google.cloud.monitoring_v3 import MetricServiceClient
+   from google.cloud.monitoring_v3.types import AlertPolicyCondition
+
+   client = MetricServiceClient()
+
+   # Define the alert policy condition
+   alert_condition = AlertPolicyCondition(
+       metric_type="logging.googleapis.com/user/project_change",
+       filter='protoPayload.methodName="SetIamPolicy"',
+       duration={"seconds": 300},
+       comparison={"comparison": "COMPARISON_GT", "threshold_value": 0},
+       trigger={"count": 1},
+       aggregations=[{"alignment_period": {"seconds": 300}, "per_series_aligner": "ALIGN_COUNT"}],
+   )
+
+   # Define the alert policy
+   alert_policy = AlertPolicy(
+       display_name="Project Ownership Change Log Alerts",
+       combiner="OR",
+       conditions=[alert_condition],
+       notification_channels=[],
+   )
+
+   # Create the alert policy
+   project_name = f"projects/{project_id}"
+   response = client.create_alert_policy(project_name, alert_policy)
+   print(f"Created alert policy: {response.name}")
+   ```
+
+4. After executing the above code, the "Project Ownership Change Log Alerts" will be enabled for your GCP project.
+
+Note: Make sure that the service account used to authenticate has the necessary permissions to create alert policies in your GCP project.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/logging/docs/logs-based-metrics](https://cloud.google.com/logging/docs/logs-based-metrics) 

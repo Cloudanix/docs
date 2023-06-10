@@ -1,0 +1,135 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" for GCP using GCP console, follow the below steps:
+
+1. Open the GCP Console and navigate to the Google Cloud Spanner instance for which you want to enable Customer Managed Encryption Keys (CMEK) encryption.
+
+2. Click on the instance name to open the instance details page.
+
+3. In the left navigation menu, click on "Encryption".
+
+4. On the Encryption page, click on "Edit".
+
+5. In the Encryption Settings dialog box, select "Customer-managed key" as the encryption type.
+
+6. Select the key ring and key you want to use to encrypt the data.
+
+7. Click on "Save" to apply the changes.
+
+8. Once the encryption settings are updated, all the data stored in the Spanner database will be encrypted using the selected customer-managed key.
+
+9. Verify that the encryption is working by accessing the data and checking that it is encrypted.
+
+By following these steps, you can remediate the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" for GCP using GCP console.
+
+#### Using CLI
+
+To remediate the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" in GCP using GCP CLI, follow the below steps:
+
+1. Open the Cloud Shell in the GCP Console.
+2. Run the following command to check if any Spanner instances are not encrypted with customer-managed keys:
+
+   ```
+   gcloud spanner instances list --filter="encryptionConfig.kmsKeyName:missing"
+   ```
+
+3. If any Spanner instances are found that are not encrypted with customer-managed keys, then create a new key ring using the following command:
+
+   ```
+   gcloud kms keyrings create [KEYRING_NAME] --location [LOCATION]
+   ```
+
+   Replace `[KEYRING_NAME]` with the desired name for your key ring and `[LOCATION]` with the desired location for your key ring.
+
+4. Create a new key in the key ring using the following command:
+
+   ```
+   gcloud kms keys create [KEY_NAME] --keyring [KEYRING_NAME] --location [LOCATION] --purpose encryption
+   ```
+
+   Replace `[KEY_NAME]` with the desired name for your key and `[KEYRING_NAME]` and `[LOCATION]` with the values you used in step 3.
+
+5. Grant the Cloud Spanner service account the `cloudkms.cryptoKeyEncrypterDecrypter` role on the key you just created using the following command:
+
+   ```
+   gcloud kms keys add-iam-policy-binding [KEY_NAME] --keyring [KEYRING_NAME] --location [LOCATION] --member serviceAccount:[SERVICE_ACCOUNT_EMAIL] --role roles/cloudkms.cryptoKeyEncrypterDecrypter
+   ```
+
+   Replace `[KEY_NAME]` and `[KEYRING_NAME]` with the values you used in step 4, and replace `[LOCATION]` with the location of your key ring. Also, replace `[SERVICE_ACCOUNT_EMAIL]` with the email address of the Cloud Spanner service account.
+
+6. Update the Spanner instance to use the customer-managed key using the following command:
+
+   ```
+   gcloud spanner instances update [INSTANCE_ID] --encryption-config kms-key-name=projects/[PROJECT_ID]/locations/[LOCATION]/keyRings/[KEYRING_NAME]/cryptoKeys/[KEY_NAME]
+   ```
+
+   Replace `[INSTANCE_ID]` with the ID of the Spanner instance you want to update, `[PROJECT_ID]` with the ID of your GCP project, `[LOCATION]` with the location of your key ring, and `[KEYRING_NAME]` and `[KEY_NAME]` with the values you used in step 4.
+
+7. Verify that the Spanner instance is now encrypted with the customer-managed key using the following command:
+
+   ```
+   gcloud spanner instances describe [INSTANCE_ID] --format="value(encryptionConfig.kmsKeyName)"
+   ```
+
+   Replace `[INSTANCE_ID]` with the ID of the Spanner instance you updated.
+
+With these steps, you have successfully remediated the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" for GCP using Python, you can follow the below steps:
+
+1. First, you need to create a new Cloud KMS key ring and key for use with Cloud Spanner. You can use the following Python code to create a new key ring and key:
+
+```python
+from google.cloud import kms_v1
+
+def create_key_ring(project_id, location_id, key_ring_id):
+    client = kms_v1.KeyManagementServiceClient()
+    parent = f"projects/{project_id}/locations/{location_id}"
+    key_ring = client.create_key_ring(request={"parent": parent, "key_ring_id": key_ring_id})
+    print(f"Created key ring: {key_ring.name}")
+    return key_ring
+
+def create_crypto_key(project_id, location_id, key_ring_id, crypto_key_id):
+    client = kms_v1.KeyManagementServiceClient()
+    parent = f"projects/{project_id}/locations/{location_id}/keyRings/{key_ring_id}"
+    purpose = kms_v1.CryptoKey.CryptoKeyPurpose.ENCRYPT_DECRYPT
+    crypto_key = client.create_crypto_key(request={"parent": parent, "crypto_key_id": crypto_key_id, "purpose": purpose})
+    print(f"Created crypto key: {crypto_key.name}")
+    return crypto_key
+```
+
+2. Next, you need to enable customer-managed encryption for Cloud Spanner using the newly created key. You can use the following Python code to enable customer-managed encryption:
+
+```python
+from google.cloud import spanner_v1
+
+def enable_customer_managed_encryption(instance_id, project_id, location_id, key_ring_id, crypto_key_id):
+    client = spanner_v1.InstanceAdminClient()
+    instance_name = f"projects/{project_id}/instances/{instance_id}"
+    encryption_config = {"kms_key_name": f"projects/{project_id}/locations/{location_id}/keyRings/{key_ring_id}/cryptoKeys/{crypto_key_id}"}
+    update_mask = {"paths": ["encryption_config"]}
+    operation = client.update_instance(request={"instance": {"name": instance_name, "encryption_config": encryption_config}, "update_mask": update_mask})
+    print(f"Enabled customer-managed encryption for instance: {instance_id}")
+    return operation.result()
+```
+
+3. Finally, you need to verify that customer-managed encryption is enabled for the Cloud Spanner instance. You can use the following Python code to check the encryption status:
+
+```python
+def check_encryption_status(instance_id, project_id):
+    client = spanner_v1.InstanceAdminClient()
+    instance_name = f"projects/{project_id}/instances/{instance_id}"
+    instance = client.get_instance(request={"name": instance_name})
+    encryption_config = instance.encryption_config
+    if encryption_config.kms_key_name:
+        print(f"Customer-managed encryption is enabled for instance: {instance_id}")
+    else:
+        print(f"Customer-managed encryption is not enabled for instance: {instance_id}")
+```
+
+By following these steps, you can remediate the misconfiguration "Spanner Databases Should Be Encrypted With Customer Managed Keys" for GCP using Python.
+

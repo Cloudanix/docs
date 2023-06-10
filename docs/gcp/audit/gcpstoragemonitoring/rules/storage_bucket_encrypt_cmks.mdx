@@ -19,4 +19,150 @@ Security
 ### Compliance Standards
 
 HITRUST, GDPR, SOC2, NISTCSF, PCIDSS
+### Remediation
+
+#### Using Console
+
+To remediate this misconfiguration for GCP using GCP console, follow these steps:
+
+1. Log in to the Google Cloud Console.
+
+2. Navigate to the Cloud Storage page.
+
+3. Select the bucket that needs to be encrypted.
+
+4. Click on the "Edit bucket details" button.
+
+5. Scroll down to the "Encryption" section.
+
+6. Select "Customer-managed key" from the drop-down menu.
+
+7. Choose the key that you want to use to encrypt the bucket.
+
+8. Click on the "Save" button to apply the changes.
+
+9. Repeat the above steps for all the buckets that need to be encrypted using customer-managed keys.
+
+By following these steps, you can remediate the misconfiguration of not encrypting the buckets using customer-managed keys in GCP using the GCP console.
+
+#### Using CLI
+
+To remediate the bucket encryption misconfiguration in GCP using GCP CLI, follow these steps:
+
+1. Open the Google Cloud Console and select the project containing the bucket that needs to be encrypted using a customer-managed key.
+
+2. Open the Cloud Shell by clicking on the icon in the top right corner of the console.
+
+3. In the Cloud Shell, run the following command to enable the Cloud KMS API:
+
+   ```
+   gcloud services enable cloudkms.googleapis.com
+   ```
+
+4. Next, create a new customer-managed key (CMK) by running the following command:
+
+   ```
+   gcloud kms keyrings create [KEYRING-NAME] --location [LOCATION]
+   gcloud kms keys create [KEY-NAME] --location [LOCATION] --keyring [KEYRING-NAME] --purpose encryption
+   ```
+
+   Replace `[KEYRING-NAME]` with a name for your keyring, `[LOCATION]` with the location where you want to create the key, and `[KEY-NAME]` with a name for your key.
+
+5. Now, update the bucket to use the newly created CMK by running the following command:
+
+   ```
+   gsutil kms set [KEY-NAME] gs://[BUCKET-NAME]
+   ```
+
+   Replace `[KEY-NAME]` with the name of the CMK you created in step 4 and `[BUCKET-NAME]` with the name of the bucket that needs to be encrypted.
+
+6. Finally, verify that the bucket is encrypted using the CMK by running the following command:
+
+   ```
+   gsutil ls -L -b gs://[BUCKET-NAME]
+   ```
+
+   Look for the `kms_key_name` field in the output to confirm that the bucket is encrypted using the CMK you created.
+
+By following these steps, you can remediate the bucket encryption misconfiguration in GCP using GCP CLI.
+
+#### Using Python
+
+To remediate this misconfiguration for GCP using Python, you can follow these steps:
+
+1. Install the `google-cloud-storage` library using pip.
+
+2. Authenticate with your GCP account using the following command:
+```python
+from google.cloud import storage
+
+storage_client = storage.Client()
+```
+
+3. List all the buckets in your project using the following command:
+```python
+buckets = list(storage_client.list_buckets())
+
+for bucket in buckets:
+    print(bucket.name)
+```
+
+4. For each bucket, check if it is encrypted using a customer-managed key (CMK) by checking the bucket's `encryption` property:
+```python
+if bucket.encryption_algorithm == "AES256":
+    print(f"{bucket.name} is encrypted with default encryption.")
+elif bucket.encryption_algorithm == "Google-managed":
+    print(f"{bucket.name} is encrypted with Google-managed encryption.")
+elif bucket.encryption_algorithm == "CUSTOMER_MANAGED_ENCRYPTION":
+    print(f"{bucket.name} is encrypted with customer-managed encryption.")
+```
+
+5. If the bucket is not encrypted with a customer-managed key, create a new key using the following command:
+```python
+key_name = "my-cmk"
+location = "us-central1"
+key_ring_name = "my-keyring"
+
+kms_client = storage_client._credentials.create_scoped(
+    ["https://www.googleapis.com/auth/cloudkms"]
+)
+
+kms_client = googleapiclient.discovery.build("cloudkms", "v1", credentials=kms_client)
+
+parent = f"projects/{project_id}/locations/{location}/keyRings/{key_ring_name}"
+
+response = kms_client.create_crypto_key(
+    parent=parent,
+    cryptoKeyId=key_name,
+    cryptoKey={
+        "purpose": "ENCRYPT_DECRYPT",
+        "nextRotationTime": "2025-01-01T00:00:00Z",
+    },
+)
+```
+Note: Replace `my-cmk`, `us-central1`, and `my-keyring` with your own values.
+
+6. Enable encryption with the new CMK for the bucket using the following command:
+```python
+bucket.default_event_based_hold = True
+bucket.patch()
+
+bucket.reload()
+
+bucket.encryption_algorithm = "CUSTOMER_MANAGED_ENCRYPTION"
+bucket.default_kms_key_name = f"projects/{project_id}/locations/{location}/keyRings/{key_ring_name}/cryptoKeys/{key_name}"
+bucket.patch()
+```
+
+7. Verify that the bucket is now encrypted with a customer-managed key:
+```python
+if bucket.encryption_algorithm == "CUSTOMER_MANAGED_ENCRYPTION":
+    print(f"{bucket.name} is now encrypted with customer-managed encryption.")
+else:
+    print(f"{bucket.name} encryption is still not customer-managed.")
+```
+
+By following these steps, you can remediate the misconfiguration of GCP buckets not being encrypted with customer-managed keys.
+
+
 

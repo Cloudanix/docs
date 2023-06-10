@@ -20,6 +20,175 @@ Security
 
 HITRUST, NISTCSF
 
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "PubSub Topics Should Be Encrypted Using CMEK" for GCP using GCP console, you can follow the below steps:
+
+1. Login to your GCP console.
+2. Navigate to the Pub/Sub page from the left-hand side menu.
+3. Select the topic that you want to encrypt using CMEK.
+4. Click on the "Edit" button present at the top of the page.
+5. Scroll down to the "Encryption" section.
+6. Click on the "Enable encryption" checkbox.
+7. Select the "Customer-managed key" option from the dropdown.
+8. Choose the CMEK key that you want to use for encryption from the "Key name" dropdown.
+9. Click on the "Save" button to save the changes.
+
+Once you have completed these steps, your Pub/Sub topic will be encrypted using the selected CMEK key.
+
+#### Using CLI
+
+To remediate the misconfiguration in GCP using GCP CLI, follow these steps:
+
+1. Open the Cloud Shell in the GCP Console.
+
+2. Set the project where the Pub/Sub topic is located:
+
+```
+gcloud config set project [PROJECT_ID]
+```
+
+3. Retrieve the list of Pub/Sub topics in the project:
+
+```
+gcloud pubsub topics list
+```
+
+4. For each topic that does not have encryption enabled, enable encryption using the following command:
+
+```
+gcloud alpha pubsub topics update [TOPIC_NAME] --update-attribute=encryption_key_name=projects/[PROJECT_ID]/locations/[LOCATION]/keyRings/[KEYRING_NAME]/cryptoKeys/[KEY_NAME]
+```
+
+Replace `[TOPIC_NAME]` with the name of the Pub/Sub topic that needs to be encrypted, and replace `[PROJECT_ID]`, `[LOCATION]`, `[KEYRING_NAME]`, and `[KEY_NAME]` with the appropriate values for your project.
+
+5. Verify that the encryption has been enabled for the topic by running the following command:
+
+```
+gcloud alpha pubsub topics describe [TOPIC_NAME]
+```
+
+The output should include the following line:
+
+```
+encryptionKeyName: projects/[PROJECT_ID]/locations/[LOCATION]/keyRings/[KEYRING_NAME]/cryptoKeys/[KEY_NAME]
+```
+
+This indicates that the topic is now encrypted using a customer-managed encryption key (CMEK).
+
+#### Using Python
+
+To remediate the misconfiguration where PubSub topics should be encrypted using CMEK in GCP using Python, you can follow these step-by-step instructions:
+
+1. First, ensure that you have the necessary permissions to create a new key ring and key in the Cloud KMS service. 
+
+2. Next, you will need to create a new key ring and key in the Cloud KMS service. You can do this using the following Python code:
+
+```python
+from google.cloud import kms_v1
+from google.cloud.kms_v1 import enums
+
+client = kms_v1.KeyManagementServiceClient()
+
+# Replace [PROJECT_ID] with your GCP project ID
+parent = client.location_path('[PROJECT_ID]', 'global')
+
+# Replace [KEY_RING_ID] with a unique ID for your key ring
+key_ring_id = '[KEY_RING_ID]'
+
+# Create the key ring
+key_ring = client.create_key_ring(parent, key_ring_id, {})
+
+# Replace [KEY_ID] with a unique ID for your key
+key_id = '[KEY_ID]'
+
+# Create the key
+purpose = enums.CryptoKey.CryptoKeyPurpose.ENCRYPT_DECRYPT
+crypto_key = {'purpose': purpose, 'next_rotation_time': '2022-01-01T00:00:00Z'}
+key = client.create_crypto_key(key_ring.name, key_id, crypto_key)
+```
+
+3. Once you have created the key ring and key, you can use it to encrypt your PubSub topics. You can do this using the following Python code:
+
+```python
+from google.cloud import pubsub_v1
+from google.cloud.pubsub_v1 import types
+
+# Replace [PROJECT_ID] with your GCP project ID
+project_id = '[PROJECT_ID]'
+
+# Replace [TOPIC_ID] with the ID of your PubSub topic
+topic_id = '[TOPIC_ID]'
+
+# Replace [KEY_RING_ID] with the ID of your key ring
+key_ring_id = '[KEY_RING_ID]'
+
+# Replace [KEY_ID] with the ID of your key
+key_id = '[KEY_ID]'
+
+# Create the topic client
+publisher = pubsub_v1.PublisherClient()
+
+# Create the topic name
+topic_name = 'projects/{project_id}/topics/{topic_id}'.format(
+    project_id=project_id,
+    topic_id=topic_id,
+)
+
+# Create the encryption key
+key_name = client.crypto_key_path(project_id, key_ring_id, key_id)
+key = types.Key(
+    version=1,
+    key=client.encrypt(key_name, b'')[1]
+)
+
+# Create the topic with encryption enabled
+topic = publisher.create_topic(
+    request={
+        'name': topic_name,
+        'kms_key_name': key_name,
+        'message_storage_policy': {
+            'allowed_persistence_regions': ['us-central1'],
+        },
+    },
+)
+
+print('Topic created: {}'.format(topic))
+```
+
+4. Finally, you can verify that your PubSub topic is encrypted using CMEK by checking the topic details in the GCP Console or by using the following Python code:
+
+```python
+# Replace [PROJECT_ID] with your GCP project ID
+project_id = '[PROJECT_ID]'
+
+# Replace [TOPIC_ID] with the ID of your PubSub topic
+topic_id = '[TOPIC_ID]'
+
+# Get the topic client
+publisher = pubsub_v1.PublisherClient()
+
+# Get the topic name
+topic_name = 'projects/{project_id}/topics/{topic_id}'.format(
+    project_id=project_id,
+    topic_id=topic_id,
+)
+
+# Get the topic details
+topic = publisher.get_topic(request={'topic': topic_name})
+
+# Check if encryption is enabled
+if topic.encryption_config.kms_key_name:
+    print('Encryption is enabled with key: {}'.format(topic.encryption_config.kms_key_name))
+else:
+    print('Encryption is not enabled')
+``` 
+
+These steps will help you remediate the misconfiguration where PubSub topics should be encrypted using CMEK in GCP using Python.
+
+
 ### Additional Reading:
 
 - [https://cloud.google.com/pubsub/docs/encryption](https://cloud.google.com/pubsub/docs/encryption) 

@@ -1,0 +1,149 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of not having Azure Active Directory (AD) Admin configured, you can follow these steps:
+
+1. Log in to the Azure portal (https://portal.azure.com) using your credentials.
+2. In the left-hand menu, click on "Azure Active Directory".
+3. Click on "Properties" under the "Manage" section in the left-hand menu.
+4. Scroll down to the "Azure AD admin" section.
+5. Click on "Set Azure AD admin" button.
+6. In the "Set administrator" pane, select the user or group that you want to designate as the Azure AD admin.
+7. Click on the "Select" button.
+8. Click on the "Save" button to save the changes.
+
+Once you have completed the above steps, the Azure AD admin will be configured, and you will have successfully remediated the misconfiguration.
+
+#### Using CLI
+
+To remediate the misconfiguration "Ensure That Azure Active Directory Admin Is Configured" for AZURE using AZURE CLI, follow the below steps:
+
+1. Open the AZURE CLI and login to your Azure account using the command: 
+
+   ```
+   az login
+   ```
+
+2. Once you are logged in, set your subscription using the command:
+
+   ```
+   az account set --subscription <subscription-id>
+   ```
+
+   Replace `<subscription-id>` with the ID of your Azure subscription.
+
+3. Next, use the following command to set the Azure Active Directory (Azure AD) admin for your subscription:
+
+   ```
+   az ad sp create-for-rbac --role="Owner" --scopes="/subscriptions/<subscription-id>"
+   ```
+
+   Replace `<subscription-id>` with the ID of your Azure subscription.
+
+4. This command will create a new Azure AD application and assign it the Owner role for your subscription. It will output the following details:
+
+   - `appId`: The Application ID of the newly created Azure AD application.
+   - `displayName`: The display name of the Azure AD application.
+   - `password`: The password for the Azure AD application. This is the only time the password will be shown, so make sure to save it in a secure location.
+   - `tenant`: The ID of the Azure AD tenant associated with the subscription.
+
+5. Finally, use the following command to assign the newly created Azure AD application as the subscription admin:
+
+   ```
+   az role assignment create --assignee <appId> --role "Owner" --subscription <subscription-id>
+   ```
+
+   Replace `<appId>` with the Application ID of the newly created Azure AD application, and `<subscription-id>` with the ID of your Azure subscription.
+
+6. After running the above command, the Azure AD admin will be configured for your subscription. You can verify this by running the following command:
+
+   ```
+   az account show
+   ```
+
+   This command will display the details of your Azure subscription, including the Azure AD admin.
+
+#### Using Python
+
+To remediate the misconfiguration "Ensure that Azure Active Directory Admin is configured" in Azure using Python, you can follow the below steps:
+
+Step 1: Install the Azure SDK for Python using the pip command:
+
+```python
+!pip install azure-mgmt-resource
+```
+
+Step 2: Import the required modules:
+
+```python
+from azure.common.credentials import UserPassCredentials
+from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.sql import SqlManagementClient
+```
+
+Step 3: Authenticate and create a client object:
+
+```python
+subscription_id = 'your_subscription_id'
+username = 'your_username'
+password = 'your_password'
+credentials = UserPassCredentials(username, password)
+
+resource_client = ResourceManagementClient(credentials, subscription_id)
+sql_client = SqlManagementClient(credentials, subscription_id)
+```
+
+Step 4: Get the list of all SQL servers in the subscription:
+
+```python
+servers = sql_client.servers.list()
+```
+
+Step 5: For each SQL server, check if the Azure Active Directory Admin is configured:
+
+```python
+for server in servers:
+    server_name = server.name
+    server_resource_group = server.resource_group_name
+    server_details = resource_client.resources.get_by_id(
+        server.id, 
+        api_version='2018-06-01-preview'
+    )
+    properties = server_details.properties
+    if 'administratorLogin' in properties and 'administratorLoginPassword' in properties:
+        admin_login = properties['administratorLogin']
+        admin_password = properties['administratorLoginPassword']
+        aad_admin = sql_client.servers.get_server_auditing_policy(
+            server_resource_group, 
+            server_name
+        ).auditing_policy_details.audit_actions_and_groups.audit_actions.contains('DATABASE_SQL_AUDIT_ACTION_GROUP')
+        if not aad_admin:
+            sql_client.servers.create_or_update_server_auditing_policy(
+                server_resource_group, 
+                server_name, 
+                {
+                    "properties": {
+                        "state": "Enabled",
+                        "auditActionsAndGroups": {
+                            "auditActions": [
+                                "DATABASE_SQL_AUDIT_ACTION_GROUP"
+                            ]
+                        },
+                        "storageEndpoint": "https://your_storage_account.blob.core.windows.net",
+                        "storageAccountAccessKey": "your_storage_account_access_key",
+                        "storageAccountSubscriptionId": "your_storage_account_subscription_id",
+                        "retentionDays": 90,
+                        "useServerDefault": False
+                    }
+                }
+            )
+            print(f"Azure Active Directory Admin is configured for SQL server {server_name}")
+    else:
+        print(f"Admin login and password not found for SQL server {server_name}")
+```
+
+Note: You will need to replace the placeholders `your_subscription_id`, `your_username`, `your_password`, `your_storage_account`, `your_storage_account_access_key`, and `your_storage_account_subscription_id` with your own values.
+
+The above code will enable auditing for the SQL server and ensure that the Azure Active Directory Admin is configured.
+
