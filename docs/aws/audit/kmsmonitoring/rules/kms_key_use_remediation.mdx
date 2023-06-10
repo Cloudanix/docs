@@ -1,50 +1,102 @@
 ### Remediation
 
-How to ensure that KMS CMK customer-managed keys in use in your account instead of AWS managed-keys?
+#### Using Console
 
-#### Using AWS Console
+To remediate the KMS Customer Master Key Should Be In Use misconfiguration in AWS using AWS console, follow these steps:
 
-- Step 1: In the left navigation panel, click Encryption Keys and Select the appropriate AWS region from the Filter menu:
-  (must match the region where the AWS resource that will use the key was created).
+1. Open the AWS Management Console and navigate to the AWS Key Management Service (KMS) console.
 
-- Step 2: Click Create Key button from the top menu and Enter an alias (name) and a description for the new CMK, then click Next Step.
+2. Click on the "Customer managed keys" option in the left-hand menu.
 
-- Step 3: Under the Key Administrators section, select which IAM users and/or roles can administer the CMK, then click Next Step.
+3. Identify the key that is not in use and select it by clicking on its alias.
 
-- Step 4: Under This Account section, select which IAM users and/or roles can use the CMK to encrypt/decrypt data with the AWS KMS API.
+4. Click on the "Key actions" dropdown menu and select "Enable Key".
 
-- Step 5: (Optional) Under External Accounts section, click Add an External Account and enter an external account ID in order to add another AWS account that can use this CMK to encrypt/decrypt data. The owners of the external AWS accounts must also provide access to this CMK by creating policies for their IAM users. Click Next Step.
+5. In the pop-up window, select the AWS service(s) that you want to use the key with and click "Enable".
 
-- Step 6: Under the Preview Key Policy section, click Finish to create your new CMK. Once the key is created, the KMS dashboard will display a confirmation message: "Your master key was created successfully. Alias: MyEBSDataCMK"
+6. Once enabled, the key will be available for use by the selected AWS service(s).
 
-- Step 7: Now the CMK must be implemented to encrypt/decrypt the EBS volume data. Navigate to EC2 dashboard at https://console.aws.amazon.com/ec2/.
+7. Repeat steps 3-6 for any other keys that are not in use.
 
-- Step 8: In the navigation panel, under Elastic Block Store, click Volumes and Select your encrypted EBS volume.
+8. Verify that the KMS Customer Master Key is now in use by checking the compliance status of the resource or by running a compliance check.
 
-- Step 9: Click the Actions dropdown button from the dashboard top menu and select Create Snapshot.
+By following these steps, you can remediate the KMS Customer Master Key Should Be In Use misconfiguration in AWS using AWS console.
 
-- Step 10: In the Create Snapshot dialog box, provide a name and a description for the snapshot (optional) and click Create.
+#### Using CLI
 
-- Step 11: In the navigation panel, under Elastic Block Store, click Snapshots and Select your newly created EBS snapshot.
+The misconfiguration "KMS Customer Master Key Should Be In Use" suggests that the AWS Key Management Service (KMS) is not being used to encrypt data at rest. To remediate this, you can follow these steps using AWS CLI:
 
-- Step 12: Click the Actions dropdown button from the dashboard top menu and select Copy.
+1. Identify the resources that are not using KMS encryption. You can use the following command to list all the EBS volumes that are not encrypted with KMS:
+```
+aws ec2 describe-volumes --query "Volumes[?Encrypted=='false']"
+```
 
-- Step 13: In the Copy Snapshot dialog box, under Master Key select your new CMK customer-managed key: and click Copy.
+2. Encrypt the EBS volumes with KMS. To do this, create a new KMS Customer Master Key (CMK) or use an existing one. You can use the following command to create a new CMK:
+```
+aws kms create-key --description "My new CMK"
+```
 
-- Step 14: Select the new (copied) EBS snapshot. Click the Actions dropdown button from the dashboard top menu and select Create Volume.
+3. Once you have a CMK, you can use it to encrypt the EBS volumes. You can use the following command to encrypt a specific EBS volume:
+```
+aws ec2 modify-volume --volume-id <volume-id> --encrypted --kms-key-id <kms-key-id>
+```
+Replace `<volume-id>` with the ID of the EBS volume and `<kms-key-id>` with the ID of the CMK.
 
-- Step 15: In the Create Volume dialog box, review the volume configuration details and click Create.
+4. Repeat step 3 for all the EBS volumes that are not encrypted with KMS.
 
-- Step 16: Go back to the navigation panel and click Volumes. Select the original EBS volume (encrypted with the AWS-managed key).
+5. Finally, verify that all the EBS volumes are encrypted with KMS. You can use the following command to list all the EBS volumes and their encryption status:
+```
+aws ec2 describe-volumes --query "Volumes[*].[VolumeId,Encrypted,KmsKeyId]"
+``` 
 
-- Step 17: Click the Actions dropdown button from the dashboard top menu and select Detach Volume.
+Note: Make sure to test the remediation steps in a non-production environment before applying them to a production environment.
 
-- Step 18: In the Detach Volume dialog box click Yes, Detach.
+#### Using Python
 
-- Step 19: Select the newly created EBS volume (encrypted with your new customer-managed key).
+To remediate the misconfiguration of KMS Customer Master Key Should Be In Use in AWS using Python, follow these steps:
 
-- Step 20: Click the Actions dropdown button from the top menu and select Attach Volume.
+1. Identify the AWS resource that is not using a KMS customer master key. This can be done by using the AWS CLI command `aws kms list-aliases` to list all the KMS customer master keys and `aws kms list-grants` to list all the grants for the KMS customer master keys.
 
-- Step 21: In the Attach Volume dialog box fill your EC2 instance ID and the device name for attachment, then click Attach.
+2. Once you have identified the resource that is not using a KMS customer master key, you can use the AWS SDK for Python (Boto3) to update the resource to use a KMS customer master key. For example, if the resource is an S3 bucket, you can use the following code snippet to update the bucket policy to use a KMS customer master key:
 
-- Step 22: Select the Description tab from the bottom panel and make sure the created EBS volume use your own CMK customer-managed key by checking the KMS Key Aliases value:
+```python
+import boto3
+import json
+
+s3 = boto3.client('s3')
+
+bucket_name = 'your-bucket-name'
+kms_key_arn = 'your-kms-key-arn'
+
+bucket_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DenyUnEncryptedObjectUploads",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:PutObject",
+            "Resource": "arn:aws:s3:::{}/*".format(bucket_name),
+            "Condition": {
+                "Null": {
+                    "s3:x-amz-server-side-encryption": "true"
+                }
+            }
+        }
+    ]
+}
+
+bucket_policy['Statement'][0]['Condition']['StringEquals'] = {
+    "s3:x-amz-server-side-encryption-aws-kms-key-id": kms_key_arn
+}
+
+s3.put_bucket_policy(
+    Bucket=bucket_name,
+    Policy=json.dumps(bucket_policy)
+)
+```
+
+This code snippet updates the bucket policy to deny uploads of unencrypted objects and adds a condition to require the use of a KMS customer master key for server-side encryption of objects in the bucket.
+
+3. Repeat the above steps for any other AWS resources that are not using a KMS customer master key.
+

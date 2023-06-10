@@ -1,55 +1,137 @@
 ### Remediation
 
-How to Amazon set up CloudWatch alarm in your AWS account that is triggered each time a VPC configuration change is made?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the "Internet Gateway Changes Alarm" misconfiguration in AWS using the AWS console:
 
-##### Create SNS topic and the necessary subscription to send email notifications whenever the appropriate Amazon CloudWatch alarm is triggered.
+1. Log in to the AWS Management Console.
+2. Navigate to the CloudWatch service.
+3. In the left-hand menu, click on "Alarms".
+4. Locate the "Internet Gateway Changes Alarm" from the list of alarms and select it.
+5. Click on the "Actions" dropdown menu and select "Disable Alarm".
+6. Confirm that you want to disable the alarm by clicking "Yes, Disable".
+7. If you want to permanently remove the alarm, select the alarm again and click on the "Actions" dropdown menu and select "Delete Alarm".
+8. Confirm that you want to delete the alarm by clicking "Yes, Delete".
 
-- Step 1: In the navigation panel, select Topics and click the Create new topic button.
+Once you have completed these steps, the "Internet Gateway Changes Alarm" will be remediated in AWS. It is important to note that disabling or deleting an alarm will prevent you from receiving notifications if the alarm is triggered in the future. Therefore, it is recommended to review the alarm settings and adjust them accordingly to avoid future misconfigurations.
 
-- Step 2: In the Create new topic dialog box, enter a name and a display name for your topic then click Create Topic.
+#### Using CLI
 
-- Step 3: Open the newly created SNS topic configuration page by clicking on its Amazon Resource Name (ARN):
-- Step 4: Under Subscription section click Create Subscription.
+The "Internet Gateway Changes Alarm" indicates that changes have been made to the internet gateway in your AWS environment. To remediate this issue using AWS CLI, follow these steps:
 
-- Step 5: Select Email as subscription protocol from the Protocol dropdown list.
+1. Open the AWS CLI on your local machine.
 
-- Step 6: In the Endpoint box, enter the email address where you want to receive the CloudWatch alarm notifications then click Create Subscription to create the required subscription.
+2. Run the following command to describe the internet gateways in your AWS environment:
 
-- Step 7: Use your preferred email client application to open the message received from AWS Notifications, then click on the appropriate link to confirm your new subscription.
+```
+aws ec2 describe-internet-gateways
+```
 
-##### Create the necessary metric filter and the CloudWatch alarm that will fire and send notifications whenever an AWS VPC Customer/Internet Gateway configuration will change.
+3. Identify the internet gateway that has been changed by comparing the output of the above command with the previous state of your environment.
 
-- Step 1: In the left navigation panel, select Logs.
+4. Run the following command to delete the internet gateway:
 
-- Step 2: Select the log group created for your CloudTrail trail event logs and click Create Metric Filter button.
+```
+aws ec2 delete-internet-gateway --internet-gateway-id <internet_gateway_id>
+```
 
-- Step 3: On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box: `{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }`. This pattern will be used for scanning the AWS CloudTrail logs for event names like "CreateInternetGateway", "AttachInternetGateway" or "DeleteInternetGateway".
+Note: Replace <internet_gateway_id> with the ID of the internet gateway that has been changed.
 
-- Step 4: Review the metric filter config details then click Assign Metric.
+5. If the internet gateway was deleted by mistake, run the following command to create a new internet gateway:
 
-- Step 5: On the Create Metric Filter and Assign a Metric page, perform the following:
-  A: In the Filter Name box, enter a unique name for the new filter, e.g. VPCGatewayConfigChanges.
+```
+aws ec2 create-internet-gateway
+```
 
-  B: In the Metric Namespace box, type CloudTrailMetrics.
+6. Attach the new internet gateway to your VPC using the following command:
 
-  C: In the Metric Name box, type GatewayEventCount for the metric identifier.
+```
+aws ec2 attach-internet-gateway --internet-gateway-id <new_internet_gateway_id> --vpc-id <vpc_id>
+```
 
-  D: Click Show advanced metric settings to slide down the advanced settings section.
+Note: Replace <new_internet_gateway_id> with the ID of the new internet gateway that was created and <vpc_id> with the ID of your VPC.
 
-  E: In the Metric Value box, enter 1.
+7. Verify that the internet gateway has been remediated by running the describe-internet-gateways command again and checking that the internet gateway is attached to your VPC.
 
-- Step 6: Review the details then click Create Filter to generate your new CloudWatch Logs metric filter.
+#### Using Python
 
-- Step 7: On the current page click Create Alarm:
-- Step 8: In the Create Alarm dialog box, provide the following information:
-  A: Within the Alarm Threshold section, in the Name and Description fields, enter a unique name and a short description for the new CloudWatch alarm.
+The misconfiguration "Internet Gateway Changes Alarm" in AWS can occur when there is a change in the Internet Gateway associated with the VPC. To remediate this, you can follow these steps using Python:
 
-  B: Under Whenever: Metric Name, select >= (greater than or equal to) from the is dropdown list and enter 1 as the threshold value in the box next to the dropdown list to trigger the alarm every time a configuration change involving a VPC Network Customer/Internet Gateway is made.
+1. Import the necessary modules and define the AWS client:
 
-  C: In the Actions section, click the + Notification button, select State is ALARM from the Whenever this alarm dropdown menu and choose the AWS SNS topic name created at Step 1 from Send notification to.
+```
+import boto3
+client = boto3.client('cloudwatch')
+```
 
-  D: In the Alarm Preview section, select 5 Minutes from the Period dropdown list and Sum from the Statistic list.
+2. Define the name of the alarm that needs to be remediated:
 
-  E: Review the CloudWatch alarm configuration details then click Create Alarm. Once created, the new alarm will be listed on the Alarms page.
+```
+alarm_name = 'InternetGatewayChangesAlarm'
+```
+
+3. Get the alarm details using the `describe_alarms()` method:
+
+```
+response = client.describe_alarms(
+    AlarmNames=[alarm_name]
+)
+```
+
+4. Check if the alarm exists and has the correct action:
+
+```
+if len(response['MetricAlarms']) == 0:
+    print(f"The alarm {alarm_name} does not exist.")
+elif response['MetricAlarms'][0]['AlarmActions'] == []:
+    print(f"The alarm {alarm_name} has no actions.")
+else:
+    print(f"The alarm {alarm_name} has actions.")
+```
+
+5. If the alarm exists and has no actions, add the necessary action using the `put_metric_alarm()` method:
+
+```
+response = client.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:MyTopic'],
+    MetricName='InternetGatewayAttached',
+    Namespace='AWS/EC2',
+    Statistic='Sum',
+    Dimensions=[
+        {
+            'Name': 'VpcId',
+            'Value': 'vpc-12345678'
+        },
+    ],
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    TreatMissingData='notBreaching'
+)
+```
+
+Note: Replace the `AlarmActions` value with the ARN of the SNS topic that needs to be notified.
+
+6. Verify that the action has been added:
+
+```
+response = client.describe_alarms(
+    AlarmNames=[alarm_name]
+)
+
+if response['MetricAlarms'][0]['AlarmActions'] == []:
+    print(f"The alarm {alarm_name} still has no actions.")
+else:
+    print(f"The alarm {alarm_name} now has actions.")
+```
+
+7. If the action was successfully added, print a success message:
+
+```
+print(f"The alarm {alarm_name} has been remediated.")
+```
+
+This Python script will add an SNS topic as the action for the "Internet Gateway Changes Alarm" in AWS.
+

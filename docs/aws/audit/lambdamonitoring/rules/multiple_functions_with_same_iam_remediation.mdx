@@ -1,34 +1,131 @@
 ### Remediation
 
-How to implement the Principle of Least Privilege (POLP) and create a separate IAM role for each individual Lambda function?
+#### Using Console
 
-#### Using AWS Console
+Sure! Here are the step-by-step instructions to remediate the misconfiguration "Multiple Functions Should Not Have The Same IAM Role" for AWS:
 
-1. Identify the specific actions and resources that each Lambda function needs to perform its intended functionality. This includes accessing other AWS services, interacting with databases, reading from or writing to storage, etc.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Multiple Functions Should Not Have The Same IAM Role" Policy.)
-2. Determine the minimum set of permissions required for each Lambda function to perform those actions. It is crucial to limit the permissions to only what is necessary and avoid granting unnecessary or overly broad permissions.
-3. Open the AWS Management Console and navigate to the AWS Identity and Access Management (IAM) service.
-4. Click on "Roles" in the navigation panel on the left side.
-5. Click on the "Create role" button.
-6. Select the "AWS service" as the trusted entity.
-7. Choose "Lambda" as the service that will use this role.
-8. Click on the "Next: Permissions" button.
-9. In the "Attach permissions policies" section, click on the "Create policy" button.
-10. Create a custom IAM policy that defines the specific permissions required by the first Lambda function. You can use the policy visual editor or JSON to define the policy. Be sure to include only the necessary actions and resources.
-11. Click on the "Review policy" button.
-12. Provide a name and description for the policy.
-13. Click on the "Create policy" button.
-14. Go back to the IAM role creation wizard and click on the "Refresh" button to see the newly created policy.
-15. Select the policy you just created by checking the checkbox next to it.
-16. Click on the "Next: Tags" button (optional) and add any necessary tags to the role.
-17. Click on the "Next: Review" button.
-18. Provide a name and description for the IAM role, indicating the specific Lambda function it will be associated with.
-19. Click on the "Create role" button.
-20. Repeat steps 5-19 for each additional Lambda function, creating a separate IAM role and policy for each function.
-21. Once the IAM roles are created, go to the Lambda function configuration for the first function.
-22. In the Lambda function details page, scroll down to the "Permissions" section.
-23. Under "Execution role," click on the "Edit" button.
-24. Select the IAM role you created specifically for this Lambda function.
-25. Click on the "Save" button.
-26. Repeat steps 21-25 for each additional Lambda function, associating the appropriate IAM role with each function.
+1. Log in to your AWS Management Console.
+2. Navigate to the AWS Lambda service from the Services menu.
+3. Select the function that has the same IAM role as another function.
+4. Scroll down to the "Permissions" section and click on the IAM role name.
+5. This will take you to the IAM console. Click on the "Create Role" button.
+6. In the "Create Role" wizard, select "AWS service" as the trusted entity and "Lambda" as the service that will use this role.
+7. Click on the "Next: Permissions" button.
+8. In the "Attach permissions policies" section, select the policies that your function needs to run.
+9. Click on the "Next: Tags" button.
+10. Add any tags that you want to associate with this role (optional).
+11. Click on the "Next: Review" button.
+12. Give the role a name and description.
+13. Click on the "Create Role" button.
+14. Go back to the Lambda function and scroll down to the "Permissions" section.
+15. Click on the "Edit" button next to the "Execution role" field.
+16. Select the newly created IAM role from the list.
+17. Click on the "Save" button.
+
+That's it! You have now remediated the misconfiguration "Multiple Functions Should Not Have The Same IAM Role" for AWS. Repeat these steps for any other functions that have the same IAM role.
+
+#### Using CLI
+
+To remediate this misconfiguration in AWS, you can follow the below steps using AWS CLI:
+
+1. Identify the functions that have the same IAM role assigned to them. You can use the following command to list all the functions and their IAM roles:
+
+```
+aws lambda list-functions --query 'Functions[*].[FunctionName, Role]'
+```
+
+2. Once you have identified the functions that have the same IAM role assigned to them, you can create a new IAM role for each function using the following command:
+
+```
+aws iam create-role --role-name <new_role_name> --assume-role-policy-document file://trust-policy.json
+```
+
+Note: Replace `<new_role_name>` with a unique name for the new IAM role and `trust-policy.json` with the path to a JSON file containing the trust policy for the role.
+
+3. After creating the new IAM roles, you can update the function configurations to use the new IAM roles using the following command:
+
+```
+aws lambda update-function-configuration --function-name <function_name> --role <new_role_arn>
+```
+
+Note: Replace `<function_name>` with the name of the function that needs to be updated and `<new_role_arn>` with the ARN of the new IAM role created in step 2.
+
+4. Repeat step 3 for all the functions that have the same IAM role assigned to them.
+
+5. Once all the functions have been updated to use unique IAM roles, you can delete the old shared IAM role using the following command:
+
+```
+aws iam delete-role --role-name <old_role_name>
+```
+
+Note: Replace `<old_role_name>` with the name of the old shared IAM role that needs to be deleted.
+
+By following these steps, you can remediate the misconfiguration of having multiple functions with the same IAM role in AWS.
+
+#### Using Python
+
+To remediate the misconfiguration "Multiple Functions Should Not Have The Same IAM Role" in AWS using Python, you can follow these steps:
+
+1. Identify the functions that are sharing the same IAM role. You can use the AWS CLI command `aws lambda list-functions` to get a list of all the functions in your account and their associated IAM roles.
+
+2. For each function that is sharing the same IAM role with another function, create a new IAM role. You can use the AWS CLI command `aws iam create-role` to create a new IAM role with the necessary permissions for the function.
+
+3. Update each function to use the new IAM role. You can use the AWS CLI command `aws lambda update-function-configuration` to update the function's configuration and specify the new IAM role.
+
+Here's an example Python script that you can use to remediate this misconfiguration:
+
+```
+import boto3
+
+# Initialize the AWS clients
+lambda_client = boto3.client('lambda')
+iam_client = boto3.client('iam')
+
+# Get a list of all the functions in the account
+response = lambda_client.list_functions()
+
+# Loop through each function
+for function in response['Functions']:
+    # Get the function's IAM role
+    role_arn = function['Role']
+    role_name = role_arn.split('/')[-1]
+
+    # Check if the role is being used by multiple functions
+    response = lambda_client.list_functions(
+        FunctionVersion='ALL',
+        MaxItems=10000
+    )
+    shared_role_functions = []
+    for f in response['Functions']:
+        if f['Role'] == role_arn and f['FunctionName'] != function['FunctionName']:
+            shared_role_functions.append(f['FunctionName'])
+
+    if shared_role_functions:
+        # Create a new IAM role for the function
+        new_role_name = f"{function['FunctionName']}-lambda-role"
+        response = iam_client.create_role(
+            RoleName=new_role_name,
+            AssumeRolePolicyDocument='{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"Service": "lambda.amazonaws.com"},"Action": "sts:AssumeRole"}]}'
+        )
+
+        # Attach the necessary policies to the new IAM role
+        policy_arns = ['arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole']
+        for policy_arn in policy_arns:
+            iam_client.attach_role_policy(
+                RoleName=new_role_name,
+                PolicyArn=policy_arn
+            )
+
+        # Update the function to use the new IAM role
+        lambda_client.update_function_configuration(
+            FunctionName=function['FunctionName'],
+            Role=response['Role']['Arn']
+        )
+
+        print(f"Function {function['FunctionName']} now has its own IAM role {new_role_name}")
+    else:
+        print(f"Function {function['FunctionName']} is not sharing its IAM role with any other function")
+```
+
+This script will loop through all the functions in your account and check if they are sharing their IAM role with any other function. If a function is sharing its IAM role, the script will create a new IAM role for the function, attach the necessary policies to the new role, and update the function to use the new IAM role.
 

@@ -1,21 +1,81 @@
 ### Remediation
 
-How to ensure age of AMIs is not more than the configured days?
+#### Using Console
 
-#### Using AWS Console
+The AMI age should not exceed the configured age is a common misconfiguration in AWS. You can remediate this issue by following the below steps:
 
-1. Open the AWS Management Console and navigate to the AWS Config service.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "AMI Age Should Not Exceed the Configured Age" Policy.)
-2. In the AWS Config console, click on "Rules" in the left navigation pane.
-3. Click on the "Add rule" button to create a new rule.
-4. In the "Add rule" wizard, select the "AWS managed rule" option.
-5. Search for and select the "ec2-image-age-check" rule. This rule checks the age of EC2 images (AMIs).
-6. Configure the rule parameters:
-   - Specify the maximum age in days for the AMI using the "maximumAgeInDays" parameter.
-   - Choose whether to include or exclude shared AMIs by selecting the appropriate option.
-   - Optionally, specify tags to include or exclude specific AMIs based on tags.
-7. Review the rule configuration and click on the "Save" button to create the rule.
-8. AWS Config will start evaluating your environment against the rule. After evaluation, you will see the compliance status of your AMIs based on their age.
-9. To view the non-compliant AMIs, go to the "Resources" tab in the AWS Config console and filter the results by the "ec2-image-age-check" rule.
-10. If any AMIs are found to exceed the configured age, review them and take appropriate action, such as removing or updating them.
+1. Log in to your AWS Management Console.
+2. Go to the EC2 Dashboard.
+3. Click on the "AMIs" option from the left-hand navigation panel.
+4. Identify the AMI which has exceeded the configured age.
+5. Select the AMI and click on the "Actions" button.
+6. Choose the "Deregister" option from the drop-down list.
+7. Confirm the deregistration by clicking on the "Deregister" button in the confirmation dialog box.
+8. Once the AMI is deregistered, you can create a new AMI with the latest updates and configurations.
+
+By following these steps, you can remediate the AMI age misconfiguration in AWS.
+
+#### Using CLI
+
+To remediate the "AMI Age Should Not Exceed the Configured Age" misconfiguration in AWS, you can follow the below steps using AWS CLI:
+
+1. First, identify the AMIs that have exceeded the configured age by running the below command:
+
+   ```
+   aws ec2 describe-images --owners self --query 'Images[?CreationDate<=`<configured_age>`].[ImageId,CreationDate]' --output text
+   ```
+
+   Note: Replace `<configured_age>` with the age limit in the format `yyyy-mm-dd`.
+
+2. Once you have identified the AMIs, you can deregister them using the below command:
+
+   ```
+   aws ec2 deregister-image --image-id <image_id>
+   ```
+
+   Note: Replace `<image_id>` with the ID of the AMI that you want to deregister.
+
+3. Finally, to automate this process, you can create a Lambda function that runs the above commands on a scheduled basis to ensure that AMIs do not exceed the configured age limit.
+
+#### Using Python
+
+To remediate the AMI Age misconfiguration in AWS using Python, you can follow the steps below:
+
+1. Identify the misconfigured AMIs by checking their age against the configured age.
+
+2. Create a Lambda function in AWS that uses the Boto3 library to identify the misconfigured AMIs.
+
+3. Use the EC2 client in Boto3 to get a list of all the AMIs in your AWS account.
+
+4. Loop through the list of AMIs and check the age of each one against the configured age.
+
+5. If an AMI is older than the configured age, deregister it using the EC2 client.
+
+6. Set up a CloudWatch event to trigger the Lambda function at a regular interval to ensure that all misconfigured AMIs are remediated in a timely manner.
+
+Here's some sample Python code that can be used to identify and deregister misconfigured AMIs:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Set the configured age of AMIs in days
+configured_age = 30
+
+# Create an EC2 client
+ec2 = boto3.client('ec2')
+
+# Get a list of all the AMIs in the account
+response = ec2.describe_images(Owners=['self'])
+
+# Loop through the list of AMIs and check their age
+for image in response['Images']:
+    creation_date = datetime.strptime(image['CreationDate'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    age_in_days = (datetime.now() - creation_date).days
+    if age_in_days > configured_age:
+        # Deregister the AMI
+        ec2.deregister_image(ImageId=image['ImageId'])
+```
+
+Note: This is just a sample code and it may need to be modified based on your specific requirements. Also, make sure to test the code thoroughly before running it in a production environment.
 

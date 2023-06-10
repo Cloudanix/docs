@@ -2,79 +2,114 @@
 
 #### Using Console
 
-To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS Console, please follow the below steps:
+To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS, you can follow the steps below:
 
-1. Open the Amazon API Gateway console.
-2. Select the API that you want to remediate.
-3. Click on the "Settings" tab.
-4. In the "Endpoint Type" section, select "VPC Link".
-5. Click on "Create VPC Link".
-6. Enter a name for the VPC link and select the VPC and subnet(s) that you want to use.
-7. Click on "Create VPC Link".
-8. Once the VPC link is created, go back to the "Settings" tab and select the VPC link that you just created.
-9. Click on "Save" to update the API settings.
+1. Login to your AWS Console.
 
-By following these steps, you have successfully remediated the misconfiguration "Only Private End-Points Should Access APIs" in AWS Console. Now, only private endpoints will be able to access the API.
+2. Navigate to the Amazon API Gateway service.
+
+3. Select the API that you want to remediate.
+
+4. Click on the "Settings" tab.
+
+5. Under the "Endpoint Type" section, select the "Private" option.
+
+6. If you have not already created a VPC endpoint for the API Gateway, create one by clicking on the "Create VPC Link" button.
+
+7. In the "Create VPC Link" dialog box, select the VPC that you want to use for the endpoint.
+
+8. Choose the security groups that will be associated with the VPC endpoint.
+
+9. Click on the "Create" button.
+
+10. Once the VPC endpoint is created, go back to the API Gateway "Settings" tab.
+
+11. Under the "Endpoint Configuration" section, select the VPC endpoint that you just created.
+
+12. Click on the "Save Changes" button.
+
+13. Test the API to ensure that it is only accessible through the private endpoint.
+
+By following these steps, you have remediated the misconfiguration "Only Private End-Points Should Access APIs" in AWS.
 
 #### Using CLI
 
-To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS CLI, you can follow the below steps:
+To remediate the misconfiguration "Only Private Endpoints Should Access APIs" for AWS using AWS CLI, follow the below steps:
 
-1. Identify the APIs that are publicly accessible. You can use the following AWS CLI command to list all the APIs available in your account:
-
-```
-aws apigateway get-rest-apis
-```
-
-2. For each API, identify the resources that are publicly accessible. You can use the following AWS CLI command to list all the resources available in an API:
+1. Identify the APIs that are publicly accessible by running the following command:
 
 ```
-aws apigateway get-resources --rest-api-id <rest-api-id>
+aws apigateway get-rest-apis --query "items[?endpointConfiguration.types[0]=='EDGE'].name"
 ```
 
-3. For each resource, identify the methods that are publicly accessible. You can use the following AWS CLI command to list all the methods available in a resource:
+This command will list all the APIs that are publicly accessible via the internet.
+
+2. For each of the APIs identified in step 1, update the endpoint configuration to make it private by running the following command:
 
 ```
-aws apigateway get-methods --rest-api-id <rest-api-id> --resource-id <resource-id>
+aws apigateway update-rest-api --rest-api-id <rest-api-id> --patch-operations op=replace,path=/endpointConfiguration/types/0,value=PRIVATE
 ```
 
-4. For each method, check if it is publicly accessible. You can use the following AWS CLI command to get the method settings:
+Replace `<rest-api-id>` with the ID of the API that you want to update.
+
+3. Verify that the endpoint configuration has been updated by running the following command:
 
 ```
-aws apigateway get-method --rest-api-id <rest-api-id> --resource-id <resource-id> --http-method <http-method>
+aws apigateway get-rest-api --rest-api-id <rest-api-id> --query "endpointConfiguration.types"
 ```
 
-5. If the method is publicly accessible, update the method settings to make it accessible only through a private endpoint. You can use the following AWS CLI command to update the method settings:
+This command will return the endpoint configuration of the API. Verify that the first element in the array is "PRIVATE".
+
+4. Repeat steps 2 and 3 for all the APIs that were identified in step 1.
+
+5. Once you have updated all the APIs, verify that they are no longer publicly accessible by running the following command:
 
 ```
-aws apigateway update-method --rest-api-id <rest-api-id> --resource-id <resource-id> --http-method <http-method> --patch-operations op=replace,path='authorizationType',value='AWS_IAM' op=replace,path='authorizerId',value='<authorizer-id>'
+aws apigateway get-rest-apis --query "items[?endpointConfiguration.types[0]=='EDGE'].name"
 ```
 
-6. Replace `<authorizer-id>` with the ID of the authorizer that you want to use to authenticate the requests. If you don't have an authorizer, you can create one using the following AWS CLI command:
-
-```
-aws apigateway create-authorizer --rest-api-id <rest-api-id> --name <authorizer-name> --type TOKEN --identity-source 'method.request.header.Authorization' --authorizer-uri <authorizer-uri> --authorizer-result-ttl-in-seconds <ttl-in-seconds>
-```
-
-7. Replace `<authorizer-name>` with a name for the authorizer, `<authorizer-uri>` with the URI of the authorizer, and `<ttl-in-seconds>` with the time in seconds for which the authorizer result should be cached.
-
-8. Repeat steps 4-7 for each publicly accessible method.
-
-9. Verify that the APIs are accessible only through private endpoints.
+This command should not return any APIs.
 
 #### Using Python
 
 To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS using Python, you can follow the below steps:
 
-1. Identify the APIs that are publicly accessible. You can use the AWS CLI command `aws apigateway get-rest-apis` to get the list of all the APIs in your account.
+Step 1: Identify the APIs which are not restricted to private endpoints only.
 
-2. For each API, check if it has a VPC link configured or not. You can use the AWS CLI command `aws apigateway get-vpc-link --vpc-link-id <vpc_link_id>` to check if a VPC link is configured for the API.
+Step 2: For each API, check if it is currently accessible from a public endpoint.
 
-3. If the API does not have a VPC link configured, create a VPC link for the API using the AWS CLI command `aws apigateway create-vpc-link --name <vpc_link_name> --target-arns <target_arns> --subnet-ids <subnet_ids> --security-group-ids <security_group_ids>`. Replace the `<vpc_link_name>`, `<target_arns>`, `<subnet_ids>` and `<security_group_ids>` with the appropriate values.
+Step 3: If the API is accessible from a public endpoint, restrict its access to private endpoints only.
 
-4. Once the VPC link is created, update the API to use the VPC link. You can use the AWS CLI command `aws apigateway update-rest-api --rest-api-id <rest_api_id> --patch-operations op=replace,path=/endpointConfiguration/types/member, value=PRIVATE op=add,path=/endpointConfiguration/vpcEndpointIds, value=<vpc_endpoint_id>` to update the API. Replace the `<rest_api_id>` and `<vpc_endpoint_id>` with the appropriate values.
+Step 4: To restrict the access of an API to private endpoints only, you can use the following Python code:
 
-5. Finally, test the API to ensure that it is only accessible from the private endpoints.
+```python
+import boto3
 
-Note: The above steps assume that you have the necessary permissions to perform the actions. Also, make sure to test the changes thoroughly before deploying them to production.
+# Create a boto3 client for the API Gateway service
+apigateway = boto3.client('apigateway')
+
+# Get the ID of the API which you want to restrict to private endpoints only
+api_id = 'your_api_id'
+
+# Get the current settings of the API
+response = apigateway.get_rest_api(restApiId=api_id)
+
+# Check if the API is currently accessible from a public endpoint
+if response['endpointConfiguration']['types'][0] == 'EDGE':
+    # If the API is accessible from a public endpoint, restrict its access to private endpoints only
+    apigateway.update_rest_api(
+        restApiId=api_id,
+        patchOperations=[
+            {
+                'op': 'replace',
+                'path': '/endpointConfiguration/types/0',
+                'value': 'PRIVATE'
+            }
+        ]
+    )
+```
+
+Step 5: Run this code for all the APIs which are not restricted to private endpoints only.
+
+By following these steps, you can remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS using Python.
 

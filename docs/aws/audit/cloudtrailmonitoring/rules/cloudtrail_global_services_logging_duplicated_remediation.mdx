@@ -1,25 +1,157 @@
 ### Remediation
 
-How to disable API tracking or logging for AWS global services in the subsequent single region trails?
+#### Using Console
 
-#### Using AWS Console
+To remediate the duplicate entries issue in CloudTrail Logs in AWS using AWS Console, follow the below steps:
 
-- Step 1: Run update-trail command (OSX/Linux/UNIX) using the name of the Amazon CloudTrail trail that you want to reconfigure and the name of the associated region as identifier parameters, to update the selected trail configuration and disable tracking global service events in order to avoid duplication:
-  aws cloudtrail update-trail
-  --region us-east-1
-  --name cc-main-trail
-  --no-include-global-service-events
-  --no-is-multi-region-trail
+1. Open the AWS Management Console and navigate to the CloudTrail service.
 
-- Step 2: The command output should return the update-trail command request metadata:
-  \{
-  "Name": "cc-main-trail",
-  "S3BucketName": "cc-trail-s3bucket"
-  "IncludeGlobalServiceEvents": false,
-  "IsMultiRegionTrail": false,
-  "TrailARN": "arn:aws:cloudtrail:us-east-1:123456789012:trail/cc-main-trail",
-  "LogFileValidationEnabled": false,
-  ...
-  \}
+2. In the CloudTrail dashboard, click on the Trails link on the left-hand side of the page.
 
-- Step 3: Change the AWS region by updating the --region command parameter value and repeat step no. 1 and 2 for other regions with active trails enabled. Ensure that only a single region trail records global service events to avoid any duplicate entries within your Amazon CloudTrail aggregated log.
+3. Select the trail that you want to remediate and click on the Edit button.
+
+4. Scroll down to the Event selectors section and click on the Edit button.
+
+5. In the Edit event selector dialog box, you will see a list of all the AWS services that are being logged by CloudTrail. 
+
+6. To avoid duplicate entries, you need to ensure that the same events are not being logged twice. 
+
+7. For example, if you see that the "S3" service is being logged twice, you can uncheck one of the checkboxes to avoid duplicate entries.
+
+8. Once you have made the necessary changes, click on the Save button to save the changes.
+
+9. Verify that the duplicate entries have been remediated by checking the CloudTrail logs for the selected trail.
+
+By following these steps, you will be able to remediate the duplicate entries issue in CloudTrail Logs in AWS using AWS Console.
+
+#### Using CLI
+
+To remediate duplicate entries in AWS CloudTrail logs using AWS CLI, follow these steps:
+
+1. Open your AWS CLI and run the following command to get a list of all trails in your account:
+
+   ```
+   aws cloudtrail describe-trails
+   ```
+
+2. Identify the trail you want to modify and note down its name.
+
+3. Run the following command to update the trail settings and enable log file validation:
+
+   ```
+   aws cloudtrail update-trail --name <trail-name> --enable-log-file-validation
+   ```
+
+   This will enable log file integrity validation, which helps detect and prevent duplicate entries in CloudTrail logs.
+
+4. Next, run the following command to create a new S3 bucket policy that prevents overwriting existing log files:
+
+   ```
+   aws s3api put-bucket-policy --bucket <bucket-name> --policy '{
+     "Version":"2012-10-17",
+     "Statement":[
+       {
+         "Sid":"PreventOverwrite",
+         "Effect":"Deny",
+         "Principal": "*",
+         "Action":[
+           "s3:PutObject"
+         ],
+         "Resource":[
+           "arn:aws:s3:::<bucket-name>/*"
+         ],
+         "Condition":{
+           "StringEquals":{
+             "s3:x-amz-acl":"bucket-owner-full-control"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+   Replace `<bucket-name>` with the name of the S3 bucket where your CloudTrail logs are stored.
+
+   This policy denies any attempts to overwrite existing log files in the S3 bucket, which helps prevent duplicate entries.
+
+5. Finally, run the following command to enable CloudTrail log file validation for the S3 bucket:
+
+   ```
+   aws cloudtrail put-event-selectors --trail-name <trail-name> --event-selectors '{
+     "DataResources":[
+       {
+         "Type":"AWS::S3::Object",
+         "Values":[
+           "arn:aws:s3:::<bucket-name>/*"
+         ]
+       }
+     ],
+     "IncludeManagementEvents":true,
+     "ReadWriteType":"All",
+     "EnableLogFileValidation":true
+   }'
+   ```
+
+   Replace `<trail-name>` and `<bucket-name>` with the appropriate values.
+
+   This command enables log file validation for the specified S3 bucket and ensures that duplicate entries are detected and prevented in CloudTrail logs.
+
+#### Using Python
+
+To remediate duplicate entries in CloudTrail logs in AWS using Python, you can follow the below steps:
+
+1. Install the AWS SDK for Python (Boto3) using the command `pip install boto3`.
+
+2. Create a new Python file and import the necessary modules:
+
+```
+import boto3
+from botocore.exceptions import ClientError
+import json
+```
+
+3. Connect to the AWS CloudTrail service using the `boto3.client` method:
+
+```
+client = boto3.client('cloudtrail')
+```
+
+4. Retrieve the list of trails using the `describe_trails` method:
+
+```
+response = client.describe_trails()
+```
+
+5. Loop through the list of trails and retrieve the trail ARN for each trail:
+
+```
+for trail in response['trailList']:
+    trail_arn = trail['TrailARN']
+```
+
+6. Retrieve the current CloudTrail settings for each trail using the `get_trail` method:
+
+```
+trail_response = client.get_trail(Name=trail_arn)
+```
+
+7. Check if the `S3KeyPrefix` parameter is set to a unique value for each trail:
+
+```
+if trail_response['S3KeyPrefix'] == 'AWSLogs/':
+    print('S3KeyPrefix is set to the default value. Please update the value to a unique value.')
+```
+
+8. If the `S3KeyPrefix` parameter is set to the default value, update the value to a unique value using the `update_trail` method:
+
+```
+response = client.update_trail(
+    Name=trail_arn,
+    S3KeyPrefix='UniqueValue/'
+)
+```
+
+9. Save and run the Python file to remediate the duplicate entries in CloudTrail logs for all the trails in your AWS account.
+
+Note: You may need to modify the code to suit your specific requirements.
+

@@ -1,27 +1,134 @@
 ### Remediation
 
-How to remove public access to CloudTrail logging bucket?
+#### Using Console
 
-#### Using AWS Console
+Here are the steps to remediate the issue of "CloudTrail Logging Buckets Should Not Be Publicly Accessible" in AWS using the AWS console:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the Amazon S3 service by searching for "S3" in the AWS services search bar and selecting "S3" from the results.
-3. In the S3 management console, you will see a list of your S3 buckets.
-4. Identify the bucket(s) that are used for CloudTrail logging and are currently publicly accessible.
-   (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "CloudTrail Logging Buckets Should Not Be Publicly Accessible" Policy.)
-5. Click on the name of the bucket that you want to remediate.
-6. In the bucket details page, navigate to the "Permissions" tab.
-7. Under the "Access control list (ACL)" section, review the permissions assigned to the bucket.
-8. Remove any permissions that grant public access by following these steps:
-   - Click on the "Edit" button next to the permission you want to modify.
-   - In the "Grantee" section, select the entry that represents public access (typically "Everyone" or "All users").
-   - Click on the "Remove" button to remove the public access permission.
-   - Repeat this process for all public access permissions.
-9. Next, navigate to the "Bucket policy" tab.
-10. Review the bucket policy, if any, to ensure there are no policies that grant public access.
-   - If there is a bucket policy, click on the "Edit" button next to the policy.
-   - Remove any statements or conditions that allow public access.
-   - Click on the "Save changes" button to update the bucket policy.
-11. Once you have removed public access permissions and modified the bucket policy, confirm that the bucket is no longer publicly accessible.
-12. Repeat these steps for any other CloudTrail logging buckets that have public access.
+1. Login to your AWS account using your credentials.
+2. Go to the AWS S3 console.
+3. Locate the S3 bucket where your CloudTrail logs are stored.
+4. Select the bucket and click on the "Permissions" tab.
+5. Under the "Public access" section, check if the "Block public access" setting is enabled. If not, enable it.
+6. Click on the "Edit" button next to "Block public access".
+7. Enable all four settings under "Block public access" as follows:
+   - Block public access to buckets and objects granted through new access control lists (ACLs)
+   - Block public access to buckets and objects granted through any access control lists (ACLs)
+   - Block public access to buckets and objects granted through new public bucket or access point policies
+   - Block public and cross-account access to buckets and objects through any public bucket or access point policies
+8. Click on the "Save changes" button.
+9. Verify that the "Block public access" settings are enabled and that the bucket is no longer publicly accessible.
+
+By following these steps, you can remediate the issue of "CloudTrail Logging Buckets Should Not Be Publicly Accessible" in AWS using the AWS console.
+
+#### Using CLI
+
+To remediate the issue of publicly accessible CloudTrail logging buckets in AWS using AWS CLI, you can follow the below steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to list all the S3 buckets available in your AWS account:
+
+```
+aws s3api list-buckets
+```
+
+3. Identify the CloudTrail logging bucket that is publicly accessible.
+
+4. Run the following command to update the bucket policy for the identified CloudTrail logging bucket:
+
+```
+aws s3api put-bucket-policy --bucket <bucket-name> --policy file://policy.json
+```
+
+Note: Replace `<bucket-name>` with the actual name of the bucket.
+
+5. Create a policy.json file with the following content:
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DenyPublicBucketAccess",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::<bucket-name>/*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalOrgID": "<your-organization-ID>"
+                }
+            }
+        }
+    ]
+}
+```
+
+Note: Replace `<bucket-name>` with the actual name of the bucket and `<your-organization-ID>` with your AWS organization ID.
+
+6. Save the policy.json file.
+
+7. Run the following command to verify that the bucket policy has been updated:
+
+```
+aws s3api get-bucket-policy --bucket <bucket-name>
+```
+
+Note: Replace `<bucket-name>` with the actual name of the bucket.
+
+8. Verify that the CloudTrail logging bucket is no longer publicly accessible.
+
+By following these steps, you can remediate the issue of publicly accessible CloudTrail logging buckets in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the issue of publicly accessible CloudTrail logging buckets in AWS using Python, follow these steps:
+
+1. Import the necessary libraries:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+```
+
+2. Create a boto3 client for S3:
+
+```python
+s3 = boto3.client('s3')
+```
+
+3. Get a list of all S3 buckets:
+
+```python
+response = s3.list_buckets()
+buckets = [bucket['Name'] for bucket in response['Buckets']]
+```
+
+4. For each bucket, check if it is a CloudTrail logging bucket:
+
+```python
+for bucket in buckets:
+    try:
+        response = s3.get_bucket_tagging(Bucket=bucket)
+        tags = response['TagSet']
+        for tag in tags:
+            if tag['Key'] == 'aws:cloudtrail:arn':
+                # This is a CloudTrail logging bucket
+                # Check if it is publicly accessible
+                response = s3.get_bucket_acl(Bucket=bucket)
+                grants = response['Grants']
+                for grant in grants:
+                    if 'URI' in grant['Grantee'] and grant['Grantee']['URI'] == 'http://acs.amazonaws.com/groups/global/AllUsers':
+                        # The bucket is publicly accessible
+                        # Remove the public access
+                        s3.put_bucket_acl(Bucket=bucket, ACL='private')
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NoSuchTagSet':
+            # This bucket does not have any tags
+            pass
+```
+
+5. Run the script to remediate the issue.
+
+Note: Make sure you have appropriate AWS credentials configured before running the script. Also, this script only checks for CloudTrail logging buckets that have a specific tag. If your CloudTrail logging buckets are not tagged, you will need to modify the script accordingly.
 

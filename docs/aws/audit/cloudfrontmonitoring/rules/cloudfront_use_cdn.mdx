@@ -22,30 +22,132 @@ CBP
 
 ### Remediation
 
-How to ensure CDN is used for web applications in Cloudfront?
+#### Using Console
 
-#### Using AWS Console
+The misconfiguration is that the web application is not using a Content Delivery Network (CDN) which can lead to slower load times and higher latency for users. Here are the step-by-step instructions to remediate this issue for AWS using the AWS console:
 
-1. Create a CloudFront Distribution:
-   - Sign in to the AWS Management Console.
-   - Navigate to the CloudFront service.
-   - Click on the "Create Distribution" button.
-   - Choose the appropriate distribution type based on your requirements (e.g., Web, RTMP, etc.).
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Web Applications Should Use CDNs" Policy.)
-2. Configure the Distribution:
-   - In the "Create Distribution" wizard, select the "Web" distribution type.
-   - Configure the following settings:
-     - Origin Settings: Specify the origin of your web application (e.g., an S3 bucket or an HTTP server).
-     - Default Cache Behavior Settings: Define the caching behavior, such as cache TTL (Time to Live), query string handling, and cookies.
-     - Distribution Settings: Set the domain name, SSL certificate, and other configuration options.
-3. Update DNS Configuration:
-   - After creating the CloudFront distribution, you will be provided with a CloudFront domain name (e.g., xxxxxxxxxx.cloudfront.net).
-   - Update your DNS configuration to point your domain name (e.g., www.example.com) to the CloudFront domain name.
-   - This can be done by creating a CNAME record in your DNS provider's settings.
-4. Test and Verify:
-   - Wait for the DNS changes to propagate, which can take some time depending on your DNS provider.
-   - Access your web application using the domain name associated with the CloudFront distribution (e.g., www.example.com).
-   - Verify that the web application is being served through CloudFront by checking the response headers, which should include the CloudFront-related headers.
+1. Log in to the AWS Management Console.
+2. Navigate to the Amazon CloudFront service.
+3. Click on the "Create Distribution" button.
+4. Select the "Web" option for the type of distribution.
+5. In the "Origin Domain Name" field, enter the domain name of your web application.
+6. In the "Origin Protocol Policy" field, select "HTTPS Only" to ensure that all traffic to your web application is encrypted.
+7. In the "Viewer Protocol Policy" field, select "Redirect HTTP to HTTPS" to ensure that all traffic is encrypted.
+8. In the "Allowed HTTP Methods" field, select "GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE" to allow all necessary HTTP methods.
+9. In the "Price Class" field, select the appropriate price class for your needs.
+10. In the "Alternate Domain Names (CNAMEs)" field, enter any alternate domain names that you want to use for your web application.
+11. In the "Default Root Object" field, enter the name of the default file that should be served when a user accesses your web application.
+12. Click on the "Create Distribution" button to create your CDN distribution.
+
+Once you have completed these steps, your web application will be using a CDN which will improve load times and reduce latency for your users.
+
+#### Using CLI
+
+To remediate the misconfiguration "Web Applications Should Use CDNs" for AWS using AWS CLI, follow these steps:
+
+1. Login to AWS CLI using your AWS account credentials.
+
+2. Identify the web application that needs to be configured with CDN.
+
+3. Create an S3 bucket that will store the static content of the web application. Use the following AWS CLI command to create an S3 bucket:
+
+```
+aws s3api create-bucket --bucket <bucket-name> --region <region>
+```
+
+Replace `<bucket-name>` with a unique name for your S3 bucket and `<region>` with the region where you want to create the bucket.
+
+4. Upload the static content of the web application to the S3 bucket. Use the following AWS CLI command to upload the files:
+
+```
+aws s3 sync <local-path> s3://<bucket-name> --acl public-read
+```
+
+Replace `<local-path>` with the local path of the static files and `<bucket-name>` with the name of the S3 bucket you created in step 3.
+
+5. Create a CloudFront distribution for the S3 bucket. Use the following AWS CLI command to create a CloudFront distribution:
+
+```
+aws cloudfront create-distribution --origin-domain-name <bucket-name>.s3.amazonaws.com --default-root-object index.html
+```
+
+Replace `<bucket-name>` with the name of the S3 bucket you created in step 3.
+
+6. Update the DNS settings of the web application to point to the CloudFront distribution. Use the following AWS CLI command to get the CloudFront distribution domain name:
+
+```
+aws cloudfront get-distribution --id <distribution-id> --query "Distribution.DomainName" --output text
+```
+
+Replace `<distribution-id>` with the ID of the CloudFront distribution you created in step 5.
+
+7. Update the DNS settings of the web application to point to the CloudFront distribution domain name obtained in step 6.
+
+By following these steps, you have configured the web application with CDN on AWS.
+
+#### Using Python
+
+To remediate the misconfiguration "Web Applications Should Use CDNs" for AWS using Python, you can follow these steps:
+
+1. Create an AWS CloudFront distribution: 
+
+```python
+import boto3
+
+cloudfront = boto3.client('cloudfront')
+
+response = cloudfront.create_distribution(
+    DistributionConfig={
+        'CallerReference': 'unique-id', # unique identifier for the distribution
+        'Aliases': {
+            'Quantity': 1, # number of CNAMEs (aliases) for the distribution
+            'Items': ['example.com'] # list of CNAMEs for the distribution
+        },
+        'DefaultRootObject': 'index.html', # default object to serve when no path is specified
+        'Origins': {
+            'Quantity': 1, # number of origins for the distribution
+            'Items': [
+                {
+                    'Id': 'my-s3-bucket', # unique identifier for the origin
+                    'DomainName': 'my-s3-bucket.s3.amazonaws.com', # domain name of the S3 bucket
+                    'S3OriginConfig': {
+                        'OriginAccessIdentity': '' # optional, use if you want to restrict access to the S3 bucket
+                    }
+                }
+            ]
+        },
+        'DefaultCacheBehavior': {
+            'TargetOriginId': 'my-s3-bucket', # unique identifier for the origin
+            'ForwardedValues': {
+                'QueryString': False, # whether to forward query strings to the origin
+                'Cookies': {
+                    'Forward': 'none' # whether to forward cookies to the origin
+                }
+            },
+            'TrustedSigners': {
+                'Enabled': False, # whether to require signed URLs or cookies
+                'Quantity': 0 # number of trusted signers
+            },
+            'ViewerProtocolPolicy': 'redirect-to-https', # whether to redirect HTTP requests to HTTPS
+            'MinTTL': 0 # minimum time-to-live for objects in the cache
+        },
+        'Comment': 'My CloudFront distribution', # optional comment for the distribution
+        'Enabled': True # whether the distribution is enabled
+    }
+)
+
+distribution_id = response['Distribution']['Id']
+```
+
+2. Update DNS records:
+
+Once the CloudFront distribution is created, you need to update your DNS records to point to the CloudFront domain name. You can do this by creating a CNAME record in your DNS provider's control panel that points to the CloudFront domain name.
+
+3. Test the distribution:
+
+Once the DNS records have propagated, you can test the CloudFront distribution by accessing your web application using the CloudFront domain name. If everything is working correctly, your web application should be served from the CloudFront edge locations, which will improve performance and reduce latency for your users.
+
+Note: Remember to update your web application code to use the CloudFront domain name instead of the S3 bucket URL.
 
 ### Additional Reading:
 

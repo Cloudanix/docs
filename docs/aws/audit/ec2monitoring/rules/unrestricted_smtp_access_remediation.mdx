@@ -1,17 +1,92 @@
 ### Remediation
 
-How to update your security group inbound configuration to restrict SMTP TCP port 25 access to specific entities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the unrestricted SMTP access issue in AWS, follow these steps:
 
-1. Log in to your AWS Management Console.
-2. Navigate to the EC2 service.
-3. Click on the "Security Groups" option in the left-hand menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Unrestricted SMTP Access Should Not Be Allowed" Policy.)
-4. Select the security group that needs to be updated.
-5. Click on the "Inbound Rules" tab.
-6. Locate the existing rule that allows TCP port 25 access.
+1. Open the AWS Management Console and navigate to the EC2 service.
+2. Select the EC2 instance that is allowing unrestricted SMTP access.
+3. Click on the "Security" tab and scroll down to the "Security groups" section.
+4. Click on the security group that is associated with the instance.
+5. Click on the "Inbound rules" tab.
+6. Locate the rule that allows SMTP traffic (port 25) with the source of "0.0.0.0/0" or "::/0".
 7. Click on the "Edit" button next to the rule.
-8. Change the source from "0.0.0.0/0" or "::/0" to the specific entities that should be allowed access. This can be done by specifying the IP address range or security group ID in the "Source" field.
-9. Click on the "Save" button to apply the changes.
+8. Change the source to a specific IP address range or security group that requires SMTP access.
+9. Click the "Save" button to apply the changes.
+
+By following these steps, you have successfully remediated the unrestricted SMTP access issue in AWS.
+
+#### Using CLI
+
+To remediate this issue in AWS, you can follow the below steps using AWS CLI:
+
+1. Open the AWS CLI on your local machine or EC2 instance.
+
+2. Run the following command to list all the active SMTP settings in the AWS account:
+
+```
+aws ses get-account-sending-enabled
+```
+
+3. If the command output shows that the "SendingEnabled" parameter is set to "true", then you need to disable it. Run the following command to disable SMTP access:
+
+```
+aws ses update-account-sending-enabled --no-sending-enabled
+```
+
+4. After running the above command, verify that the "SendingEnabled" parameter is set to "false" by running the following command:
+
+```
+aws ses get-account-sending-enabled
+```
+
+5. If the "SendingEnabled" parameter is set to "false", then SMTP access has been successfully restricted in your AWS account.
+
+Note: This remediation will disable SMTP access for all users in your AWS account. If you need to enable SMTP access for specific users, you can create an IAM policy that allows SMTP access and attach it to their IAM user or role.
+
+#### Using Python
+
+To remediate unrestricted SMTP access in AWS using Python, you can follow the steps below:
+
+1. Create a Python script to check for SMTP access:
+
+```python
+import boto3
+
+client = boto3.client('ec2')
+response = client.describe_security_groups()
+
+for group in response['SecurityGroups']:
+    for permission in group['IpPermissions']:
+        if permission.get('FromPort') == 25 and permission.get('IpRanges') == [{'CidrIp': '0.0.0.0/0'}]:
+            group_id = group['GroupId']
+            print(f"Found unrestricted SMTP access in security group {group_id}")
+```
+
+2. Once you have identified the security group(s) with unrestricted SMTP access, you can update the security group rules to restrict SMTP access to specific IP addresses or ranges.
+
+```python
+import boto3
+
+client = boto3.client('ec2')
+response = client.authorize_security_group_ingress(
+    GroupId='SECURITY_GROUP_ID',
+    IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 25,
+            'ToPort': 25,
+            'IpRanges': [
+                {
+                    'CidrIp': 'ALLOWED_IP_ADDRESS/32'
+                }
+            ]
+        }
+    ]
+)
+```
+
+Replace `SECURITY_GROUP_ID` with the ID of the security group that needs to be updated and `ALLOWED_IP_ADDRESS` with the IP address or range that should be allowed to access SMTP.
+
+3. Run the Python script to check for and remediate unrestricted SMTP access in AWS.
 

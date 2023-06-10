@@ -1,57 +1,109 @@
 ### Remediation
 
-How to ensure there is an Amazon CloudWatch alarm created and configured in your AWS account to fire each time an AWS CMK configuration change is made?
+#### Using Console
 
-#### Using AWS Console
+To remediate the CMK Disabled or Scheduled for Deletion alarm in AWS using the AWS console, you can follow the below steps:
 
-##### Create SNS topic and necessary subscription to send email notifications whenever the appropriate AWS CloudWatch alarm is triggered:
+1. Login to your AWS account and navigate to the AWS KMS console.
 
-- Step 1: In the navigation panel, select Topics and click the Create new topic button.
+2. Click on the "Customer managed keys" option from the left-hand side menu.
 
-- Step 2: In the Create new topic dialog box, enter a name and a display name for your topic then click Create Topic.
+3. Identify the key that is disabled or scheduled for deletion.
 
-- Step 3: Open the newly created SNS topic configuration page by clicking on its Amazon Resource Name (ARN):
-- Step 4: Under Subscription section click Create Subscription.
+4. To enable a disabled key, select the key and click on the "Enable" button from the top menu. 
 
-- Step 5: Select Email as subscription protocol from the Protocol dropdown list.
+5. To cancel the scheduled deletion of a key, select the key and click on the "Cancel key deletion" button from the top menu.
 
-- Step 6: In the Endpoint box, enter the email address where you want to receive the CloudWatch alarm notifications then click Create Subscription to create the required subscription.
+6. After completing the above steps, verify that the key status has changed to "Enabled" or "Pending import" and the alarm should automatically clear.
 
-- Step 7: Use your preferred email client application to open the message received from AWS Notifications, then click on the appropriate link to confirm your new subscription.
+7. If the alarm does not clear, check the SNS topic that is associated with the alarm to ensure that it is configured correctly.
 
-##### Create the necessary metric filter and the CloudWatch alarm that will fire and send email notifications whenever an AWS CMK configuration will change:
+By following these steps, you can remediate the CMK Disabled or Scheduled for Deletion alarm in AWS using the AWS console.
 
-- Step 1: In the left navigation panel, select Logs.
+#### Using CLI
 
-- Step 2: Select the log group created for your CloudTrail trail event logs and click Create Metric Filter button.
+The CMK (Customer Master Key) Disabled or Scheduled for Deletion alarm indicates that a CMK in AWS has been disabled or scheduled for deletion. This misconfiguration can lead to data loss or unauthorized access to encrypted data. Here are the steps to remediate this issue using AWS CLI:
 
-- Step 3: On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box: `{ ($.eventSource = kms.amazonaws.com) && (($.eventName = DisableKey) || ($.eventName = ScheduleKeyDeletion)) }`
+1. Identify the CMK that has been disabled or scheduled for deletion. You can use the following command to list all the CMKs in your AWS account:
 
-- Step 4: Review the metric filter config details then click Assign Metric.
+```
+aws kms list-keys
+```
 
-- Step 5: On the Create Metric Filter and Assign a Metric page, perform the following:
-  A: In the Filter Name box, enter a unique name for the new filter, e.g. AWSCMKChanges.
+2. Check the status of each CMK to identify the one that has been disabled or scheduled for deletion. You can use the following command to describe the key state of a CMK:
 
-  B: In the Metric Namespace box, type CloudTrailMetrics.
+```
+aws kms describe-key --key-id <key-id>
+```
 
-  C: In the Metric Name box, type CMKEventCount for the metric identifier.
+Replace `<key-id>` with the ID of the CMK that you want to check.
 
-  D: Click Show advanced metric settings to slide down the advanced settings section.
+3. Reactivate the disabled CMK or cancel the scheduled deletion of the CMK. You can use the following command to enable a disabled CMK:
 
-  E: In the Metric Value box, enter 1.
+```
+aws kms enable-key --key-id <key-id>
+```
 
-- Step 6: Review the details then click Create Filter to generate your new CloudWatch Logs metric filter.
+Replace `<key-id>` with the ID of the disabled CMK that you want to enable.
 
-- Step 7: On the current page click Create Alarm:
-- Step 8: In the Create Alarm dialog box, provide the following information
-  A: Within the Alarm Threshold section, in the Name and Description fields, enter a unique name and a short description for the new CloudWatch alarm.
+4. If the CMK has been scheduled for deletion, you can cancel the deletion using the following command:
 
-  B: Under Whenever: Metric Name, select >= (greater than or equal to) from the is dropdown list and enter 1 as the threshold value in the box next to the dropdown list to trigger the alarm every time a configuration change involving an AWS CMK within your account is made.
+```
+aws kms cancel-key-deletion --key-id <key-id>
+```
 
-  C: In the Actions section, click the + Notification button, select State is ALARM from the Whenever this alarm dropdown menu and choose the AWS SNS topic name created at Step 1 from Send notification to.
+Replace `<key-id>` with the ID of the CMK that you want to cancel the deletion for.
 
-  D: In the Alarm Preview section, select 5 Minutes from the Period dropdown list and Sum from the Statistic list.
+5. Verify that the CMK is active and not scheduled for deletion. You can use the following command to describe the key state of the CMK again:
 
-  E: Review the CloudWatch alarm configuration details then click Create Alarm. Once created, the new alarm will be listed on the Alarms page.
+```
+aws kms describe-key --key-id <key-id>
+```
 
+Replace `<key-id>` with the ID of the CMK that you want to verify.
+
+Once you have completed these steps, the CMK Disabled or Scheduled for Deletion alarm should be resolved. It is recommended to regularly monitor your AWS account for this type of misconfiguration and take necessary actions to remediate it.
+
+#### Using Python
+
+To remediate the CMK Disabled or Scheduled for Deletion Alarm in AWS using Python, you can follow the below steps:
+
+1. First, you need to check the status of the CMK using the `describe_key` method of the AWS KMS client. This method returns the metadata for the specified customer master key (CMK).
+
+   ```python
+   import boto3
+
+   # Create a KMS client
+   kms = boto3.client('kms')
+
+   # Get the CMK metadata
+   key_id = 'your-cmk-id'
+   key_metadata = kms.describe_key(KeyId=key_id)
+   ```
+
+2. Check the `KeyState` attribute of the CMK metadata. If it is set to `Disabled` or `PendingDeletion`, then the CMK is disabled or scheduled for deletion.
+
+   ```python
+   key_state = key_metadata['KeyMetadata']['KeyState']
+
+   if key_state == 'Disabled':
+       # Enable the CMK
+       kms.enable_key(KeyId=key_id)
+       print('CMK enabled successfully.')
+   elif key_state == 'PendingDeletion':
+       # Cancel the scheduled deletion of the CMK
+       kms.cancel_key_deletion(KeyId=key_id)
+       print('Scheduled deletion of CMK cancelled successfully.')
+   else:
+       print('CMK is already enabled and not scheduled for deletion.')
+   ```
+
+3. If the `KeyState` attribute is not set to `Disabled` or `PendingDeletion`, then the CMK is already enabled and not scheduled for deletion.
+
+   ```python
+   else:
+       print('CMK is already enabled and not scheduled for deletion.')
+   ```
+
+By following these steps, you can remediate the CMK Disabled or Scheduled for Deletion Alarm in AWS using Python.
 

@@ -1,38 +1,167 @@
 ### Remediation
 
-How to access ES from whitelisted IPs only?
+#### Using Console
 
-#### Using AWS Console
+To remediate the Elasticsearch Domains Should Be Accessible Only From Whitelisted IP Addresses misconfiguration in AWS, follow these steps:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the Amazon Elasticsearch Service by selecting "Elasticsearch Service" from the services menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Elasticsearch Domains Should Be Accessible Only From Whitelisted IP Addresses" Policy.)
-3. In the Amazon Elasticsearch Service dashboard, select the Elasticsearch domain for which you want to configure access.
-4. In the domain details page, click on the "Actions" button and select "Modify access policy."
-5. In the access policy editor, update the policy to allow access only from the whitelisted IP addresses. Here's an example of an access policy that allows access from a single IP address:
+1. Login to your AWS console and navigate to the Elasticsearch service.
+
+2. Select the Elasticsearch domain that you want to remediate.
+
+3. Click on the "Modify access policy" button.
+
+4. In the "Access policy" section, select the "Custom access policy" option.
+
+5. Replace the existing policy with the following policy:
+
 ```
 {
   "Version": "2012-10-17",
   "Statement": [
     {
       "Effect": "Allow",
-      "Principal": {
-        "AWS": "*"
-      },
+      "Principal": "*",
       "Action": "es:*",
       "Condition": {
         "IpAddress": {
-          "aws:SourceIp": "192.0.2.0/24" 
+          "aws:SourceIp": [
+            "x.x.x.x/32",
+            "y.y.y.y/32"
+          ]
         }
       },
-      "Resource": "arn:aws:es:us-west-2:123456789012:domain/example-domain/*"
+      "Resource": "arn:aws:es:us-west-2:123456789012:domain/my-domain/*"
     }
   ]
 }
 ```
-Replace the `192.0.2.0/24` with the actual IP address or IP range that you want to allow access from. You can also add multiple IP addresses or ranges as needed.
-6. Review the modified access policy to ensure that it accurately reflects the desired IP whitelisting configuration.
-7. Click on "Submit" to apply the updated access policy to the Elasticsearch domain.
-8. AWS will apply the access policy changes to the Elasticsearch domain, which may take a few minutes to complete.
-9. Once the changes are successfully applied, the Elasticsearch domain will only allow access from the whitelisted IP addresses specified in the access policy.
+
+6. Replace the `x.x.x.x/32` and `y.y.y.y/32` with the IP addresses that you want to whitelist.
+
+7. Click on the "Save changes" button to save the new access policy.
+
+This will ensure that only the whitelisted IP addresses will be able to access the Elasticsearch domain.
+
+#### Using CLI
+
+To remediate the misconfiguration of Elasticsearch domains being accessible only from whitelisted IP addresses in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to get the Elasticsearch domain endpoint:
+
+```
+aws es describe-elasticsearch-domain --domain-name <your-domain-name> --output text --query 'DomainStatus.Endpoint'
+```
+
+3. Run the following command to get the current access policy of the Elasticsearch domain:
+
+```
+aws es describe-elasticsearch-domain --domain-name <your-domain-name> --output text --query 'DomainStatus.AccessPolicies'
+```
+
+4. Copy the output of the above command to a text editor and edit the access policy to allow access only from the whitelisted IP addresses.
+
+5. Run the following command to update the access policy of the Elasticsearch domain:
+
+```
+aws es update-elasticsearch-domain-config --domain-name <your-domain-name> --access-policies <path-to-edited-access-policy-file>
+```
+
+Replace `<path-to-edited-access-policy-file>` with the path to the file containing the edited access policy.
+
+6. Verify that the access policy has been updated by running the following command:
+
+```
+aws es describe-elasticsearch-domain --domain-name <your-domain-name> --output text --query 'DomainStatus.AccessPolicies'
+```
+
+The output should show the updated access policy.
+
+7. Test the Elasticsearch domain to ensure that it is accessible only from the whitelisted IP addresses.
+
+#### Using Python
+
+To remediate this misconfiguration for AWS Elasticsearch domains, you can use the AWS Python SDK, Boto3. Here are the steps to remediate:
+
+1. Install Boto3: You can install Boto3 using pip. Run the following command in your terminal or command prompt:
+
+   ```
+   pip install boto3
+   ```
+
+2. Create a Boto3 client for Elasticsearch: In your Python script, create a Boto3 client for Elasticsearch using the following code:
+
+   ```python
+   import boto3
+
+   es_client = boto3.client('es')
+   ```
+
+3. Get the Elasticsearch domain configuration: Use the `describe_elasticsearch_domain_config` method of the Elasticsearch client to get the current domain configuration. Here is an example code:
+
+   ```python
+   domain_name = 'your-domain-name'
+
+   response = es_client.describe_elasticsearch_domain_config(
+       DomainName=domain_name
+   )
+
+   domain_config = response['DomainConfig']
+   ```
+
+4. Update the Elasticsearch domain access policy: Update the access policy of the Elasticsearch domain to allow access only from whitelisted IP addresses. You can use the `update_elasticsearch_domain_config` method of the Elasticsearch client to update the access policy. Here is an example code:
+
+   ```python
+   # Whitelist IP addresses
+   ip_addresses = ['1.2.3.4', '5.6.7.8']
+
+   # Create the access policy
+   access_policy = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "*"
+               },
+               "Action": "es:*",
+               "Condition": {
+                   "IpAddress": {
+                       "aws:SourceIp": ip_addresses
+                   }
+               },
+               "Resource": "arn:aws:es:us-east-1:123456789012:domain/your-domain-name/*"
+           }
+       ]
+   }
+
+   # Update the Elasticsearch domain configuration
+   es_client.update_elasticsearch_domain_config(
+       DomainName=domain_name,
+       ElasticsearchClusterConfig=domain_config['ElasticsearchClusterConfig'],
+       EBSOptions=domain_config['EBSOptions'],
+       SnapshotOptions=domain_config['SnapshotOptions'],
+       AdvancedOptions=domain_config['AdvancedOptions'],
+       AccessPolicies=json.dumps(access_policy)
+   )
+   ```
+
+   In the above code, replace `ip_addresses` with a list of the IP addresses that should be whitelisted.
+
+5. Verify the Elasticsearch domain configuration: Use the `describe_elasticsearch_domain_config` method of the Elasticsearch client to verify that the access policy has been updated. Here is an example code:
+
+   ```python
+   response = es_client.describe_elasticsearch_domain_config(
+       DomainName=domain_name
+   )
+
+   access_policies = json.loads(response['DomainConfig']['AccessPolicies'])
+
+   print(access_policies)
+   ```
+
+   The above code will print the updated access policy. Verify that the IP addresses in the access policy match the whitelisted IP addresses.
+
+That's it! The Elasticsearch domain is now accessible only from the whitelisted IP addresses.
 

@@ -22,31 +22,120 @@ HIPAA, ISO27001
 
 ### Remediation
 
-How to ensure EMR clusters are in VPC
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration of EMR Clusters not being in a VPC in AWS, you can follow the below steps:
 
-To ensure that Amazon EMR clusters are launched within a Virtual Private Cloud (VPC), you can follow these steps:
+1. Open the Amazon EMR console.
+2. Click on "Create cluster" to create a new EMR cluster.
+3. In the "General cluster settings" section, select the "Launch mode" as "Advanced".
+4. In the "Network and access" section, select the "VPC" option.
+5. Select the VPC you want to use for the EMR cluster from the dropdown list.
+6. Select the "Subnet" option and choose the subnet(s) you want to use for the EMR cluster from the dropdown list.
+7. In the "Security and access" section, configure the security groups as per your requirement.
+8. Click on "Create cluster" to create the EMR cluster in the selected VPC.
 
-1. Open the AWS Management Console and navigate to the Amazon EMR service.
+Once the cluster is created, you can verify that it is in the VPC by checking the "Network" tab of the cluster details page. You should see the VPC and subnet(s) you selected during the cluster creation process.
 
-2. Click on "Create cluster" to start creating a new EMR cluster or select an existing cluster that you want to modify.
+#### Using CLI
 
-3. In the "General Configuration" section, ensure that the "Launch mode" is set to "Cluster" (not "Step execution").
+To remediate the misconfiguration "EMR Clusters Should Be In VPC" for AWS using AWS CLI, please follow the below steps:
 
-4. In the "Hardware Configuration" section, you can configure the instance types and instance count as per your requirements.
+1. Create a VPC if it doesn't exist:
+```
+aws ec2 create-vpc --cidr-block <CIDR_BLOCK>
+```
 
-5. In the "Network Configuration" section, select the desired VPC from the "VPC" dropdown menu.
+2. Create a subnet in the VPC:
+```
+aws ec2 create-subnet --vpc-id <VPC_ID> --cidr-block <CIDR_BLOCK> --availability-zone <AVAILABILITY_ZONE>
+```
 
-6. Choose the appropriate subnet(s) within the selected VPC for the master and core nodes.
+3. Create an Internet Gateway and attach it to the VPC:
+```
+aws ec2 create-internet-gateway
+aws ec2 attach-internet-gateway --internet-gateway-id <INTERNET_GATEWAY_ID> --vpc-id <VPC_ID>
+```
 
-7. Optionally, you can also configure additional network settings such as security groups and EC2 key pair in the "Security and access settings" section.
+4. Create a route table for the VPC:
+```
+aws ec2 create-route-table --vpc-id <VPC_ID>
+```
 
-8. Continue with the remaining configuration options for your EMR cluster as per your requirements.
+5. Create a route to the Internet Gateway in the route table:
+```
+aws ec2 create-route --route-table-id <ROUTE_TABLE_ID> --destination-cidr-block 0.0.0.0/0 --gateway-id <INTERNET_GATEWAY_ID>
+```
 
-9. Review the cluster configuration and click on "Create cluster" (or "Modify cluster" if you're modifying an existing cluster).
+6. Associate the route table with the subnet:
+```
+aws ec2 associate-route-table --route-table-id <ROUTE_TABLE_ID> --subnet-id <SUBNET_ID>
+```
 
-By selecting a VPC and configuring the appropriate subnets, you ensure that the EMR cluster is launched within the specified VPC. This allows you to have more control over network connectivity, security, and access to other resources within your VPC.
+7. Launch the EMR cluster in the VPC and subnet:
+```
+aws emr create-cluster --name <CLUSTER_NAME> --release-label <RELEASE_LABEL> --applications Name=Hadoop Name=Hive Name=Pig ... --ec2-attributes KeyName=<KEY_NAME>,SubnetId=<SUBNET_ID>
+```
+
+After following these steps, your EMR cluster will be launched in the specified VPC and subnet.
+
+#### Using Python
+
+To remediate the EMR cluster not being in a VPC in AWS using Python, you can follow these steps:
+
+1. Create a new VPC in the desired region if one does not already exist.
+2. Create a new subnet in the VPC.
+3. Create a new security group for the EMR cluster.
+4. Launch a new EMR cluster in the VPC and subnet with the new security group.
+
+Here is a sample Python code that can be used to launch an EMR cluster in a VPC:
+
+```python
+import boto3
+
+# Create a new VPC
+ec2 = boto3.client('ec2')
+response = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+vpc_id = response['Vpc']['VpcId']
+
+# Create a new subnet in the VPC
+response = ec2.create_subnet(CidrBlock='10.0.0.0/24', VpcId=vpc_id)
+subnet_id = response['Subnet']['SubnetId']
+
+# Create a new security group for the EMR cluster
+response = ec2.create_security_group(GroupName='emr-cluster-sg', Description='EMR Cluster Security Group', VpcId=vpc_id)
+security_group_id = response['GroupId']
+
+# Launch a new EMR cluster in the VPC and subnet with the new security group
+emr = boto3.client('emr')
+response = emr.run_job_flow(
+    Name='my-emr-cluster',
+    ReleaseLabel='emr-6.3.0',
+    Instances={
+        'Ec2SubnetId': subnet_id,
+        'EmrManagedMasterSecurityGroup': security_group_id,
+        'EmrManagedSlaveSecurityGroup': security_group_id,
+        'InstanceGroups': [
+            {
+                'Name': 'Master',
+                'InstanceRole': 'MASTER',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 1,
+            },
+            {
+                'Name': 'Core',
+                'InstanceRole': 'CORE',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 2,
+            }
+        ]
+    },
+    JobFlowRole='EMR_EC2_DefaultRole',
+    ServiceRole='EMR_DefaultRole',
+)
+```
+
+Note: This is just a sample code and may need to be modified based on your specific requirements.
 
 ### Additional Reading:
 

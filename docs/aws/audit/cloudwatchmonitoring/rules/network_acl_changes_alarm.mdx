@@ -22,60 +22,122 @@ SOC2, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF
 
 ### Remediation
 
-How to set up CloudWatch alarm in AWS account that triggers each time an NACL configuration change is made?
+#### Using Console
 
-#### Using AWS Console
+The "Network ACL Changes Alarm" indicates that changes have been made to the Network Access Control List (NACL) in your AWS account. To remediate this issue, you can follow the steps below:
 
-##### Create SNS topic and the necessary subscription to send email notifications whenever your Amazon CloudWatch alarm is triggered.
+1. Open the AWS Management Console and navigate to the VPC service.
 
-- Step 1: In the navigation panel, select Topics and click the Create new topic button.
+2. Select the VPC where the NACL changes were made.
 
-- Step 2: In the Create new topic dialog box, enter a name and a display name for your topic then click Create Topic.
+3. Click on the "Network ACLs" option in the left-hand menu.
 
-- Step 3: Open the newly created SNS topic configuration page by clicking on its Amazon Resource Name (ARN):
-- Step 4: Under Subscription section click Create Subscription.
+4. Identify the NACL that has been modified and click on its name.
 
-- Step 5: Select Email as subscription protocol from the Protocol dropdown list.
+5. Review the "Inbound Rules" and "Outbound Rules" tabs to identify any unauthorized changes.
 
-- Step 6: In the Endpoint box, enter the email address where you want to receive the CloudWatch alarm notifications then click Create Subscription to create the email subscription.
+6. If unauthorized changes are identified, click the "Edit" button for the relevant rule and modify it as necessary.
 
-- Step 7: Use your preferred email client application to open the message received from AWS Notifications, then click on the appropriate link to confirm your subscription.
+7. Click the "Save" button to apply the changes.
 
-##### Create the necessary metric filter and the CloudWatch alarm that will fire and send SNS notifications whenever an AWS Network ACL NACL configuration will change.
+8. Once all unauthorized changes have been remediated, update the alarm configuration to ensure that you are alerted if any further unauthorized changes are made to the NACL.
 
-- Step 1: In the left navigation panel, select Logs.
+9. To update the alarm configuration, navigate to the CloudWatch service, select the relevant alarm, and click the "Actions" button.
 
-- Step 2: Select the log group created for your CloudTrail trail event logs and click Create Metric Filter button.
+10. Select "Edit" and update the alarm configuration as necessary.
 
-- Step 3: On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box: `{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }`. This pattern will be used for scanning the AWS CloudTrail logs for event names like "CreateNetworkAcl" or "DeleteNetworkAcl".
+11. Click the "Save" button to apply the changes.
 
-- Step 4: Review the metric filter config details then click Assign Metric.
+By following these steps, you can remediate the "Network ACL Changes Alarm" issue in your AWS account.
 
-- Step 5: On the Create Metric Filter and Assign a Metric page, perform the following:
-  A: In the Filter Name box, enter a unique name for the new filter, e.g. NetworkACLConfigChanges.
+#### Using CLI
 
-  B: In the Metric Namespace box, type CloudTrailMetrics.
+The Network ACL Changes Alarm is triggered when there is a change to the network access control list (ACL) in your AWS account. This could potentially allow unauthorized access to your network resources. To remediate this issue, you can follow these steps:
 
-  C: In the Metric Name box, type NetworkAclEventCount for the metric identifier.
+1. Login to your AWS account and open the AWS CLI.
 
-  D: Click Show advanced metric settings to slide down the advanced settings section.
+2. Verify that the Network ACL Changes Alarm is triggered by running the following command:
+```
+aws cloudwatch describe-alarms --alarm-names Network_ACL_Changes_Alarm
+```
 
-  E: In the Metric Value box, enter 1.
+3. Identify the network ACL that has been modified by running the following command:
+```
+aws ec2 describe-network-acls --query "NetworkAcls[?Associations[?SubnetId=='<subnet_id>']]"
+```
+Replace `<subnet_id>` with the ID of the subnet associated with the modified network ACL.
 
-- Step 6: Review the details then click Create Filter to generate your new CloudWatch Logs metric filter.
+4. Review the changes made to the network ACL by running the following command:
+```
+aws ec2 describe-network-acls --network-acl-id <network_acl_id> --query "NetworkAcls[0].Entries"
+```
+Replace `<network_acl_id>` with the ID of the modified network ACL.
 
-- Step 7: On the current page click Create Alarm:
+5. If the changes made to the network ACL are unauthorized, you can revert the changes by running the following command:
+```
+aws ec2 replace-network-acl-entry --network-acl-id <network_acl_id> --rule-number <rule_number> --protocol <protocol> --rule-action <rule_action> --cidr-block <cidr_block> --egress --region <region>
+```
+Replace `<network_acl_id>` with the ID of the modified network ACL, `<rule_number>` with the number of the rule that was modified, `<protocol>` with the protocol type, `<rule_action>` with the action taken, `<cidr_block>` with the CIDR block affected, and `<region>` with the AWS region where the network ACL is located.
 
-- Step 8: In the Create Alarm dialog box, provide the following information:
-  A: Within the Alarm Threshold section, in the Name and Description fields, enter a unique name and a short description for the new CloudWatch alarm.
+6. Finally, verify that the changes have been reverted by running the following command:
+```
+aws ec2 describe-network-acls --network-acl-id <network_acl_id> --query "NetworkAcls[0].Entries"
+```
+Replace `<network_acl_id>` with the ID of the modified network ACL. The output should show the original rules before the unauthorized changes were made.
 
-  B: Under Whenever: Metric Name, select >= (greater than or equal to) from the is dropdown list and enter 1 as the threshold value in the box next to the dropdown list to trigger the alarm every time a configuration change involving an AWS NACL is made.
+By following these steps, you can remediate the Network ACL Changes Alarm in AWS using the AWS CLI.
 
-  C: In the Actions section, click the + Notification button, select State is ALARM from the Whenever this alarm dropdown menu and choose the AWS SNS topic name created at Step 1 from Send notification to.
+#### Using Python
 
-  D: In the Alarm Preview section, select 5 Minutes from the Period dropdown list and Sum from the Statistic list.
+The Network ACL Changes Alarm is triggered when there are changes made to the Network Access Control Lists (NACLs) in your AWS environment. To remediate this issue using Python, you can follow these steps:
 
-  E: Review the CloudWatch alarm configuration details then click Create Alarm. Once created, the new alarm will be listed on the Alarms page.
+1. Identify the source of the change: You can use the AWS CloudTrail service to identify the source of the change. CloudTrail logs all API calls made to your AWS account, and you can use it to see who made the change and when it was made.
+
+2. Review the change: Once you have identified the source of the change, you should review the change to ensure that it was made in accordance with your organization's security policies and best practices.
+
+3. Roll back the change: If the change was made in error or is not in compliance with your organization's security policies, you should roll back the change. You can use the AWS CLI or the AWS Management Console to roll back the change.
+
+4. Update NACLs: If the change was made in compliance with your organization's security policies, you should update your NACLs to reflect the change. You can use the AWS CLI or the AWS Management Console to update your NACLs.
+
+5. Monitor for future changes: To prevent future misconfigurations, you should monitor your NACLs for changes and set up alerts to notify you of any unauthorized changes.
+
+Here is some sample Python code to get you started with monitoring NACL changes using AWS CloudWatch:
+
+```
+import boto3
+
+client = boto3.client('cloudwatch')
+
+response = client.put_metric_alarm(
+    AlarmName='Network ACL Changes',
+    AlarmDescription='Alarm triggered when there are changes made to the Network Access Control Lists (NACLs)',
+    MetricName='NetworkAclChanges',
+    Namespace='AWS/EC2',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    Dimensions=[
+        {
+            'Name': 'InstanceId',
+            'Value': 'i-0123456789abcdef0'
+        },
+    ],
+    AlarmActions=[
+        'arn:aws:sns:us-west-2:123456789012:MyTopic'
+    ],
+    OKActions=[
+        'arn:aws:sns:us-west-2:123456789012:MyTopic'
+    ],
+    InsufficientDataActions=[
+        'arn:aws:sns:us-west-2:123456789012:MyTopic'
+    ],
+    Unit='Count'
+)
+```
+
+This code sets up a CloudWatch alarm to monitor for changes to NACLs in your AWS environment. When a change is detected, the alarm will trigger an SNS notification to a specified topic. You can customize this code to meet your specific needs and requirements.
 
 ### Additional Reading:
 

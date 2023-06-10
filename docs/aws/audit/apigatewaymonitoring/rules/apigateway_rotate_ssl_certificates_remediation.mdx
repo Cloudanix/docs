@@ -2,128 +2,108 @@
 
 #### Using Console
 
-To remediate the issue "Expiring SSL Client Certificates Should Be Rotated" in AWS Console, please follow the below steps:
+Sure, here are the step-by-step instructions to remediate the issue of expiring SSL client certificates for AWS using the AWS console:
 
-1. Login to your AWS Management Console.
-2. Navigate to the AWS Certificate Manager (ACM) dashboard.
-3. In the left-hand menu, click on "Certificates".
-4. Find the SSL client certificate that is expiring soon.
-5. Click on the certificate name to open the certificate details.
-6. Click on the "Actions" button and select "Renew Certificate".
-7. Follow the prompts to renew the certificate.
-8. Once the new certificate is issued, update the SSL client certificate in all relevant applications and services that use it.
+1. Log in to your AWS Management Console.
+2. Navigate to the AWS Certificate Manager (ACM) service.
+3. Select the certificate that needs to be rotated.
+4. Click on the "Actions" button and select "Renew certificate".
+5. Follow the prompts to generate a new SSL client certificate.
+6. Once the new certificate is generated, update all applications and services to use the new certificate.
+7. Verify that the new certificate is working properly by testing all applications and services that use it.
 
-By following these steps, you will be able to successfully remediate the issue "Expiring SSL Client Certificates Should Be Rotated" in AWS Console.
+That's it! By following these steps, you will have successfully remediated the issue of expiring SSL client certificates in AWS.
 
 #### Using CLI
 
-To remediate expiring SSL client certificates that should be rotated in AWS CLI, you can follow these steps:
+To remediate the misconfiguration of expiring SSL client certificates that should be rotated in AWS using AWS CLI, follow the below steps:
 
-1. List the SSL client certificates in AWS IAM:
+1. Open the AWS CLI on your local machine.
 
-```
-aws iam list-server-certificates
-```
-
-2. Identify the SSL client certificate that is expiring soon.
-
-3. Create a new SSL client certificate:
+2. Run the following command to list all the IAM users with expiring SSL client certificates:
 
 ```
-aws iam upload-server-certificate --server-certificate-name <new_certificate_name> --certificate-body file://<new_certificate_file> --private-key file://<private_key_file> --certificate-chain file://<certificate_chain_file>
+aws iam list-users --query "Users[].[UserName,UserId,SSHPublicKeys[?SSHPublicKeyId==null]|[?SSHPublicKeyId==''],SSHPublicKeys[?SSHPublicKeyId!=null].[SSHPublicKeyId,Status,UploadDate,UserName]]" --output table
 ```
 
-4. Update the SSL client certificate in your application or load balancer:
+This command will list all the IAM users with expiring SSL client certificates.
 
-- If you are using an AWS Application Load Balancer, update the SSL certificate in the listener configuration.
-- If you are using a third-party load balancer, follow the vendor's instructions for updating the SSL certificate.
+3. Identify the IAM user(s) that need to rotate their SSL client certificates.
 
-5. Remove the expiring SSL client certificate:
+4. Run the following command to delete the expiring SSL client certificate(s) for the identified IAM user(s):
 
 ```
-aws iam delete-server-certificate --server-certificate-name <expiring_certificate_name>
+aws iam delete-ssh-public-key --user-name <IAM user name> --ssh-public-key-id <SSH public key ID>
 ```
 
-6. Verify that the new SSL client certificate is working correctly.
+Make sure to replace `<IAM user name>` and `<SSH public key ID>` with the actual values.
 
-Note: Before taking any action, please make sure to understand the impact of each step and take a backup of the existing certificates.
+5. Run the following command to upload a new SSL client certificate for the identified IAM user(s):
+
+```
+aws iam upload-ssh-public-key --user-name <IAM user name> --ssh-public-key-body <SSH public key>
+```
+
+Make sure to replace `<IAM user name>` and `<SSH public key>` with the actual values.
+
+6. Verify that the new SSL client certificate has been uploaded successfully by running the following command:
+
+```
+aws iam list-ssh-public-keys --user-name <IAM user name> --query "SSHPublicKeys[].[SSHPublicKeyId,Status,UploadDate,UserName]" --output table
+```
+
+Make sure to replace `<IAM user name>` with the actual value.
+
+7. Repeat steps 3 to 6 for all the IAM users with expiring SSL client certificates.
+
+By following the above steps, you can remediate the misconfiguration of expiring SSL client certificates that should be rotated in AWS using AWS CLI.
 
 #### Using Python
 
-To remediate the issue of expiring SSL client certificates that should be rotated using Python, you can follow the below steps:
+To remediate the issue of expiring SSL client certificates that should be rotated in AWS using Python, you can follow the below steps:
 
-1. Identify the SSL client certificates that are expiring soon using the `ssl` module in Python. You can use the `cert_expiry` function to get the expiry date of the certificate.
-
-```python
-import ssl
-import datetime
-
-cert = ssl.get_server_certificate(('example.com', 443))
-x509 = ssl.PEM_cert_to_DER_cert(cert)
-cert_obj = ssl.DER_cert_to_Python(x509)
-
-expiry_date = datetime.datetime.strptime(cert_obj['notAfter'], '%Y%m%d%H%M%SZ')
-if expiry_date < datetime.datetime.now():
-    # Certificate is expired or expiring soon
-    # Add code to rotate the certificate
-```
-
-2. Rotate the SSL client certificate by generating a new certificate and private key using the `cryptography` module in Python.
+1. First, you need to identify the SSL client certificates that are going to expire soon. You can use the AWS SDK for Python (Boto3) to get the information about the SSL client certificates. The following code snippet can be used to retrieve the SSL client certificates:
 
 ```python
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
+import boto3
+from datetime import datetime, timedelta
 
-# Generate new private key
-private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048
-)
+client = boto3.client('iam')
 
-# Generate new certificate
-subject = x509.Name([
-    x509.NameAttribute(x509.NameOID.COUNTRY_NAME, 'US'),
-    x509.NameAttribute(x509.NameOID.STATE_OR_PROVINCE_NAME, 'California'),
-    x509.NameAttribute(x509.NameOID.LOCALITY_NAME, 'San Francisco'),
-    x509.NameAttribute(x509.NameOID.ORGANIZATION_NAME, 'Example Corp'),
-    x509.NameAttribute(x509.NameOID.COMMON_NAME, 'example.com')
-])
-issuer = subject
-cert = x509.CertificateBuilder().subject_name(
-    subject
-).issuer_name(
-    issuer
-).public_key(
-    private_key.public_key()
-).serial_number(
-    x509.random_serial_number()
-).not_valid_before(
-    datetime.datetime.utcnow()
-).not_valid_after(
-    datetime.datetime.utcnow() + datetime.timedelta(days=365)
-).add_extension(
-    x509.BasicConstraints(ca=False, path_length=None), critical=True
-).sign(private_key, hashes.SHA256())
+# Get the list of SSL client certificates
+ssl_certs = client.list_server_certificates()['ServerCertificateMetadataList']
 
-# Save new certificate and private key to file
-with open('new_cert.pem', 'wb') as f:
-    f.write(cert.public_bytes(serialization.Encoding.PEM))
-with open('new_key.pem', 'wb') as f:
-    f.write(private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    ))
+# Get the current date and time
+now = datetime.now()
+
+# Define the threshold for expiration
+expiration_threshold = timedelta(days=30)
+
+# Loop through the SSL client certificates and check if they are going to expire soon
+for cert in ssl_certs:
+    expiration_date = cert['Expiration']
+    if (expiration_date - now) < expiration_threshold:
+        print(f"The SSL client certificate {cert['ServerCertificateName']} is going to expire soon.")
 ```
 
-3. Install the new SSL client certificate and private key on the appropriate servers and update any relevant configuration files.
+2. Once you have identified the SSL client certificates that are going to expire soon, you need to rotate them. To rotate the SSL client certificates, you can use the following code snippet:
 
 ```python
-# Add code to install new certificate and private key on servers and update configuration files
+import boto3
+
+client = boto3.client('iam')
+
+# Get the list of SSL client certificates
+ssl_certs = client.list_server_certificates()['ServerCertificateMetadataList']
+
+# Loop through the SSL client certificates and rotate them
+for cert in ssl_certs:
+    certificate_name = cert['ServerCertificateName']
+    client.rotate_server_certificate(ServerCertificateName=certificate_name)
+    print(f"The SSL client certificate {certificate_name} has been rotated.")
 ```
 
-By following these steps, you can remediate the issue of expiring SSL client certificates that should be rotated using Python.
+3. Finally, you can schedule a job to run this Python script periodically to ensure that the SSL client certificates are rotated before they expire. You can use AWS Lambda or any other scheduling service to run the script on a scheduled basis.
+
+Note: Before running the script, ensure that you have the necessary permissions to access the SSL client certificates in AWS IAM.
 

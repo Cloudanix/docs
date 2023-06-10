@@ -1,33 +1,148 @@
 ### Remediation
 
-How to implement the Principle of Least Privilege (POLP) and provide Lambda functions with the right set of required permissions?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the misconfiguration of Lambda Functions having administrative permissions in AWS:
 
-1. Identify the specific actions and resources that your Lambda function needs to perform its intended functionality. This includes accessing other AWS services, interacting with databases, reading from or writing to storage, etc.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Lambda Functions Should Not Have Administrative Permissions" Policy.)
-2. Determine the minimum set of permissions required for the Lambda function to perform those actions. It is crucial to limit the permissions to only what is necessary and avoid granting unnecessary or overly broad permissions.
-3. Open the AWS Management Console and navigate to the AWS Identity and Access Management (IAM) service.
-4. Click on "Roles" in the navigation panel on the left side.
-5. Create a new IAM role by clicking on the "Create role" button.
-6. Select the "AWS service" as the trusted entity.
-7. Choose "Lambda" as the service that will use this role.
-8. Click on the "Next: Permissions" button.
-9. In the "Attach permissions policies" section, click on the "Create policy" button.
-10. Create a custom IAM policy that defines the specific permissions required by your Lambda function. You can use the policy visual editor or JSON to define the policy. Be sure to include only the necessary actions and resources.
-11. Click on the "Review policy" button.
-12. Provide a name and description for the policy.
-13. Click on the "Create policy" button.
-14. Go back to the IAM role creation wizard and click on the "Refresh" button to see the newly created policy.
-15. Select the policy you just created by checking the checkbox next to it.
-16. Click on the "Next: Tags" button (optional) and add any necessary tags to the role.
-17. Click on the "Next: Review" button.
-18. Provide a name and description for the IAM role.
-19. Click on the "Create role" button.
-20. Once the IAM role is created, go to the Lambda function configuration.
-21. In the Lambda function details page, scroll down to the "Permissions" section.
-22. Under "Execution role," click on the "Edit" button.
-23. Select the IAM role you created in the previous steps.
-24. Click on the "Save" button.
-25. Your Lambda function is now associated with the IAM role that has the least privileges required for its functionality.
+1. Open the AWS Management Console and navigate to the AWS Lambda service.
+
+2. Select the Lambda function for which you want to remediate the misconfiguration.
+
+3. In the "Configuration" tab, click on the "Permissions" section.
+
+4. Under the "Execution role" section, click on the role name to open the "IAM Console".
+
+5. In the "IAM Console", click on the "Permissions" tab.
+
+6. Click on the "Attach policies" button.
+
+7. Search for the policy "AWSLambdaBasicExecutionRole" and select it.
+
+8. Click on the "Attach policy" button to attach the policy to the role.
+
+9. Remove any other policies that provide administrative permissions to the Lambda function.
+
+10. Save the changes and exit the "IAM Console".
+
+By following these steps, you will remediate the misconfiguration of Lambda Functions having administrative permissions in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration "Lambda Functions Should Not Have Administrative Permissions" in AWS using AWS CLI, follow the below steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to list all the Lambda functions in your AWS account:
+
+```
+aws lambda list-functions
+```
+
+3. Identify the Lambda function(s) that have administrative permissions.
+
+4. Run the following command to remove the administrative permissions from the Lambda function(s):
+
+```
+aws lambda remove-permission --function-name <function_name> --statement-id <statement_id>
+```
+
+Replace `<function_name>` with the name of the Lambda function and `<statement_id>` with the statement ID of the administrative permission.
+
+5. Verify that the administrative permission has been removed by running the following command:
+
+```
+aws lambda get-policy --function-name <function_name>
+```
+
+This command should return an empty policy, indicating that the Lambda function no longer has administrative permissions.
+
+6. Repeat steps 4 and 5 for all the Lambda functions that have administrative permissions.
+
+7. Once you have removed the administrative permissions from all the Lambda functions, verify the remediation by running a compliance check using a tool like AWS Config.
+
+By following these steps, you can remediate the misconfiguration "Lambda Functions Should Not Have Administrative Permissions" in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate this misconfiguration in AWS, you can follow these steps using Python:
+
+1. Identify the Lambda functions that have administrative permissions by checking the `Role` attached to the function.
+
+2. Create a new IAM Role with the necessary permissions that the Lambda function requires and attach it to the function. This new role should have the least privilege required for the function to operate.
+
+3. Update the function's execution role to the new role using the AWS SDK for Python, `boto3`.
+
+Here's the sample Python code:
+
+```python
+import boto3
+
+# Initialize the AWS clients
+lambda_client = boto3.client('lambda')
+iam_client = boto3.client('iam')
+
+# Get the list of all Lambda functions
+functions = lambda_client.list_functions()
+
+# Iterate through each function and check if it has administrative permissions
+for function in functions['Functions']:
+    role_name = function['Role'].split('/')[-1]
+    
+    # Check if the role has administrative permissions
+    policy = iam_client.get_role_policy(RoleName=role_name, PolicyName='AdministratorAccess')
+    
+    if 'Statement' in policy['PolicyDocument']:
+        # Create a new role with the necessary permissions
+        new_role = iam_client.create_role(
+            RoleName='new-lambda-role',
+            AssumeRolePolicyDocument='''{
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Principal": {
+                            "Service": "lambda.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                    }
+                ]
+            }'''
+        )
+        
+        # Attach the new role to the Lambda function
+        lambda_client.update_function_configuration(
+            FunctionName=function['FunctionName'],
+            Role=new_role['Role']['Arn']
+        )
+        
+        # Update the new role with the necessary permissions
+        iam_client.put_role_policy(
+            RoleName='new-lambda-role',
+            PolicyName='lambda-permissions',
+            PolicyDocument='''{
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "logs:CreateLogGroup",
+                            "logs:CreateLogStream",
+                            "logs:PutLogEvents"
+                        ],
+                        "Resource": "arn:aws:logs:*:*:*"
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "s3:GetObject",
+                            "s3:PutObject"
+                        ],
+                        "Resource": "arn:aws:s3:::bucket-name/*"
+                    }
+                ]
+            }'''
+        )
+```
+
+This code will create a new IAM Role named `new-lambda-role` with the necessary permissions for the Lambda function to operate. It will then update the function's execution role to the new role. Finally, it will update the new role with the necessary permissions.
 

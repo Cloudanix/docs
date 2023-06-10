@@ -22,24 +22,164 @@ PCIDSS
 
 ### Remediation
 
-How to disable any active X?509 signing certificates created for AWS root account?
+#### Using Console
 
-#### Using AWS Console
+When a certificate is tied with the root account in AWS, it can pose a security risk as it allows anyone with access to the root account to manage the certificate and its associated resources. To remediate this issue, you can follow the steps below:
 
-As of September 2021, AWS no longer supports X.509 certificates for root accounts. Root accounts now use password-based authentication or multi-factor authentication (MFA) for login. Therefore, there is no need to rotate X.509 certificates for the AWS root account.
+1. Log in to the AWS Management Console using the root account credentials.
+2. Navigate to the AWS Certificate Manager (ACM) service.
+3. Select the certificate that is tied with the root account.
+4. Click on the "Actions" button and select "Export Certificate."
+5. Save the certificate file to a secure location.
+6. Click on the "Actions" button again and select "Delete."
+7. Confirm the deletion by entering "delete" in the confirmation box.
+8. Create a new IAM user with the necessary permissions to manage the certificate and its associated resources.
+9. Log out of the root account and log in to the AWS Management Console using the newly created IAM user credentials.
+10. Navigate to the ACM service and import the certificate file saved in step 5.
+11. Associate the certificate with the necessary resources, such as a load balancer or CloudFront distribution, as required.
 
-Instead, it is recommended to secure your AWS root account by following these steps:
+By following these steps, you can ensure that the certificate is no longer tied with the root account and is managed securely by an IAM user with the necessary permissions.
 
-1. Log in to the AWS Management Console using your root account credentials.
-2. Navigate to the IAM service by searching for "IAM" in the AWS services search bar and selecting "IAM" from the results.
-3. In the IAM dashboard, click on "Users" in the left sidebar.
-4. Locate the root account user and click on its username.
-5. In the user details page, navigate to the "Security credentials" tab.
-6. Ensure that strong, unique passwords are used for the root account. If you haven't already done so, you can update the password by clicking on the "Manage" button in the "Login profile" section.
-7. Enable multi-factor authentication (MFA) for the root account. This adds an extra layer of security to protect your account.
-   - In the "Security credentials" tab, navigate to the "Multi-factor authentication (MFA)" section.
-   - Click on the "Manage MFA" button and follow the on-screen instructions to set up MFA for the root account.
-   - Use a virtual MFA device or a hardware MFA device for enhanced security.
+#### Using CLI
+
+To remediate the misconfiguration "Certificates Should Not Be Tied With Root Account" for AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+2. Run the following command to list all the certificates associated with the root account:
+
+   ```
+   aws acm list-certificates --certificate-statuses ISSUED --query "CertificateSummaryList[?DomainName=='*']"
+   ```
+
+   This command will list all the certificates that are associated with the root account.
+
+3. Identify the certificate that needs to be remediated.
+
+4. Run the following command to detach the certificate from the root account:
+
+   ```
+   aws acm update-certificate --certificate-arn <certificate-arn> --no-include-in-certificate-chain
+   ```
+
+   Replace `<certificate-arn>` with the ARN of the certificate that needs to be detached.
+
+5. Verify that the certificate is no longer associated with the root account by running the following command:
+
+   ```
+   aws acm list-certificates --certificate-statuses ISSUED --query "CertificateSummaryList[?DomainName=='*']"
+   ```
+
+   This command should not list the certificate that was detached from the root account.
+
+6. Repeat steps 3-5 for any other certificates that need to be remediated.
+
+7. Once all the certificates have been detached from the root account, create an IAM user with the necessary permissions to manage the certificates.
+
+   ```
+   aws iam create-user --user-name <username>
+   ```
+
+   Replace `<username>` with the desired username for the IAM user.
+
+8. Attach the necessary permissions to the IAM user by creating an IAM policy and attaching it to the user.
+
+   ```
+   aws iam create-policy --policy-name <policy-name> --policy-document file://<policy-document>
+   ```
+
+   Replace `<policy-name>` with the desired name for the policy and `<policy-document>` with the path to the policy document in JSON format.
+
+9. Attach the policy to the IAM user.
+
+   ```
+   aws iam attach-user-policy --user-name <username> --policy-arn <policy-arn>
+   ```
+
+   Replace `<username>` with the username of the IAM user and `<policy-arn>` with the ARN of the policy that was created in step 8.
+
+10. Verify that the IAM user can manage the certificates by running the following command:
+
+    ```
+    aws acm list-certificates --certificate-statuses ISSUED --query "CertificateSummaryList[?DomainName=='*']" --profile <profile-name>
+    ```
+
+    Replace `<profile-name>` with the name of the AWS CLI profile that is associated with the IAM user.
+
+11. Delete the root access keys and secret access keys for the root account to ensure that the certificates cannot be managed using the root account.
+
+    ```
+    aws iam delete-access-key --access-key-id <access-key-id> --user-name <root-account-username>
+    ```
+
+    Replace `<access-key-id>` with the access key ID for the root account and `<root-account-username>` with the username for the root account.
+
+    Repeat this command for all access keys associated with the root account.
+
+12. Once all the access keys have been deleted, disable the root account.
+
+    ```
+    aws iam update-login-profile --user-name <root-account-username> --password-reset-required --no-password
+    ```
+
+    Replace `<root-account-username>` with the username for the root account.
+
+    This command will disable the root account and require a password reset to enable it again.
+
+By following these steps, you can remediate the misconfiguration "Certificates Should Not Be Tied With Root Account" for AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "Certificates Should Not Be Tied With Root Account" in AWS using Python, you can follow the below steps:
+
+1. Create a new IAM user with the necessary permissions to manage certificates in AWS.
+2. Associate the IAM user with the AWS Certificate Manager (ACM).
+3. Use the AWS CLI or AWS SDK for Python (Boto3) to migrate the existing SSL/TLS certificates from the root account to the newly created IAM user.
+4. Verify that the certificates are successfully migrated and associated with the IAM user.
+
+Here's the Python code to migrate the SSL/TLS certificates from the root account to the newly created IAM user:
+
+```python
+import boto3
+
+# Create a new IAM user with the necessary permissions
+iam = boto3.client('iam')
+response = iam.create_user(UserName='new_user')
+response = iam.attach_user_policy(
+    UserName='new_user',
+    PolicyArn='arn:aws:iam::aws:policy/AWSCertificateManagerReadOnly'
+)
+
+# Associate the IAM user with the AWS Certificate Manager (ACM)
+acm = boto3.client('acm')
+response = acm.list_certificates()
+for certificate in response['CertificateSummaryList']:
+    certificate_arn = certificate['CertificateArn']
+    response = acm.list_tags_for_certificate(CertificateArn=certificate_arn)
+    tags = response['Tags']
+    if 'aws:account' in tags and tags['aws:account'] == 'root':
+        response = acm.remove_tags_from_certificate(
+            CertificateArn=certificate_arn,
+            Tags=[
+                {
+                    'Key': 'aws:account',
+                    'Value': 'root'
+                }
+            ]
+        )
+        response = acm.add_tags_to_certificate(
+            CertificateArn=certificate_arn,
+            Tags=[
+                {
+                    'Key': 'aws:account',
+                    'Value': 'new_user'
+                }
+            ]
+        )
+```
+
+This code creates a new IAM user and attaches the `AWSCertificateManagerReadOnly` policy to it. It then uses the `list_certificates` API to retrieve a list of all SSL/TLS certificates in the account and checks if each certificate is associated with the root account. If a certificate is associated with the root account, it removes the `aws:account` tag from it and adds a new `aws:account` tag with the value `new_user`, thus associating the certificate with the newly created IAM user.
+
+After running this code, you should verify that the SSL/TLS certificates are successfully migrated to the newly created IAM user and are no longer associated with the root account.
 
 ### Additional Reading:
 

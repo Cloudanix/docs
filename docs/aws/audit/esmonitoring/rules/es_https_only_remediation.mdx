@@ -1,20 +1,131 @@
 ### Remediation
 
-How to ensure Elastic Search uses HTTPS only?
+#### Using Console
 
-#### Using AWS Console
+To remediate the ElasticSearch misconfiguration of using HTTPS only in AWS using the AWS console, you can follow the below steps:
 
-1. Sign in to the AWS Management Console.
-2. Navigate to the Amazon Elasticsearch service.
-3. Select the Elasticsearch domain for which you want to enable HTTPS.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "ElasticSearch Should Use HTTPS Only" Policy.)
-4. In the domain details page, click on the "Configure" button in the "Node-to-Node Encryption" section.
-5. Enable the "Enable encryption of data at rest" option to encrypt the data stored in Elasticsearch.
-6. Under the "Advanced security options" section, select "Request Signing Only" for the "Fine-grained access control" option. This ensures that requests to Elasticsearch must be signed and authenticated.
-7. In the "Encryption in transit" section, select the "Require HTTPS for all traffic" option.
-8. Choose the appropriate certificate option. You can either use a custom certificate from ACM or upload your own certificate.
-9. If you choose to use a custom certificate from ACM, select the appropriate certificate from the dropdown list.
-10. If you choose to upload your own certificate, select the "Upload" option and provide the certificate and private key files.
-11. Click on the "Save changes" button to apply the configuration.
-12. After saving the changes, Elasticsearch will be accessible only through HTTPS, and all requests to Elasticsearch must be signed and authenticated.
+1. Log in to the AWS Management Console and navigate to the ElasticSearch service.
+
+2. Select the misconfigured ElasticSearch domain.
+
+3. In the domain dashboard, click on the "Edit" button in the "Encryption" section.
+
+4. In the "Encryption" section, select the "Require HTTPS" option.
+
+5. Click on the "Save Changes" button to apply the new configuration.
+
+6. Once the changes are saved, ElasticSearch will only be accessible through HTTPS.
+
+7. Verify the changes by attempting to access the ElasticSearch domain using HTTP. It should not be accessible and should return an error message.
+
+By following these steps, you can remediate the misconfiguration of ElasticSearch not using HTTPS only in AWS.
+
+#### Using CLI
+
+To remediate the ElasticSearch misconfiguration of using HTTPS only in AWS using AWS CLI, you can follow the below steps:
+
+1. Open the AWS CLI and run the following command to get the current status of the ElasticSearch domain:
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name <domain-name>
+   ```
+
+   Replace `<domain-name>` with the name of your ElasticSearch domain.
+
+2. Check the output of the above command for the value of the `EncryptionAtRestOptions` parameter. If it is not set to `Enabled`, then run the following command to enable encryption at rest:
+
+   ```
+   aws es update-elasticsearch-domain-config --domain-name <domain-name> --encryption-at-rest-options Enabled=true
+   ```
+
+   Replace `<domain-name>` with the name of your ElasticSearch domain.
+
+3. Next, run the following command to update the ElasticSearch domain to use HTTPS only:
+
+   ```
+   aws es update-elasticsearch-domain-config --domain-name <domain-name> --advanced-security-options Enabled=true,InternalUserDatabaseEnabled=false,MasterUserOptions.Enabled=false,NodeToNodeEncryptionOptions.Enabled=false,EncryptionAtRestOptions.Enabled=true,HTTPSEnabled=true
+   ```
+
+   Replace `<domain-name>` with the name of your ElasticSearch domain.
+
+4. After running the above command, wait for a few minutes for the changes to take effect. You can check the status of the ElasticSearch domain again by running the `describe-elasticsearch-domain` command.
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name <domain-name>
+   ```
+
+   If the output of this command shows that the `HTTPSEnabled` parameter is set to `true`, then the ElasticSearch domain is now using HTTPS only.
+
+By following these steps, you can remediate the ElasticSearch misconfiguration of using HTTPS only in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate this misconfiguration on AWS using Python, you can follow the steps below:
+
+1. Install the AWS SDK for Python (Boto3) by running the following command in your terminal:
+
+```python
+pip install boto3
+```
+
+2. Create an AWS ElasticSearch client using the Boto3 library:
+
+```python
+import boto3
+
+es_client = boto3.client('es')
+```
+
+3. Get the ElasticSearch domain configuration using the `describe_elasticsearch_domain` method:
+
+```python
+domain_name = 'your-domain-name'
+domain_config = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+```
+
+4. Check if the ElasticSearch domain is using HTTPS only by looking at the `DomainStatus` dictionary:
+
+```python
+domain_status = domain_config['DomainStatus']
+if domain_status['EncryptionAtRestOptions']['Enabled'] and domain_status['NodeToNodeEncryptionOptions']['Enabled'] and domain_status['AdvancedSecurityOptions']['Enabled']:
+    print('ElasticSearch domain is already using HTTPS only')
+else:
+    # Remediate the misconfiguration
+```
+
+5. If the ElasticSearch domain is not using HTTPS only, update the domain configuration using the `update_elasticsearch_domain_config` method:
+
+```python
+from botocore.exceptions import ClientError
+
+try:
+    response = es_client.update_elasticsearch_domain_config(
+        DomainName=domain_name,
+        AdvancedSecurityOptions={
+            'Enabled': True,
+            'InternalUserDatabaseEnabled': False,
+            'MasterUserOptions': {
+                'MasterUserARN': 'arn:aws:iam::123456789012:user/elasticsearch-master-user',
+                'MasterUserName': 'elasticsearch-master-user',
+                'MasterUserPassword': 'your-password'
+            }
+        }
+    )
+    print('ElasticSearch domain configuration updated successfully')
+except ClientError as e:
+    print('Error updating ElasticSearch domain configuration: {}'.format(e))
+```
+
+6. Verify that the ElasticSearch domain is now using HTTPS only by checking the `DomainStatus` dictionary again:
+
+```python
+domain_config = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+domain_status = domain_config['DomainStatus']
+if domain_status['EncryptionAtRestOptions']['Enabled'] and domain_status['NodeToNodeEncryptionOptions']['Enabled'] and domain_status['AdvancedSecurityOptions']['Enabled']:
+    print('ElasticSearch domain is now using HTTPS only')
+else:
+    print('Failed to remediate ElasticSearch misconfiguration')
+```
+
+Note: In the code above, we assume that the ElasticSearch domain is not using VPC and that you have an IAM user with the necessary permissions to update the ElasticSearch domain configuration. Also, make sure to replace `your-domain-name` and `your-password` with the actual values for your ElasticSearch domain.
 

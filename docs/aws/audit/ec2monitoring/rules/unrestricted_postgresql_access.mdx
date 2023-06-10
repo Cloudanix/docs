@@ -22,20 +22,131 @@ SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 
 ### Remediation
 
-How to update security group inbound configuration to restrict PostgreSQL Database access to specific entities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the unrestricted PostgreSQL access issue in AWS, you can follow the below steps:
 
-1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
-2. Click on the Security Groups option in the left-hand menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Unrestricted PostgreSQL Access Should Not Be Allowed" Policy.)
-3. Select the security group that is associated with your PostgreSQL database instance.
-4. Click on the Inbound Rules tab.
-5. Locate the rule that allows access to port 5432. It should have a source of 0.0.0.0/0, which means that it is open to the entire internet.
-6. Click on the Edit button to modify the rule.
-7. Change the source to the specific entities that need access to the database. This can be done by specifying their IP addresses or the CIDR blocks that they belong to.
-8. Click on the Save button to apply the changes.
-9. Verify that the new rule is in effect by attempting to access the database from a source that is not allowed. The connection should be refused.
+1. Go to the AWS Management Console and navigate to the RDS dashboard.
+2. Select the RDS instance that has unrestricted PostgreSQL access.
+3. Click on the "Modify" button.
+4. In the "Network & Security" section, select the "Additional Configuration" tab.
+5. Under "Security Group Rules," locate the rule that allows unrestricted PostgreSQL access.
+6. Remove the rule by clicking on the "x" icon next to it.
+7. Add a new rule that allows access only from trusted sources.
+8. Click on the "Save Changes" button.
+
+By following these steps, you can remediate the unrestricted PostgreSQL access issue in AWS and ensure that your PostgreSQL database is only accessible from trusted sources.
+
+#### Using CLI
+
+To remediate unrestricted PostgreSQL access in AWS, you can follow these steps using AWS CLI:
+
+1. Open the AWS CLI and run the following command to get the security group ID of the security group associated with the PostgreSQL instance:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].VpcSecurityGroups[*].VpcSecurityGroupId' --output text
+   ```
+
+2. Run the following command to get the ID of the security group:
+
+   ```
+   aws ec2 describe-security-groups --filters Name=group-id,Values=<security-group-ID> --query 'SecurityGroups[*].{Name:GroupName,ID:GroupId}' --output table
+   ```
+
+3. Run the following command to revoke the unrestricted access to PostgreSQL:
+
+   ```
+   aws ec2 revoke-security-group-ingress --group-id <security-group-ID> --protocol tcp --port 5432 --cidr 0.0.0.0/0
+   ```
+
+   This command will revoke the inbound rule that allows unrestricted access to PostgreSQL.
+
+4. Run the following command to verify that the unrestricted access has been revoked:
+
+   ```
+   aws ec2 describe-security-groups --filters Name=group-id,Values=<security-group-ID> --query 'SecurityGroups[*].IpPermissions'
+   ```
+
+   This command will show the current inbound rules for the security group. You should see that the rule allowing unrestricted access to PostgreSQL has been removed.
+
+By following these steps, you have successfully remediated the unrestricted PostgreSQL access in AWS.
+
+#### Using Python
+
+To remediate the unrestricted PostgreSQL access issue in AWS, you can use Python to create a security group that allows access to the PostgreSQL instance only from a specific IP address or range of IP addresses. Here are the steps to do so:
+
+1. First, you need to create a new security group that will be used to restrict access to the PostgreSQL instance. You can do this using the `boto3` library in Python. Here's an example code snippet that creates a new security group:
+
+```python
+import boto3
+
+ec2 = boto3.resource('ec2')
+
+# Create a new security group
+security_group = ec2.create_security_group(
+    GroupName='PostgreSQLAccess',
+    Description='Restrict access to PostgreSQL instance'
+)
+
+# Add a rule to allow access to the PostgreSQL port (5432) from a specific IP address
+security_group.authorize_ingress(
+    IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 5432,
+            'ToPort': 5432,
+            'IpRanges': [
+                {
+                    'CidrIp': 'x.x.x.x/32' # Replace x.x.x.x with the specific IP address you want to allow access from
+                }
+            ]
+        }
+    ]
+)
+```
+
+2. Once you've created the new security group, you need to assign it to the PostgreSQL instance. You can do this using the `modify_db_instance` method from the `boto3` library. Here's an example code snippet that assigns the new security group to the PostgreSQL instance:
+
+```python
+import boto3
+
+rds = boto3.client('rds')
+
+# Modify the PostgreSQL instance to use the new security group
+response = rds.modify_db_instance(
+    DBInstanceIdentifier='your-instance-id', # Replace with your PostgreSQL instance ID
+    VpcSecurityGroupIds=[
+        security_group.id
+    ]
+)
+```
+
+3. Finally, you can verify that the access to the PostgreSQL instance has been restricted by checking the security group rules associated with the instance. You can do this using the `describe_db_instances` method from the `boto3` library. Here's an example code snippet that checks the security group rules:
+
+```python
+import boto3
+
+rds = boto3.client('rds')
+
+# Get the PostgreSQL instance details
+response = rds.describe_db_instances(
+    DBInstanceIdentifier='your-instance-id' # Replace with your PostgreSQL instance ID
+)
+
+# Get the security group IDs associated with the instance
+security_group_ids = response['DBInstances'][0]['VpcSecurityGroups']
+
+# Print the security group rules associated with each security group
+for security_group_id in security_group_ids:
+    response = ec2.describe_security_groups(
+        GroupIds=[
+            security_group_id['VpcSecurityGroupId']
+        ]
+    )
+    print(response['SecurityGroups'][0]['IpPermissions'])
+```
+
+This code will print the security group rules associated with each security group, which should show that access to the PostgreSQL port (5432) is only allowed from the specific IP address or range of IP addresses that you specified in the security group rule.
 
 ### Additional Reading:
 

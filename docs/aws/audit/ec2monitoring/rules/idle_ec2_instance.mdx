@@ -22,35 +22,113 @@ AWSWAF
 
 ### Remediation
 
-How to remediate idle EC2 instances?
+#### Using Console
 
-#### Using AWS Console
+The best way to remediate this issue is to stop the idle instances. Here are the step by step instructions to remediate this issue in AWS using the AWS console:
 
-1. Identify Idle EC2 Instances:
-   - Access the AWS Management Console and navigate to the Amazon EC2 service.
-   - From the left navigation pane, click on "Instances" under the "Instances" section.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "EC2 Instances Should Not Be Idle" Policy.)
-   - Review the list of existing EC2 instances and identify instances that are consistently experiencing low CPU utilization or minimal network traffic.
-2. Analyze the Utilization:
-   - Select the idle EC2 instance.
-   - Click on the "Monitoring" tab to view the CPU and network utilization graphs over time.
-   - Confirm that the instance is indeed idle and not just experiencing temporary low utilization.
-3. Implement Remediation Measures:
-   - Option 1: Stop the Instance:
-     - If the idle instance is not required for immediate use, you can stop the instance to save costs.
-     - Select the idle EC2 instance.
-     - Click on the "Actions" button and choose "Instance State" > "Stop".
-     - Confirm the action to stop the instance. This action will release the associated Elastic IP (if any) and free up resources.
-   - Option 2: Schedule Auto Scaling:
-     - If the idle period is predictable, you can set up an Auto Scaling schedule to automatically start and stop instances based on specific time intervals or demand patterns.
-     - Create a new Auto Scaling group or modify an existing one to include the idle instance.
-     - Configure the Auto Scaling group to start the instance during periods of expected activity and stop it during idle periods.
-   - Option 3: Utilize Spot Instances or Reserved Instances:
-     - Consider utilizing Spot Instances or Reserved Instances for workloads that are non-critical or have flexible scheduling requirements.
-     - Spot Instances can provide significant cost savings, while Reserved Instances offer discounted pricing for longer-term commitments.
-4. Monitor and Validate:
-   - After implementing the remediation measures, monitor the performance and utilization of the EC2 instances to ensure that idle instances are effectively managed.
-   - Regularly review your resource utilization, billing reports, and monitoring metrics to validate the impact of the remediation measures on cost savings.
+1. Log in to the AWS Management Console.
+2. Click on the EC2 service.
+3. Select the instances that are idle.
+4. Click on the "Actions" button and select "Instance State" and then click "Stop".
+5. In the confirmation dialog box, click "Yes, Stop".
+6. Wait for the instances to stop.
+7. Once the instances have stopped, select them again.
+8. Click on the "Actions" button and select "Instance Settings" and then click "Change Shutdown Behavior".
+9. In the "Change Shutdown Behavior" dialog box, select "Terminate" and then click "Save".
+10. Start the instances again when they are required.
+
+By following these steps, you can remediate the EC2 instances that are idle in AWS and ensure that you are not being charged unnecessarily for instances that are not being used.
+
+#### Using CLI
+
+To remediate the EC2 Instances should not be idle misconfiguration in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to list all the running instances in your AWS account:
+
+   ```
+   aws ec2 describe-instances --filters Name=instance-state-name,Values=running
+   ```
+
+3. Identify the idle instances that have been running for a long time and need to be remediated.
+
+4. To stop the idle instances, run the following command:
+
+   ```
+   aws ec2 stop-instances --instance-ids <instance-id>
+   ```
+
+   Replace `<instance-id>` with the ID of the idle instance that you want to stop.
+
+5. Confirm the action by entering `y` when prompted.
+
+6. After the instance has been stopped, you can start it again using the following command:
+
+   ```
+   aws ec2 start-instances --instance-ids <instance-id>
+   ```
+
+   Replace `<instance-id>` with the ID of the stopped instance that you want to start.
+
+7. Confirm the action by entering `y` when prompted.
+
+8. Repeat steps 4-7 for any other idle instances that need to be remediated.
+
+9. To prevent this misconfiguration from occurring in the future, you can set up CloudWatch alarms to monitor the CPU utilization of your instances and take action if it falls below a certain threshold.
+
+#### Using Python
+
+To remediate the issue of idle EC2 instances in AWS using Python, you can follow the below steps:
+
+1. Create a Lambda function in Python that will identify and terminate idle EC2 instances. 
+
+2. Use the AWS SDK for Python (Boto3) to access the AWS EC2 service and retrieve the list of instances.
+
+3. For each instance, check its CPU utilization using CloudWatch metrics. If the CPU utilization is below a certain threshold (e.g., 10%), then terminate the instance using the terminate_instances() method.
+
+4. Schedule the Lambda function to run periodically using AWS CloudWatch Events. 
+
+Here's a sample Python code to get you started:
+
+```
+import boto3
+
+def lambda_handler(event, context):
+    ec2 = boto3.client('ec2')
+    cw = boto3.client('cloudwatch')
+    idle_threshold = 10 # Set the idle threshold to 10%
+    
+    # Get a list of all running instances
+    instances = ec2.describe_instances(
+        Filters=[
+            {'Name': 'instance-state-name', 'Values': ['running']}
+        ]
+    )
+    
+    # Check CPU utilization for each instance
+    for reservation in instances['Reservations']:
+        for instance in reservation['Instances']:
+            instance_id = instance['InstanceId']
+            cpu_utilization = cw.get_metric_statistics(
+                Namespace='AWS/EC2',
+                MetricName='CPUUtilization',
+                Dimensions=[
+                    {'Name': 'InstanceId', 'Value': instance_id}
+                ],
+                StartTime='2022-02-01T00:00:00Z',
+                EndTime='2022-02-01T23:59:59Z',
+                Period=3600,
+                Statistics=['Average']
+            )['Datapoints'][0]['Average']
+            
+            # Terminate idle instances
+            if cpu_utilization < idle_threshold:
+                ec2.terminate_instances(InstanceIds=[instance_id])
+                print(f"Terminated instance {instance_id}")
+```
+
+Note: This is just a sample code and you may need to modify it according to your specific requirements.
 
 ### Additional Reading:
 

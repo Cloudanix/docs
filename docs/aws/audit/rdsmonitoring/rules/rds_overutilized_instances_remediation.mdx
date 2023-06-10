@@ -1,19 +1,128 @@
 ### Remediation
 
-How to identify overutilized RDS DB instances and upgrade them?
+#### Using Console
 
-#### Using AWS Console
+When an RDS instance is overutilized, it can lead to performance issues and potential downtime. Here are the steps to remediate this issue in AWS using the AWS console:
 
-- Step 1: In the navigation panel, under the RDS Dashboard section, choose Databases.
+1. Log in to your AWS console and navigate to the RDS dashboard.
+2. Select the overutilized RDS instance that you want to remediate.
+3. Click on the "Modify" button to change the instance settings.
+4. Under the "Compute and Memory" section, adjust the instance type to a larger size with more CPU and memory resources.
+5. Click on "Continue" and review the changes.
+6. If everything looks good, click on "Modify DB instance" to apply the changes.
 
-- Step 2: Select the overused RDS database instance that you want to resize (see Audit section part I to identify the right resource).
+The RDS instance will now have more resources allocated to it, which should help alleviate performance issues caused by overutilization. It's important to monitor the instance after making these changes to ensure that it continues to perform optimally.
 
-- Step 3: Click the Instance Actions button from the dashboard top menu and select Modify.
+#### Using CLI
 
-- Step 4: On the Modify DB Instance: instance identifier page, under Instance Specifications section, select the database instance type to upgrade to (e.g. db.m4.xlarge) from the DB Instance Class dropdown list (see RDS Instance Types page available at this URL to help you choose the right database instance type).
+Here are the step-by-step instructions to remediate the RDS instances overutilization issue in AWS using AWS CLI:
 
-- Step 5: At the bottom, check Apply Immediately to apply the instance type (class) change immediately.
+1. Open the AWS CLI on your local machine.
+2. Run the following command to list all the RDS instances in your AWS account:
 
-- Step 6: Click Continue to access the DB instance review page.
+   ```
+   aws rds describe-db-instances
+   ```
 
-- Step 7: Review the type/class changes then click Modify DB Instance. During the resize process the instance status should change from available to modifying and back to available (it may take few minutes depending on the database instance configuration). Once the resize process is complete, the RDS instance type should be updated on the details panel.
+3. Identify the RDS instance that is overutilized and make a note of its DB instance identifier.
+4. Run the following command to modify the RDS instance and increase its capacity:
+
+   ```
+   aws rds modify-db-instance --db-instance-identifier <your_db_instance_identifier> --allocated-storage <new_storage_size> --db-instance-class <new_instance_class> --apply-immediately
+   ```
+
+   Replace `<your_db_instance_identifier>` with the DB instance identifier of the overutilized RDS instance, `<new_storage_size>` with the new storage size you want to allocate to the instance, and `<new_instance_class>` with the new instance class you want to assign to the instance.
+
+5. Wait for a few minutes until the modification is complete. You can check the status of the modification by running the following command:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <your_db_instance_identifier>
+   ```
+
+6. Once the modification is complete, the RDS instance will have more capacity to handle the workload and will no longer be overutilized.
+
+Note: Before making any modifications to your RDS instances, make sure to take a backup of your data to avoid any data loss.
+
+#### Using Python
+
+To remediate an overutilized RDS instance in AWS using Python, you can follow these steps:
+
+1. Import the necessary libraries: boto3 and datetime.
+
+```
+import boto3
+import datetime
+```
+
+2. Initialize the AWS client with the appropriate credentials and region:
+
+```
+client = boto3.client('rds', region_name='us-west-2', aws_access_key_id='ACCESS_KEY', aws_secret_access_key='SECRET_KEY')
+```
+
+3. Get the list of RDS instances:
+
+```
+response = client.describe_db_instances()
+instances = response['DBInstances']
+```
+
+4. Loop through the instances and check their CPU utilization:
+
+```
+for instance in instances:
+    instance_id = instance['DBInstanceIdentifier']
+    cpu_utilization = client.get_metric_statistics(
+        Namespace='AWS/RDS',
+        MetricName='CPUUtilization',
+        Dimensions=[
+            {
+                'Name': 'DBInstanceIdentifier',
+                'Value': instance_id
+            },
+        ],
+        StartTime=datetime.datetime.utcnow() - datetime.timedelta(minutes=5),
+        EndTime=datetime.datetime.utcnow(),
+        Period=300,
+        Statistics=['Average'],
+    )['Datapoints'][0]['Average']
+```
+
+5. If the CPU utilization is above a certain threshold, modify the instance to increase its capacity:
+
+```
+if cpu_utilization > 80:
+    client.modify_db_instance(
+        DBInstanceIdentifier=instance_id,
+        DBInstanceClass='db.t3.medium',
+        ApplyImmediately=True
+    )
+```
+
+6. You can also set up a CloudWatch alarm to notify you when an instance is overutilized:
+
+```
+client.put_metric_alarm(
+    AlarmName='RDS CPU Utilization',
+    AlarmDescription='Alarm when RDS CPU utilization exceeds 80%',
+    MetricName='CPUUtilization',
+    Namespace='AWS/RDS',
+    Dimensions=[
+        {
+            'Name': 'DBInstanceIdentifier',
+            'Value': instance_id
+        },
+    ],
+    Statistic='Average',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=80,
+    ComparisonOperator='GreaterThanThreshold',
+    AlarmActions=[
+        'arn:aws:sns:us-west-2:123456789012:MyTopic',
+    ],
+)
+```
+
+Note: Replace the region, access key, secret key, and alarm action ARN with your own values.
+

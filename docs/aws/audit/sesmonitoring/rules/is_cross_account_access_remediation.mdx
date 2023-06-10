@@ -1,18 +1,114 @@
 ### Remediation
 
-How to verify any AWS Simple Email Service (SES) identities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the SES Identities Should Not Allow Cross-Account Access misconfiguration in AWS using the AWS Management Console, follow these steps:
 
-- Step 1: In the left navigation panel, within Identity Management section, select Domains to update the sending authorization policies defined for your existing Amazon SES domains or Email Addresses to update the policies defined for your AWS SES email addresses.
+1. Open the Amazon SES console at https://console.aws.amazon.com/ses/.
+2. In the navigation pane, choose "Identity Management".
+3. Select the identity for which you want to remediate cross-account access.
+4. Choose the "Details" tab.
+5. In the "Permissions" section, locate the "Cross-Account Access" setting.
+6. If the "Cross-Account Access" setting is enabled, choose the "Edit" button.
+7. In the "Edit Identity Policy" dialog box, remove any statements that allow cross-account access.
+8. Choose "Save Changes" to save the updated identity policy.
 
-- Step 2: Select the domain/email address that you want to reconfigure then click the View Details button from the dashboard top menu to access the resource configuration details page.
+After following these steps, the identity will no longer allow cross-account access.
 
-- Step 3: Click Identity Policies to expand the panel with the sending authorization policies defined for the selected domain/email address.
+#### Using CLI
 
-- Step 4: In the Policy Actions column, click Edit Policy to edit the associated policy document. On the Edit Policy page, inside Policy Document box, perform one of the following actions:
-  A: Replace the "Everyone" grantee, i.e. "\*", from the Principal element value with a trusted AWS account ID (e.g. `{ "AWS": "123456789012" }` ), an AWS account ARN (e.g. `{ "AWS": "arn:aws:iam::123456789012:root" }` ) or an IAM user ARN (e.g. `{ "AWS": "arn:aws:iam::123456789012:user/ses-delegate-sender" }` ).
+To remediate the misconfiguration "SES Identities Should Not Allow Cross-Account Access" in AWS using AWS CLI, you can follow the below steps:
 
-  B: Add a Condition clause to the existing policy statement to grant cross-account access only to a specific AWS account (e.g. "Condition": \{ "StringEquals": \{ "aws:SourceAccount": "123456789012" \} \}).
+1. Open the AWS CLI on your local machine.
 
-- Step 5: Click Apply Policy to apply the changes. In the Overwrite Existing Policy dialog box, click Overwrite to confirm the action.
+2. Run the following command to list all the identities in your AWS account:
+
+```
+aws ses list-identities
+```
+
+3. Identify the identities that allow cross-account access.
+
+4. Run the following command to remove cross-account access from the identified identity:
+
+```
+aws ses delete-identity-policy --identity <identity-email-address> --policy-name "CrossAccountPolicy"
+```
+
+Note: Replace `<identity-email-address>` with the email address of the identified identity.
+
+5. Verify that the cross-account access has been removed by running the following command:
+
+```
+aws ses get-identity-policies --identity <identity-email-address>
+```
+
+Note: Replace `<identity-email-address>` with the email address of the identified identity.
+
+6. Repeat steps 3-5 for all the identities that allow cross-account access.
+
+By following these steps, you can remediate the misconfiguration "SES Identities Should Not Allow Cross-Account Access" in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the SES Identities Should Not Allow Cross-Account Access misconfiguration in AWS using Python, follow these steps:
+
+1. First, you need to identify the AWS Identity and Access Management (IAM) user or role that has cross-account permissions to the SES identity. You can use the following code to list all the users and roles that have cross-account access to SES:
+
+```python
+import boto3
+
+ses = boto3.client('ses')
+response = ses.list_identities()
+identities = response['Identities']
+
+for identity in identities:
+    response = ses.get_identity_policies(Identity=identity)
+    policies = response['Policies']
+    
+    for policy in policies:
+        if 'Statement' in policy:
+            for statement in policy['Statement']:
+                if 'AWS' in statement['Principal']:
+                    principals = statement['Principal']['AWS']
+                    
+                    for principal in principals:
+                        if ':' in principal:
+                            account_id = principal.split(':')[0]
+                            iam = boto3.client('iam')
+                            response = iam.list_users()
+                            users = response['Users']
+                            
+                            for user in users:
+                                response = iam.list_attached_user_policies(UserName=user['UserName'])
+                                attached_policies = response['AttachedPolicies']
+                                
+                                for attached_policy in attached_policies:
+                                    policy_arn = attached_policy['PolicyArn']
+                                    response = iam.list_policy_versions(PolicyArn=policy_arn)
+                                    policy_versions = response['Versions']
+                                    
+                                    for policy_version in policy_versions:
+                                        version_id = policy_version['VersionId']
+                                        response = iam.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)
+                                        policy_document = response['PolicyVersion']['Document']
+                                        
+                                        if account_id in policy_document['Statement'][0]['Resource']:
+                                            print('User {} has cross-account access to SES identity {}'.format(user['UserName'], identity))
+```
+
+2. Once you have identified the IAM user or role that has cross-account permissions to the SES identity, you can remove the permissions using the following code:
+
+```python
+import boto3
+
+iam = boto3.client('iam')
+response = iam.detach_user_policy(UserName='user_name', PolicyArn='policy_arn')
+```
+
+Replace `user_name` with the name of the IAM user and `policy_arn` with the ARN of the policy that grants cross-account access to SES.
+
+3. Repeat step 2 for all the IAM users and roles that have cross-account access to SES.
+
+4. Verify that the misconfiguration has been remediated by running the code in step 1 again.
+

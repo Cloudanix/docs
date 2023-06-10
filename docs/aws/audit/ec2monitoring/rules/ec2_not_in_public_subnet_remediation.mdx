@@ -1,24 +1,121 @@
 ### Remediation
 
-How to move your backend EC2 instances from public subnets to private subnets?
+#### Using Console
 
-#### Using AWS Console
+To remediate the EC2 instance in a public subnet in AWS, follow these steps:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the EC2 service by selecting "EC2" from the services menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "EC2 Instance Should Not Be In Public Subnet" Policy.)
-3. In the EC2 dashboard, click on "Instances" in the left navigation pane.
-4. Identify the EC2 instance(s) that you want to move from the public subnet to the private subnet.
-5. Take note of the specific EC2 instance identifier(s) that need to be moved.
-6. Stop the EC2 instance(s) that you want to move by selecting the instance(s) and clicking on the "Actions" button, then choose "Instance State" and "Stop" from the dropdown menu.
-7. Once the instance(s) is stopped, select the instance(s) again and click on the "Actions" button.
-8. Choose "Networking" and then "Change security groups" from the dropdown menu.
-9. In the "Change security groups" dialog, select the security group(s) associated with the private subnet where you want to move the instance(s).
-10. Click on the "Save" button to apply the changes.
-11. Start the EC2 instance(s) by selecting the instance(s) and clicking on the "Actions" button, then choose "Instance State" and "Start" from the dropdown menu.
-12. Monitor the status of the instance(s) to ensure they start successfully and are running in the private subnet.
-13. Test the connectivity to the EC2 instance(s) from other resources within the same private subnet.
-14. Update any DNS records or load balancer configurations, if applicable, to ensure the EC2 instance(s) are accessed using the new private IP addresses.
-15. Verify that the EC2 instance(s) can access necessary resources within the private subnet and any required connectivity to external resources is properly configured (e.g., through NAT gateways or VPN connections).
-16. Repeat these steps for each EC2 instance that needs to be moved from the public subnet to the private subnet.
+1. Open the AWS Management Console and navigate to the VPC dashboard.
+
+2. Select the VPC containing the public subnet that the EC2 instance is in.
+
+3. Select the Subnets tab and then select the public subnet that the EC2 instance is in.
+
+4. Select the Route Table tab and then select the route table associated with the public subnet.
+
+5. Remove the route that allows traffic to the internet gateway. This will prevent any traffic from the internet from reaching the EC2 instance.
+
+6. Create a new route table and associate it with the public subnet.
+
+7. Add a route to the new route table that allows traffic to reach the internet gateway. This will allow any traffic from the EC2 instance to reach the internet.
+
+8. Launch a new EC2 instance in a private subnet and associate it with the new route table. This will ensure that the EC2 instance is not accessible from the internet.
+
+9. Terminate the old EC2 instance in the public subnet.
+
+By following these steps, you can remediate the misconfiguration of having an EC2 instance in a public subnet in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration of having an EC2 instance in a public subnet in AWS using AWS CLI, follow these steps:
+
+1. Identify the public subnet in which the EC2 instance is running. You can do this by checking the subnet's route table and confirming that it has a route to an Internet Gateway.
+
+2. Create a new private subnet in the same VPC as the public subnet. This new subnet should have a non-overlapping CIDR block and should not have a route to an Internet Gateway.
+
+3. Stop the EC2 instance that is running in the public subnet.
+
+4. Modify the instance's network interface to move it from the public subnet to the new private subnet. You can do this using the following command:
+
+```
+aws ec2 modify-network-interface-attribute --network-interface-id <network-interface-id> --subnet-id <new-private-subnet-id>
+```
+
+Replace `<network-interface-id>` with the ID of the network interface attached to the EC2 instance, and `<new-private-subnet-id>` with the ID of the new private subnet you created.
+
+5. Start the EC2 instance.
+
+6. Verify that the EC2 instance now has a private IP address in the new private subnet and does not have a public IP address. You can do this by checking the instance's network interface settings.
+
+#### Using Python
+
+To remediate the misconfiguration of an EC2 instance in a public subnet in AWS using Python, you can follow the below steps:
+
+1. First, you need to identify the EC2 instances that are in the public subnet. You can do this by using the `describe_instances` method of the `boto3` library in Python.
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+response = ec2.describe_instances(
+    Filters=[
+        {
+            'Name': 'subnet-id',
+            'Values': [
+                'subnet-0123456789abcdef0',
+            ]
+        },
+    ]
+)
+
+for reservation in response['Reservations']:
+    for instance in reservation['Instances']:
+        print(instance['InstanceId'])
+```
+
+Replace the `subnet-id` with the ID of the public subnet.
+
+2. Once you have identified the instances, you need to move them to a private subnet. To do this, you can modify the network interface of the instance and attach it to a private subnet. You can use the `modify_network_interface_attribute` method of the `boto3` library to do this.
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+response = ec2.modify_network_interface_attribute(
+    NetworkInterfaceId='eni-0123456789abcdef0',
+    Groups=[
+        'sg-0123456789abcdef0',
+    ],
+    Description={
+        'Value': 'Modified description'
+    }
+)
+
+print(response)
+```
+
+Replace the `NetworkInterfaceId` with the ID of the network interface of the instance that you want to modify. Also, replace the `sg-0123456789abcdef0` with the ID of the security group that you want to attach to the network interface.
+
+3. After modifying the network interface, you need to verify that the instance is now in the private subnet. You can do this by checking the `SubnetId` attribute of the instance using the `describe_instances` method.
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+response = ec2.describe_instances(
+    InstanceIds=[
+        'i-0123456789abcdef0',
+    ],
+)
+
+for reservation in response['Reservations']:
+    for instance in reservation['Instances']:
+        print(instance['SubnetId'])
+```
+
+Replace the `i-0123456789abcdef0` with the ID of the instance that you want to check.
+
+By following these steps, you can remediate the misconfiguration of an EC2 instance in a public subnet in AWS using Python.
 

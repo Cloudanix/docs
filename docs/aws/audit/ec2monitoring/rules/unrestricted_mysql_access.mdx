@@ -22,19 +22,101 @@ SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 
 ### Remediation
 
-How to update the security group inbound configuration to restrict MySQL access to specific entities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the unrestricted MySQL access issue in AWS, you can follow the below steps:
 
-1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
-2. Click on the "Security Groups" option in the left-hand menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Unrestricted MySQL Access Should Not Be Allowed" Policy.)
-3. Select the security group that needs to be updated.
-4. Click on the "Inbound Rules" tab.
-5. Locate the rule that allows MySQL access (port 3306) and click the "Edit" button next to it.
-6. Change the source of the rule to the specific entities that should have access to MySQL (e.g. IP addresses or security group IDs).
-7. If necessary, add a new inbound rule to allow access from the specific entities and remove the old rule that allows access from anywhere (0.0.0.0/0).
-8. Click the "Save" button to apply the changes.
+1. Login to AWS console.
+2. Go to the RDS service.
+3. Select the DB instance with unrestricted MySQL access.
+4. Click on the "Modify" button.
+5. Scroll down to the "Network & Security" section.
+6. In the "Security Group" section, select the security group associated with the DB instance.
+7. Click on the "Remove" button to remove the inbound rule that allows unrestricted access to MySQL.
+8. Add a new inbound rule to the security group that allows access only from specific IP addresses or CIDR blocks.
+9. Click on the "Save Changes" button to apply the changes.
+
+By following the above steps, you can remediate the unrestricted MySQL access issue in AWS and ensure that your database is secure.
+
+#### Using CLI
+
+To remediate the unrestricted MySQL access issue in AWS using AWS CLI, follow the below steps:
+
+Step 1: Open the AWS CLI and run the following command to list all the security groups in your AWS account:
+```
+aws ec2 describe-security-groups
+```
+Step 2: Identify the security group that has unrestricted MySQL access. You can filter the results using the following command:
+```
+aws ec2 describe-security-groups --filters Name=ip-permission.protocol,Values=tcp Name=ip-permission.to-port,Values=3306 Name=ip-permission.cidr,Values='0.0.0.0/0'
+```
+This command will list all the security groups that have unrestricted MySQL access.
+
+Step 3: Once you have identified the security group, run the following command to revoke the MySQL access:
+```
+aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 3306 --cidr 0.0.0.0/0
+```
+Replace `<security-group-id>` with the ID of the security group that you want to remediate.
+
+Step 4: Verify that the MySQL access has been revoked by running the following command:
+```
+aws ec2 describe-security-groups --group-ids <security-group-id>
+```
+This command will list the details of the security group that you have remediated.
+
+That's it. You have successfully remediated the unrestricted MySQL access issue in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate unrestricted MySQL access in AWS using Python, you can follow these steps:
+
+1. Import the necessary libraries:
+
+```
+import boto3
+from botocore.exceptions import ClientError
+```
+
+2. Create an AWS client for the RDS service:
+
+```
+rds = boto3.client('rds')
+```
+
+3. Get a list of all RDS instances:
+
+```
+try:
+    response = rds.describe_db_instances()
+    instances = response['DBInstances']
+except ClientError as e:
+    print(e)
+    exit(1)
+```
+
+4. Loop through each RDS instance and modify its security group to remove unrestricted MySQL access:
+
+```
+for instance in instances:
+    db_instance_identifier = instance['DBInstanceIdentifier']
+    db_security_groups = instance['DBSecurityGroups']
+    for security_group in db_security_groups:
+        if security_group['DBSecurityGroupName'] == 'default':
+            try:
+                response = rds.revoke_db_security_group_ingress(
+                    DBSecurityGroupName='default',
+                    EC2SecurityGroupId=security_group['EC2SecurityGroups'][0]['EC2SecurityGroupId'],
+                    CIDRIP='0.0.0.0/0',
+                    DBProtocol='tcp',
+                    DBPortNumber=3306
+                )
+                print(f"Revoked unrestricted MySQL access for {db_instance_identifier}")
+            except ClientError as e:
+                print(e)
+                exit(1)
+```
+
+This code will loop through each RDS instance and its associated security groups. If the default security group is found, it will revoke any inbound rules that allow unrestricted MySQL access (i.e. from any IP address). The code will print a message for each instance where unrestricted MySQL access was revoked.
 
 ### Additional Reading:
 

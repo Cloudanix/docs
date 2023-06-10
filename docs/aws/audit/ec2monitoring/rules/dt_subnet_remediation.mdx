@@ -1,16 +1,127 @@
 ### Remediation
 
-How to restrict data-tier subnet connectivity to VPC NAT Gateway?
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration of restricting data-tier subnet connectivity to VPC NAT Gateway in AWS, please follow these step-by-step instructions:
 
-1. Open the Amazon VPC console.
-2. In the navigation pane, choose Route Tables.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Restrict data-tier subnet connectivity to VPC NAT Gateway" Policy.)
-3. Select the route table associated with the data-tier subnets.
-4. Choose the Routes tab.
-5. Identify the default route (0.0.0.0/0) that points to the NAT Gateway.
-6. Choose Edit.
-7. In the Edit route dialog box, delete the default route.
-8. Choose Save routes.
+1. Go to the AWS Management Console and navigate to the VPC service.
+
+2. Select the VPC in which your data-tier subnet resides.
+
+3. Click on the "Subnets" option in the left-hand menu.
+
+4. Select the data-tier subnet that needs to be remediated.
+
+5. Click on the "Route Table" tab in the bottom pane.
+
+6. Click the "Edit" button to edit the route table.
+
+7. Remove any routes that allow traffic to flow directly from the data-tier subnet to the internet or any other destination.
+
+8. Add a new route to the route table that directs all traffic from the data-tier subnet to the NAT Gateway.
+
+9. Save the changes to the route table.
+
+10. Verify that the data-tier subnet is now only able to communicate with the internet or other destinations via the NAT Gateway.
+
+11. Repeat these steps for any other data-tier subnets in the VPC that need to be remediated.
+
+By following these steps, you have successfully remediated the misconfiguration of restricting data-tier subnet connectivity to VPC NAT Gateway in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration "Restrict data-tier subnet connectivity to VPC NAT Gateway" in AWS using the AWS CLI, follow the steps below:
+
+1. Open the AWS CLI and run the following command to get the ID of the VPC that contains the data-tier subnet:
+
+```
+aws ec2 describe-subnets --filters "Name=tag:Name,Values=data-tier-subnet" --query "Subnets[*].VpcId" --output text
+```
+
+2. Run the following command to get the ID of the NAT Gateway:
+
+```
+aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=<VPC_ID>" --query "NatGateways[*].NatGatewayId" --output text
+```
+
+Replace `<VPC_ID>` with the ID of the VPC obtained in step 1.
+
+3. Run the following command to create a new security group that allows inbound traffic only from the NAT Gateway:
+
+```
+aws ec2 create-security-group --group-name "data-tier-nat-sg" --description "Allow inbound traffic only from NAT Gateway" --vpc-id <VPC_ID>
+```
+
+Replace `<VPC_ID>` with the ID of the VPC obtained in step 1.
+
+4. Run the following command to authorize inbound traffic from the NAT Gateway to the new security group:
+
+```
+aws ec2 authorize-security-group-ingress --group-id <SG_ID> --protocol all --source-group <NAT_SG_ID>
+```
+
+Replace `<SG_ID>` with the ID of the new security group created in step 3 and `<NAT_SG_ID>` with the security group ID of the NAT Gateway obtained in step 2.
+
+5. Run the following command to modify the network ACL of the data-tier subnet to allow inbound traffic only from the new security group:
+
+```
+aws ec2 replace-network-acl-association --association-id <ASSOC_ID> --network-acl-id <ACL_ID>
+```
+
+Replace `<ASSOC_ID>` with the ID of the network ACL association for the data-tier subnet and `<ACL_ID>` with the ID of the network ACL for the data-tier subnet.
+
+6. Run the following command to add an inbound rule to the network ACL that allows inbound traffic only from the new security group:
+
+```
+aws ec2 create-network-acl-entry --network-acl-id <ACL_ID> --rule-number 100 --protocol all --rule-action allow --ingress --cidr-block 0.0.0.0/0 --egress --rule-id 100 --rule-egress
+```
+
+Replace `<ACL_ID>` with the ID of the network ACL for the data-tier subnet.
+
+7. Verify that the misconfiguration has been remediated by testing connectivity to the data-tier subnet from a resource outside the VPC.
+
+#### Using Python
+
+To remediate the misconfiguration of restricting data-tier subnet connectivity to VPC NAT Gateway in AWS using Python, you can follow these steps:
+
+1. Open the AWS console and navigate to the VPC service.
+2. Select the VPC that contains the data-tier subnet.
+3. Click on the "Subnets" tab and select the data-tier subnet.
+4. Click on the "Route Table" tab and note the route table associated with the data-tier subnet.
+5. Navigate to the "Route Tables" section and select the route table noted in step 4.
+6. Click on the "Routes" tab and locate the route that allows traffic to the internet gateway.
+7. Edit the route and change the target to the NAT gateway associated with the VPC.
+8. Save the changes.
+
+To automate these steps using Python, you can use the AWS SDK for Python (Boto3). Here is an example code snippet that you can use:
+
+```
+import boto3
+
+# Specify the VPC ID and the data-tier subnet ID
+vpc_id = 'vpc-1234567890'
+subnet_id = 'subnet-1234567890'
+
+# Create a client for the EC2 service
+ec2 = boto3.client('ec2')
+
+# Get the route table associated with the data-tier subnet
+response = ec2.describe_route_tables(Filters=[{'Name': 'association.subnet-id', 'Values': [subnet_id]}])
+route_table_id = response['RouteTables'][0]['RouteTableId']
+
+# Get the NAT gateway associated with the VPC
+response = ec2.describe_nat_gateways(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
+nat_gateway_id = response['NatGateways'][0]['NatGatewayId']
+
+# Update the route table to use the NAT gateway as the target for internet traffic
+response = ec2.replace_route(
+    RouteTableId=route_table_id,
+    DestinationCidrBlock='0.0.0.0/0',
+    NatGatewayId=nat_gateway_id
+)
+
+print(response)
+```
+
+Note: You will need to have appropriate AWS credentials set up to run this code. Also, make sure to replace the VPC ID and subnet ID with your own values.
 

@@ -22,26 +22,160 @@ CBP
 
 ### Remediation
 
-How to remediate AWS Accounts with multiple admins?
+#### Using Console
 
-#### Using AWS Console
+The following are the step by step instructions to remediate the AWS misconfiguration:
 
-1. Review Existing Admin Users:
-   - Access the AWS Management Console and navigate to the IAM service.
-   - Go to the "Users" section and review the list of existing users with admin privileges.
-   - Identify the users who have unnecessary or excessive admin access.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "AWS Account Should Not Have Too Many Admins" Policy.)
-2. Implement the Principle of Least Privilege (POLP):
-   - Create IAM Policies: 
-     - Identify the specific permissions required for each admin user based on their responsibilities.
-     - Create IAM policies that grant only the necessary permissions needed to perform their tasks.
-     - Avoid using the built-in "AdministratorAccess" policy and instead define granular policies.
-   - Create IAM Groups: 
-     - Group admin users based on their roles or responsibilities.
-     - Assign the appropriate IAM policies to each group.
-   - Remove Unnecessary Admin Access:
-     - Remove admin privileges from users who do not require them.
-     - Revoke the "AdministratorAccess" policy from users who have it.
+1. Log in to your AWS Management Console using your administrator credentials.
+2. Navigate to the AWS Identity and Access Management (IAM) dashboard.
+3. Click on the "Users" option in the left-hand menu.
+4. Review the list of users and identify any users with the "AdministratorAccess" policy attached to their account.
+5. Select the user(s) that you want to remove the "AdministratorAccess" policy from.
+6. Click on the "Permissions" tab.
+7. Click on the "Detach Policy" button next to the "AdministratorAccess" policy.
+8. Confirm the action by clicking on the "Detach" button.
+9. Repeat steps 5-8 for any additional users with the "AdministratorAccess" policy attached to their account.
+10. Create a new IAM group with the necessary permissions for the users that no longer have "AdministratorAccess" policy attached to their account.
+11. Add the users to the new group.
+12. Monitor the IAM dashboard to ensure that no new users are granted the "AdministratorAccess" policy.
+
+By following these steps, you can remediate the AWS misconfiguration by reducing the number of users with "AdministratorAccess" policy attached to their accounts, and providing them with only the necessary permissions to perform their job duties.
+
+#### Using CLI
+
+Step-by-Step Instructions to remediate the AWS misconfiguration "AWS Account Should Not Have Too Many Admins" using AWS CLI:
+
+1. Identify the number of IAM users with admin access in your AWS account:
+   
+   Run the following AWS CLI command to list all the IAM users with admin access:
+   
+   ```
+   aws iam list-users --query 'Users[?join(``,`[`,{AccessKeyMetadata:AccessKeys}[?Status==`Active`].AccessKeyId,`]`)]' --output table
+   ```
+   
+   This command will list all the IAM users with their Access Key IDs in a table format. Review the output and count the number of users with admin access.
+   
+2. Create a new IAM group with limited permissions:
+   
+   Run the following AWS CLI command to create a new IAM group with limited permissions:
+   
+   ```
+   aws iam create-group --group-name <group-name>
+   ```
+   
+   Replace `<group-name>` with a name for the new IAM group. This group will have limited permissions and will not have admin access.
+   
+3. Remove admin access from the IAM users:
+   
+   Run the following AWS CLI command to remove admin access from the IAM users:
+   
+   ```
+   aws iam remove-user-from-group --group-name admin --user-name <user-name>
+   ```
+   
+   Replace `<user-name>` with the name of the IAM user you want to remove from the admin group. Repeat this command for each IAM user with admin access.
+   
+4. Add the IAM users to the new IAM group:
+   
+   Run the following AWS CLI command to add the IAM users to the new IAM group:
+   
+   ```
+   aws iam add-user-to-group --group-name <group-name> --user-name <user-name>
+   ```
+   
+   Replace `<group-name>` with the name of the new IAM group and `<user-name>` with the name of the IAM user you want to add to the group. Repeat this command for each IAM user you want to add to the group.
+   
+5. Verify the changes:
+   
+   Run the following AWS CLI command to verify that the IAM users no longer have admin access:
+   
+   ```
+   aws iam list-groups-for-user --user-name <user-name> --query 'Groups[].GroupName' --output table
+   ```
+   
+   Replace `<user-name>` with the name of an IAM user you removed from the admin group. This command will list all the IAM groups that the user belongs to. Verify that the user is not in the admin group anymore and is only in the new group with limited permissions.
+   
+   Repeat this command for each IAM user you removed from the admin group.
+   
+6. Delete the admin IAM group:
+   
+   Run the following AWS CLI command to delete the admin IAM group:
+   
+   ```
+   aws iam delete-group --group-name admin
+   ```
+   
+   This will delete the admin IAM group and remove all the IAM users from it.
+
+#### Using Python
+
+To remediate the issue of having too many admins in AWS using Python, you can follow the below steps:
+
+1. Identify the IAM users with admin privileges:
+   - Use the AWS SDK for Python (Boto3) to list all the IAM users in the account.
+   - For each user, check if they have the "AdministratorAccess" policy attached to their IAM user or group.
+   - If they do, add their username to a list of users with admin privileges.
+
+Here is the sample code to identify the IAM users with admin privileges:
+
+```
+import boto3
+
+# Create an IAM client
+iam = boto3.client('iam')
+
+# List all the IAM users in the account
+response = iam.list_users()
+
+# Initialize an empty list to store the usernames with admin privileges
+admins = []
+
+# Check each user for the "AdministratorAccess" policy
+for user in response['Users']:
+    response = iam.list_attached_user_policies(UserName=user['UserName'])
+    for policy in response['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            admins.append(user['UserName'])
+
+print("Users with admin privileges: ", admins)
+```
+
+2. Remove the admin privileges from the identified users:
+   - For each user in the list of admins, remove the "AdministratorAccess" policy from their IAM user or group.
+   - Alternatively, you can create a new IAM policy with limited permissions and attach it to these users instead of the "AdministratorAccess" policy.
+
+Here is the sample code to remove the "AdministratorAccess" policy from the identified users:
+
+```
+import boto3
+
+# Create an IAM client
+iam = boto3.client('iam')
+
+# List all the IAM users in the account
+response = iam.list_users()
+
+# Initialize an empty list to store the usernames with admin privileges
+admins = []
+
+# Check each user for the "AdministratorAccess" policy
+for user in response['Users']:
+    response = iam.list_attached_user_policies(UserName=user['UserName'])
+    for policy in response['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            admins.append(user['UserName'])
+
+# Remove the "AdministratorAccess" policy from the identified users
+for admin in admins:
+    response = iam.list_attached_user_policies(UserName=admin)
+    for policy in response['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            iam.detach_user_policy(UserName=admin, PolicyArn=policy['PolicyArn'])
+
+print("Admin privileges removed from users: ", admins)
+```
+
+Note: Before running the above code, make sure you have the necessary AWS credentials configured on your system.
 
 ### Additional Reading:
 

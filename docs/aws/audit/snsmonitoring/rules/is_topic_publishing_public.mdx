@@ -22,58 +22,114 @@ HITRUST, AWSWAF, SOC2, NISTCSF, PCIDSS
 
 ### Remediation
 
-How to implement the required permissions to secure the exposed SNS topics?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the SNS topic global publishing misconfiguration in AWS:
 
-1. Sign in to the AWS Management Console using an account with administrative privileges.
-2. Open the SNS (Simple Notification Service) console by navigating to the SNS service.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "SNS Topics Should Not Allow Global Publishing" Policy.)
-3. Select the SNS topic that you want to secure or create a new topic.
-4. In the topic details page, click on the "Access policy" tab.
-5. Click on the "Edit" button to modify the access policy for the topic.
-6. In the access policy editor, you can define the required permissions to secure the topic. Here are some common permissions you may want to consider:
-   - Limit access to specific AWS accounts: Add "Principal" elements specifying the AWS account IDs that are allowed to publish or subscribe to the topic. For example:
-   
-     ```json
-     "Principal": {
-       "AWS": [
-         "arn:aws:iam::123456789012:root",
-         "arn:aws:iam::987654321098:user/my-user"
-       ]
-     }
-     ```
+1. Open the AWS Management Console and navigate to the SNS service.
+2. Click on the SNS topic that needs to be remediated.
+3. In the topic details page, click on the "Access Policy" tab.
+4. Click on the "Edit" button to modify the access policy.
+5. In the access policy editor, remove the following statement:
 
-   - Restrict access by IP address or CIDR range: Add "Condition" elements with the "IpAddress" or "SourceIp" condition key. For example:
-   
-     ```json
-     "Condition": {
-       "IpAddress": {
-         "aws:SourceIp": "192.0.2.0/24"
-       }
-     }
-     ```
+```
+{
+  "Effect": "Allow",
+  "Principal": "*",
+  "Action": "SNS:Publish",
+  "Resource": "arn:aws:sns:*:*:*"
+}
+```
 
-   - Allow specific actions: Use the "Action" element to specify the allowed actions. For example, to only allow publishing messages, use:
-   
-     ```json
-     "Action": [
-       "sns:Publish"
-     ]
-     ```
+6. Click on the "Save Changes" button to save the updated access policy.
+7. Verify that the access policy no longer allows global publishing by checking that the `Principal` is no longer set to `"*"`.
+8. Repeat these steps for any other SNS topics that need to be remediated.
 
-   - Deny access to other accounts or entities: Add a "Deny" statement to explicitly deny access to certain AWS accounts or entities. For example:
-   
-     ```json
-     "Effect": "Deny",
-     "Principal": {
-       "AWS": "arn:aws:iam::987654321098:user/other-user"
-     },
-     "Action": [
-       "sns:Publish"
-     ]
-     ```
-7. Once you have defined the required permissions in the access policy, click on the "Save changes" button to apply the policy.
+That's it! By following these steps, you have successfully remediated the SNS topic global publishing misconfiguration in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration of SNS Topics allowing global publishing in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your system.
+
+2. Run the following command to list all the SNS topics in your AWS account:
+
+   ```
+   aws sns list-topics
+   ```
+
+3. Identify the ARN of the SNS topic that needs to be remediated.
+
+4. Run the following command to update the SNS topic policy to disallow global publishing:
+
+   ```
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value '{"Version":"2008-10-17","Id":"__default_policy_ID","Statement":[{"Effect":"Deny","Principal":"*","Action":"SNS:Publish","Resource":"<topic-arn>","Condition":{"StringEquals":{"AWS:SourceOwner":"<aws-account-id>"}}}]}'
+   ```
+
+   Replace `<topic-arn>` with the ARN of the SNS topic identified in step 3 and `<aws-account-id>` with your AWS account ID.
+
+5. Verify that the SNS topic policy has been updated successfully by running the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <topic-arn> --attribute-names Policy
+   ```
+
+   This command should return the updated policy that disallows global publishing.
+
+6. Repeat steps 3-5 for all the SNS topics in your AWS account that allow global publishing.
+
+By following these steps, you can remediate the misconfiguration of SNS topics allowing global publishing in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration in AWS where SNS Topics should not allow global publishing, you can follow the below steps using Python:
+
+1. Create an AWS SNS client using the Boto3 library in Python.
+
+```python
+import boto3
+
+sns_client = boto3.client('sns')
+```
+
+2. Get the list of all SNS topics using the `list_topics()` method.
+
+```python
+response = sns_client.list_topics()
+topics = response['Topics']
+```
+
+3. For each topic, check if it has the `Policy` attribute set. If it does, retrieve the policy using the `get_topic_attributes()` method.
+
+```python
+for topic in topics:
+    topic_arn = topic['TopicArn']
+    response = sns_client.get_topic_attributes(TopicArn=topic_arn)
+    policy = response.get('Attributes', {}).get('Policy')
+```
+
+4. If the policy exists, parse it using the `json` module and check if it allows global publishing. If it does, update the policy to disallow global publishing using the `set_topic_attributes()` method.
+
+```python
+import json
+
+if policy:
+    policy_json = json.loads(policy)
+    if 'Statement' in policy_json:
+        for statement in policy_json['Statement']:
+            if (statement.get('Effect') == 'Allow' and 
+                statement.get('Principal') == '*'):
+                policy_json['Statement'].remove(statement)
+        new_policy = json.dumps(policy_json)
+        sns_client.set_topic_attributes(TopicArn=topic_arn, 
+                                         AttributeName='Policy', 
+                                         AttributeValue=new_policy)
+```
+
+5. Once all the policies have been updated, the misconfiguration has been remediated.
+
+Note: Make sure to have the appropriate AWS credentials and permissions set up for the Python script to access and modify SNS topics.
 
 ### Additional Reading:
 

@@ -22,60 +22,100 @@ SOC2, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF
 
 ### Remediation
 
-How to ensure there is an Amazon CloudWatch alarm created and configured in your AWS account to fire each time an AWS Config configuration change is made?
+#### Using Console
 
-#### Using AWS Console
+AWS Config Changes Alarm is triggered when there are changes made to the AWS resources that are being monitored by AWS Config. To remediate this issue, follow these steps:
 
-##### Create SNS topic and necessary subscription to send email notifications whenever the appropriate Amazon CloudWatch alarm is triggered.
+1. Login to the AWS Management Console and navigate to the AWS Config service.
 
-- Step 1: In the navigation panel, select Topics and click the Create new topic button.
+2. Click on the "Rules" option in the left-hand menu.
 
-- Step 2: In the Create new topic dialog box, enter a name and a display name for your topic then click Create Topic.
+3. Locate the rule that is triggering the alarm and click on the rule name.
 
-- Step 3: Open the newly created SNS topic configuration page by clicking on its Amazon Resource Name (ARN):
-- Step 4: Under Subscription section click Create Subscription.
+4. Review the rule details and make sure it is configured correctly. If not, update the rule configuration as needed.
 
-- Step 5: Select Email as subscription protocol from the Protocol dropdown list.
+5. Click on the "Remediation actions" tab and select the option to "Automatically remediate noncompliant resources".
 
-- Step 6: In the Endpoint box, enter the email address where you want to receive the CloudWatch alarm notifications then click Create Subscription to create the required subscription.
+6. Configure the remediation action based on the specific rule and resource that is triggering the alarm. For example, if the rule is related to security group changes, you may want to automatically revert the security group to its previous state.
 
-- Step 7: Use your preferred email client application to open the message received from AWS Notifications, then click on the appropriate link to confirm your new subscription.
+7. Save the remediation action and test it by making a change that triggers the alarm. The remediation action should automatically revert the change and resolve the alarm.
 
-##### Create the necessary metric filter and CloudWatch alarm that will fire and send email notifications whenever an AWS Config configuration will change.
+8. Monitor the AWS Config Changes Alarm to ensure that it does not trigger again for the same issue. If it does, review the rule configuration and remediation action to ensure they are still valid.
 
-- Step 1: In the left navigation panel, select Logs.
+#### Using CLI
 
-- Step 2: Select the log group created for your CloudTrail trail event logs and click Create Metric Filter button.
+The AWS Config Changes Alarm is an AWS Config rule that checks whether an alarm exists for any changes to the AWS resources in your account. If no alarm exists, the rule is non-compliant.
 
-- Step 3: On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box:
-  `{ ($.eventSource = config.amazonaws.com) && (($.eventName = StopConfigurationRecorder)||($.eventName = DeleteDeliveryChannel)||($.eventName = PutDeliveryChannel)||($.eventName = PutConfigurationRecorder)) }`
+To remediate this misconfiguration, you can follow the below steps using the AWS CLI:
 
-- Step 4: Review the metric filter config details then click Assign Metric.
+1. List all the rules in your AWS Config:
 
-- Step 5: On the Create Metric Filter and Assign a Metric page, perform the following:
-  A: In the Filter Name box, enter a unique name for the new filter, e.g. AWSConfigChanges.
+```
+aws configservice describe-config-rules
+```
 
-  B: In the Metric Namespace box, type CloudTrailMetrics.
+2. Check if the "AWS Config Changes Alarm" rule is non-compliant:
 
-  C: In the Metric Name box, type ConfigEventCount for the metric identifier.
+```
+aws configservice get-compliance-details-by-config-rule --config-rule-name AWS-Config-Changes-Alarm
+```
 
-  D: Click Show advanced metric settings to slide down the advanced settings section.
+3. If the rule is non-compliant, create an alarm for AWS Config changes using the AWS CLI:
 
-  E: In the Metric Value box, enter 1.
+```
+aws cloudwatch put-metric-alarm --alarm-name AWS-Config-Changes-Alarm --alarm-description "Alarm for AWS Config Changes" --metric-name ConfigurationChanges --namespace AWS/Config --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --evaluation-periods 1 --alarm-actions <your-SNS-topic-ARN>
+```
 
-- Step 6: Review the details then click Create Filter to generate your new CloudWatch Logs metric filter.
+Note: Replace `<your-SNS-topic-ARN>` with the ARN of the SNS topic you want to receive the alarm notifications.
 
-- Step 7: On the current page click Create Alarm.
-- Step 8: In the Create Alarm dialog box, provide the following information:
-  A: Within the Alarm Threshold section, in the Name and Description fields, enter a unique name and a short description for the new CloudWatch alarm.
+4. Verify if the alarm has been created successfully:
 
-  B: Under Whenever: Metric Name, select >= (greater than or equal to) from the is dropdown list and enter 1 as the threshold value in the box next to the dropdown list to trigger the alarm every time a configuration change involving an AWS Config within your account is made.
+```
+aws cloudwatch describe-alarms --alarm-names AWS-Config-Changes-Alarm
+```
 
-  C: In the Actions section, click the + Notification button, select State is ALARM from the Whenever this alarm dropdown menu and choose the AWS SNS topic name created at Step 1 from Send notification to.
+5. Finally, check if the "AWS Config Changes Alarm" rule is compliant:
 
-  D: In the Alarm Preview section, select 5 Minutes from the Period dropdown list and Sum from the Statistic list.
+```
+aws configservice get-compliance-details-by-config-rule --config-rule-name AWS-Config-Changes-Alarm
+```
 
-  E: Review the CloudWatch alarm configuration details then click Create Alarm. Once created, the new alarm will be listed on the Alarms page.
+If the rule is compliant, then the misconfiguration has been remediated successfully.
+
+#### Using Python
+
+The AWS Config Changes Alarm is triggered when there are changes made to the AWS resources that are being monitored by AWS Config. To remediate this issue, you can create a Lambda function in Python that will automatically respond to the alarm.
+
+Here are the step-by-step instructions to remediate the AWS Config Changes Alarm using Python:
+
+1. Create an AWS Lambda function: Go to the AWS Management Console, navigate to the Lambda service, and click on the "Create function" button. Choose "Author from scratch", enter a name for the function, and select "Python 3.x" as the runtime.
+
+2. Add the necessary permissions: In the "Permissions" section of the Lambda function, add the "AWS Config" trigger to the function. This will allow the function to be triggered when the AWS Config Changes Alarm is triggered.
+
+3. Write the Python code: In the "Function code" section of the Lambda function, write the Python code to remediate the issue. Here is an example code that will stop and start an EC2 instance when the AWS Config Changes Alarm is triggered:
+
+```
+import boto3
+
+def lambda_handler(event, context):
+    ec2 = boto3.resource('ec2')
+    instance_id = event['detail']['configurationItem']['resourceId']
+    instance = ec2.Instance(instance_id)
+    if event['detail']['configurationItemDiff']['changeType'] == 'CREATE':
+        instance.stop()
+        instance.wait_until_stopped()
+        instance.start()
+        instance.wait_until_running()
+    elif event['detail']['configurationItemDiff']['changeType'] == 'DELETE':
+        instance.start()
+        instance.wait_until_running()
+```
+
+4. Test the function: Once you have written the code, test the function by triggering the AWS Config Changes Alarm. You should see the Lambda function being triggered and the EC2 instance being stopped and started automatically.
+
+5. Deploy the function: Once you have tested the function, deploy it to your AWS account by clicking on the "Deploy" button in the Lambda console. Make sure to set the appropriate permissions and triggers for the function.
+
+By following these steps, you can easily remediate the AWS Config Changes Alarm using Python and automate the response to this issue.
 
 ### Additional Reading:
 

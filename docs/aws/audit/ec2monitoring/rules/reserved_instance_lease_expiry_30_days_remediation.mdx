@@ -1,27 +1,113 @@
 ### Remediation
 
-How to remediate if reserved instances are expiring after 30 days?
+#### Using Console
 
-#### Using AWS Console
+When you receive a notification that your AWS Reserved Instances are expiring in the next 30 days, you need to take action to prevent any disruptions to your AWS resources. Here are the steps to remediate this issue using the AWS console:
 
-1. Identify the expiring reserved instances:
-   - Access the AWS Management Console and navigate to the Amazon EC2 service.
-   - From the left navigation pane, click on "Reserved Instances" under the "Instances" section.
-   - In the Reserved Instances dashboard, review the list of reserved instances and identify the ones that are expiring within the next 30 days.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Reserved Instance Lease Expiration In The Next 30 Days" Policy.)
-2. Determine the appropriate action:
-   - Evaluate your workload and usage patterns to determine if you still require the instances covered by the expiring reserved instances.
-   - If the instances are no longer needed or if you have alternative cost-saving strategies in place, you may choose not to renew the reserved instances.
-3. Renew or modify the reserved instances (optional):
-   - If you decide to keep the reserved instances, you can renew them to extend their term.
-   - Select the expiring reserved instances from the Reserved Instances dashboard.
-   - Click on the "Actions" button and choose "Renew" or "Modify" to adjust the term or other attributes of the reserved instances.
-   - Follow the on-screen prompts to complete the renewal or modification process.
-   - Keep in mind that renewing or modifying reserved instances may incur additional costs or require updated payment information.
-4. Consider alternative cost-saving options:
-   - If you don't want to renew or modify the expiring reserved instances, consider alternative cost-saving options, such as:
-     - Convert the instances to On-Demand or Spot instances based on your workload requirements.
-     - Explore other reserved instance offerings that better align with your current usage patterns.
-     - Utilize savings plans or other pricing models that offer flexibility and cost savings.
-     - Optimize your overall EC2 usage by rightsizing instances or leveraging auto scaling to match demand.
+1. Log in to your AWS Management Console.
+2. Navigate to the EC2 dashboard.
+3. Click on the "Reserved Instances" link in the left-hand navigation menu.
+4. In the "Reserved Instances" page, you will see a list of all your reserved instances. Look for the ones that are expiring in the next 30 days.
+5. Select the reserved instances that are expiring soon and click on the "Actions" button.
+6. From the drop-down menu, select "Modify Reserved Instances".
+7. In the "Modify Reserved Instances" page, you can modify the instance type, availability zone, and the number of instances you want to reserve.
+8. Once you have made the necessary changes, click on the "Modify" button to save the changes.
+9. After modifying the reserved instances, you will receive a confirmation message that the changes have been made.
+
+By following these steps, you will be able to remediate the issue of Reserved Instance Lease Expiration in the next 30 days for AWS.
+
+#### Using CLI
+
+The "Reserved Instance Lease Expiration In The Next 30 Days" issue in AWS means that some of your Reserved Instances are about to expire. To remediate this issue, you can follow the below steps using AWS CLI:
+
+1. Open your terminal and ensure that you have the AWS CLI installed and configured with your AWS account credentials.
+
+2. Run the following command to list all the Reserved Instances that are about to expire in the next 30 days:
+
+```
+aws ec2 describe-reserved-instances --filters "Name=state,Values=active" "Name=product-description,Values=Linux/UNIX (Amazon VPC)" "Name=scope,Values=Availability Zone" --query 'ReservedInstances[?End <= `'"$(date -u +'%Y-%m-%dT%H:%M:%S.000Z' -d '+30 days')"']'
+```
+
+This command will list all the active Reserved Instances that are running Linux/UNIX in Amazon VPC and are scoped to Availability Zone, and whose lease is expiring in the next 30 days.
+
+3. Review the output and identify the Reserved Instances that you want to renew. Note down the Reserved Instance ID(s) that you want to renew.
+
+4. Run the following command to purchase a new Reserved Instance with the same specifications and lease term as the expiring Reserved Instance:
+
+```
+aws ec2 purchase-reserved-instances-offering --instance-count [COUNT] --reserved-instances-offering-id [OFFERING_ID] --dry-run
+```
+
+Replace [COUNT] with the number of instances you want to reserve, [OFFERING_ID] with the ID of the offering that matches the expiring Reserved Instance, and --dry-run with --no-dry-run to actually purchase the Reserved Instance.
+
+5. Verify that the new Reserved Instance is active and that the old Reserved Instance has been retired by running the following command:
+
+```
+aws ec2 describe-reserved-instances --reserved-instances-ids [OLD_INSTANCE_ID] [NEW_INSTANCE_ID]
+```
+
+Replace [OLD_INSTANCE_ID] with the ID of the expiring Reserved Instance and [NEW_INSTANCE_ID] with the ID of the newly purchased Reserved Instance.
+
+6. Once you have verified that the new Reserved Instance is active, you can terminate the old Reserved Instance by running the following command:
+
+```
+aws ec2 modify-reserved-instances --reserved-instances-id [OLD_INSTANCE_ID] --target-configurations "InstanceCount=0"
+```
+
+Replace [OLD_INSTANCE_ID] with the ID of the expiring Reserved Instance.
+
+By following the above steps, you can remediate the "Reserved Instance Lease Expiration In The Next 30 Days" issue in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the issue of Reserved Instance Lease Expiration In The Next 30 Days in AWS using Python, you can follow these steps:
+
+1. Import the required libraries:
+
+```
+import boto3
+from datetime import datetime, timedelta
+```
+
+2. Create a connection to the AWS EC2 service:
+
+```
+ec2 = boto3.client('ec2')
+```
+
+3. Retrieve the list of Reserved Instances with lease expiration dates within the next 30 days:
+
+```
+now = datetime.now()
+filters = [{'Name': 'state', 'Values': ['active']},
+           {'Name': 'instance-state-name', 'Values': ['running', 'stopped']},
+           {'Name': 'end', 'Values': [str(now + timedelta(days=30)).split()[0]]}]
+reserved_instances = ec2.describe_reserved_instances(Filters=filters)
+```
+
+4. For each Reserved Instance, check if its lease expiration date is within the next 30 days and if so, modify its lease to extend it:
+
+```
+for reserved_instance in reserved_instances['ReservedInstances']:
+    end_date = datetime.strptime(reserved_instance['End'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    if (end_date - now).days <= 30:
+        ec2.modify_reserved_instances(
+            ReservedInstancesIds=[reserved_instance['ReservedInstancesId']],
+            ClientToken=str(datetime.now().strftime('%Y%m%d%H%M%S')),
+            TargetConfigurations=[
+                {
+                    'AvailabilityZone': reserved_instance['AvailabilityZone'],
+                    'InstanceCount': reserved_instance['InstanceCount'],
+                    'InstanceType': reserved_instance['InstanceType'],
+                    'Platform': reserved_instance['ProductDescription'],
+                    'Scope': 'Availability Zone',
+                    'Tenancy': reserved_instance['InstanceTenancy']
+                }
+            ]
+        )
+```
+
+5. Run the Python script on a regular basis (e.g. daily) using a scheduler like cron to ensure that Reserved Instances are always extended before their lease expires.
+
+Note: This code is provided as an example only and should be tested and modified to suit your specific requirements. It is also important to ensure that you have the necessary permissions to modify Reserved Instances in your AWS account.
 

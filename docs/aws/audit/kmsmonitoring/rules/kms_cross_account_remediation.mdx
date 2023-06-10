@@ -1,22 +1,105 @@
 ### Remediation
 
-How to ensure that all your AWS Key Management Service keys are configured to be accessed only by trusted AWS accounts?
+#### Using Console
 
-#### Using AWS Console
+To remediate the KMS Keys Should Not Allow Unknown Cross Account Access misconfiguration for AWS using the AWS console, follow the below steps:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the AWS Key Management Service (KMS) by selecting "KMS" from the services menu.
-3. In the KMS dashboard, click on "Customer managed keys" in the left navigation pane.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "KMS Keys Should Not Allow Unknown Cross Account Access" Policy.)
-4. Identify the KMS keys that have cross-account access enabled.
-5. Take note of the specific key identifier(s) that need remediation.
-6. Select the checkbox next to the key(s) you want to remediate.
-7. Above the list of keys, click on the "Edit key policy" button.
-8. In the "Edit key policy" page, review the existing key policy for the selected key(s).
-9. Identify the "Statement" section in the key policy that grants cross-account access.
-10. Select and delete the statement(s) that allow cross-account access.
-11. Ensure that the remaining statements provide appropriate permissions to authorized AWS identities or roles within the same account.
-12. Once the key policy is updated, click on the "Save changes" button to apply the modified policy.
-13. Monitor the status of the key policy update to ensure it is successfully applied to the KMS keys.
-14. Repeat these steps for each KMS key that has cross-account access enabled until all keys have been remediated.
+1. Log in to the AWS Management Console.
+
+2. Go to the AWS Key Management Service (KMS) console.
+
+3. Click on the "Customer managed keys" link located in the left-hand menu.
+
+4. Select the KMS key that is not configured properly.
+
+5. Click on the "Key policy" tab.
+
+6. Click on the "Edit" button.
+
+7. In the "Principal" section, remove any unknown or unauthorized cross-account access.
+
+8. Add the appropriate AWS account IDs or IAM roles that should have access to the KMS key.
+
+9. Click on the "Review policy" button.
+
+10. Review the changes and ensure that they are correct.
+
+11. Click on the "Save changes" button.
+
+12. Verify that the KMS key is now properly configured by testing it with authorized access.
+
+By following these steps, you will have successfully remediated the KMS Keys Should Not Allow Unknown Cross Account Access misconfiguration for AWS using the AWS console.
+
+#### Using CLI
+
+To remediate the misconfiguration "KMS Keys Should Not Allow Unknown Cross Account Access" in AWS using AWS CLI, follow the below steps:
+
+1. Identify the KMS keys that allow unknown cross-account access:
+   
+   ```
+   aws kms list-keys --query "Keys[?KeyManager != 'AWS' && KeyState == 'Enabled']" --output text | awk '{print $1}' | while read key_id; do aws kms get-key-policy --key-id $key_id --policy-name default --query Policy --output text | grep -q "Effect\": \"Allow" && echo $key_id; done
+   ```
+
+2. Remove the unknown cross-account access from the KMS key policy:
+
+   ```
+   aws kms list-keys --query "Keys[?KeyManager != 'AWS' && KeyState == 'Enabled']" --output text | awk '{print $1}' | while read key_id; do aws kms get-key-policy --key-id $key_id --policy-name default --query Policy --output text | sed '/Effect\": \"Allow\"/,/\"Principal\": {/d' > policy.json && aws kms put-key-policy --key-id $key_id --policy-name default --policy file://policy.json && rm policy.json; done
+   ```
+
+3. Verify that the unknown cross-account access has been removed:
+
+   ```
+   aws kms list-keys --query "Keys[?KeyManager != 'AWS' && KeyState == 'Enabled']" --output text | awk '{print $1}' | while read key_id; do aws kms get-key-policy --key-id $key_id --policy-name default --query Policy --output text | grep -q "Effect\": \"Allow" && echo $key_id; done
+   ```
+
+   If there is no output, then the remediation is successful.
+
+#### Using Python
+
+To remediate the misconfiguration "KMS Keys Should Not Allow Unknown Cross Account Access" for AWS using Python, you can follow these steps:
+
+1. Identify the KMS keys that are allowing unknown cross-account access. You can do this by using the AWS CLI command `aws kms list-keys` to get a list of all the KMS keys and then using the `aws kms describe-key` command to get the key policy for each key.
+
+2. Check the key policy to see if it allows unknown cross-account access. You can do this by looking for the `"AWS"` field in the `Principal` element of the policy. If the `"AWS"` field is set to `"*"` or does not include a specific account ID, then the key allows unknown cross-account access.
+
+3. Modify the key policy to remove the unknown cross-account access. You can do this by using the `aws kms put-key-policy` command to update the key policy. You will need to specify the key ID, the policy name, and the new policy document that removes the `"AWS"` field or replaces it with a specific account ID.
+
+4. Test the modified key policy to ensure that it no longer allows unknown cross-account access. You can do this by using the `aws kms encrypt` command to encrypt a test message using the modified key. If the encryption is successful, then the key policy has been remediated.
+
+Here is an example Python script that can be used to remediate the misconfiguration:
+
+```python
+import boto3
+import json
+
+# Initialize the KMS client
+kms = boto3.client('kms')
+
+# Get a list of all KMS keys
+response = kms.list_keys()
+
+# Loop through each key
+for key in response['Keys']:
+    # Get the key policy
+    key_policy = kms.get_key_policy(KeyId=key['KeyId'], PolicyName='default')['Policy']
+
+    # Parse the policy document
+    policy_doc = json.loads(key_policy)
+
+    # Check if the policy allows unknown cross-account access
+    if 'AWS' in policy_doc['Statement'][0]['Principal'] and \
+        ('*' in policy_doc['Statement'][0]['Principal']['AWS'] or \
+        len(policy_doc['Statement'][0]['Principal']['AWS']) == 1):
+        
+        # Modify the policy to remove the unknown cross-account access
+        policy_doc['Statement'][0]['Principal']['AWS'] = ['arn:aws:iam::123456789012:root']
+
+        # Update the key policy
+        response = kms.put_key_policy(KeyId=key['KeyId'], PolicyName='default', Policy=json.dumps(policy_doc))
+
+        # Print the result
+        print('Key policy updated for key ' + key['KeyId'])
+``` 
+
+Note: Replace the account ID `123456789012` with your own account ID.
 

@@ -1,47 +1,120 @@
 ### Remediation
 
-How to use KMS CMK instead of AWS managed keys?
+#### Using Console
 
-#### Using AWS Console
+To remediate this misconfiguration for AWS using the AWS console, follow these steps:
 
-- Step 1: In the left navigation panel, click Encryption Keys and select the appropriate AWS region from the Filter menu:
-  (must match the region where the AWS resource that will use the key was created).
+1. Log in to the AWS Management Console.
 
-- Step 2: Click Create Key button from the top menu and enter an alias and a description for the new CMK, Then click Next.
+2. Navigate to the AWS Key Management Service (KMS) console.
 
-- Step 3: Under the Key Administrators section, select which IAM users or roles can administer the CMK, then click Next.
+3. Click on the "Customer managed keys" option in the left-hand menu.
 
-- Step 4: Under This Account section, select which IAM users or roles can use the CMK to encrypt/decrypt data with the AWS KMS API.
+4. Click on the "Create key" button.
 
-- Step 5: (Optional) Under External Accounts section, click Add an External Account and enter an external account ID in order to add another AWS account that can use this CMK to encrypt/decrypt data. The owners of the external AWS accounts must also provide access to this CMK by creating policies for their IAM users.
+5. Select the appropriate options for your key, such as the key material origin and key usage permissions.
 
-- Step 6: Click Next. Under the preview key policy section, click Finish to create new CMK. Once its created. The KMS dashboard will display a confirmation message: "Your master key was created successfully. Alias: the CMK display name".
+6. Click "Next" to review your key settings.
 
-- Step 7: Under Preview Key Policy section, click Finish to create your new CMK. Once the key is created, the KMS dashboard will display a confirmation message: "Your master key was created successfully. Alias: the CMK display name".
+7. Review your key settings and click "Finish" to create your customer-managed key.
 
-- Step 8: Click on the newly created CMK alias and copy the key full ARN displayed in the Summary section:
-- Step 9: Now the new CMK must be applied to encrypt/decrypt the RDS instance data. In order to start the process, navigate to the RDS dashboard at https://console.aws.amazon.com/rds/.
+8. Update your AWS resources to use the new customer-managed key.
 
-- Step 10: In the navigation panel, under RDS Dashboard, click Instances and select the RDS DB instance to encrypt.
+9. Verify that your resources are using the new key by checking the key ID in the AWS Management Console.
 
-- Step 11: Click Instance Actions button from the dashboard top menu and select Take Snapshot.
+10. Disable or delete any AWS-managed keys that are no longer needed.
 
-- Step 12: On the Take DB Snapshot page, enter a name for the instance snapshot in the Snapshot Name field and click Take Snapshot (the backup process may take few minutes and depends on your instance storage size).
+By following these steps, you can remediate the misconfiguration by using customer-managed keys instead of AWS-managed keys.
 
-- Step 13: Select the new created snapshot and click the Copy Snapshot button from the dashboard top menu.
+#### Using CLI
 
-- Step 14: On the Make Copy of DB Snapshot page, perform the following:
-  A: In the New DB Snapshot Identifier field, enter a name for the new snapshot (copy).
-  B: Check Copy Tags so the new snapshot can have the same tags as the source snapshot.
-  C: In the Master Key dropdown list, select Enter a key ARN to provide your own CMK ARN.
-  D: In the ARN field, paste the CMK ARN copied at step no. 12 (e.g. arn:aws:kms:::key/).
+To remediate the misconfiguration of using AWS-managed keys instead of customer-managed keys, follow these steps:
 
-- Step 15: Click Copy Snapshot to create an encrypted copy of the selected instance snapshot.
+1. Create a customer-managed CMK (Customer Master Key) in AWS KMS (Key Management Service) using the AWS CLI command `aws kms create-key`. Make sure to specify the key policy that defines who can use the key.
 
-- Step 16: Select the new snapshot copy and click Restore Snapshot button from the dashboard top menu.
+2. Enable key rotation for the CMK using the AWS CLI command `aws kms enable-key-rotation`. This will automatically rotate the CMK every year.
 
-- Step 17: On the Restore DB Instance page, enter a unique name for the new database instance in the DB Instance Identifier\* field.
+3. Update the AWS service to use the newly created customer-managed CMK. This can be done through the AWS Management Console or by using the AWS CLI command `aws kms update-alias`. Specify the alias name and the ARN (Amazon Resource Name) of the customer-managed CMK.
 
-- Step 18: Review the instance configuration details and click Restore DB Instance.
+4. Verify that the AWS service is now using the customer-managed CMK by checking the key ID or alias name in the AWS Management Console or by using the AWS CLI command `aws kms describe-key`. 
 
-- Step 19: As soon as the new instance provisioning process is completed (the instance status becomes available), you can update your application configuration to refer to the endpoint (e.g. mysql-prod-db-encrypted.cdi32cpelkwh.us-east-1.rds.amazonaws.com) of the new database instance (encrypted with your own CMK). Once the database endpoint is changed at your application level, you can remove the instance encrypted with the AWS KMS default key.
+5. Delete the AWS-managed key that was previously used by the AWS service using the AWS Management Console or by using the AWS CLI command `aws kms schedule-key-deletion`. Specify the key ID and the number of days until the key is permanently deleted.
+
+By following these steps, you have successfully remediated the misconfiguration of using AWS-managed keys instead of customer-managed keys.
+
+#### Using Python
+
+To remediate the misconfiguration of using AWS-managed keys instead of customer-managed keys, you can use the following steps in Python:
+
+1. Create a new customer-managed key using the AWS KMS (Key Management Service) API. You can use the following Python code to create a KMS key:
+
+```python
+import boto3
+
+kms = boto3.client('kms')
+
+response = kms.create_key(
+    Description='Customer-managed key',
+    KeyUsage='ENCRYPT_DECRYPT',
+    Origin='AWS_KMS',
+)
+
+key_id = response['KeyMetadata']['KeyId']
+print(f'Created customer-managed key with ID: {key_id}')
+```
+
+2. Update your AWS resources to use the new customer-managed key. You can use the AWS SDK for Python (Boto3) to update your resources. For example, if you want to update an S3 bucket to use the new key, you can use the following Python code:
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+bucket_name = 'my-bucket'
+
+response = s3.put_bucket_encryption(
+    Bucket=bucket_name,
+    ServerSideEncryptionConfiguration={
+        'Rules': [
+            {
+                'ApplyServerSideEncryptionByDefault': {
+                    'SSEAlgorithm': 'aws:kms',
+                    'KMSMasterKeyID': key_id,
+                },
+            },
+        ],
+    },
+)
+
+print(f'Updated encryption configuration for bucket {bucket_name}')
+```
+
+3. Verify that your AWS resources are now using the customer-managed key by checking the encryption configuration. For example, you can use the following Python code to check the encryption configuration of an S3 bucket:
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+bucket_name = 'my-bucket'
+
+response = s3.get_bucket_encryption(
+    Bucket=bucket_name,
+)
+
+rules = response.get('ServerSideEncryptionConfiguration', {}).get('Rules', [])
+
+for rule in rules:
+    if 'ApplyServerSideEncryptionByDefault' in rule:
+        sse = rule['ApplyServerSideEncryptionByDefault']
+        if sse.get('SSEAlgorithm') == 'aws:kms':
+            kms_key_id = sse.get('KMSMasterKeyID')
+            if kms_key_id == key_id:
+                print(f'S3 bucket {bucket_name} is using the customer-managed key')
+                break
+else:
+    print(f'S3 bucket {bucket_name} is not using the customer-managed key')
+```
+
+By following these steps, you can remediate the misconfiguration of using AWS-managed keys instead of customer-managed keys in AWS using Python.
+

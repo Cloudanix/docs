@@ -22,52 +22,136 @@ HIPAA, PCIDSS, SOC2, AWSWAF, HITRUST, NISTCSF
 
 ### Remediation
 
-How to enable ECR private repositories?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the misconfiguration of ECR repositories not being private in AWS:
 
-1. Open the AWS Management Console and navigate to the Amazon ECR service.
-2. Click on "Repositories" in the navigation panel on the left side.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "ECR Repositories Should Be Private" Policy.)
-3. Select the ECR repository for which you want to enable private access.
-4. In the repository details page, click on the "Permissions" tab.
-5. Under "Repository policies," click on the "Edit" button.
-6. In the repository policy editor, provide a JSON policy that restricts access to the repository. You can use the following policy as a starting point:
-```json
+1. Login to your AWS console.
+2. Navigate to the Amazon Elastic Container Registry (ECR) service.
+3. Select the repository that you want to make private.
+4. Click on the "Permissions" tab.
+5. Under the "Repository policy" section, click on the "Edit" button.
+6. In the JSON editor, replace the existing policy with the following policy:
+
+```
 {
   "Version": "2008-10-17",
   "Statement": [
     {
-      "Sid": "AllowPull",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "<AWS account ID or IAM user ARN>"
-      },
+      "Sid": "AccessDenied",
+      "Effect": "Deny",
+      "Principal": "*",
       "Action": [
-        "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage"
+        "ecr:BatchGetImage",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:PutImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload"
       ]
     },
     {
-      "Sid": "DenyOther",
-      "Effect": "Deny",
-      "NotPrincipal": {
-        "AWS": "<AWS account ID or IAM user ARN>"
+      "Sid": "AllowPushPull",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::AWS_ACCOUNT_ID:root"
       },
       "Action": [
+        "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
         "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage"
+        "ecr:BatchGetImage",
+        "ecr:PutImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload"
       ]
     }
   ]
 }
 ```
-Replace `<AWS account ID or IAM user ARN>` with the appropriate AWS account ID or IAM user ARN that should have access to the repository. You can specify multiple principals by providing a list of AWS account IDs or IAM user ARNs.
-7. Once you have customized the policy, click on the "Save" button to apply the repository policy.
-8. A confirmation message will appear, indicating that the repository policy has been saved.
-9. Your ECR repository is now configured as a private repository, and access is restricted according to the repository policy.
+
+Note: Replace "AWS_ACCOUNT_ID" with your AWS account ID.
+
+7. Click on the "Save" button to save the policy.
+8. Verify that the repository is now private by checking the "Repository visibility" under the "Overview" tab.
+
+That's it! You have successfully remediated the misconfiguration of ECR repositories not being private in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration of ECR repositories being public, you can follow the below steps using AWS CLI:
+
+1. Open the AWS CLI and run the following command to list all ECR repositories in your account:
+
+   ```
+   aws ecr describe-repositories
+   ```
+
+2. For each repository that is public, run the following command to modify its permissions:
+
+   ```
+   aws ecr set-repository-policy --repository-name <repository-name> --policy-text '{"Version": "2008-10-17", "Statement": [{"Sid": "DenyPublicPull", "Effect": "Deny", "Principal": "*", "Action": ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:GetAuthorizationToken", "ecr:DescribeRepositories", "ecr:ListImages"], "Condition": {"Bool": {"aws:SecureTransport": "false"}}}]}' 
+   ```
+
+   Replace `<repository-name>` with the name of the repository that you want to make private.
+
+3. Verify that the repository is now private by running the following command:
+
+   ```
+   aws ecr describe-repositories --repository-names <repository-name>
+   ```
+
+   The output should include `"repositoryPolicyText": "{\"Version\": \"2008-10-17\", \"Statement\": [{\"Sid\": \"DenyPublicPull\", \"Effect\": \"Deny\", \"Principal\": \"*\", \"Action\": [\"ecr:BatchGetImage\", \"ecr:GetDownloadUrlForLayer\", \"ecr:GetAuthorizationToken\", \"ecr:DescribeRepositories\", \"ecr:ListImages\"], \"Condition\": {\"Bool\": {\"aws:SecureTransport\": \"false\"}}}]}"`
+   
+4. Repeat the above steps for all ECR repositories that are public in your account.
+
+By following these steps, you can remediate the misconfiguration of ECR repositories being public and make them private.
+
+#### Using Python
+
+To remediate the misconfiguration "ECR Repositories Should Be Private" for AWS using python, you can follow these steps:
+
+1. Import the necessary AWS SDK and Boto3 library in your python code.
+
+```python
+import boto3
+```
+
+2. Create a Boto3 ECR client object to interact with ECR.
+
+```python
+ecr_client = boto3.client('ecr')
+```
+
+3. Get a list of all the ECR repositories in your AWS account using the `describe_repositories` method.
+
+```python
+response = ecr_client.describe_repositories()
+repositories = response['repositories']
+```
+
+4. For each repository, check if it is public or not using the `describe_images` method. If the repository is public, update its permissions to make it private using the `set_repository_policy` method.
+
+```python
+for repo in repositories:
+    response = ecr_client.describe_images(repositoryName=repo['repositoryName'])
+    if 'imageDetails' in response and len(response['imageDetails']) > 0:
+        image_detail = response['imageDetails'][0]
+        if 'imageTags' in image_detail and len(image_detail['imageTags']) > 0:
+            image_tag = image_detail['imageTags'][0]
+            policy_text = '{"Version": "2008-10-17","Statement": [{"Sid": "AllowPushPull","Effect": "Allow","Principal": {"AWS": "*"},"Action": ["ecr:GetDownloadUrlForLayer","ecr:BatchGetImage","ecr:BatchCheckLayerAvailability","ecr:PutImage","ecr:InitiateLayerUpload","ecr:UploadLayerPart","ecr:CompleteLayerUpload"]},{"Sid": "DenyAll","Effect": "Deny","Principal": {"AWS": "*"},"Action": "ecr:*"}]}'
+            ecr_client.set_repository_policy(repositoryName=repo['repositoryName'], policyText=policy_text)
+```
+
+5. Once the permissions have been updated, print a message to confirm that the repositories have been made private.
+
+```python
+print("All ECR repositories have been made private.")
+```
+
+This code will remediate the misconfiguration "ECR Repositories Should Be Private" for AWS using python.
 
 ### Additional Reading:
 

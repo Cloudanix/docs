@@ -1,16 +1,106 @@
 ### Remediation
 
-How to update security group inbound or ingress configuration to restrict DNS TCP and UDP port 53 access to specific entities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the unrestricted DNS access issue in AWS, you can follow the below steps:
 
-1. First, login to the AWS Management Console and navigate to the EC2 dashboard.
-2. From the EC2 dashboard, select the Security Groups option from the left-hand menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Unrestricted DNS Access Should Not Be Allowed" Policy.)
-3. Locate the security group that needs to be updated and select it.
-4. Select the Inbound Rules tab.
-5. Locate the rule that allows TCP and UDP traffic on port 53 for DNS and select the Edit button.
-6. In the Edit inbound rule dialog box, select the source of the traffic that you want to allow. For example, you can specify a specific IP address, range of IP addresses, or a security group.
-7. Select the Save rules button to apply the changes.
-8. Verify that the changes have been applied by testing the DNS connectivity from the allowed entities
+1. Login to the AWS console and navigate to the Route 53 service.
+2. Click on the Hosted Zones option in the left-hand menu.
+3. Select the hosted zone for which you want to restrict DNS access.
+4. Click on the "Create Record Set" button to create a new record set.
+5. In the "Name" field, enter the domain name for which you want to restrict DNS access.
+6. In the "Type" field, select the appropriate DNS record type (such as A, CNAME, etc.).
+7. In the "Value" field, enter the IP address or domain name of the resource that the DNS record should point to.
+8. Scroll down to the "Routing Policy" section and select "Simple" routing policy.
+9. In the "Alias" section, select "No" to disable the alias feature.
+10. Click on the "Create" button to create the record set.
+
+By following these steps, you have created a new DNS record set that restricts access to the specified resource. Only authorized users will be able to access the resource through the DNS record.
+
+#### Using CLI
+
+To remediate the unrestricted DNS access issue in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to list all the Route 53 hosted zones in your account:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+3. Identify the hosted zone that has unrestricted DNS access and make a note of its ID.
+
+4. Run the following command to update the hosted zone to restrict DNS access:
+
+   ```
+   aws route53 update-hosted-zone-Comment \
+   --id <hosted-zone-id> \
+   --comment "Restricted DNS Access"
+   ```
+
+   Note: Replace `<hosted-zone-id>` with the ID of the hosted zone identified in step 3.
+
+5. Run the following command to verify that the hosted zone has been updated:
+
+   ```
+   aws route53 get-hosted-zone \
+   --id <hosted-zone-id>
+   ```
+
+   Note: Replace `<hosted-zone-id>` with the ID of the hosted zone identified in step 3.
+
+6. Verify that the DNS access has been restricted by checking the DNS settings in the AWS Management Console.
+
+   Note: The DNS access should now be restricted to authorized users only.
+
+#### Using Python
+
+To remediate the unrestricted DNS access misconfiguration in AWS using Python, you can follow these steps:
+
+1. Connect to the AWS account using the Boto3 library in Python.
+2. Get a list of all Route53 hosted zones using the `list_hosted_zones()` method.
+3. For each hosted zone, get a list of all the record sets using the `list_resource_record_sets()` method.
+4. Check each record set for any entries that have an empty or wildcard `Name` field and an `A` or `CNAME` record type.
+5. If any such record sets are found, remove them using the `change_resource_record_sets()` method.
+
+Here's a sample Python code that implements the above steps:
+
+```python
+import boto3
+
+# Connect to AWS account
+client = boto3.client('route53')
+
+# Get a list of all hosted zones
+response = client.list_hosted_zones()
+hosted_zones = response['HostedZones']
+
+# Loop through each hosted zone
+for zone in hosted_zones:
+    zone_id = zone['Id']
+    zone_name = zone['Name']
+
+    # Get a list of all record sets in the zone
+    response = client.list_resource_record_sets(HostedZoneId=zone_id)
+    record_sets = response['ResourceRecordSets']
+
+    # Loop through each record set
+    for record_set in record_sets:
+        # Check if the record set has an empty or wildcard name and an A or CNAME record type
+        if (record_set['Name'] == '' or record_set['Name'].startswith('*.')) and \
+           (record_set['Type'] == 'A' or record_set['Type'] == 'CNAME'):
+            # Remove the record set
+            change_batch = {
+                'Changes': [
+                    {
+                        'Action': 'DELETE',
+                        'ResourceRecordSet': record_set
+                    }
+                ]
+            }
+            client.change_resource_record_sets(HostedZoneId=zone_id, ChangeBatch=change_batch)
+```
+
+Note: This code only removes the record sets that match the criteria mentioned in step 4. You may want to modify it to suit your specific requirements. Also, make sure to test the code thoroughly before running it in a production environment.
 

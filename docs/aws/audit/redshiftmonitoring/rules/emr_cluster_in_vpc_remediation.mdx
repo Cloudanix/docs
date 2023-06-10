@@ -1,0 +1,117 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of EMR Clusters not being in a VPC in AWS, you can follow the below steps:
+
+1. Open the Amazon EMR console.
+2. Click on "Create cluster" to create a new EMR cluster.
+3. In the "General cluster settings" section, select the "Launch mode" as "Advanced".
+4. In the "Network and access" section, select the "VPC" option.
+5. Select the VPC you want to use for the EMR cluster from the dropdown list.
+6. Select the "Subnet" option and choose the subnet(s) you want to use for the EMR cluster from the dropdown list.
+7. In the "Security and access" section, configure the security groups as per your requirement.
+8. Click on "Create cluster" to create the EMR cluster in the selected VPC.
+
+Once the cluster is created, you can verify that it is in the VPC by checking the "Network" tab of the cluster details page. You should see the VPC and subnet(s) you selected during the cluster creation process.
+
+#### Using CLI
+
+To remediate the misconfiguration "EMR Clusters Should Be In VPC" for AWS using AWS CLI, please follow the below steps:
+
+1. Create a VPC if it doesn't exist:
+```
+aws ec2 create-vpc --cidr-block <CIDR_BLOCK>
+```
+
+2. Create a subnet in the VPC:
+```
+aws ec2 create-subnet --vpc-id <VPC_ID> --cidr-block <CIDR_BLOCK> --availability-zone <AVAILABILITY_ZONE>
+```
+
+3. Create an Internet Gateway and attach it to the VPC:
+```
+aws ec2 create-internet-gateway
+aws ec2 attach-internet-gateway --internet-gateway-id <INTERNET_GATEWAY_ID> --vpc-id <VPC_ID>
+```
+
+4. Create a route table for the VPC:
+```
+aws ec2 create-route-table --vpc-id <VPC_ID>
+```
+
+5. Create a route to the Internet Gateway in the route table:
+```
+aws ec2 create-route --route-table-id <ROUTE_TABLE_ID> --destination-cidr-block 0.0.0.0/0 --gateway-id <INTERNET_GATEWAY_ID>
+```
+
+6. Associate the route table with the subnet:
+```
+aws ec2 associate-route-table --route-table-id <ROUTE_TABLE_ID> --subnet-id <SUBNET_ID>
+```
+
+7. Launch the EMR cluster in the VPC and subnet:
+```
+aws emr create-cluster --name <CLUSTER_NAME> --release-label <RELEASE_LABEL> --applications Name=Hadoop Name=Hive Name=Pig ... --ec2-attributes KeyName=<KEY_NAME>,SubnetId=<SUBNET_ID>
+```
+
+After following these steps, your EMR cluster will be launched in the specified VPC and subnet.
+
+#### Using Python
+
+To remediate the EMR cluster not being in a VPC in AWS using Python, you can follow these steps:
+
+1. Create a new VPC in the desired region if one does not already exist.
+2. Create a new subnet in the VPC.
+3. Create a new security group for the EMR cluster.
+4. Launch a new EMR cluster in the VPC and subnet with the new security group.
+
+Here is a sample Python code that can be used to launch an EMR cluster in a VPC:
+
+```python
+import boto3
+
+# Create a new VPC
+ec2 = boto3.client('ec2')
+response = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+vpc_id = response['Vpc']['VpcId']
+
+# Create a new subnet in the VPC
+response = ec2.create_subnet(CidrBlock='10.0.0.0/24', VpcId=vpc_id)
+subnet_id = response['Subnet']['SubnetId']
+
+# Create a new security group for the EMR cluster
+response = ec2.create_security_group(GroupName='emr-cluster-sg', Description='EMR Cluster Security Group', VpcId=vpc_id)
+security_group_id = response['GroupId']
+
+# Launch a new EMR cluster in the VPC and subnet with the new security group
+emr = boto3.client('emr')
+response = emr.run_job_flow(
+    Name='my-emr-cluster',
+    ReleaseLabel='emr-6.3.0',
+    Instances={
+        'Ec2SubnetId': subnet_id,
+        'EmrManagedMasterSecurityGroup': security_group_id,
+        'EmrManagedSlaveSecurityGroup': security_group_id,
+        'InstanceGroups': [
+            {
+                'Name': 'Master',
+                'InstanceRole': 'MASTER',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 1,
+            },
+            {
+                'Name': 'Core',
+                'InstanceRole': 'CORE',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 2,
+            }
+        ]
+    },
+    JobFlowRole='EMR_EC2_DefaultRole',
+    ServiceRole='EMR_DefaultRole',
+)
+```
+
+Note: This is just a sample code and may need to be modified based on your specific requirements.
+

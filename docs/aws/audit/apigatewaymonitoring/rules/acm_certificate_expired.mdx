@@ -24,130 +24,117 @@ NIST
 
 #### Using Console
 
-Sure, here are the step-by-step instructions to remediate an expired ACM certificate in AWS:
+To remediate an ACM certificate that has expired in AWS using the AWS console, follow these steps:
 
-1. Log in to the AWS Management Console.
-2. Navigate to the Amazon Certificate Manager (ACM) service.
-3. Select the expired certificate that you want to remediate.
-4. Click on the "Renew" button to renew the certificate.
-5. Follow the prompts to confirm the renewal and provide any necessary information, such as the domain name and contact details.
-6. After the certificate is renewed, you will need to update any references to the old certificate in your applications or services.
+1. Go to the AWS Management Console and navigate to the Amazon Certificate Manager (ACM) service.
 
-Note: If the certificate is associated with an Amazon CloudFront distribution, you will need to update the distribution with the new certificate. To do this, follow these additional steps:
+2. In the ACM dashboard, select the expired certificate that you want to remediate.
 
-1. Navigate to the CloudFront service in the AWS Management Console.
-2. Select the CloudFront distribution associated with the expired certificate.
-3. Click on the "Edit" button to edit the distribution.
-4. Under the "General" tab, select the new certificate from the drop-down menu.
-5. Click on the "Yes, Edit" button to save the changes.
+3. Click on the "Actions" button and then select "Renew Certificate".
 
-That's it! Your expired ACM certificate has been successfully remediated.
+4. Follow the prompts to create a new certificate. You can either request a new certificate or import an existing one.
+
+5. Once the new certificate is issued, update your application or website to use the new certificate.
+
+6. Verify that the new certificate is installed correctly and that your application or website is functioning properly.
+
+7. Finally, delete the expired certificate from the ACM dashboard to avoid confusion.
+
+By following these steps, you can easily remediate an expired ACM certificate in AWS.
 
 #### Using CLI
 
-To remediate an expired ACM certificate in AWS CLI, follow these steps:
+To remediate an expired ACM certificate in AWS using AWS CLI, follow these steps:
 
-1. Open the AWS CLI interface on your local machine.
-
-2. Run the following command to list all the certificates in your AWS account:
+1. Identify the expired ACM certificate by running the following command:
 
 ```
-aws acm list-certificates
+aws acm list-certificates --certificate-statuses EXPIRED
 ```
 
-3. Identify the expired certificate that needs to be remediated.
+2. Note down the ARN of the expired certificate.
 
-4. Run the following command to delete the expired certificate:
-
-```
-aws acm delete-certificate --certificate-arn <certificate-arn>
-```
-
-Replace `<certificate-arn>` with the ARN of the expired certificate.
-
-5. Once the certificate is deleted, you can request a new certificate by running the following command:
+3. Request a new ACM certificate by running the following command:
 
 ```
-aws acm request-certificate --domain-name <domain-name>
+aws acm request-certificate --domain-name example.com --validation-method DNS
 ```
 
-Replace `<domain-name>` with the domain name for which you want to request the certificate.
+Note: Replace "example.com" with your domain name.
 
-6. After the certificate is issued, you can use it in your AWS services by referencing its ARN.
+4. Update the DNS record for the domain to complete the validation process. This step may vary depending on your DNS provider.
+
+5. Once the new ACM certificate is issued and validated, update the SSL/TLS certificate for your AWS resources, such as Elastic Load Balancers or CloudFront distributions, to use the new certificate.
+
+6. Finally, delete the expired ACM certificate by running the following command:
+
+```
+aws acm delete-certificate --certificate-arn arn:aws:acm:region:account:certificate/certificate-id
+```
+
+Note: Replace "region", "account", and "certificate-id" with the appropriate values for your expired certificate ARN.
 
 #### Using Python
 
-To remediate an expired ACM certificate in AWS with Python, you can use the AWS SDK for Python (Boto3) to automate the renewal process. Here are the steps to follow:
+To remediate the ACM certificate expired misconfiguration in AWS using Python, you can follow the below steps:
 
-1. Import the required libraries and set up your AWS credentials:
+1. Import the necessary Python libraries:
 
-```
+```python
 import boto3
 import datetime
+```
 
-session = boto3.Session(
-    aws_access_key_id='YOUR_ACCESS_KEY',
-    aws_secret_access_key='YOUR_SECRET_KEY',
-    region_name='YOUR_REGION'
+2. Create a boto3 client for ACM:
+
+```python
+acm_client = boto3.client('acm')
+```
+
+3. Get a list of all the certificates in your account:
+
+```python
+certificates = acm_client.list_certificates()['CertificateSummaryList']
+```
+
+4. Loop through the certificates and check if any of them have expired:
+
+```python
+for cert in certificates:
+    cert_arn = cert['CertificateArn']
+    cert_details = acm_client.describe_certificate(CertificateArn=cert_arn)
+    cert_expiration = cert_details['Certificate']['NotAfter']
+    if cert_expiration < datetime.datetime.now(datetime.timezone.utc):
+        # Certificate has expired, take remediation action
+```
+
+5. To remediate the expired certificate, you can either renew the certificate or delete it and create a new one. To renew the certificate, you can use the `renew_certificate` method:
+
+```python
+acm_client.renew_certificate(CertificateArn=cert_arn)
+```
+
+6. Alternatively, to delete the expired certificate and create a new one, you can use the `delete_certificate` and `request_certificate` methods:
+
+```python
+acm_client.delete_certificate(CertificateArn=cert_arn)
+new_cert = acm_client.request_certificate(
+    DomainName='example.com',
+    ValidationMethod='DNS',
+    SubjectAlternativeNames=[
+        'www.example.com',
+        'api.example.com',
+    ]
 )
-acm = session.client('acm')
 ```
 
-2. Get the details of the expired certificate:
+Note: Replace `example.com` with your own domain name and add any additional subject alternative names as needed.
 
+7. Once you have taken the appropriate remediation action, you can log the action and move on to the next certificate in the loop.
+
+```python
+print(f'Remediated expired certificate {cert_arn}')
 ```
-certs = acm.list_certificates()
-for cert in certs['CertificateSummaryList']:
-    if cert['DomainName'] == 'YOUR_DOMAIN_NAME':
-        cert_arn = cert['CertificateArn']
-        cert_details = acm.describe_certificate(CertificateArn=cert_arn)
-        break
-```
-
-3. Check if the certificate has already expired:
-
-```
-expiry_date = cert_details['Certificate']['NotAfter']
-if datetime.datetime.now(datetime.timezone.utc) > expiry_date:
-    print('Certificate has already expired.')
-    exit()
-```
-
-4. Request a new certificate:
-
-```
-domain_name = cert_details['Certificate']['DomainName']
-validation_method = cert_details['Certificate']['ValidationMethod']
-if validation_method == 'DNS':
-    validation_options = cert_details['Certificate']['DomainValidationOptions']
-    hosted_zone_id = YOUR_HOSTED_ZONE_ID
-    for option in validation_options:
-        if option['ResourceRecord']['Type'] == 'CNAME':
-            record_name = option['ResourceRecord']['Name']
-            record_value = option['ResourceRecord']['Value']
-            acm.delete_tags(CertificateArn=cert_arn, Tags=[{'Key': 'DomainValidationOption', 'Value': option['DomainName']}])
-            acm.request_certificate(DomainName=domain_name, ValidationMethod='DNS', DomainValidationOptions=[{'DomainName': domain_name, 'ResourceRecord': {'Name': record_name, 'Type': 'CNAME', 'Value': record_value}, 'ValidationDomain': option['ValidationDomain']}], IdempotencyToken='YOUR_IDEMPOTENCY_TOKEN')
-            break
-else:
-    acm.request_certificate(DomainName=domain_name, ValidationMethod='EMAIL', IdempotencyToken='YOUR_IDEMPOTENCY_TOKEN')
-```
-
-5. Delete the expired certificate:
-
-```
-acm.delete_certificate(CertificateArn=cert_arn)
-```
-
-6. Wait for the new certificate to be issued and validated:
-
-```
-waiter = acm.get_waiter('certificate_validated')
-waiter.wait(CertificateArn=new_cert_arn)
-```
-
-7. Update your application or load balancer to use the new certificate.
-
-Note: You will need to replace the placeholders in the code (YOUR_ACCESS_KEY, YOUR_SECRET_KEY, YOUR_REGION, YOUR_DOMAIN_NAME, YOUR_HOSTED_ZONE_ID, YOUR_IDEMPOTENCY_TOKEN) with your actual values.
 
 ### Additional Reading:
 

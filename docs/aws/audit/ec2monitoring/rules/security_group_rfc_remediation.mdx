@@ -1,24 +1,105 @@
 ### Remediation
 
-How to ensure security group allows inbound traffic from RFC 1918 CIDRs?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the misconfiguration "Security Groups Should Not Allow Inbound Traffic From RFC 1918" for AWS using the AWS console:
 
-1. Access the AWS Management Console and navigate to the Amazon EC2 service.
-2. From the left navigation pane, click on "Security Groups" under the "Network & Security" section.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Security Groups Should Not Allow Inbound Traffic From RFC 1918" Policy.)
-3. Review the list of existing security groups and identify the security group that you want to modify.
-4. Select the desired security group.
-5. In the "Inbound rules" tab, review the existing inbound rules.
-6. If there are any inbound rules that allow traffic from any source or from specific IP ranges, make sure to note them down for later reference.
-7. Delete any existing inbound rules that allow unrestricted or specific IP range traffic. To delete a rule, select it and click on the "Remove" button.
-8. Click on the "Add Rule" button to add a new inbound rule.
-9. In the "Type" dropdown menu, select the appropriate protocol (e.g., HTTP, SSH, RDP) that you want to allow inbound access for.
-10. In the "Source" field, enter the RFC 1918 CIDR blocks that you want to allow inbound traffic from. The commonly used RFC 1918 CIDR blocks are:
-    - 10.0.0.0/8
-    - 172.16.0.0/12
-    - 192.168.0.0/16
-11. Repeat steps 8-10 for each protocol or port you want to allow inbound access for from RFC 1918 CIDRs.
-12. Review the new inbound rules and ensure that they only allow traffic from the specified RFC 1918 CIDR blocks.
-13. Click on the "Save rules" button to apply the changes to the security group.
+1. Log in to the AWS Management Console.
+2. Navigate to the EC2 service.
+3. Click on "Security Groups" from the left-hand menu.
+4. Select the security group that needs to be remediated.
+5. Click on the "Inbound Rules" tab.
+6. Identify the inbound rule(s) that allow traffic from RFC 1918 addresses (10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16).
+7. Click on the "Edit" button for the rule that needs to be remediated.
+8. Change the "Source" field to a specific IP address or range that is allowed to access the resource(s) protected by the security group.
+9. Alternatively, you can also change the "Source" field to "Custom" and enter an IP address or range that is not part of RFC 1918.
+10. Click on the "Save rules" button to apply the changes.
+
+After following these steps, the security group will no longer allow inbound traffic from RFC 1918 addresses.
+
+#### Using CLI
+
+To remediate the misconfiguration "Security Groups Should Not Allow Inbound Traffic From RFC 1918" for AWS using AWS CLI, you can follow the below steps:
+
+Step 1: Identify the Security Group(s) that allow inbound traffic from RFC 1918 IP addresses. 
+
+```
+aws ec2 describe-security-groups --filters Name=ip-permission.cidr,Values=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+```
+
+This command will list all the security groups that allow inbound traffic from RFC 1918 IP addresses.
+
+Step 2: Revoke the Inbound Rule from the Security Group(s) identified in Step 1.
+
+```
+aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr <RFC 1918 IP address range>
+```
+
+Replace `<security-group-id>` with the ID of the security group, `<port-number>` with the port number that is open to RFC 1918 IP addresses, and `<RFC 1918 IP address range>` with the appropriate RFC 1918 IP address range.
+
+Repeat this command for each security group identified in Step 1.
+
+Step 3: Verify that the Inbound Rule has been revoked.
+
+```
+aws ec2 describe-security-groups --group-id <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{Protocol:IpProtocol,FromPort:FromPort,ToPort:ToPort,IPRange:CidrIp}"
+```
+
+Replace `<security-group-id>` with the ID of the security group.
+
+This command will list all the inbound rules for the security group. Verify that the rule allowing inbound traffic from RFC 1918 IP addresses has been revoked.
+
+Repeat this command for each security group identified in Step 1.
+
+By following these steps, you can remediate the misconfiguration "Security Groups Should Not Allow Inbound Traffic From RFC 1918" for AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration of Security Groups allowing inbound traffic from RFC 1918 in AWS using Python, follow these steps:
+
+1. List all the security groups in your AWS account using the `describe_security_groups` method from the `boto3` library.
+
+```python
+import boto3
+
+client = boto3.client('ec2')
+
+response = client.describe_security_groups()
+security_groups = response['SecurityGroups']
+```
+
+2. Iterate through the security groups and for each security group, check if it allows inbound traffic from RFC 1918. If it does, update the security group to remove the rule.
+
+```python
+for sg in security_groups:
+    for rule in sg['IpPermissions']:
+        if 'IpRanges' in rule:
+            for ip_range in rule['IpRanges']:
+                if 'Description' in ip_range and 'RFC 1918' in ip_range['Description']:
+                    sg_id = sg['GroupId']
+                    protocol = rule['IpProtocol']
+                    from_port = rule['FromPort']
+                    to_port = rule['ToPort']
+                    cidr_ip = ip_range['CidrIp']
+                    client.revoke_security_group_ingress(
+                        GroupId=sg_id,
+                        IpPermissions=[
+                            {
+                                'IpProtocol': protocol,
+                                'FromPort': from_port,
+                                'ToPort': to_port,
+                                'IpRanges': [
+                                    {
+                                        'CidrIp': cidr_ip,
+                                        'Description': 'Removed RFC 1918 rule'
+                                    },
+                                ],
+                            },
+                        ],
+                    )
+```
+
+3. After running the script, all the security groups that allow inbound traffic from RFC 1918 will be updated to remove the rule.
+
+Note: Before running the script, make sure you have the necessary permissions to modify security groups in your AWS account.
 

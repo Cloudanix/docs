@@ -1,20 +1,130 @@
 ### Remediation
 
-How to remove any insecure protocol definitions from ELB SSL negotiation settings?
+#### Using Console
 
-#### Using AWS Console
+To remediate the insecure configuration of ELBs in AWS, follow these steps:
 
-- Step 1: In the navigation panel, under Load balancing, click Load Balancers.
+1. Log in to the AWS Management Console.
+2. Navigate to the EC2 dashboard.
+3. Click on the Load Balancers option in the left-hand menu.
+4. Select the ELB that needs to be remediated.
+5. In the bottom panel, click on the Listeners tab.
+6. Review the security protocols and ciphers used in the listener configuration.
+7. Remove any insecure security protocols and ciphers.
+8. Click on the Save button to save the changes.
+9. Repeat these steps for all ELBs that need to be remediated.
 
-- Step 2: Select your Elastic Load Balancer.
+Alternatively, you can use AWS CLI to remediate this issue by running the following command:
 
-- Step 3: Select the Listeners tab from the bottom panel.
+```
+aws elb describe-load-balancers --load-balancer-names <ELB_NAME> --query 'LoadBalancerDescriptions[].ListenerDescriptions[].Listener' --output text
+```
 
-- Step 4: In the Cipher column of the HTTPS listener click Change.
-- Step 5: In the Select a Cipher dialog box, select one of the following options configurations:
+This command will list all the listeners for the specified ELB, including the security protocols and ciphers used. You can then use the AWS CLI to modify the listeners to remove any insecure configurations.
 
-- Step 6: Predefined Security Policy:
-  Select the latest predefined security policy from the list named ELBSecurityPolicy-TLS-1-2-2017-01 or ELBSecurityPolicy-TLS-1-1-2017-01 or ELBSecurityPolicy-2016-08: and then click Save. The selected predefined policy does NOT include the Protocol-SSLv2, Protocol-SSLv3, and Protocol-TLSv1 unsafe protocols.
+#### Using CLI
 
-- Step 7: Custom Security Policy:
-  Uncheck Protocol-SSLv2 and/or Protocol-SSLv3 and/or Protocol-TLSv1 from the SSL Protocols section found in your SSL custom policy and then click Save.
+To remediate an insecure configuration of an Elastic Load Balancer (ELB) in AWS using AWS CLI, you can follow the below steps:
+
+1. Verify the insecure configuration: 
+   Run the below command to get the details of the ELB and verify if it has any insecure configurations:
+   ```
+   aws elb describe-load-balancers --load-balancer-name <ELB-Name>
+   ```
+
+2. Update the Security Group:
+   Run the below command to update the security group of the ELB and remove any insecure inbound rules:
+   ```
+   aws elb apply-security-groups-to-load-balancer --load-balancer-name <ELB-Name> --security-groups <Security-Group-ID>
+   ```
+
+   Note: Replace <ELB-Name> and <Security-Group-ID> with the actual values.
+
+3. Enable HTTPS:
+   If HTTPS is not enabled, then run the below command to enable it:
+   ```
+   aws elb set-load-balancer-listener-ssl-certificate --load-balancer-name <ELB-Name> --load-balancer-https-port <HTTPS-Port> --ssl-certificate-id <SSL-Certificate-ID>
+   ```
+
+   Note: Replace <ELB-Name>, <HTTPS-Port> and <SSL-Certificate-ID> with the actual values.
+
+4. Enable Access Logging:
+   Run the below command to enable access logging for the ELB:
+   ```
+   aws elb create-load-balancer-listeners --load-balancer-name <ELB-Name> --listeners Protocol=HTTP,LoadBalancerPort=<HTTP-Port>,InstanceProtocol=HTTP,InstancePort=<HTTP-Port> --access-log-attributes Enabled=true,S3BucketName=<S3-Bucket-Name>
+   ```
+
+   Note: Replace <ELB-Name>, <HTTP-Port> and <S3-Bucket-Name> with the actual values.
+
+5. Verify the remediation:
+   Run the below command to get the details of the ELB and verify if the insecure configurations have been remediated:
+   ```
+   aws elb describe-load-balancers --load-balancer-name <ELB-Name>
+   ``` 
+
+By following the above steps, you can remediate the insecure configurations of an Elastic Load Balancer in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the ELBs having insecure configurations in AWS using Python, follow these steps:
+
+1. Install the Boto3 library using pip.
+
+```
+pip install boto3
+```
+
+2. Create an AWS session using Boto3.
+
+```python
+import boto3
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Get the list of all the ELBs in the AWS account.
+
+```python
+elbv2_client = session.client('elbv2')
+elbs = elbv2_client.describe_load_balancers()
+```
+
+4. For each ELB, check if it has any insecure configurations.
+
+```python
+for elb in elbs['LoadBalancers']:
+    elb_arn = elb['LoadBalancerArn']
+    elb_attributes = elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=elb_arn)
+    for attribute in elb_attributes['Attributes']:
+        if attribute['Key'] == 'routing.http.drop_invalid_header_fields.enabled' and attribute['Value'] == 'true':
+            # Remediate the insecure configuration
+            elbv2_client.modify_load_balancer_attributes(
+                LoadBalancerArn=elb_arn,
+                Attributes=[
+                    {
+                        'Key': 'routing.http.drop_invalid_header_fields.enabled',
+                        'Value': 'false'
+                    },
+                ]
+            )
+```
+
+5. Finally, re-check if the ELBs now have secure configurations.
+
+```python
+elbs = elbv2_client.describe_load_balancers()
+for elb in elbs['LoadBalancers']:
+    elb_arn = elb['LoadBalancerArn']
+    elb_attributes = elbv2_client.describe_load_balancer_attributes(LoadBalancerArn=elb_arn)
+    for attribute in elb_attributes['Attributes']:
+        if attribute['Key'] == 'routing.http.drop_invalid_header_fields.enabled' and attribute['Value'] == 'true':
+            print(f"Insecure configuration found in ELB {elb_arn}")
+        else:
+            print(f"ELB {elb_arn} has a secure configuration")
+```
+
+This will remediate the insecure configuration in all the ELBs in the AWS account using Python.
+

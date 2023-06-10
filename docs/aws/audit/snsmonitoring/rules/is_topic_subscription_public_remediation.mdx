@@ -1,20 +1,97 @@
 ### Remediation
 
-How to update the access control policies attached to the SNS topics that are publicly accessible?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate this misconfiguration in AWS using the AWS console:
 
-- Step 1: In the left navigation panel, select Topics. Select the AWS SNS topic that you want to reconfigure.
-  (see Audit section part I to identify the right resource).
+1. Open the Amazon SNS console at https://console.aws.amazon.com/sns/.
+2. In the navigation pane, choose Topics.
+3. Select the SNS topic that you want to remediate.
+4. Choose the Access policy tab.
+5. In the Access policy editor, locate the statement that grants global subscribe permissions. It should look like this:
 
-- Step 2: Click the Actions button from the dashboard top menu and select Edit topic policy.
+```
+{
+  "Effect": "Allow",
+  "Principal": "*",
+  "Action": "SNS:Subscribe",
+  "Resource": "arn:aws:sns:us-east-1:123456789012:MyTopic",
+  "Condition": {
+    "StringEquals": {
+      "AWS:SourceOwner": "123456789012"
+    }
+  }
+}
+```
 
-- Step 3: Inside the Edit topic policy dialog box, perform one of the following:
-  A: Select the Basic View tab to update the access policy with the basic editor and within Allow these users to subscribe to this topic section, set the following:
-  a. Select Only me (topic owner) to limit all the subscription requests to the topic owner only.
-  b. Select Only these AWS users and provide valid AWS account IDs to limit subscription to those specified AWS accounts only.
-  c. Select Only users with endpoints that match and type valid endpoints (email addresses, application URLs, etc) to limit subscribing only to the specified endpoints.
-  d. In the Using these delivery protocols section, select any delivery protocols required for subscription requests.
-  B: Select the Advanced View tab and paste your own custom policy document to update the topic permissions based on your requirements. Make sure that you replace the Principal element value (i.e "AWS": "_") with specific (trusted) AWS users, e.g. replace "Principal": \{ "AWS" : "_" \} with "Principal": \{ "AWS" : "IAM_USER_ARN" \}, or use the existing Principal elements together with Condition clauses to filter the user access. You can create custom SNS policies using the AWS Policy Generator available at https://awspolicygen.s3.amazonaws.com/policygen.html
+6. Remove the `"Principal": "*"` line from the statement to restrict subscriptions to only AWS accounts that you explicitly specify.
+7. Choose Save changes to update the access policy for the SNS topic.
 
-- Step 4: Click Update policy to apply for the new topic permissions.
+That's it! You have successfully remediated the misconfiguration by removing global subscribe permissions from the SNS topic.
+
+#### Using CLI
+
+To remediate the misconfiguration "SNS Topics Should Not Allow Global Subscribe" in AWS using AWS CLI, you can follow these steps:
+
+1. Open the AWS CLI on your local machine or EC2 instance.
+
+2. Run the following command to list all the SNS topics in your AWS account:
+
+   ```
+   aws sns list-topics
+   ```
+
+3. Identify the SNS topic(s) that have global subscription enabled.
+
+4. Run the following command to update the policy of the identified SNS topic(s) to disallow global subscription:
+
+   ```
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value '{"Version":"2008-10-17","Id":"__default_policy_ID","Statement":[{"Effect":"Deny","Principal":{"AWS":"*"},"Action":"SNS:Subscribe","Resource":"<topic-arn>"}]}'
+   ```
+
+   Replace `<topic-arn>` with the ARN of the identified SNS topic.
+
+5. Verify that the policy has been updated successfully by running the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <topic-arn> --attribute-names Policy
+   ```
+
+   Replace `<topic-arn>` with the ARN of the identified SNS topic.
+
+6. Repeat steps 3-5 for all the SNS topics that have global subscription enabled.
+
+By following these steps, you can remediate the misconfiguration "SNS Topics Should Not Allow Global Subscribe" in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "SNS Topics Should Not Allow Global Subscribe" in AWS using Python, you can follow the below steps:
+
+1. First, you need to get a list of all the SNS topics in your AWS account using the boto3 library in Python. You can use the following code snippet to achieve this:
+
+```
+import boto3
+
+sns = boto3.client('sns')
+response = sns.list_topics()
+topics = response['Topics']
+```
+
+2. Once you have the list of all SNS topics, you can iterate through each topic and check if it allows global subscriptions. To do this, you need to get the policy of the SNS topic using the `get_topic_attributes` method and then check if the policy allows global subscriptions. You can use the following code snippet to achieve this:
+
+```
+for topic in topics:
+    topic_arn = topic['TopicArn']
+    attributes = sns.get_topic_attributes(TopicArn=topic_arn)
+    policy = attributes['Attributes']['Policy']
+    if 'AllowEveryoneToSubscribe' in policy:
+        # Remove the global subscription permission
+        policy = policy.replace('"AllowEveryoneToSubscribe": "true"', '"AllowEveryoneToSubscribe": "false"')
+        # Update the policy
+        sns.set_topic_attributes(TopicArn=topic_arn, AttributeName='Policy', AttributeValue=policy)
+```
+
+3. Finally, you need to test the remediation by checking if the SNS topics still allow global subscriptions. You can use the same code snippet in step 2 to check the policy of each SNS topic and make sure that the "AllowEveryoneToSubscribe" parameter is set to "false".
+
+By following these steps, you can remediate the misconfiguration "SNS Topics Should Not Allow Global Subscribe" in AWS using Python.
+

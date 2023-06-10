@@ -1,0 +1,199 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "ELB Should Have WAF Enabled" in AWS using the AWS console, you can follow the below steps:
+
+1. Login to the AWS console.
+2. Navigate to the EC2 dashboard.
+3. Click on the Load Balancers option from the left-hand menu.
+4. Select the ELB for which you want to enable the WAF.
+5. Click on the Listeners tab.
+6. Click on the Edit button next to the listener for which you want to enable the WAF.
+7. In the Edit Listener dialog box, click on the Add Rule button.
+8. Select the AWS WAF option from the dropdown menu.
+9. Choose the WebACL that you want to associate with the ELB.
+10. Click on the Save button to save the changes.
+
+Once you have completed the above steps, the WAF will be enabled for your ELB in AWS.
+
+#### Using CLI
+
+To remediate the misconfiguration of ELB not having WAF enabled in AWS using AWS CLI, follow the below steps:
+
+1. Open AWS CLI on your local machine and run the following command to list all the AWS Elastic Load Balancers:
+
+```
+aws elbv2 describe-load-balancers
+```
+
+2. From the response, identify the ARN of the ELB that you want to enable WAF for.
+
+3. Run the following command to create an AWS WAF WebACL:
+
+```
+aws wafv2 create-web-acl --name MyWebACL --scope REGIONAL
+```
+
+Note: Replace "MyWebACL" with a name of your choice for the WebACL.
+
+4. From the response, note down the ARN of the newly created WebACL.
+
+5. Run the following command to associate the WebACL with the ELB:
+
+```
+aws wafv2 associate-web-acl --web-acl-arn arn:aws:wafv2:us-west-2:123456789012:regional/webacl/MyWebACL --resource-arn arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-load-balancer/1234567890abcdef
+```
+
+Note: Replace the WebACL ARN and ELB ARN with the ARNs that you noted down in the previous steps.
+
+6. Finally, verify that the WAF is enabled for the ELB by running the following command:
+
+```
+aws elbv2 describe-load-balancers --load-balancer-arns arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-load-balancer/1234567890abcdef
+```
+
+Note: Replace the ELB ARN with the ARN of the ELB that you enabled WAF for.
+
+Once you have completed these steps, WAF will be enabled for the specified ELB in your AWS environment.
+
+#### Using Python
+
+To remediate the misconfiguration of ELB not having WAF enabled in AWS using Python, follow these steps:
+
+1. Import the necessary libraries:
+
+```
+import boto3
+```
+
+2. Create a boto3 client for AWS WAF:
+
+```
+waf = boto3.client('waf')
+```
+
+3. Create a boto3 client for AWS ELB:
+
+```
+elbv2 = boto3.client('elbv2')
+```
+
+4. Get a list of all the ELBs in the region:
+
+```
+elbs = elbv2.describe_load_balancers()
+```
+
+5. Loop through each ELB and check if WAF is enabled:
+
+```
+for elb in elbs['LoadBalancers']:
+    elb_arn = elb['LoadBalancerArn']
+    waf_associations = elbv2.describe_load_balancer_waf_enabling_ip_sets(LoadBalancerArn=elb_arn)
+    if len(waf_associations['WebACLs']) == 0:
+        # WAF is not enabled for this ELB
+        # Enable WAF for this ELB
+        waf.create_web_acl(
+            Name='MyWebACL',
+            MetricName='MyWebACLMetric',
+            DefaultAction={
+                'Type': 'ALLOW'
+            }
+        )
+        waf_rules = waf.list_rules()
+        rule_id = None
+        for rule in waf_rules['Rules']:
+            if rule['Name'] == 'AWS-AWSManagedRulesCommonRuleSet':
+                rule_id = rule['RuleId']
+                break
+        if rule_id is None:
+            # No rule found
+            # Exit the loop
+            break
+        waf.update_web_acl(
+            WebACLId=web_acl_id,
+            ChangeToken=waf.get_change_token()['ChangeToken'],
+            Updates=[
+                {
+                    'Action': 'INSERT',
+                    'ActivatedRule': {
+                        'Priority': 1,
+                        'RuleId': rule_id,
+                        'Action': {
+                            'Type': 'BLOCK'
+                        }
+                    }
+                }
+            ]
+        )
+        elbv2.associate_web_acl(
+            WebACLArn=waf_arn,
+            ResourceArns=[elb_arn]
+        )
+```
+
+6. If WAF is not enabled for an ELB, create a new web ACL, add a rule to it, and associate it with the ELB.
+
+7. The final code will look like this:
+
+```
+import boto3
+
+# Create a boto3 client for AWS WAF
+waf = boto3.client('waf')
+
+# Create a boto3 client for AWS ELB
+elbv2 = boto3.client('elbv2')
+
+# Get a list of all the ELBs in the region
+elbs = elbv2.describe_load_balancers()
+
+# Loop through each ELB and check if WAF is enabled
+for elb in elbs['LoadBalancers']:
+    elb_arn = elb['LoadBalancerArn']
+    waf_associations = elbv2.describe_load_balancer_waf_enabling_ip_sets(LoadBalancerArn=elb_arn)
+    if len(waf_associations['WebACLs']) == 0:
+        # WAF is not enabled for this ELB
+        # Enable WAF for this ELB
+        waf.create_web_acl(
+            Name='MyWebACL',
+            MetricName='MyWebACLMetric',
+            DefaultAction={
+                'Type': 'ALLOW'
+            }
+        )
+        waf_rules = waf.list_rules()
+        rule_id = None
+        for rule in waf_rules['Rules']:
+            if rule['Name'] == 'AWS-AWSManagedRulesCommonRuleSet':
+                rule_id = rule['RuleId']
+                break
+        if rule_id is None:
+            # No rule found
+            # Exit the loop
+            break
+        waf.update_web_acl(
+            WebACLId=web_acl_id,
+            ChangeToken=waf.get_change_token()['ChangeToken'],
+            Updates=[
+                {
+                    'Action': 'INSERT',
+                    'ActivatedRule': {
+                        'Priority': 1,
+                        'RuleId': rule_id,
+                        'Action': {
+                            'Type': 'BLOCK'
+                        }
+                    }
+                }
+            ]
+        )
+        elbv2.associate_web_acl(
+            WebACLArn=waf_arn,
+            ResourceArns=[elb_arn]
+        )
+```
+
+Note: This code is just an example. You may need to modify it according to your specific requirements.
+

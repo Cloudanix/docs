@@ -22,36 +22,178 @@ AWSWAF
 
 ### Remediation
 
-How to update Amazon ElasticSearch clusters permissions to allow cross-account access from trusted entities?
+#### Using Console
 
-#### Using AWS Console
+To remediate the issue of Elasticsearch domains allowing cross-account access in AWS using the AWS console, follow these steps:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the Amazon Elasticsearch Service by selecting "Elasticsearch Service" from the services menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Elasticsearch Domains Should Not Allow Cross Account Access" Policy.)
-3. In the Amazon Elasticsearch Service dashboard, select the Elasticsearch domain for which you want to configure cross-account access.
-4. In the domain details page, click on the "Actions" button and select "Modify access policy."
-5. In the access policy editor, update the policy to allow access from trusted AWS accounts or entities. Here's an example of an access policy that allows access from a trusted AWS account:
-```
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::123456789012:root"
-      },
-      "Action": "es:*",
-      "Resource": "arn:aws:es:us-west-2:123456789012:domain/example-domain/*"
-    }
-  ]
+1. Log in to the AWS Management Console.
+
+2. Navigate to the Elasticsearch service.
+
+3. Select the Elasticsearch domain that is allowing cross-account access.
+
+4. Click on the "Access" tab.
+
+5. In the "Access policies" section, click on the "Edit" button.
+
+6. Remove any entries that allow cross-account access.
+
+7. Add a new entry to the access policy that allows access only from trusted accounts.
+
+8. Click on the "Save changes" button to apply the new access policy.
+
+9. Verify that the Elasticsearch domain no longer allows cross-account access by attempting to access it from a different AWS account.
+
+10. Repeat the above steps for any other Elasticsearch domains that are allowing cross-account access.
+
+By following these steps, you can remediate the issue of Elasticsearch domains allowing cross-account access in AWS.
+
+#### Using CLI
+
+To remediate the Elasticsearch Domains Should Not Allow Cross Account Access misconfiguration in AWS, you can follow the below steps using AWS CLI:
+
+1. Open the AWS CLI and run the following command to get the Elasticsearch domain ARN:
+
+   ```
+   aws es list-domain-names
+   ```
+
+2. Once you have the Elasticsearch domain ARN, run the following command to update the Elasticsearch domain access policy to restrict cross-account access:
+
+   ```
+   aws es update-elasticsearch-domain-config --domain-name <domain-name> --cognito-options Enabled=false --access-policies '{"Version": "2012-10-17","Statement": [{"Effect": "Allow","Principal": {"AWS": "*"},"Action": "es:*","Resource": "<domain-arn>","Condition": {"IpAddress": {"aws:SourceIp": ["<your-ip-address>/32"]}}}]}' 
+   ```
+
+   Replace `<domain-name>` with the name of your Elasticsearch domain and `<domain-arn>` with the ARN of your Elasticsearch domain.
+
+3. Verify that the access policy has been updated by running the following command:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name <domain-name>
+   ```
+
+   This command will return the current configuration of the Elasticsearch domain.
+
+By following these steps, you can successfully remediate the Elasticsearch Domains Should Not Allow Cross Account Access misconfiguration in AWS.
+
+#### Using Python
+
+To remediate the Elasticsearch Domains Should Not Allow Cross Account Access misconfiguration in AWS using Python, you can follow these steps:
+
+1. Create a new Elasticsearch Domain Policy that restricts cross-account access.
+
+```python
+import boto3
+import json
+
+client = boto3.client('es')
+
+# Define the new Elasticsearch Domain Policy
+policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Principal": {
+                "AWS": "*"
+            },
+            "Action": "es:*",
+            "Resource": "arn:aws:es:us-west-2:123456789012:domain/my-domain/*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalArn": [
+                        "arn:aws:iam::123456789012:root",
+                        "arn:aws:sts::123456789012:assumed-role/MyRole/*"
+                    ]
+                }
+            }
+        }
+    ]
 }
+
+# Convert the policy to a JSON string
+policy_json = json.dumps(policy)
+
+# Update the Elasticsearch Domain Policy
+response = client.update_elasticsearch_domain_config(
+    DomainName='my-domain',
+    ElasticsearchClusterConfig={
+        'InstanceType': 'm3.medium.elasticsearch',
+        'InstanceCount': 2,
+        'DedicatedMasterEnabled': False,
+        'ZoneAwarenessEnabled': False
+    },
+    EBSOptions={
+        'EBSEnabled': True,
+        'VolumeType': 'gp2',
+        'VolumeSize': 10
+    },
+    ElasticsearchVersion='7.1',
+    AccessPolicies=policy_json
+)
 ```
-Replace the `123456789012` with the AWS account ID of the trusted account or entity that you want to grant access to. You can add multiple `AWS` principals for each trusted account or entity.
-6. Review the modified access policy to ensure that it accurately reflects the desired cross-account access configuration.
-7. Click on "Submit" to apply the updated access policy to the Elasticsearch domain.
-8. AWS will apply the access policy changes to the Elasticsearch domain, which may take a few minutes to complete.
-9. Once the changes are successfully applied, the Elasticsearch domain will allow access from the trusted AWS accounts or entities specified in the access policy.
+
+2. Replace the existing Elasticsearch Domain Policy with the new policy.
+
+```python
+import boto3
+import json
+
+client = boto3.client('es')
+
+# Get the existing Elasticsearch Domain Policy
+response = client.describe_elasticsearch_domain_config(DomainName='my-domain')
+existing_policy_json = response['DomainConfig']['AccessPolicies']
+
+# Parse the existing policy JSON string
+existing_policy = json.loads(existing_policy_json)
+
+# Modify the policy to restrict cross-account access
+modified_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Principal": {
+                "AWS": "*"
+            },
+            "Action": "es:*",
+            "Resource": "arn:aws:es:us-west-2:123456789012:domain/my-domain/*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalArn": [
+                        "arn:aws:iam::123456789012:root",
+                        "arn:aws:sts::123456789012:assumed-role/MyRole/*"
+                    ]
+                }
+            }
+        }
+    ]
+}
+
+# Convert the modified policy to a JSON string
+modified_policy_json = json.dumps(modified_policy)
+
+# Update the Elasticsearch Domain Policy
+response = client.update_elasticsearch_domain_config(
+    DomainName='my-domain',
+    ElasticsearchClusterConfig={
+        'InstanceType': 'm3.medium.elasticsearch',
+        'InstanceCount': 2,
+        'DedicatedMasterEnabled': False,
+        'ZoneAwarenessEnabled': False
+    },
+    EBSOptions={
+        'EBSEnabled': True,
+        'VolumeType': 'gp2',
+        'VolumeSize': 10
+    },
+    ElasticsearchVersion='7.1',
+    AccessPolicies=modified_policy_json
+)
+```
+
+Note: Replace the `DomainName` and `Resource` ARNs in the policy with your own Elasticsearch Domain and ARNs. Also, replace the `PrincipalArn` values in the policy with the ARNs of the IAM users or roles that should have access to the domain.
 
 ### Additional Reading:
 

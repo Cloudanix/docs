@@ -1,28 +1,102 @@
 ### Remediation
 
-How to determine if your load balancers are only using secure listeners?
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration "ELB Should Accept HTTPS Connections Only" in AWS using AWS console, follow these steps:
 
-1. Open the AWS Management Console and navigate to the EC2 service.
-2. Click on "Load Balancers" in the navigation panel on the left side.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "ELB Should Accept HTTPS Connections Only" Policy.)
-3. Select the ELB (Classic Load Balancer or Application Load Balancer) for which you want to configure secure listeners.
-4. In the load balancer details page, click on the "Listeners" tab.
-5. Review the existing listeners configured for the ELB. Note any insecure or non-secure protocols (such as HTTP).
-6. To enforce secure listeners, you have two options depending on your load balancer type:
-   a. Classic Load Balancer:
-      - Click on the "Edit" button next to the listener you want to secure.
-      - Change the protocol to use secure options like HTTPS or SSL.
-      - Provide the necessary information for the SSL certificate (e.g., upload a new certificate or select an existing one).
-      - Click on the "Save" button to update the listener.
-      - Repeat these steps for each insecure listener that needs to be secured.
-   b. Application Load Balancer:
-      - Click on the "View/edit rules" button next to the listener you want to secure.
-      - In the rules editor, select the rule that corresponds to the insecure listener.
-      - Modify the rule to use a secure protocol (HTTPS) and specify the necessary SSL certificate.
-      - Click on the "Save" button to update the rule.
-      - Repeat these steps for each insecure listener that needs to be secured.
-7. After securing all the listeners, review the updated configuration to ensure that only secure protocols (such as HTTPS) are being used.
-8. Test the ELB to verify that the secure listeners are functioning correctly.
+1. Open the AWS Management Console and navigate to the EC2 Dashboard.
+2. Click on Load Balancers from the left-hand menu.
+3. Select the load balancer that you want to configure to accept HTTPS connections only.
+4. Click on the Listeners tab.
+5. Click on Edit in the Actions column for the HTTPS listener.
+6. In the Edit Listener dialog box, select HTTPS as the Protocol.
+7. In the SSL Certificate drop-down menu, select the SSL certificate that you want to use for the HTTPS listener.
+8. In the Default Actions section, click on the X icon next to the existing action to remove it.
+9. Click on Add Action and select Forward to from the drop-down menu.
+10. In the Forward to drop-down menu, select the target group that you want to forward traffic to.
+11. Click on Save.
+
+After following these steps, your ELB will be configured to accept HTTPS connections only. Any HTTP traffic will be automatically redirected to HTTPS.
+
+#### Using CLI
+
+To remediate the ELB accepting only HTTPS connections in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+2. Run the following command to describe the current configuration of the ELB:
+
+```
+aws elb describe-load-balancers --load-balancer-name <ELB_NAME>
+```
+
+Replace `<ELB_NAME>` with the name of your ELB.
+
+3. Check if the ELB is currently accepting both HTTP and HTTPS connections. If it is, you need to modify the listener to accept HTTPS connections only.
+
+4. Run the following command to modify the listener to accept HTTPS connections only:
+
+```
+aws elb modify-load-balancer-attributes --load-balancer-name <ELB_NAME> --load-balancer-attributes "{\"LoadBalancerAttributes\":{\"ConnectionSettings\":{\"IdleTimeout\":3600},\"AccessLog\":{\"Enabled\":false},\"ConnectionDraining\":{\"Enabled\":false},\"CrossZoneLoadBalancing\":{\"Enabled\":false},\"SecurityGroups\":[\"<SECURITY_GROUP_ID>\"],\"AdditionalAttributes\":[{\"Key\":\"listener.sslPolicy\",\"Value\":\"ELBSecurityPolicy-2016-08\"}],\"Listeners\":[{\"Protocol\":\"HTTPS\",\"LoadBalancerPort\":443,\"InstanceProtocol\":\"HTTP\",\"InstancePort\":80}]}}"
+```
+
+Replace `<ELB_NAME>` with the name of your ELB and `<SECURITY_GROUP_ID>` with the ID of the security group that the ELB should use.
+
+5. Verify that the ELB is now accepting HTTPS connections only by running the following command:
+
+```
+aws elb describe-load-balancers --load-balancer-name <ELB_NAME>
+```
+
+The output should show that the listener is now configured to accept HTTPS connections only.
+
+Note: Make sure to replace `<ELB_NAME>` and `<SECURITY_GROUP_ID>` with the appropriate values for your ELB.
+
+#### Using Python
+
+To remediate the misconfiguration "ELB Should Accept HTTPS Connections Only" for AWS using python, you can follow the below steps:
+
+1. Import the necessary libraries:
+
+```
+import boto3
+```
+
+2. Create an AWS ELB client:
+
+```
+elb_client = boto3.client('elbv2')
+```
+
+3. Get the list of all the load balancers:
+
+```
+lb_list = elb_client.describe_load_balancers()
+```
+
+4. Iterate through the list of load balancers and update the listener protocol to HTTPS:
+
+```
+for lb in lb_list['LoadBalancers']:
+    lb_arn = lb['LoadBalancerArn']
+    listener_list = elb_client.describe_listeners(LoadBalancerArn=lb_arn)
+    for listener in listener_list['Listeners']:
+        if listener['Protocol'] != 'HTTPS':
+            elb_client.modify_listener(
+                ListenerArn=listener['ListenerArn'],
+                Protocol='HTTPS'
+            )
+```
+
+5. Verify that the listener protocol has been updated to HTTPS:
+
+```
+listener_list = elb_client.describe_listeners(LoadBalancerArn=lb_arn)
+for listener in listener_list['Listeners']:
+    if listener['Protocol'] != 'HTTPS':
+        print('Listener protocol not updated to HTTPS')
+    else:
+        print('Listener protocol updated to HTTPS')
+```
+
+By following the above steps, the misconfiguration "ELB Should Accept HTTPS Connections Only" can be remediated for AWS using python.
 

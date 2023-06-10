@@ -1,0 +1,134 @@
+### Remediation
+
+#### Using Console
+
+To remediate the ELB Certificates Should Be Rotated misconfiguration in AWS using the AWS Console, follow these steps:
+
+1. Open the AWS Management Console and navigate to the EC2 dashboard.
+2. Click on the "Load Balancers" option in the left-hand menu.
+3. Select the load balancer that has the outdated certificate.
+4. Click on the "Listeners" tab.
+5. Click the pencil icon next to the listener that has the outdated certificate.
+6. In the "Edit Listener" dialog box, click on the "Change" button next to the SSL certificate.
+7. Select the new certificate from the list of available certificates or upload a new one.
+8. Click on the "Save" button to save the changes.
+9. Repeat steps 5-8 for all listeners that have outdated certificates.
+10. After updating the certificates, verify that the load balancer is functioning properly by testing it.
+
+Note: It is recommended that you rotate your SSL/TLS certificates at least once a year to ensure that they are up-to-date and secure.
+
+#### Using CLI
+
+To remediate the ELB certificate rotation misconfiguration in AWS, you can follow these steps using AWS CLI:
+
+1. Identify the ELB that needs certificate rotation by running the following command:
+
+```
+aws elb describe-load-balancers
+```
+
+This will list all the ELBs in your AWS account.
+
+2. Once you have identified the ELB that needs certificate rotation, run the following command to retrieve the current certificate details:
+
+```
+aws elb describe-load-balancer-attributes --load-balancer-name <ELB-Name> --query 'LoadBalancerAttributes.SSLServerCertificate' 
+```
+
+Replace `<ELB-Name>` with the name of the ELB that needs certificate rotation.
+
+3. Verify the certificate expiry date and ensure that it is within the recommended time frame for rotation. If it is expired or about to expire, you need to request a new certificate from your certificate authority.
+
+4. Once you have obtained the new certificate, upload it to AWS IAM by running the following command:
+
+```
+aws iam upload-server-certificate --server-certificate-name <Certificate-Name> --certificate-body file://<Certificate-File-Path> --private-key file://<Private-Key-File-Path>
+```
+
+Replace `<Certificate-Name>` with a name for the new certificate, `<Certificate-File-Path>` with the path to the new certificate file, and `<Private-Key-File-Path>` with the path to the private key file for the new certificate.
+
+5. After uploading the new certificate, update the ELB with the new certificate by running the following command:
+
+```
+aws elb set-load-balancer-listener-ssl-certificate --load-balancer-name <ELB-Name> --load-balancer-port <Port> --ssl-certificate-id <Certificate-ID>
+```
+
+Replace `<ELB-Name>` with the name of the ELB that needs certificate rotation, `<Port>` with the port number for which the certificate is being updated, and `<Certificate-ID>` with the ID of the new certificate that was uploaded to AWS IAM.
+
+6. Verify that the new certificate is being used by running the following command:
+
+```
+aws elb describe-load-balancer-attributes --load-balancer-name <ELB-Name> --query 'LoadBalancerAttributes.SSLServerCertificate'
+```
+
+This will display the details of the new certificate being used by the ELB.
+
+7. Finally, ensure that the certificate rotation process is automated to avoid future misconfigurations. You can use AWS Certificate Manager (ACM) to automate the process of certificate issuance, deployment, and renewal.
+
+#### Using Python
+
+To remediate the ELB certificate rotation misconfiguration in AWS using Python, follow these steps:
+
+1. Import the necessary AWS SDKs and libraries, such as boto3 and datetime.
+
+```python
+import boto3
+from datetime import datetime
+```
+
+2. Initialize the AWS client with the appropriate credentials and region.
+
+```python
+elb_client = boto3.client('elbv2', region_name='us-east-1')
+```
+
+3. Get a list of all the load balancers in your AWS account.
+
+```python
+elbs = elb_client.describe_load_balancers()['LoadBalancers']
+```
+
+4. For each load balancer, check the expiration date of its SSL certificate.
+
+```python
+for elb in elbs:
+    certs = elb_client.describe_certificates(LoadBalancerArn=elb['LoadBalancerArn'])['Certificates']
+    for cert in certs:
+        if cert['Type'] == 'acm':
+            cert_expiration = cert['NotAfter']
+            if cert_expiration < datetime.now(cert_expiration.tzinfo):
+                # certificate has expired, rotate it
+            else:
+                # certificate is still valid, no action needed
+```
+
+5. If the certificate has expired, use the AWS SDK to request a new certificate.
+
+```python
+acm_client = boto3.client('acm', region_name='us-east-1')
+new_cert = acm_client.request_certificate(
+    DomainName='example.com',
+    ValidationMethod='DNS',
+    SubjectAlternativeNames=[
+        '*.example.com',
+    ]
+)
+```
+
+6. After the new certificate is issued, update the load balancer with the new certificate.
+
+```python
+elb_client.modify_listener(
+    ListenerArn='listener-arn',
+    Certificates=[
+        {
+            'CertificateArn': new_cert['CertificateArn']
+        }
+    ]
+)
+```
+
+7. Repeat this process for all load balancers in your AWS account.
+
+Note: This is just a basic outline of the steps involved in remediating the ELB certificate rotation misconfiguration in AWS using Python. The specific implementation may vary depending on your specific configuration and requirements.
+

@@ -22,17 +22,152 @@ SOC2, GDPR, PCIDSS, NIST, HITRUST, NISTCSF
 
 ### Remediation
 
-How to reconfigure the security groups associated with Amazon EKS clusters in order to allow access only on HTTPS?
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration in AWS, follow the steps below:
 
-1. Open the Amazon EC2 Management Console and navigate to the "Security Groups" section.
-2. Search for the security group associated with your EKS cluster.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "EKS Cluster Should Allow Inbound Traffic only from Port 443(HTTPS)" Policy.)
-3. Select the security group and click on the "Inbound Rules" tab.
-4. Find the existing rule that allows inbound traffic on port 80 (HTTP) and delete it.
-5. Add a new inbound rule that allows inbound traffic on port 443 (HTTPS) from the desired source IP range or security group. You can set the source IP range to 0.0.0.0/0 to allow access from any IP address, or specify specific IP ranges as per your requirements.
-6. Save the changes to update the security group configuration.
+1. Login to the AWS console and navigate to the Amazon EKS service.
+
+2. Select the EKS cluster that needs to be remediated.
+
+3. Click on the "Configuration" tab in the left-hand menu.
+
+4. Scroll down to the "Networking" section and click on the "Edit" button.
+
+5. In the "Security group rules" section, locate the security group that is associated with your EKS cluster.
+
+6. Click on the "Edit" button next to the security group.
+
+7. In the "Inbound rules" section, locate the rule that allows inbound traffic on port 443.
+
+8. If the rule is missing, click on the "Add rule" button and select "HTTPS" from the dropdown menu.
+
+9. If the rule is present but allows traffic from other ports as well, click on the "Edit" button next to the rule and change the port range to only allow traffic on port 443.
+
+10. Once the rule has been updated, click on the "Save rules" button to apply the changes.
+
+11. Verify that the inbound traffic is now restricted to port 443 by checking the security group rules.
+
+Your EKS cluster should now only allow inbound traffic on port 443, which will remediate the misconfiguration.
+
+#### Using CLI
+
+To remediate this misconfiguration for an EKS cluster in AWS using AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to list all the EKS clusters in your AWS account:
+
+```
+aws eks list-clusters
+```
+
+3. Choose the EKS cluster that you want to remediate and run the following command to update the cluster's security group:
+
+```
+aws eks update-cluster-config --name <cluster_name> --region <region_name> --resources-vpc-config securityGroupIds=<security_group_id>
+```
+
+Replace the `<cluster_name>` with the name of your EKS cluster, `<region_name>` with the AWS region where your cluster is located and `<security_group_id>` with the ID of the security group associated with your EKS cluster.
+
+4. Run the following command to create a new security group rule that allows inbound traffic only from port 443:
+
+```
+aws ec2 authorize-security-group-ingress --group-id <security_group_id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+```
+
+Replace the `<security_group_id>` with the ID of the security group associated with your EKS cluster.
+
+5. Verify that the new security group rule has been added successfully by running the following command:
+
+```
+aws ec2 describe-security-groups --group-ids <security_group_id>
+```
+
+This should return a JSON object containing the details of the security group associated with your EKS cluster, including the new inbound rule for port 443.
+
+Your EKS cluster is now configured to allow inbound traffic only from port 443.
+
+#### Using Python
+
+To remediate the misconfiguration of allowing inbound traffic only from port 443 for an EKS Cluster in AWS, you can follow the below steps using Python:
+
+1. Install the AWS SDK for Python (Boto3) using the following command:
+
+```python
+pip install boto3
+```
+
+2. Create a Boto3 client for Amazon EKS using the following code:
+
+```python
+import boto3
+
+eks_client = boto3.client('eks')
+```
+
+3. Get the details of the EKS cluster using the following code:
+
+```python
+cluster_name = 'your_cluster_name'
+response = eks_client.describe_cluster(name=cluster_name)
+```
+
+4. Get the security group ID of the worker nodes using the following code:
+
+```python
+security_group_id = response['cluster']['resourcesVpcConfig']['clusterSecurityGroupId']
+```
+
+5. Get the details of the security group using the following code:
+
+```python
+ec2_client = boto3.client('ec2')
+
+response = ec2_client.describe_security_groups(GroupIds=[security_group_id])
+```
+
+6. Update the inbound rules of the security group to allow traffic only from port 443 using the following code:
+
+```python
+ip_permissions = response['SecurityGroups'][0]['IpPermissions']
+for permission in ip_permissions:
+    if permission['IpProtocol'] == 'tcp' and permission['FromPort'] != 443:
+        ec2_client.revoke_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    'IpProtocol': 'tcp',
+                    'FromPort': permission['FromPort'],
+                    'ToPort': permission['ToPort'],
+                    'IpRanges': permission['IpRanges'],
+                    'Ipv6Ranges': permission['Ipv6Ranges'],
+                    'PrefixListIds': permission['PrefixListIds'],
+                    'UserIdGroupPairs': permission['UserIdGroupPairs']
+                }
+            ]
+        )
+
+ec2_client.authorize_security_group_ingress(
+    GroupId=security_group_id,
+    IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 443,
+            'ToPort': 443,
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0'
+                }
+            ]
+        }
+    ]
+)
+```
+
+This code will remove all the existing inbound rules that allow traffic from ports other than 443 and add a new inbound rule that allows traffic only from port 443. 
+
+Note: Replace 'your_cluster_name' with the actual name of your EKS cluster. Also, make sure you have the necessary permissions to modify the security group.
 
 ### Additional Reading:
 

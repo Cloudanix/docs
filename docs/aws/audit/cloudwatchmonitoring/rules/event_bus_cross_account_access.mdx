@@ -22,28 +22,143 @@ AWSWAF
 
 ### Remediation
 
-How Event bus should be protected?
+#### Using Console
 
-#### Using AWS Console
+To remediate the "EventBus Should Not Allow Cross Account Access" misconfiguration in AWS using the AWS console, follow these steps:
 
-1. Open the AWS Management Console and navigate to the EventBridge service.
-2. Click on "Event Buses" in the navigation panel on the left side.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "EventBus Should Not Allow Cross Account Access" Policy.)
-3. Identify the event bus that is exposed to the public. Take note of its name.
-4. Open the AWS Management Console and navigate to the IAM service.
-5. Click on "Policies" in the navigation panel on the left side.
-6. Search for and select the policy associated with the public event bus.
-7. Click on the "Delete Policy" button.
-8. A confirmation dialog will appear. Review the information and click on the "Delete" button to remove the policy.
-9. Return to the EventBridge service in the AWS Management Console.
-10. Click on "Event Buses" in the navigation panel on the left side.
-11. Select the event bus that was exposed to the public.
-12. Click on the "Actions" dropdown and select "Edit" to modify the event bus settings.
-13. In the "Edit event bus" window, deselect the option to "Allow public access".
-14. Click on the "Save" button to apply the changes.
-15. Review the other event bus settings and ensure that they align with your desired configuration.
-16. Consider implementing additional security measures, such as enabling AWS CloudTrail logging for your EventBridge event bus, to monitor and track any unauthorized access attempts or activities.
-17. Regularly monitor your AWS environment for any misconfigurations or unintended exposures to prevent similar issues in the future.
+1. Login to the AWS Management Console.
+2. Navigate to the Amazon EventBridge service.
+3. Select the Event Bus that is allowing cross-account access.
+4. Click on the "Permissions" tab.
+5. In the "Event bus policies" section, click on the "Edit" button.
+6. Remove any statements that grant cross-account access to the Event Bus.
+7. Add a new statement that only allows access from the AWS account(s) that require access to the Event Bus.
+8. Click on the "Save" button to apply the changes.
+
+After following these steps, the Event Bus will no longer allow cross-account access and will only allow access from the specified AWS account(s).
+
+#### Using CLI
+
+To remediate the "EventBus Should Not Allow Cross Account Access" misconfiguration in AWS using AWS CLI, follow these steps:
+
+1. Open your terminal or command prompt and ensure that you have the AWS CLI installed and configured with the appropriate credentials.
+
+2. Run the following command to list all the Amazon EventBridge event buses in your AWS account:
+
+   ```
+   aws events list-event-buses
+   ```
+
+3. Identify the event bus that is allowing cross-account access.
+
+4. Run the following command to modify the event bus policy and restrict cross-account access:
+
+   ```
+   aws events put-policy --event-bus-name <event-bus-name> --policy '{"Statement":[{"Sid":"RestrictCrossAccountAccess","Effect":"Deny","Principal":"*","Action":"events:PutEvents","Resource":"arn:aws:events:<region>:<account-id>:event-bus/<event-bus-name>"}]}'
+   ```
+
+   Replace `<event-bus-name>` with the name of the event bus that is allowing cross-account access, `<region>` with the AWS region where the event bus is located, and `<account-id>` with your AWS account ID.
+
+5. Verify that the policy has been updated by running the following command:
+
+   ```
+   aws events describe-event-bus --name <event-bus-name>
+   ```
+
+   The output should show the updated policy with the `Deny` statement.
+
+6. Repeat steps 3-5 for any other event buses that are allowing cross-account access.
+
+By following these steps, you have successfully remediated the "EventBus Should Not Allow Cross Account Access" misconfiguration in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration "EventBus Should Not Allow Cross Account Access" in AWS, you can follow the below steps in Python:
+
+1. Create a new EventBridge event bus policy that allows access only to the specific AWS account that should have access to the event bus. 
+
+```python
+import boto3
+import json
+
+eventbridge = boto3.client('events')
+
+account_id = boto3.client('sts').get_caller_identity().get('Account')
+
+policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowAccountAccess",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": f"arn:aws:iam::{account_id}:root"
+            },
+            "Action": "events:*",
+            "Resource": "arn:aws:events:us-east-1:<account_id>:event-bus/default"
+        }
+    ]
+}
+
+policy_json = json.dumps(policy)
+
+eventbridge.put_permission(
+    Action='events:PutEvents',
+    Principal='*',
+    StatementId='AllowAccountAccess',
+    Condition={
+        'ArnEquals': {
+            'aws:SourceArn': f'arn:aws:events:us-east-1:<account_id>:event-bus/default'
+        }
+    }
+)
+
+eventbridge.put_event_bus_policy(
+    EventBusName='default',
+    Policy=policy_json
+)
+```
+
+2. Remove any existing event bus policies that allow cross-account access. 
+
+```python
+policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "DenyCrossAccountAccess",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "events:*",
+            "Resource": "arn:aws:events:us-east-1:<account_id>:event-bus/default",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalAccount": "<account_id>"
+                }
+            }
+        }
+    ]
+}
+
+policy_json = json.dumps(policy)
+
+eventbridge.put_event_bus_policy(
+    EventBusName='default',
+    Policy=policy_json
+)
+```
+
+3. Verify that the event bus policy now only allows access to the specific AWS account that should have access to the event bus.
+
+```python
+policy = eventbridge.describe_event_bus(
+    Name='default'
+)['Policy']
+
+print(policy)
+```
+
+This should remediate the "EventBus Should Not Allow Cross Account Access" misconfiguration in AWS.
 
 ### Additional Reading:
 

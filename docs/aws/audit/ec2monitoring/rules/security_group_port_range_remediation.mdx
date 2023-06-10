@@ -1,17 +1,141 @@
 ### Remediation
 
-How to ensure security groups port range is not open for public?
+#### Using Console
 
-#### Using AWS Console
+Here are the step-by-step instructions to remediate the Security Group Port Range misconfiguration for AWS using the AWS console:
 
-1. Open the AWS Management Console and navigate to the Amazon EC2 service.
-2. From the left navigation pane, click on "Security Groups" to view the list of security groups.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Security Group Port Range" Policy.)
-3. Identify the security group that you want to check for open ports to the public and select it by clicking on its name.
-4. In the "Inbound Rules" tab of the security group details, review the list of inbound rules.
-5. Identify any rules with a port range that should not be open to the public. This typically includes common ports like 22 (SSH), 3389 (RDP), or any other specific ports that should only be accessible from specific IP addresses or networks.
-6. To close the port range to the public, select the rule by clicking on the corresponding row.
-7. Click on the "Actions" button above the rule list and choose "Delete Rule" or "Remove" to remove the rule.
-8. Repeat steps 6 and 7 for each rule that needs to be closed to the public.
-9. Once you have removed the appropriate rules, click on the "Save Rules" or "Save" button to apply the changes to the security group.
+1. Log in to your AWS console.
+2. Navigate to the EC2 dashboard.
+3. Click on the "Security Groups" option on the left-hand side of the screen.
+4. Select the affected security group.
+5. Click on the "Inbound Rules" tab.
+6. Identify the rule with the incorrect port range.
+7. Click on the "Edit" button for that rule.
+8. Update the port range to the appropriate range.
+9. Click on the "Save" button to save the changes.
+10. Verify that the changes have been applied by confirming that the correct port range is now listed in the security group's inbound rules.
+
+It is recommended to regularly review and update security group rules to ensure that they are configured correctly for your organization's needs.
+
+#### Using CLI
+
+The remediation steps for Security Group Port Range misconfiguration in AWS using AWS CLI are as follows:
+
+1. Identify the security group that has the misconfigured port range. You can use the following command to list all the security groups in your AWS account:
+
+   ```
+   aws ec2 describe-security-groups
+   ```
+
+2. Once you have identified the security group, use the following command to update the security group and remove the misconfigured port range:
+
+   ```
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-range>
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group that has the misconfigured port range, and `<port-range>` with the range of ports that need to be removed.
+
+   For example, if the security group ID is `sg-1234567890` and the misconfigured port range is `0-65535`, the command would be:
+
+   ```
+   aws ec2 revoke-security-group-ingress --group-id sg-1234567890 --protocol tcp --port 0-65535
+   ```
+
+3. Verify that the misconfigured port range has been removed by using the following command to describe the security group:
+
+   ```
+   aws ec2 describe-security-groups --group-id <security-group-id>
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group that you updated. Verify that the misconfigured port range is no longer listed in the security group rules.
+
+By following these steps, you can remediate the Security Group Port Range misconfiguration in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the Security Group Port Range misconfiguration in AWS using Python, follow these steps:
+
+1. First, you need to identify the security group that has the misconfigured port range. You can do this by using the AWS SDK for Python (Boto3) to list all the security groups in your account and filter them based on the port range that is misconfigured.
+
+Here's an example code snippet that lists all the security groups in your account and filters them based on a specific port range:
+
+```
+import boto3
+
+# Create an EC2 client
+ec2 = boto3.client('ec2')
+
+# List all the security groups in your account
+response = ec2.describe_security_groups()
+
+# Filter the security groups based on the misconfigured port range
+misconfigured_security_groups = []
+for sg in response['SecurityGroups']:
+    for rule in sg['IpPermissions']:
+        if rule['FromPort'] == 22 and rule['ToPort'] == 22:
+            misconfigured_security_groups.append(sg['GroupId'])
+```
+
+In this example, we are filtering the security groups based on the SSH port (port 22), but you can modify the code to filter based on other port ranges as well.
+
+2. Once you have identified the security groups that have the misconfigured port range, you need to update the security group rules to allow only the required ports. You can do this by using the `authorize_security_group_ingress` and `revoke_security_group_ingress` methods of the `ec2` client.
+
+Here's an example code snippet that updates the security group rules to allow only the required ports:
+
+```
+# Update the security group rules to allow only the required ports
+for sg_id in misconfigured_security_groups:
+    ec2.revoke_security_group_ingress(
+        GroupId=sg_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': 0,
+                'ToPort': 65535,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            },
+            {
+                'IpProtocol': 'udp',
+                'FromPort': 0,
+                'ToPort': 65535,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            }
+        ]
+    )
+
+    ec2.authorize_security_group_ingress(
+        GroupId=sg_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': 80,
+                'ToPort': 80,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            },
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': 443,
+                'ToPort': 443,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            }
+        ]
+    )
+```
+
+In this example, we are allowing only HTTP (port 80) and HTTPS (port 443) traffic to the security groups that have the misconfigured port range. You can modify the code to allow other ports as well.
+
+3. Finally, you should verify that the security group rules have been updated correctly. You can do this by using the `describe_security_groups` method of the `ec2` client to retrieve the security group rules and checking that only the required ports are allowed.
+
+Here's an example code snippet that verifies the updated security group rules:
+
+```
+# Verify that the security group rules have been updated correctly
+for sg_id in misconfigured_security_groups:
+    response = ec2.describe_security_groups(GroupIds=[sg_id])
+    for rule in response['SecurityGroups'][0]['IpPermissions']:
+        if rule['FromPort'] != 80 and rule['ToPort'] != 443:
+            print(f"Security group {sg_id} still has misconfigured port range")
+```
+
+In this example, we are checking that only HTTP (port 80) and HTTPS (port 443) traffic is allowed in the security groups that have the misconfigured port range. If any other port is still allowed, the code will print a message indicating that the security group still has a misconfigured port range.
 

@@ -2,105 +2,118 @@
 
 #### Using Console
 
-To remediate the misconfiguration of AWS ACM Certificates Renewal Under 30 Days, you can follow the below steps in the AWS console:
+Sure, here are the step by step instructions to remediate the misconfiguration of AWS ACM Certificates Renewal Under 30 Days:
 
-1. Login to the AWS Console and navigate to the AWS Certificate Manager (ACM) service.
+1. Login to your AWS console.
+2. Go to the AWS Certificate Manager service.
+3. Select the certificate that needs to be renewed.
+4. Click on the "Renew" button.
+5. In the "Renewal Settings" page, select the validity period for the renewed certificate. Ensure that the validity period is greater than 30 days.
+6. Click on the "Next" button.
+7. Review the details of the renewed certificate and confirm that they are correct.
+8. Click on the "Renew" button.
 
-2. Select the certificate that is expiring soon and needs to be renewed.
+Once the certificate is renewed, you will need to update the certificate on your website or application to ensure that it is using the renewed certificate. 
 
-3. Click on the "Renew" button to renew the certificate.
-
-4. Follow the on-screen instructions to complete the renewal process.
-
-5. Once the certificate is renewed, update the certificate on all the resources that are using it, such as Load Balancers, CloudFront distributions, and API Gateway.
-
-6. Verify that the updated certificate is being used by all the resources.
-
-7. Set up a reminder or notification to renew the certificate before it expires again.
-
-By following the above steps, you can remediate the misconfiguration of AWS ACM Certificates Renewal Under 30 Days and ensure that your resources are using valid certificates.
+By following these steps, you will have successfully remediated the misconfiguration of AWS ACM Certificates Renewal Under 30 Days.
 
 #### Using CLI
 
-The following steps can be taken to remediate the AWS ACM Certificates Renewal Under 30 Days issue using the AWS CLI:
+The following are the step-by-step instructions to remediate the AWS ACM Certificates Renewal Under 30 Days misconfiguration using AWS CLI:
 
 1. Open the AWS CLI on your local machine.
 
-2. Use the following command to list all the certificates that are expiring in the next 30 days:
+2. Run the following command to list all the certificates that are expiring in the next 30 days:
 
    ```
-   aws acm list-certificates --query "CertificateSummaryList[?ExpirationDate<='$(date -d '+30 days' --utc +%Y-%m-%dT%H:%M:%SZ')']"
+   aws acm list-certificates --query "CertificateSummaryList[?NotAfter<=\`$(date -v+30d +%Y-%m-%dT%H:%M:%SZ)\`]" --output table
    ```
 
-   This command will return a list of certificates that are expiring in the next 30 days.
+   This command will display a list of all the certificates that are expiring in the next 30 days.
 
-3. Identify the certificate that needs to be renewed.
+3. Identify the certificate that needs to be renewed and note down its ARN.
 
-4. Use the following command to request a new certificate:
-
-   ```
-   aws acm request-certificate --domain-name example.com --validation-method DNS
-   ```
-
-   Replace "example.com" with the domain name for which you want to request a new certificate.
-
-5. Follow the instructions provided by AWS to complete the certificate validation process. This usually involves creating a DNS record.
-
-6. Once the validation process is complete, use the following command to update the certificate:
+4. Run the following command to request a new certificate:
 
    ```
-   aws acm import-certificate --certificate file://certificate.pem --certificate-chain file://certificate_chain.pem --private-key file://private_key.pem
+   aws acm request-certificate --domain-name <domain-name> --validation-method DNS --subject-alternative-names <domain-name1> <domain-name2> --idempotency-token <idempotency-token>
    ```
 
-   Replace "certificate.pem", "certificate_chain.pem", and "private_key.pem" with the paths to the new certificate, certificate chain, and private key files.
+   Replace `<domain-name>` with the domain name for which you want to request a certificate. If you want to add additional domain names, specify them using the `--subject-alternative-names` option. The `--validation-method` option specifies the validation method for the certificate. In this case, we are using DNS validation.
 
-7. Verify that the new certificate is in use by checking the certificate details in the AWS Management Console or by running the following command:
+5. After requesting the certificate, you need to validate it. Run the following command to get the CNAME record that you need to add to your DNS configuration:
 
    ```
-   aws acm describe-certificate --certificate-arn arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012
+   aws acm describe-certificate --certificate-arn <certificate-arn> --query "Certificate.DomainValidationOptions[0].ResourceRecord" --output text
    ```
 
-   Replace "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012" with the ARN of the new certificate.
+   Replace `<certificate-arn>` with the ARN of the certificate that you requested in step 4.
+
+6. Add the CNAME record to your DNS configuration.
+
+7. Run the following command to wait until the certificate is issued:
+
+   ```
+   aws acm wait certificate-validated --certificate-arn <certificate-arn>
+   ```
+
+   Replace `<certificate-arn>` with the ARN of the certificate that you requested in step 4.
+
+8. After the certificate is issued, you can update your application to use the new certificate.
 
 #### Using Python
 
-To remediate the misconfiguration of AWS ACM certificates renewal under 30 days using Python, you can follow these steps:
+To remediate the AWS ACM Certificates Renewal Under 30 Days misconfiguration using Python, you can follow these steps:
 
-1. Install the AWS SDK for Python (Boto3) using pip:
-```
+1. Install the AWS SDK for Python (boto3) using pip:
+
+```python
 pip install boto3
 ```
 
-2. Import the necessary libraries:
+2. Create an AWS IAM user with the necessary permissions to access and manage ACM certificates. The user should have the following IAM policies attached:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ACMPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "acm:ListCertificates",
+                "acm:DescribeCertificate",
+                "acm:RenewCertificate"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+3. Configure the AWS credentials in your local environment. You can do this by exporting the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables or by using the AWS CLI configure command.
+
 ```python
 import boto3
 import datetime
+
+# Create a client for ACM
+acm_client = boto3.client('acm')
+
+# Get a list of all certificates
+certificates = acm_client.list_certificates()
+
+# Loop through the certificates and check their expiration dates
+for cert in certificates['CertificateSummaryList']:
+    cert_arn = cert['CertificateArn']
+    cert_info = acm_client.describe_certificate(CertificateArn=cert_arn)
+    cert_expiration = cert_info['Certificate']['NotAfter']
+    days_until_expiration = (cert_expiration - datetime.datetime.now(datetime.timezone.utc)).days
+
+    # Renew the certificate if it expires in less than 30 days
+    if days_until_expiration < 30:
+        acm_client.renew_certificate(CertificateArn=cert_arn)
 ```
 
-3. Initialize the AWS client:
-```python
-client = boto3.client('acm')
-```
-
-4. Get a list of all the certificates in your account:
-```python
-response = client.list_certificates()
-```
-
-5. Loop through the list of certificates and check if any of them are expiring within the next 30 days:
-```python
-for certificate in response['CertificateSummaryList']:
-    cert_arn = certificate['CertificateArn']
-    cert_details = client.describe_certificate(CertificateArn=cert_arn)
-    expiration_date = cert_details['Certificate']['NotAfter']
-    days_until_expiry = (expiration_date - datetime.datetime.now(datetime.timezone.utc)).days
-    
-    if days_until_expiry < 30:
-        # Renew the certificate
-        response = client.renew_certificate(CertificateArn=cert_arn)
-```
-
-6. Finally, you can add this code as a scheduled job in your AWS environment to check for expiring certificates periodically and renew them automatically.
-
-Note: You may need to ensure that your AWS credentials are properly configured and that you have the necessary permissions to access the ACM service.
+This Python code will check for all ACM certificates in your AWS account and renew any certificates that expire in less than 30 days. You can run this code on a regular basis (e.g., using a cron job) to ensure that your certificates are always up to date.
 

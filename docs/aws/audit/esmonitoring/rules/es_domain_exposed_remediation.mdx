@@ -1,36 +1,146 @@
 ### Remediation
 
-How to block anonymous access to your Amazon ElasticSearch domains?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step by step instructions to remediate the Elasticsearch Domains Should Not Be Publicly Exposed issue for AWS using the AWS console:
 
-1. Log in to the AWS Management Console using your AWS account credentials.
-2. Navigate to the Amazon Elasticsearch Service by selecting "Elasticsearch Service" from the services menu.
-3. In the Amazon Elasticsearch Service dashboard, select the Elasticsearch domain for which you want to block anonymous access.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Elasticsearch Domains Should Not Be Publicly Exposed" Policy.)
-4. In the domain details page, click on the "Modify access policy" button.
-5. In the access policy editor, update the policy to deny anonymous access. Here's an example of an access policy that blocks anonymous access:
+1. Log in to your AWS console.
+
+2. Navigate to the Elasticsearch Service console.
+
+3. Select the Elasticsearch domain that is publicly exposed.
+
+4. Click on the "Edit" button.
+
+5. Scroll down to the "Network configuration" section.
+
+6. Click on the "Edit" button.
+
+7. In the "Public access" section, select "Disabled".
+
+8. Click on the "Save changes" button.
+
+9. Wait for the changes to take effect.
+
+10. Once the changes have taken effect, verify that the Elasticsearch domain is no longer publicly exposed.
+
+That's it! By following these steps, you have successfully remediated the Elasticsearch Domains Should Not Be Publicly Exposed issue for AWS using the AWS console.
+
+#### Using CLI
+
+To remediate the Elasticsearch domain publicly exposed issue in AWS using AWS CLI, you can follow the below steps:
+
+Step 1: Login to AWS CLI using your AWS account credentials.
+
+Step 2: Run the following command to get the Elasticsearch domain endpoint:
 ```
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Deny",
-      "Principal": "*",
-      "Action": "es:*",
-      "Resource": "arn:aws:es:us-west-2:123456789012:domain/example-domain/*",
-      "Condition": {
-        "Bool": {
-          "aws:SecureTransport": "false"
-        }
-      }
-    }
-  ]
-}
+aws es list-domain-names
 ```
-This access policy denies access to anyone (anonymous users) who tries to access the Elasticsearch domain over an insecure (non-HTTPS) connection. You can replace `us-west-2` and `123456789012` with the appropriate region and your AWS account ID, respectively. 
-6. Review the modified access policy to ensure that it accurately reflects the desired configuration to block anonymous access.
-7. Click on "Submit" to apply the updated access policy to the Elasticsearch domain.
-8. AWS will apply the access policy changes to the Elasticsearch domain, which may take a few minutes to complete.
-9. Once the changes are successfully applied, anonymous users attempting to access the Elasticsearch domain will be denied access.
+
+Step 3: Once you have the Elasticsearch domain endpoint, run the following command to update the Elasticsearch domain access policy and restrict access to only authorized IP addresses:
+```
+aws es update-elasticsearch-domain-config --domain-name <your-domain-name> --access-policies '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":"*"},"Action":"es:*","Condition":{"IpAddress":{"aws:SourceIp":["<your-ip-address>/32"]}}},{"Effect":"Deny","Principal":{"AWS":"*"},"Action":"es:*","Condition":{"NotIpAddress":{"aws:SourceIp":["<your-ip-address>/32"]}}}]}'
+```
+Note: Replace `<your-domain-name>` with the name of your Elasticsearch domain and `<your-ip-address>` with the IP address you want to allow access to.
+
+Step 4: Verify that the Elasticsearch domain access policy has been updated successfully by running the following command:
+```
+aws es describe-elasticsearch-domain --domain-name <your-domain-name> --query "DomainStatus.AccessPolicies"
+```
+
+Step 5: Test the Elasticsearch domain access by trying to access it from an IP address that is not authorized. You should receive an error message indicating that access is denied.
+
+By following the above steps, you can remediate the Elasticsearch domain publicly exposed issue in AWS using AWS CLI and restrict access to only authorized IP addresses.
+
+#### Using Python
+
+To remediate the Elasticsearch Domains should not be publicly exposed misconfiguration in AWS, you can use the following steps using Python:
+
+1. First, you need to identify the Elasticsearch domains that are publicly exposed. You can do this by using the AWS SDK for Python (Boto3) to list all the Elasticsearch domains in your account and check if they have public access policies attached to them.
+
+   ```python
+   import boto3
+
+   es_client = boto3.client('es')
+
+   # List all Elasticsearch domains
+   response = es_client.list_domain_names()
+
+   for domain in response['DomainNames']:
+       domain_name = domain['DomainName']
+       domain_info = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+       
+       # Check if the domain has a public access policy
+       if 'Endpoint' in domain_info['DomainStatus']:
+           endpoint = domain_info['DomainStatus']['Endpoint']
+           policies = es_client.describe_elasticsearch_domain_config(DomainName=domain_name)['DomainConfig']['AccessPolicies']
+           if 'Statement' in policies:
+               for statement in policies['Statement']:
+                   if 'Effect' in statement and statement['Effect'] == 'Allow':
+                       if 'Principal' in statement and statement['Principal'] == '*':
+                           print(f'Elasticsearch domain {domain_name} is publicly accessible at {endpoint}')
+   ```
+
+2. Once you have identified the publicly exposed Elasticsearch domains, you need to update their access policies to restrict public access. You can do this by using the `update_elasticsearch_domain_config` API to update the access policies of the domain.
+
+   ```python
+   import json
+
+   # Update access policies to restrict public access
+   policy = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "*"
+               },
+               "Action": "es:*",
+               "Resource": f"arn:aws:es:{region}:{account_id}:domain/{domain_name}/*",
+               "Condition": {
+                   "IpAddress": {
+                       "aws:SourceIp": [
+                           "10.0.0.0/8",
+                           "172.16.0.0/12",
+                           "192.168.0.0/16"
+                       ]
+                   }
+               }
+           }
+       ]
+   }
+
+   policies = json.dumps(policy)
+
+   # Update the access policies of the domain
+   response = es_client.update_elasticsearch_domain_config(
+       DomainName=domain_name,
+       AccessPolicies=policies
+   )
+
+   print(f'Access policies updated for Elasticsearch domain {domain_name}')
+   ```
+
+3. Finally, you need to verify that the access policies have been updated successfully and the Elasticsearch domains are no longer publicly accessible. You can use the same code as in step 1 to check if the domains have public access policies attached to them.
+
+   ```python
+   # List all Elasticsearch domains
+   response = es_client.list_domain_names()
+
+   for domain in response['DomainNames']:
+       domain_name = domain['DomainName']
+       domain_info = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+       
+       # Check if the domain has a public access policy
+       if 'Endpoint' in domain_info['DomainStatus']:
+           endpoint = domain_info['DomainStatus']['Endpoint']
+           policies = es_client.describe_elasticsearch_domain_config(DomainName=domain_name)['DomainConfig']['AccessPolicies']
+           if 'Statement' in policies:
+               for statement in policies['Statement']:
+                   if 'Effect' in statement and statement['Effect'] == 'Allow':
+                       if 'Principal' in statement and statement['Principal'] == '*':
+                           print(f'Elasticsearch domain {domain_name} is still publicly accessible at {endpoint}')
+   ```
+
+By following these steps, you can remediate the Elasticsearch Domains should not be publicly exposed misconfiguration in AWS using Python.
 

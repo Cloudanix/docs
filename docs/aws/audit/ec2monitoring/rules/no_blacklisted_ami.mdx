@@ -22,24 +22,110 @@ CBP
 
 ### Remediation
 
-How to ensure no black listed AMIs are used?
+#### Using Console
 
-#### Using AWS Console
+To remediate the issue of blacklisted AMIs in AWS using AWS console, follow the steps below:
 
-1. Identify the list of blacklisted AMIs that you want to restrict in your environment. This list typically includes AMIs that have known security vulnerabilities or are not compliant with your organization's standards.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Blacklisted AMIs Should Not Be Used" Policy.)
-2. Open the AWS Management Console and navigate to the Amazon EC2 service.
-3. From the left navigation pane, click on "Instances" to view the list of EC2 instances.
-4. Select each EC2 instance one by one and review the AMI used by the instance.
-5. Compare the AMI ID with your blacklist of AMIs to determine if it is blacklisted.
-6. If you find an instance using a blacklisted AMI, you have a couple of options:
-   a. Terminate the instance: If the instance is not critical and can be replaced easily, you can terminate it and launch a new instance with an allowed AMI.
-   b. Change the AMI: If terminating the instance is not feasible, you can change the AMI associated with the instance by performing the following steps:
-      - Stop the instance.
-      - Create a new AMI that is compliant or allowed in your environment.
-      - Modify the instance and select the newly created compliant AMI.
-      - Start the instance.
-7. Repeat the process for all EC2 instances in your environment to ensure none of them are using blacklisted AMIs.
+1. Log in to your AWS console.
+2. Go to the EC2 dashboard.
+3. Click on the "AMIs" option on the left-hand menu.
+4. Identify the blacklisted AMIs from the list of available AMIs.
+5. Select the blacklisted AMI that you want to remove.
+6. Click on the "Actions" button and select "Deregister" from the drop-down menu.
+7. Confirm the action by clicking on the "Deregister" button.
+8. Once the AMI is deregistered, it will no longer be available for use.
+9. Ensure that any instances using the blacklisted AMI are terminated and replaced with instances using approved AMIs.
+10. Implement a process to regularly check and update the list of approved AMIs to prevent the use of blacklisted AMIs in the future.
+
+By following the above steps, you can remediate the issue of blacklisted AMIs in AWS using AWS console.
+
+#### Using CLI
+
+To remediate the issue of using blacklisted AMIs in AWS, you can follow the below steps using AWS CLI:
+
+1. Identify the blacklisted AMIs in your AWS account. You can check the list of blacklisted AMIs on the AWS website.
+
+2. Find all the instances that are using the blacklisted AMIs. You can use the following AWS CLI command to get the list of instances:
+
+```
+aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,ImageId]' --output text
+```
+
+This command will return a list of all the instances in your AWS account along with their AMI IDs.
+
+3. Stop the instances that are using the blacklisted AMIs. You can use the following AWS CLI command to stop the instances:
+
+```
+aws ec2 stop-instances --instance-ids <instance-id-1> <instance-id-2> ... <instance-id-n>
+```
+
+Replace `<instance-id-1>`, `<instance-id-2>`, and so on with the instance IDs of the instances that are using the blacklisted AMIs.
+
+4. Create a new instance using a non-blacklisted AMI. You can use the following AWS CLI command to launch a new instance:
+
+```
+aws ec2 run-instances --image-id <non-blacklisted-ami-id> --count 1 --instance-type <instance-type> --key-name <key-name> --security-group-ids <security-group-id> --subnet-id <subnet-id>
+```
+
+Replace `<non-blacklisted-ami-id>` with the ID of a non-blacklisted AMI, `<instance-type>` with the type of instance you want to launch, `<key-name>` with the name of the key pair you want to use to connect to the instance, `<security-group-id>` with the ID of the security group you want to use, and `<subnet-id>` with the ID of the subnet you want to launch the instance in.
+
+5. Once the new instance is launched, you can transfer any data or configuration from the old instance to the new instance.
+
+6. Finally, terminate the instances that were using the blacklisted AMIs. You can use the following AWS CLI command to terminate the instances:
+
+```
+aws ec2 terminate-instances --instance-ids <instance-id-1> <instance-id-2> ... <instance-id-n>
+```
+
+Replace `<instance-id-1>`, `<instance-id-2>`, and so on with the instance IDs of the instances that were using the blacklisted AMIs.
+
+#### Using Python
+
+To remediate the issue of using blacklisted AMIs in AWS using Python, follow these steps:
+
+1. Define a list of blacklisted AMIs that you want to avoid using. You can get this list from multiple sources, such as AWS documentation or a security team.
+
+```python
+blacklisted_amis = ['ami-0123456789abcdef0', 'ami-0123456789abcdef1', 'ami-0123456789abcdef2']
+```
+
+2. Use the AWS SDK for Python (Boto3) to get a list of all the AMIs available in your AWS account.
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+all_amis = ec2.describe_images(Owners=['self'])['Images']
+```
+
+3. Loop through each AMI and check if it is blacklisted. If it is, deregister the AMI and delete its associated snapshots.
+
+```python
+for ami in all_amis:
+    if ami['ImageId'] in blacklisted_amis:
+        ec2.deregister_image(ImageId=ami['ImageId'])
+        for block_device_mapping in ami['BlockDeviceMappings']:
+            if 'Ebs' in block_device_mapping:
+                snapshot_id = block_device_mapping['Ebs']['SnapshotId']
+                ec2.delete_snapshot(SnapshotId=snapshot_id)
+```
+
+4. Optionally, you can also notify the appropriate team or individual about the remediation action.
+
+```python
+import boto3
+
+sns = boto3.client('sns')
+
+topic_arn = 'arn:aws:sns:us-east-1:123456789012:Blacklisted_AMIs'
+
+message = 'The following blacklisted AMIs have been deregistered and their associated snapshots have been deleted: {}'.format(blacklisted_amis)
+
+sns.publish(TopicArn=topic_arn, Message=message)
+```
+
+Note: Make sure you have appropriate permissions to perform these actions in your AWS account.
 
 ### Additional Reading:
 

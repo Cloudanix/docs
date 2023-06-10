@@ -22,24 +22,296 @@ AWSWAF
 
 ### Remediation
 
-How to enable MFA Delete protection for CloudTrail logging bucket via AWS CLI?
+#### Using Console
 
-#### Using AWS Console
+Sure, here are the step-by-step instructions to remediate the issue of CloudTrail Logging Bucket Should Use MFA Delete Feature in AWS:
 
-1. Install and configure the AWS CLI on your local machine, if you haven't already. You can find the installation instructions in the AWS CLI User Guide.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "CloudTrail Logging Bucket Should Use MFA Delete Feature" Policy.)
-2. Open a command prompt or terminal window.
-3. Run the following command to enable MFA Delete protection for the CloudTrail logging bucket:
-   ```
-   aws s3api put-bucket-versioning --bucket <bucket-name> --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa "arn:aws:iam::<account-id>:mfa/<mfa-serial-number> <mfa-verification-code>"
-   ```
-   Replace `<bucket-name>` with the name of your CloudTrail logging bucket.
-   Replace `<account-id>` with your AWS account ID.
-   Replace `<mfa-serial-number>` with the ARN (Amazon Resource Name) of the MFA device associated with your AWS account.
-   Replace `<mfa-verification-code>` with the current verification code from your MFA device.
-   Note: MFA Delete protection requires versioning to be enabled for the bucket. This command enables both versioning and MFA Delete protection.
-4. After executing the command, AWS will enable MFA Delete protection for the CloudTrail logging bucket. The bucket will now require MFA authentication to delete objects.
-Ensure that you have the necessary permissions to execute the `put-bucket-versioning` command on the CloudTrail logging bucket. You should also have the appropriate IAM permissions to manage MFA Delete protection and access to the MFA device associated with your AWS account.
+1. Log in to your AWS console.
+2. Navigate to the S3 service.
+3. Find the S3 bucket that is being used for CloudTrail logging.
+4. Click on the bucket name to open its properties.
+5. Click on the Permissions tab.
+6. Scroll down to the "Bucket Policy" section.
+7. Click on "Edit".
+8. Add the following JSON code to the Bucket Policy:
+```
+{
+  "Version": "2012-10-17",
+  "Id": "PutObjPolicy",
+  "Statement": [
+    {
+      "Sid": "DenyUnEncryptedObjectUploads",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::your-bucket-name/*",
+      "Condition": {
+        "Null": {
+          "s3:x-amz-server-side-encryption": "true"
+        }
+      }
+    },
+    {
+      "Sid": "DenyUnEncryptedObjectMultiPartUploads",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::your-bucket-name/*",
+      "Condition": {
+        "Null": {
+          "s3:x-amz-server-side-encryption": "true"
+        },
+        "NumericGreaterThanEquals": {
+          "s3:x-amz-content-sha256": 1
+        }
+      }
+    },
+    {
+      "Sid": "DenyDeleteWithoutMFA",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": [
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketAcl",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketCors",
+        "s3:PutBucketLifecycleConfiguration",
+        "s3:PutBucketReplication",
+        "s3:DeleteBucket",
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::your-bucket-name/*",
+      "Condition": {
+        "Null": {
+          "s3:authType": "MFA"
+        }
+      }
+    }
+  ]
+}
+```
+9. Replace "your-bucket-name" with the actual name of your S3 bucket.
+10. Click on "Save Changes" to update the Bucket Policy.
+
+This will add a DenyDeleteWithoutMFA policy statement to the bucket policy, which will prevent any deletion of objects or modification of bucket policies without MFA authentication.
+
+#### Using CLI
+
+To remediate the misconfiguration "CloudTrail Logging Bucket Should Use MFA Delete Feature" for AWS using AWS CLI, follow these steps:
+
+1. Enable versioning for the S3 bucket where CloudTrail logs are stored by running the following command:
+```
+aws s3api put-bucket-versioning --bucket <bucket-name> --versioning-configuration Status=Enabled
+```
+
+2. Create a new IAM policy that grants permission to delete objects from the S3 bucket only if MFA authentication is provided. You can use the following policy as an example:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowDeleteObjectsWithMFA",
+            "Effect": "Allow",
+            "Action": [
+                "s3:DeleteObject*",
+                "s3:PutObjectVersionAcl",
+                "s3:GetObjectVersionAcl"
+            ],
+            "Resource": "arn:aws:s3:::<bucket-name>/*",
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "true"
+                }
+            }
+        },
+        {
+            "Sid": "DenyDeleteObjectsWithoutMFA",
+            "Effect": "Deny",
+            "Action": [
+                "s3:DeleteObject*",
+                "s3:PutObjectVersionAcl",
+                "s3:GetObjectVersionAcl"
+            ],
+            "Resource": "arn:aws:s3:::<bucket-name>/*",
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "false"
+                }
+            }
+        }
+    ]
+}
+```
+
+3. Create a new IAM policy that grants permission to update the bucket policy to require MFA authentication for object deletions. You can use the following policy as an example:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowUpdateBucketPolicy",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketPolicy",
+                "s3:PutBucketPolicy"
+            ],
+            "Resource": "arn:aws:s3:::<bucket-name>"
+        }
+    ]
+}
+```
+
+4. Create a new IAM role that can assume the policy created in step 3 and attach the policy created in step 2 to it. You can use the following command to create the role:
+```
+aws iam create-role --role-name <role-name> --assume-role-policy-document file://trust-policy.json
+```
+where "trust-policy.json" contains the following:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+```
+
+5. Update the bucket policy to require MFA authentication for object deletions by running the following command:
+```
+aws s3api put-bucket-policy --bucket <bucket-name> --policy file://bucket-policy.json
+```
+where "bucket-policy.json" contains the following:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "RequireMFADelete",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:DeleteObject*",
+            "Resource": "arn:aws:s3:::<bucket-name>/*",
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "false"
+                }
+            }
+        }
+    ]
+}
+```
+
+6. Launch an EC2 instance with the IAM role created in step 4 and run the following command to delete the existing CloudTrail logging bucket policy:
+```
+aws s3api delete-bucket-policy --bucket <bucket-name>
+```
+
+7. Finally, run the following command to update the CloudTrail logging bucket policy to require MFA authentication for object deletions:
+```
+aws s3api put-bucket-policy --bucket <bucket-name> --policy file://cloudtrail-policy.json
+```
+where "cloudtrail-policy.json" contains the following:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "RequireMFADelete",
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:DeleteObject*",
+            "Resource": "arn:aws:s3:::<bucket-name>/*",
+            "Condition": {
+                "Bool": {
+                    "aws:MultiFactorAuthPresent": "false"
+                }
+            }
+        }
+    ]
+}
+```
+
+After following these steps, the CloudTrail logging bucket should be configured to require MFA authentication for object deletions.
+
+#### Using Python
+
+To remediate the misconfiguration of CloudTrail Logging Bucket Should Use MFA Delete Feature in AWS using Python, you can follow the below steps:
+
+1. Import the necessary libraries:
+
+```
+import boto3
+from botocore.exceptions import ClientError
+```
+
+2. Define the name of the S3 bucket that you want to remediate:
+
+```
+bucket_name = 'your-bucket-name'
+```
+
+3. Create an S3 client:
+
+```
+s3 = boto3.client('s3')
+```
+
+4. Check if MFA delete is enabled for the bucket:
+
+```
+try:
+    response = s3.get_bucket_versioning(Bucket=bucket_name)
+    if 'MFADelete' in response and response['MFADelete'] == 'Enabled':
+        print('MFA Delete is already enabled for the bucket.')
+        return
+except ClientError as e:
+    if e.response['Error']['Code'] == 'NoSuchBucketVersioning':
+        print('Bucket versioning is not enabled for the bucket.')
+    else:
+        print(f'Error: {e}')
+        return
+```
+
+5. If MFA delete is not enabled, enable it:
+
+```
+try:
+    response = s3.put_bucket_versioning(
+        Bucket=bucket_name,
+        VersioningConfiguration={
+            'Status': 'Enabled',
+            'MFADelete': 'Enabled'
+        }
+    )
+    print('MFA Delete has been enabled for the bucket.')
+except ClientError as e:
+    print(f'Error: {e}')
+```
+
+6. Configure MFA delete for the bucket:
+
+```
+try:
+    response = s3.put_bucket_mfa(
+        Bucket=bucket_name,
+        MFADelete='Enabled',
+        MFADeleteEnable='Enabled',
+        MFA='your-mfa-serial-number'
+    )
+    print('MFA Delete has been configured for the bucket.')
+except ClientError as e:
+    print(f'Error: {e}')
+```
+
+Note: Replace 'your-bucket-name' and 'your-mfa-serial-number' with the actual values of your S3 bucket name and MFA serial number respectively.
 
 ### Additional Reading:
 

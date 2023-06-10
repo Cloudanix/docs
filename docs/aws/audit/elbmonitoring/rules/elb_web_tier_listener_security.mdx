@@ -22,25 +22,109 @@ HIPAA, GDPR, NIST, AWSWAF
 
 ### Remediation
 
-How to implement HTTPS or SSL protocol for web-tier ELB listeners?
+#### Using Console
 
-#### Using AWS Console
+The misconfiguration "Secure Listeners in Web-tier ELBs" suggests that the Elastic Load Balancer (ELB) in the web-tier of your AWS environment is not configured to use secure listeners. To remediate this issue, you can follow the below steps:
 
-1. Open the AWS Management Console and navigate to the EC2 service.
-2. From the EC2 dashboard, click on "Load Balancers" in the left navigation menu.
-    (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Secure Listeners in Web-tier ELBs" Policy.)
-3. Select the web-tier ELB for which you want to implement HTTPS/SSL protocol.
-4. In the load balancer details page, go to the "Listeners" tab.
-5. Click on the "Add Listener" button.
-6. In the "Add Listener" dialog, select "HTTPS" as the protocol for the listener.
-7. Specify the desired port for the listener, typically port 443 for HTTPS traffic.
-8. In the "SSL certificate" section, select the SSL certificate that you have already uploaded to AWS Certificate Manager (ACM) or IAM.
-   - If you have already uploaded the SSL certificate to ACM, you can select it from the dropdown menu.  
-   - If you have uploaded the SSL certificate to IAM, you can choose "Choose a certificate from ACM or IAM" and then select the appropriate certificate.
-9. Configure the other listener settings as per your requirements, such as the instance protocol and instance port.
-10. Click on the "Add" button to add the HTTPS listener to the ELB.
-11. Optionally, you can also configure other settings for the ELB, such as health checks, security groups, and target groups.
-12. After adding the HTTPS listener, you need to update your DNS settings to point the domain or subdomain to the ELB's DNS name. This allows traffic to be directed to the ELB and use the HTTPS protocol.
+1. Open the AWS Management Console and navigate to the EC2 dashboard.
+2. From the left-hand menu, click on "Load Balancers" under the "EC2" section.
+3. Select the web-tier ELB that needs to be remediated.
+4. Click on the "Listeners" tab at the bottom of the page.
+5. Click on the "Edit" button next to the HTTP listener.
+6. In the "Edit Listener" dialog box, change the protocol from "HTTP" to "HTTPS".
+7. Select the SSL certificate that you want to use for the HTTPS listener.
+8. Click on the "Save" button to save the changes.
+
+Once the above steps are completed, the web-tier ELB will be configured to use secure listeners, and all the traffic between the clients and the ELB will be encrypted using SSL.
+
+#### Using CLI
+
+The misconfiguration "Secure Listeners in Web-tier ELBs" indicates that the Elastic Load Balancer (ELB) in the web-tier is not configured to use secure listeners (HTTPS). To remediate this issue, you can follow the below steps using AWS CLI:
+
+1. List all the ELBs in your AWS account using the following command:
+```
+aws elbv2 describe-load-balancers
+```
+
+2. Identify the web-tier ELB that needs to be remediated.
+
+3. Check the current listener configuration for the identified ELB using the following command:
+```
+aws elbv2 describe-listeners --load-balancer-arn <ELB_ARN>
+```
+
+4. If the listener is not configured to use HTTPS, create a new HTTPS listener using the following command:
+```
+aws elbv2 create-listener --load-balancer-arn <ELB_ARN> --protocol HTTPS --port 443 --default-actions Type=forward,TargetGroupArn=<TARGET_GROUP_ARN> --certificates CertificateArn=<CERTIFICATE_ARN>
+```
+Note: Replace <ELB_ARN>, <TARGET_GROUP_ARN>, and <CERTIFICATE_ARN> with the appropriate values for your environment.
+
+5. Verify that the new HTTPS listener is added successfully using the following command:
+```
+aws elbv2 describe-listeners --load-balancer-arn <ELB_ARN>
+```
+
+6. Once the HTTPS listener is added, you can enable the redirect from HTTP to HTTPS using the following command:
+```
+aws elbv2 create-rule --listener-arn <HTTPS_LISTENER_ARN> --priority 1 --conditions Field=host-header,Values=<YOUR_DOMAIN_NAME> --actions Type=redirect,RedirectConfig={Protocol=HTTPS,Port=443,StatusCode=HTTP_301}
+```
+Note: Replace <HTTPS_LISTENER_ARN> and <YOUR_DOMAIN_NAME> with the appropriate values for your environment.
+
+7. Verify that the HTTP to HTTPS redirect is added successfully using the following command:
+```
+aws elbv2 describe-rules --listener-arn <HTTPS_LISTENER_ARN>
+```
+
+By following these steps, you can remediate the misconfiguration "Secure Listeners in Web-tier ELBs" in AWS.
+
+#### Using Python
+
+To remediate the misconfiguration "Secure Listeners in Web-tier ELBs" for AWS using Python, you can follow the below steps:
+
+1. Create a boto3 client object for Elastic Load Balancing (ELB) using the AWS SDK for Python (boto3).
+
+```
+import boto3
+elb_client = boto3.client('elbv2')
+```
+
+2. Get a list of all the ELBs in your AWS account using the `describe_load_balancers` method of the ELB client.
+
+```
+response = elb_client.describe_load_balancers()
+elbs = response['LoadBalancers']
+```
+
+3. Loop through the list of ELBs and check if they have any HTTP listeners. If an ELB has HTTP listeners, create a new listener with HTTPS protocol and a valid SSL certificate.
+
+```
+for elb in elbs:
+    http_listeners = [listener for listener in elb['Listeners'] if listener['Protocol'] == 'HTTP']
+    if http_listeners:
+        elb_arn = elb['LoadBalancerArn']
+        listener_arns = [listener['ListenerArn'] for listener in http_listeners]
+        ssl_cert_arn = 'arn:aws:acm:us-east-1:123456789012:certificate/abcd1234-abcd-1234-abcd-1234abcd1234'
+        response = elb_client.create_listener(
+            LoadBalancerArn=elb_arn,
+            Protocol='HTTPS',
+            Port=443,
+            SslPolicy='ELBSecurityPolicy-2016-08',
+            Certificates=[
+                {
+                    'CertificateArn': ssl_cert_arn
+                }
+            ]
+        )
+        https_listener_arn = response['Listeners'][0]['ListenerArn']
+        for listener_arn in listener_arns:
+            elb_client.delete_listener(
+                ListenerArn=listener_arn
+            )
+```
+
+4. Once the HTTPS listener is created and the HTTP listeners are deleted, the ELB will only accept secure traffic over HTTPS.
+
+Note: You will need to replace the `ssl_cert_arn` value with the ARN of a valid SSL certificate in your AWS account. Also, make sure to update the region and AWS account ID in the ARN.
 
 ### Additional Reading:
 

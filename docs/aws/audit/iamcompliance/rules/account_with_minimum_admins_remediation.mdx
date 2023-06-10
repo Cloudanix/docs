@@ -1,0 +1,82 @@
+### Remediation
+
+#### Using Console
+
+Step-by-step instructions to remediate the AWS misconfiguration of having a minimum number of admins:
+
+1. Log in to your AWS console with your credentials.
+2. Navigate to the "IAM" (Identity and Access Management) service from the AWS console dashboard.
+3. Click on the "Users" option from the left-hand side menu.
+4. Identify the users who have been assigned the "AdministratorAccess" policy. These users have full access to your AWS account and should be limited to a minimum number.
+5. Remove the "AdministratorAccess" policy from any user who does not require full access to the AWS account. To do this, select the user and click on the "Permissions" tab. Then click on the "Detach Policy" button next to the "AdministratorAccess" policy.
+6. Create a new IAM group with the necessary permissions for users who require access to the AWS account. To create a new group, click on the "Groups" option from the left-hand side menu and then click on the "Create New Group" button. Give the group a name and attach the necessary policies.
+7. Add the required users to the new group. To do this, select the group and click on the "Add Users to Group" button. Select the users you want to add and click on the "Add Users" button.
+8. Ensure that you have a minimum number of users assigned the "AdministratorAccess" policy. This number will depend on your organization's security policies and requirements.
+
+By following these steps, you can remediate the AWS misconfiguration of having a minimum number of admins.
+
+#### Using CLI
+
+The misconfiguration in this case is that there are too many AWS Admins in the account. To remediate this issue, follow these steps using AWS CLI:
+
+1. Identify the number of AWS Admins in your account by running the following command:
+
+   ```
+   aws iam list-users --query 'Users[?contains(PermissionsBoundary.PermissionsBoundaryType, `PermissionsBoundary`) && contains(PermissionsBoundary.PermissionsBoundaryArn, `arn:aws:iam::aws:policy/AdministratorAccess`)].UserName' --output text | wc -l
+   ```
+
+2. Set the maximum number of AWS Admins that should be allowed in your account. For example, if you want to limit the number of AWS Admins to 5, set the maximum number to 5.
+
+3. Identify the AWS Admin users who should be removed from the account by running the following command:
+
+   ```
+   aws iam list-users --query 'Users[?contains(PermissionsBoundary.PermissionsBoundaryType, `PermissionsBoundary`) && contains(PermissionsBoundary.PermissionsBoundaryArn, `arn:aws:iam::aws:policy/AdministratorAccess`)].UserName' --output text | head -n $(($(aws iam list-users --query 'length(Users[?contains(PermissionsBoundary.PermissionsBoundaryType, `PermissionsBoundary`) && contains(PermissionsBoundary.PermissionsBoundaryArn, `arn:aws:iam::aws:policy/AdministratorAccess`)].UserName)' --output text)-5)) | xargs -I {} aws iam detach-user-policy --user-name {} --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+   This command lists all the AWS Admin users who have the `AdministratorAccess` policy attached to them and removes the `AdministratorAccess` policy from the users who exceed the maximum number of allowed AWS Admins.
+
+4. Verify that the number of AWS Admins has been reduced to the maximum allowed by running the command in step 1 again.
+
+By following these steps, you can remediate the misconfiguration of having too many AWS Admins in your account.
+
+#### Using Python
+
+To remediate the AWS misconfiguration of having a minimum number of admins, you can use the following steps in Python:
+
+1. First, you need to determine the number of admins in your AWS account. You can use the AWS SDK for Python (boto3) to retrieve the list of IAM users with the "AdministratorAccess" policy attached to their account.
+
+```
+import boto3
+
+client = boto3.client('iam')
+
+admins = []
+
+response = client.list_users()
+
+for user in response['Users']:
+    user_policies = client.list_attached_user_policies(UserName=user['UserName'])
+    for policy in user_policies['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            admins.append(user['UserName'])
+```
+
+2. Once you have the list of admins, you can check if the number of admins meets the minimum requirement. If it does not, you can create a new IAM user with the "AdministratorAccess" policy attached to their account.
+
+```
+if len(admins) < MINIMUM_ADMINS:
+    new_admin = client.create_user(UserName='new_admin')
+    client.attach_user_policy(UserName=new_admin['User']['UserName'], PolicyArn='arn:aws:iam::aws:policy/AdministratorAccess')
+```
+
+3. Finally, you can send a notification to the relevant stakeholders informing them of the new admin account and reminding them of the minimum admin requirement.
+
+```
+sns = boto3.client('sns')
+
+message = f"A new admin account has been created for the AWS account. Please ensure that the minimum number of admins ({MINIMUM_ADMINS}) is maintained."
+sns.publish(TopicArn='arn:aws:sns:us-east-1:123456789012:aws-account-notifications', Message=message)
+```
+
+Note: Replace `MINIMUM_ADMINS` and `arn:aws:sns:us-east-1:123456789012:aws-account-notifications` with the actual values for your AWS account.
+
