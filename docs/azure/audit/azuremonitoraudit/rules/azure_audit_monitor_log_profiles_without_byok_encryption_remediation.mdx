@@ -1,0 +1,151 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration "Ensure Storage Account container containing the logs is encrypted with BYOK" for Azure using the Azure console, follow the below steps:
+
+1. Login to the Azure portal (https://portal.azure.com/).
+2. Navigate to the Storage account that is being used to store the logs.
+3. Click on the "Containers" option under the "Blob service" section in the left-hand menu.
+4. Select the container that contains the logs.
+5. Click on the "Encryption" option in the left-hand menu.
+6. Select the "Customer-managed key" option.
+7. Select the key that you want to use for encryption from the dropdown list.
+8. Click on the "Save" button to apply the changes.
+
+By following these steps, you will ensure that the Storage Account container containing the logs is encrypted with BYOK in Azure.
+
+#### Using CLI
+
+To remediate this misconfiguration in AZURE using AZURE CLI, follow the below steps:
+
+1. Open the AZURE CLI and login to your AZURE account using the command:
+
+   `az login`
+
+2. Once you have successfully logged in, set the subscription that contains the storage account container using the command:
+
+   `az account set --subscription <subscription_id>`
+
+3. Next, get the resource ID of the storage account container using the command:
+
+   `az storage account show -n <storage_account_name> -g <resource_group_name> --query id --output tsv`
+
+4. Now, create a new customer-managed key (CMK) using the command:
+
+   `az keyvault create -n <key_vault_name> -g <resource_group_name> --location <location> --sku standard`
+
+5. Once the key vault is created, get the key identifier using the command:
+
+   `az keyvault key show --vault-name <key_vault_name> -n <key_name> --query key.kid --output tsv`
+
+6. Now, enable encryption for the storage account container using the command:
+
+   `az storage account update -n <storage_account_name> -g <resource_group_name> --encryption-services blob --encryption-key-name <key_name> --encryption-key-vault <key_vault_uri>`
+
+   Replace `<key_name>` with the name of the key you created in step 4, and `<key_vault_uri>` with the URI of the key vault you created in step 4.
+
+7. Finally, verify that the storage account container is encrypted with BYOK using the command:
+
+   `az storage container show -n <container_name> --account-name <storage_account_name> --account-key <storage_account_key> --query properties.encryption`
+
+   Replace `<container_name>` with the name of the container, `<storage_account_name>` with the name of the storage account, and `<storage_account_key>` with the access key for the storage account.
+
+That's it! You have successfully remediated the misconfiguration by encrypting the storage account container with BYOK in AZURE using AZURE CLI.
+
+#### Using Python
+
+To remediate the misconfiguration in Azure, you can use the Azure Python SDK to encrypt the Storage Account container containing the logs with BYOK. Here are the step-by-step instructions:
+
+1. First, you need to create a new key vault in Azure to store the encryption key. You can use the following code to create a new key vault:
+
+```python
+from azure.mgmt.keyvault import KeyVaultManagementClient
+from azure.mgmt.resource import ResourceManagementClient
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+
+resource_group_name = 'my-resource-group'
+key_vault_name = 'my-key-vault'
+location = 'eastus'
+
+resource_client = ResourceManagementClient(credential, subscription_id)
+keyvault_client = KeyVaultManagementClient(credential, subscription_id)
+
+key_vault_params = {
+    'location': location,
+    'properties': {
+        'sku': {
+            'name': 'standard'
+        },
+        'tenantId': tenant_id,
+        'accessPolicies': [],
+        'enabledForDeployment': True,
+        'enabledForDiskEncryption': True,
+        'enabledForTemplateDeployment': True
+    }
+}
+
+key_vault = keyvault_client.vaults.create_or_update(resource_group_name, key_vault_name, key_vault_params)
+```
+
+2. Once you have created the key vault, you can create a new encryption key in the key vault using the following code:
+
+```python
+from azure.keyvault.keys import KeyClient
+from azure.keyvault.keys.crypto import CryptographyClient
+
+key_client = KeyClient(vault_url=key_vault.properties.vault_uri, credential=credential)
+key_name = 'my-encryption-key'
+
+# Create a new key
+key = key_client.create_rsa_key(key_name, hsm=False, size=2048)
+
+# Get the key's ID and version
+key_id = key.id
+key_version = key.properties.version
+
+# Create a cryptography client for the key
+crypto_client = CryptographyClient(key_id, credential)
+```
+
+3. Next, you need to enable encryption for the Storage Account container containing the logs. You can use the following code to enable encryption:
+
+```python
+from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.models import BlobEncryptionPolicy, ClientSideEncryptionAlgorithm
+
+storage_account_name = 'my-storage-account'
+container_name = 'my-container'
+
+blob_service_client = BlobServiceClient.from_connection_string(storage_connection_string)
+container_client = blob_service_client.get_container_client(container_name)
+
+# Create a new encryption policy with the encryption key
+encryption_policy = BlobEncryptionPolicy(
+    client_side_encryption_algorithm=ClientSideEncryptionAlgorithm.AES_CBC_256,
+    key_wrap_algorithm='RSA-OAEP',
+    key_encryption_key=crypto_client
+)
+
+# Enable encryption for the container
+container_properties = container_client.get_container_properties()
+container_properties.default_encryption_scope = 'my-encryption-scope'
+container_client.set_container_properties(container_properties)
+```
+
+4. Finally, you need to verify that the encryption is enabled for the Storage Account container. You can use the following code to verify:
+
+```python
+from azure.storage.blob import BlobProperties
+
+blob_client = container_client.get_blob_client('my-blob')
+
+# Get the blob properties to verify encryption
+blob_properties = blob_client.get_blob_properties()
+assert isinstance(blob_properties.encryption_scope, BlobEncryptionPolicy)
+```
+
+With these steps, you can remediate the misconfiguration in Azure by encrypting the Storage Account container containing the logs with BYOK.
+

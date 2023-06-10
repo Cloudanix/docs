@@ -1,0 +1,132 @@
+### Remediation
+
+#### Using Console
+
+Sure, here are the step-by-step instructions to remediate the issue of disks lacking encryption in Azure using the Azure console:
+
+1. Login to your Azure portal (https://portal.azure.com/).
+
+2. On the left-hand side of the portal, click on the "Virtual machines" option under the "Compute" section.
+
+3. Select the virtual machine that has the unencrypted disk(s) that you want to encrypt.
+
+4. In the virtual machine's "Overview" page, click on the "Disks" option in the left-hand menu.
+
+5. Select the unencrypted disk that you want to encrypt, and then click on the "Disk encryption" option in the top menu.
+
+6. In the "Disk encryption" page, click on the "Enable encryption" button.
+
+7. In the "Enable encryption" page, select the Azure Key Vault where you want to store the disk encryption keys, or create a new one if you don't have one already.
+
+8. Click on the "Select" button next to the "Key vault" field, and then select the key vault that you want to use or create a new one.
+
+9. In the "Encryption settings" section, choose the encryption type that you want to use. Azure offers two types of encryption: "Azure managed keys" and "Customer managed keys".
+
+10. If you choose "Azure managed keys", Azure will automatically generate and manage the encryption keys for you. If you choose "Customer managed keys", you will need to provide your own encryption keys.
+
+11. Click on the "Review + create" button to review your settings.
+
+12. If everything looks good, click on the "Create" button to enable encryption for the selected disk.
+
+That's it! The selected disk will now be encrypted using the encryption settings that you specified. Repeat the above steps for any other unencrypted disks that you want to encrypt.
+
+#### Using CLI
+
+To remediate disks lacking encryption in Azure using Azure CLI, you can follow these steps:
+
+1. Open Azure CLI and log in to your Azure account.
+
+2. Run the following command to identify the disks that lack encryption:
+
+   ```
+   az disk list --query "[?encryptionSettingsCollection.enabled=='false']"
+   ```
+
+   This command will list all the disks that have encryption disabled.
+
+3. Once you have identified the disks that lack encryption, you can enable encryption on them by running the following command:
+
+   ```
+   az disk encryption set --resource-group <resource-group-name> --name <disk-name> --encryption-type <encryption-type> --key-source <key-source>
+   ```
+
+   Replace `<resource-group-name>` with the name of the resource group that contains the disk, `<disk-name>` with the name of the disk, `<encryption-type>` with the encryption type you want to use (e.g. "EncryptionAtRestWithPlatformKey"), and `<key-source>` with the source of the encryption key (e.g. "Microsoft.Keyvault").
+
+4. Verify that encryption has been enabled on the disk by running the following command:
+
+   ```
+   az disk show --resource-group <resource-group-name> --name <disk-name> --query "encryptionSettingsCollection.enabled"
+   ```
+
+   This command should return "true" if encryption has been enabled on the disk.
+
+5. Repeat steps 3-4 for all the disks that lack encryption.
+
+By following these steps, you can remediate disks lacking encryption in Azure using Azure CLI.
+
+#### Using Python
+
+To remediate disks lacking encryption in Azure using Python, you can follow these steps:
+
+1. Import the necessary libraries:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.storage import StorageManagementClient
+from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.network import NetworkManagementClient
+```
+
+2. Authenticate with Azure using DefaultAzureCredential:
+
+```python
+credential = DefaultAzureCredential()
+```
+
+3. Create clients for Compute, Storage, Resource and Network:
+
+```python
+compute_client = ComputeManagementClient(credential, subscription_id)
+storage_client = StorageManagementClient(credential, subscription_id)
+resource_client = ResourceManagementClient(credential, subscription_id)
+network_client = NetworkManagementClient(credential, subscription_id)
+```
+
+4. Get a list of all VMs in the subscription:
+
+```python
+vms = compute_client.virtual_machines.list_all()
+```
+
+5. For each VM, check if any of its disks lack encryption. If a disk is found without encryption, enable encryption for that disk:
+
+```python
+for vm in vms:
+    vm_name = vm.name
+    vm_rg = vm.id.split('/')[4]
+    disks = compute_client.disks.list_by_resource_group(vm_rg)
+    for disk in disks:
+        disk_name = disk.name
+        disk_rg = disk.id.split('/')[4]
+        disk_encryption = compute_client.disks.get_encryption_status(disk_rg, disk_name)
+        if not disk_encryption:
+            encryption_settings = {
+                "disk_encryption_key": {
+                    "sourceVault": {
+                        "id": "/subscriptions/" + subscription_id + "/resourceGroups/" + vault_rg + "/providers/Microsoft.KeyVault/vaults/" + vault_name
+                    },
+                    "secretUrl": secret_url
+                },
+                "keyEncryptionKey": {
+                    "keyUrl": key_url,
+                    "sourceVault": {
+                        "id": "/subscriptions/" + subscription_id + "/resourceGroups/" + vault_rg + "/providers/Microsoft.KeyVault/vaults/" + vault_name
+                    }
+                }
+            }
+            compute_client.disks.enable_encryption(disk_rg, disk_name, encryption_settings)
+```
+
+Note that you will need to replace the variables `subscription_id`, `vault_rg`, `vault_name`, `secret_url`, and `key_url` with the appropriate values for your environment.
+

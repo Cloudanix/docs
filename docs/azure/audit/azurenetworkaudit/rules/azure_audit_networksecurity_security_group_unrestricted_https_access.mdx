@@ -19,4 +19,165 @@ Security
 ### Compliance Standards
 
 HITRUST, SOC2, GDPR
+### Remediation
+
+#### Using Console
+
+The following are the step-by-step instructions to remediate the unrestricted HTTPS access misconfiguration in Azure using the Azure console:
+
+1. Log in to the Azure portal (https://portal.azure.com/).
+
+2. Navigate to the resource group containing the virtual machine that needs to be remediated.
+
+3. Select the virtual machine that needs to be remediated.
+
+4. Click on the "Networking" tab on the left-hand side of the screen.
+
+5. Under the "Inbound port rules" section, click on the "Add inbound port rule" button.
+
+6. In the "Add inbound security rule" window, enter a name for the rule (e.g., "HTTPS Access"), select "HTTPS" as the service, and set the action to "Deny".
+
+7. Under the "Source" section, select "IP Addresses" and enter the IP address range that needs to be denied access to the virtual machine.
+
+8. Click on the "Add" button to add the rule.
+
+9. Repeat steps 5-8 to add additional rules as needed for other IP address ranges.
+
+10. Once all the necessary rules have been added, click on the "Save" button to apply the changes.
+
+11. Verify that the changes have been applied by attempting to access the virtual machine via HTTPS from an IP address that has been denied access. The access should be blocked.
+
+#### Using CLI
+
+The following are the step-by-step instructions to remediate the unrestricted HTTPS access misconfiguration in Azure using Azure CLI:
+
+1. Open the Azure CLI and login to your Azure account using the command: 
+
+   ```
+   az login
+   ```
+
+2. Once you are logged in, set the appropriate subscription using the command:
+
+   ```
+   az account set --subscription <subscription_id>
+   ```
+
+3. Next, list all the virtual machines in your subscription using the command:
+
+   ```
+   az vm list
+   ```
+
+4. Identify the virtual machine that has unrestricted HTTPS access and note its resource group and name.
+
+5. Once you have identified the virtual machine, you need to create a network security group (NSG) and associate it with the virtual machine. Use the following command to create a new NSG:
+
+   ```
+   az network nsg create --name <nsg_name> --resource-group <resource_group_name>
+   ```
+
+6. Next, you need to create an inbound security rule to block all traffic on port 443 (HTTPS). Use the following command to create the inbound security rule:
+
+   ```
+   az network nsg rule create --name BlockHTTPS --nsg-name <nsg_name> --priority 100 --protocol Tcp --destination-port-ranges 443 --access Deny --direction Inbound --resource-group <resource_group_name>
+   ```
+
+7. Finally, you need to associate the NSG with the virtual machine. Use the following command to associate the NSG with the virtual machine:
+
+   ```
+   az network nic update --name <nic_name> --network-security-group <nsg_name> --resource-group <resource_group_name>
+   ```
+
+   Note: Replace <nic_name> with the name of the network interface card associated with the virtual machine.
+
+8. Verify that the NSG has been associated with the virtual machine using the command:
+
+   ```
+   az network nic show --name <nic_name> --resource-group <resource_group_name>
+   ```
+
+   This command should return the details of the network interface card, including the NSG associated with it.
+
+By following these steps, you can remediate the unrestricted HTTPS access misconfiguration in Azure using Azure CLI.
+
+#### Using Python
+
+The following are the step-by-step instructions to remediate the "Unrestricted HTTPS Access" misconfiguration in Azure using Python:
+
+1. First, you need to install the Azure SDK for Python. You can do this by running the following command in your terminal:
+
+   ```
+   pip install azure
+   ```
+
+2. Next, you need to authenticate with Azure. You can do this by creating a Service Principal and then using its credentials to authenticate with Azure. You can follow the instructions here to create a Service Principal: https://docs.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
+
+3. Once you have authenticated with Azure, you can use the Azure SDK for Python to retrieve a list of all the virtual networks in your subscription. You can do this by running the following code:
+
+   ```python
+   from azure.identity import AzureCliCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   credential = AzureCliCredential()
+   subscription_id = 'your-subscription-id'
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   virtual_networks = network_client.virtual_networks.list_all()
+   ```
+
+4. Next, you need to loop through the list of virtual networks and for each virtual network, retrieve a list of all the subnets in that virtual network. You can do this by running the following code:
+
+   ```python
+   for virtual_network in virtual_networks:
+       subnets = network_client.subnets.list(
+           resource_group_name=virtual_network.id.split('/')[4],
+           virtual_network_name=virtual_network.name
+       )
+   ```
+
+5. For each subnet, you need to retrieve the network security group (NSG) associated with that subnet. You can do this by running the following code:
+
+   ```python
+   for subnet in subnets:
+       nsg = network_client.network_security_groups.get(
+           resource_group_name=subnet.id.split('/')[4],
+           network_security_group_name=subnet.network_security_group.id.split('/')[8]
+       )
+   ```
+
+6. Finally, you need to update the NSG to deny all inbound traffic to port 443 (HTTPS). You can do this by running the following code:
+
+   ```python
+   from azure.mgmt.network.v2021_02_01.models import (
+       SecurityRule,
+       SecurityRuleProtocol,
+       SecurityRuleAccess,
+       SecurityRuleDirection
+   )
+
+   nsg.security_rules.append(
+       SecurityRule(
+           name='DenyHTTPS',
+           protocol=SecurityRuleProtocol.tcp,
+           source_address_prefix='*',
+           source_port_range='*',
+           destination_address_prefix='*',
+           destination_port_range='443',
+           access=SecurityRuleAccess.deny,
+           direction=SecurityRuleDirection.inbound,
+           priority=1000
+       )
+   )
+
+   network_client.network_security_groups.create_or_update(
+       resource_group_name=nsg.id.split('/')[4],
+       network_security_group_name=nsg.name,
+       parameters=nsg
+   )
+   ```
+
+By running the above code, you will update the NSG to deny all inbound traffic to port 443 (HTTPS) for all the subnets in all the virtual networks in your Azure subscription.
+
+
 
