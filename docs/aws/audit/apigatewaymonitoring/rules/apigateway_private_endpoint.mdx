@@ -22,35 +22,83 @@ SOC2, NISTCSF, PCIDSS
 
 ### Remediation
 
-How to enable private endpoint for API Gateway?
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS Console, please follow the below steps:
 
-1. Create a VPC (Virtual Private Cloud):
-   - Sign in to the AWS Management Console and navigate to the Amazon VPC service.
-   - Create a new VPC or select an existing VPC where you want to create the private endpoint for API Gateway.
-2. Set up private subnets:
-   - Within the selected VPC, create one or more private subnets in different Availability Zones.
-   - Private subnets should have a route table that doesn't have a default route to an internet gateway.
-3. Create an API Gateway VPC Link:
-   - Open the Amazon API Gateway console.
-   - Navigate to the API for which you want to enable the private endpoint.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Only Private End-Points Should Access APIs" Policy.)
-   - In the left navigation pane, choose "VPC Links."
-   - Click on "Create VPC Link" and provide a name for the VPC Link.
-   - Select the VPC and subnets you created in step 2.
-   - Choose the security groups to associate with the VPC Link. These security groups should allow the necessary inbound and outbound traffic for your API.
-   - Click on "Create" to create the VPC Link.
-4. Deploy the API to a private stage:
-   - Navigate to the Stages section of your API in the API Gateway console.
-   - Create or select an existing stage for deployment.
-   - Under the "Deployment" tab, choose the VPC Link you created in step 3 as the "Access Logging/Detailed CloudWatch Metrics/VPC Link" setting.
-   - Deploy the API stage.
-5. Set up DNS resolution:
-   - To access the private endpoint, you need to configure DNS resolution for the API Gateway domain name within your VPC.
-   - This can be done by either using Amazon Route 53 private hosted zones or configuring a DNS resolver within your VPC.
-6. Test the private endpoint:
-   - Once the private endpoint is set up and DNS resolution is configured, you can test the private endpoint by making requests to the API using its private domain name.
+1. Open the Amazon API Gateway console.
+2. Select the API that you want to remediate.
+3. Click on the "Settings" tab.
+4. In the "Endpoint Type" section, select "VPC Link".
+5. Click on "Create VPC Link".
+6. Enter a name for the VPC link and select the VPC and subnet(s) that you want to use.
+7. Click on "Create VPC Link".
+8. Once the VPC link is created, go back to the "Settings" tab and select the VPC link that you just created.
+9. Click on "Save" to update the API settings.
+
+By following these steps, you have successfully remediated the misconfiguration "Only Private End-Points Should Access APIs" in AWS Console. Now, only private endpoints will be able to access the API.
+
+#### Using CLI
+
+To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS CLI, you can follow the below steps:
+
+1. Identify the APIs that are publicly accessible. You can use the following AWS CLI command to list all the APIs available in your account:
+
+```
+aws apigateway get-rest-apis
+```
+
+2. For each API, identify the resources that are publicly accessible. You can use the following AWS CLI command to list all the resources available in an API:
+
+```
+aws apigateway get-resources --rest-api-id <rest-api-id>
+```
+
+3. For each resource, identify the methods that are publicly accessible. You can use the following AWS CLI command to list all the methods available in a resource:
+
+```
+aws apigateway get-methods --rest-api-id <rest-api-id> --resource-id <resource-id>
+```
+
+4. For each method, check if it is publicly accessible. You can use the following AWS CLI command to get the method settings:
+
+```
+aws apigateway get-method --rest-api-id <rest-api-id> --resource-id <resource-id> --http-method <http-method>
+```
+
+5. If the method is publicly accessible, update the method settings to make it accessible only through a private endpoint. You can use the following AWS CLI command to update the method settings:
+
+```
+aws apigateway update-method --rest-api-id <rest-api-id> --resource-id <resource-id> --http-method <http-method> --patch-operations op=replace,path='authorizationType',value='AWS_IAM' op=replace,path='authorizerId',value='<authorizer-id>'
+```
+
+6. Replace `<authorizer-id>` with the ID of the authorizer that you want to use to authenticate the requests. If you don't have an authorizer, you can create one using the following AWS CLI command:
+
+```
+aws apigateway create-authorizer --rest-api-id <rest-api-id> --name <authorizer-name> --type TOKEN --identity-source 'method.request.header.Authorization' --authorizer-uri <authorizer-uri> --authorizer-result-ttl-in-seconds <ttl-in-seconds>
+```
+
+7. Replace `<authorizer-name>` with a name for the authorizer, `<authorizer-uri>` with the URI of the authorizer, and `<ttl-in-seconds>` with the time in seconds for which the authorizer result should be cached.
+
+8. Repeat steps 4-7 for each publicly accessible method.
+
+9. Verify that the APIs are accessible only through private endpoints.
+
+#### Using Python
+
+To remediate the misconfiguration "Only Private End-Points Should Access APIs" in AWS using Python, you can follow the below steps:
+
+1. Identify the APIs that are publicly accessible. You can use the AWS CLI command `aws apigateway get-rest-apis` to get the list of all the APIs in your account.
+
+2. For each API, check if it has a VPC link configured or not. You can use the AWS CLI command `aws apigateway get-vpc-link --vpc-link-id <vpc_link_id>` to check if a VPC link is configured for the API.
+
+3. If the API does not have a VPC link configured, create a VPC link for the API using the AWS CLI command `aws apigateway create-vpc-link --name <vpc_link_name> --target-arns <target_arns> --subnet-ids <subnet_ids> --security-group-ids <security_group_ids>`. Replace the `<vpc_link_name>`, `<target_arns>`, `<subnet_ids>` and `<security_group_ids>` with the appropriate values.
+
+4. Once the VPC link is created, update the API to use the VPC link. You can use the AWS CLI command `aws apigateway update-rest-api --rest-api-id <rest_api_id> --patch-operations op=replace,path=/endpointConfiguration/types/member, value=PRIVATE op=add,path=/endpointConfiguration/vpcEndpointIds, value=<vpc_endpoint_id>` to update the API. Replace the `<rest_api_id>` and `<vpc_endpoint_id>` with the appropriate values.
+
+5. Finally, test the API to ensure that it is only accessible from the private endpoints.
+
+Note: The above steps assume that you have the necessary permissions to perform the actions. Also, make sure to test the changes thoroughly before deploying them to production.
 
 ### Additional Reading:
 

@@ -1,32 +1,128 @@
 ### Remediation
 
-How to ensure apigateway is integrated with WAF?
+#### Using Console
 
-#### Using AWS Console
+To remediate the misconfiguration of API Gateway not being integrated with WAF in AWS console, follow these steps:
 
-1. Create and Configure AWS WAF WebACL:
-   - Access the AWS Management Console and navigate to the AWS WAF service.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "API Gateway Should Be Integrated With WAF" Policy.)
-   - Go to the "Web ACLs" section and click on "Create web ACL."
-   - Provide a name for the WebACL and optionally add a description.
-   - Choose the region where your API Gateway is deployed.
-   - Configure the desired rules and conditions to protect your API from common web vulnerabilities.
-   - Save the configuration and note down the ARN (Amazon Resource Name) of the created WebACL.
-2. Configure API Gateway Integration:
-   - Access the AWS Management Console and navigate to the API Gateway service.
-   - Select the API for which you want to enable integration with WAF.
-   - Click on the "Stages" tab and select the desired stage (e.g., "Prod").
-   - In the stage settings, click on "Edit."
-   - Under the "Access logging" section, select the option to enable access logging if desired.
-   - Scroll down to the "CloudWatch Settings" section and expand it.
-   - Enable "Enable AWS WAF" and paste the WebACL ARN that you noted down in step 1.
-   - Save the changes.
-3. Deploy the API Changes:
-   - After configuring the WAF integration, navigate to the "Resources" tab in the API Gateway console.
-   - Select the root resource and click on "Actions" > "Deploy API."
-   - Select the desired deployment stage (e.g., "Prod") and click on "Deploy."
-4. Monitor and Manage WAF Logs:
-   - Access the AWS Management Console and navigate to the AWS WAF service.
-   - Go to the "Logging & monitoring" section and enable logging to CloudWatch or Amazon S3, as per your requirements.
-   - Configure appropriate logging and monitoring settings to track and analyze WAF-related logs.
+1. Open the AWS Management Console and navigate to the Amazon API Gateway service.
+2. Select the API Gateway that needs to be integrated with WAF.
+3. Click on the "Stages" option from the left navigation panel.
+4. Select the stage you want to integrate with WAF.
+5. Click on the "Edit" button from the top of the page.
+6. Under the "Web ACL" section, select the WAF Web ACL that you want to associate with the API Gateway.
+7. Click on the "Save Changes" button to save the changes.
+
+After completing the above steps, your API Gateway will be integrated with WAF. This will help to secure your API Gateway from common web exploits and vulnerabilities.
+
+#### Using CLI
+
+To remediate this misconfiguration in AWS CLI, follow these steps:
+
+1. Open the AWS CLI on your local machine.
+
+2. Run the following command to create a new WAF Web ACL:
+
+```
+aws wafv2 create-web-acl --name "MyWebACL" --scope REGIONAL --default-action "Block"
+```
+
+Replace "MyWebACL" with a name of your choice. You can also customize the default action as per your requirement.
+
+3. Run the following command to get the ID of the newly created WAF Web ACL:
+
+```
+aws wafv2 list-web-acls --scope REGIONAL --name "MyWebACL" --query "WebACLs[0].Id" --output text
+```
+
+Replace "MyWebACL" with the name you provided in the previous step.
+
+4. Run the following command to update the API Gateway to integrate with the WAF:
+
+```
+aws apigateway update-rest-api --rest-api-id <REST_API_ID> --patch-operations op=replace,path=/waf/thresholds, value='{\"rateLimit\": {\"limit\": 1000,\"burstLimit\": 2000}, \"rules\": [{\"name\": \"MyWAFRule\",\"priority\": 0,\"statement\": {\"managedRuleGroupStatement\": {\"vendorName\": \"AWS\",\"name\": \"AWSManagedRulesCommonRuleSet\",\"excludedRules\": []}},\"action\": {\"block\": {}},\"visibilityConfig\": {\"sampledRequestsEnabled\": true,\"cloudWatchMetricsEnabled\": true,\"metricName\": \"MyWAFMetric\"}}]}'
+```
+
+Replace `<REST_API_ID>` with the ID of the API Gateway that needs to be integrated with the WAF. Replace "MyWAFRule" and "MyWAFMetric" with names of your choice.
+
+5. Run the following command to associate the newly created WAF Web ACL with the API Gateway:
+
+```
+aws apigateway update-rest-api --rest-api-id <REST_API_ID> --patch-operations op=add,path=/waf/webAclArn, value="arn:aws:wafv2:REGION:ACCOUNT_ID:regional/webacl/WEB_ACL_ID"
+```
+
+Replace `<REST_API_ID>` with the ID of the API Gateway. Replace "REGION", "ACCOUNT_ID" and "WEB_ACL_ID" with the appropriate values.
+
+After following these steps, the API Gateway will be integrated with the WAF, and the misconfiguration will be remediated.
+
+#### Using Python
+
+To remediate the misconfiguration of API Gateway not being integrated with WAF in AWS using Python, you can follow these steps:
+
+1. Import the necessary libraries:
+
+```
+import boto3
+```
+
+2. Create a boto3 client for WAF:
+
+```
+waf_client = boto3.client('waf')
+```
+
+3. Create a WAF web ACL:
+
+```
+response = waf_client.create_web_acl(
+    Name='MyWebACL',
+    MetricName='MyWebACLMetric',
+    DefaultAction={
+        'Type': 'ALLOW'
+    }
+)
+```
+
+4. Get the ARN of the WAF web ACL:
+
+```
+web_acl_arn = response['WebACL']['ARN']
+```
+
+5. Create a boto3 client for API Gateway:
+
+```
+apigw_client = boto3.client('apigateway')
+```
+
+6. Get the ID of the API Gateway:
+
+```
+api_id = 'your_api_gateway_id'
+```
+
+7. Update the API Gateway to integrate with WAF:
+
+```
+response = apigw_client.update_security_configuration(
+    restApiId=api_id,
+    patchOperations=[
+        {
+            'op': 'add',
+            'path': '/wafWebAclArn',
+            'value': web_acl_arn
+        }
+    ]
+)
+```
+
+8. Verify that the API Gateway is integrated with WAF:
+
+```
+response = apigw_client.get_security_configuration(
+    restApiId=api_id
+)
+print(response)
+```
+
+This should remediate the misconfiguration of API Gateway not being integrated with WAF in AWS using Python.
 

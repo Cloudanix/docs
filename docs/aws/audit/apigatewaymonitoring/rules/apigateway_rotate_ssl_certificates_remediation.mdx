@@ -1,21 +1,129 @@
 ### Remediation
 
-How to rotate an SSL client certificate that is about to expire?
+#### Using Console
 
-#### Using AWS Console
+To remediate the issue "Expiring SSL Client Certificates Should Be Rotated" in AWS Console, please follow the below steps:
 
-1. Generate a new SSL client certificate:
-   - Generate a new SSL client certificate using a certificate authority (CA) or a certificate management tool.
-   - Make sure the new certificate meets the required security and validity requirements.
-2. Update the SSL client certificate in the application or service:
-   - Identify the application or service that uses the SSL client certificate.
-     (In the Cloudanix Console, navigate to "Misconfig" page and look for Affected Assets for "Expiring SSL Client Certificates Should Be Rotated" Policy.)
-   - Replace the old certificate with the newly generated certificate.
-   - Update the configuration or settings in the application or service to use the new certificate.
-3. Test the updated SSL client certificate:
-   - Verify that the updated SSL client certificate is working correctly by testing the application or service that uses it.
-   - Perform thorough testing to ensure that the certificate rotation hasn't introduced any issues or disruptions.
-4. Revoke or decommission the old SSL client certificate:
-   - Once the new SSL client certificate is successfully deployed and tested, consider revoking or decommissioning the old certificate to ensure it is no longer used.
-   - This step helps maintain proper security and avoids using expired or compromised certificates.
+1. Login to your AWS Management Console.
+2. Navigate to the AWS Certificate Manager (ACM) dashboard.
+3. In the left-hand menu, click on "Certificates".
+4. Find the SSL client certificate that is expiring soon.
+5. Click on the certificate name to open the certificate details.
+6. Click on the "Actions" button and select "Renew Certificate".
+7. Follow the prompts to renew the certificate.
+8. Once the new certificate is issued, update the SSL client certificate in all relevant applications and services that use it.
+
+By following these steps, you will be able to successfully remediate the issue "Expiring SSL Client Certificates Should Be Rotated" in AWS Console.
+
+#### Using CLI
+
+To remediate expiring SSL client certificates that should be rotated in AWS CLI, you can follow these steps:
+
+1. List the SSL client certificates in AWS IAM:
+
+```
+aws iam list-server-certificates
+```
+
+2. Identify the SSL client certificate that is expiring soon.
+
+3. Create a new SSL client certificate:
+
+```
+aws iam upload-server-certificate --server-certificate-name <new_certificate_name> --certificate-body file://<new_certificate_file> --private-key file://<private_key_file> --certificate-chain file://<certificate_chain_file>
+```
+
+4. Update the SSL client certificate in your application or load balancer:
+
+- If you are using an AWS Application Load Balancer, update the SSL certificate in the listener configuration.
+- If you are using a third-party load balancer, follow the vendor's instructions for updating the SSL certificate.
+
+5. Remove the expiring SSL client certificate:
+
+```
+aws iam delete-server-certificate --server-certificate-name <expiring_certificate_name>
+```
+
+6. Verify that the new SSL client certificate is working correctly.
+
+Note: Before taking any action, please make sure to understand the impact of each step and take a backup of the existing certificates.
+
+#### Using Python
+
+To remediate the issue of expiring SSL client certificates that should be rotated using Python, you can follow the below steps:
+
+1. Identify the SSL client certificates that are expiring soon using the `ssl` module in Python. You can use the `cert_expiry` function to get the expiry date of the certificate.
+
+```python
+import ssl
+import datetime
+
+cert = ssl.get_server_certificate(('example.com', 443))
+x509 = ssl.PEM_cert_to_DER_cert(cert)
+cert_obj = ssl.DER_cert_to_Python(x509)
+
+expiry_date = datetime.datetime.strptime(cert_obj['notAfter'], '%Y%m%d%H%M%SZ')
+if expiry_date < datetime.datetime.now():
+    # Certificate is expired or expiring soon
+    # Add code to rotate the certificate
+```
+
+2. Rotate the SSL client certificate by generating a new certificate and private key using the `cryptography` module in Python.
+
+```python
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+
+# Generate new private key
+private_key = rsa.generate_private_key(
+    public_exponent=65537,
+    key_size=2048
+)
+
+# Generate new certificate
+subject = x509.Name([
+    x509.NameAttribute(x509.NameOID.COUNTRY_NAME, 'US'),
+    x509.NameAttribute(x509.NameOID.STATE_OR_PROVINCE_NAME, 'California'),
+    x509.NameAttribute(x509.NameOID.LOCALITY_NAME, 'San Francisco'),
+    x509.NameAttribute(x509.NameOID.ORGANIZATION_NAME, 'Example Corp'),
+    x509.NameAttribute(x509.NameOID.COMMON_NAME, 'example.com')
+])
+issuer = subject
+cert = x509.CertificateBuilder().subject_name(
+    subject
+).issuer_name(
+    issuer
+).public_key(
+    private_key.public_key()
+).serial_number(
+    x509.random_serial_number()
+).not_valid_before(
+    datetime.datetime.utcnow()
+).not_valid_after(
+    datetime.datetime.utcnow() + datetime.timedelta(days=365)
+).add_extension(
+    x509.BasicConstraints(ca=False, path_length=None), critical=True
+).sign(private_key, hashes.SHA256())
+
+# Save new certificate and private key to file
+with open('new_cert.pem', 'wb') as f:
+    f.write(cert.public_bytes(serialization.Encoding.PEM))
+with open('new_key.pem', 'wb') as f:
+    f.write(private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    ))
+```
+
+3. Install the new SSL client certificate and private key on the appropriate servers and update any relevant configuration files.
+
+```python
+# Add code to install new certificate and private key on servers and update configuration files
+```
+
+By following these steps, you can remediate the issue of expiring SSL client certificates that should be rotated using Python.
 
