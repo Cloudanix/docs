@@ -1,0 +1,47 @@
+--- 
+slug: Disallowed SSH Connection Non Standard Port
+rule: Disallowed SSH Connection Non Standard Port
+title: Disallowed SSH Connection Non Standard Port
+sidebar_label: Disallowed SSH Connection Non Standard Port
+---
+                   
+### Event Information
+
+#### Meaning
+
+- The Disallowed SSH Connection Non Standard Port event in a Kubernetes cluster indicates that an attempt was made to establish an SSH connection using a non-standard port.
+- This event suggests a potential security risk as SSH connections on non-standard ports are often used to evade detection or exploit vulnerabilities.
+- To investigate this event, you can use kubectl to check the logs of the relevant pod or container to gather more information about the attempted SSH connection. For example, you can use the following command: `kubectl logs <pod_name> -c <container_name>`.
+
+#### Remediation
+
+1. Identify the source of the SSH connection on the non-standard port by checking the source IP address mentioned in the event. You can use the following command to filter the SSH connections on non-standard ports:
+
+   ```shell
+   kubectl get pods --all-namespaces -o json | jq '.items[] | select(.status.phase=="Running") | .status.containerStatuses[].containerID' | xargs -I {} sudo nsenter -t $(docker inspect -f '{{.State.Pid}}' {}) -n netstat -tuln | grep <non-standard-port>
+   ```
+
+2. Once you have identified the source, investigate if the SSH connection is legitimate or unauthorized. If it is unauthorized, take the following steps:
+
+   - Disable SSH access on the non-standard port by modifying the SSH server configuration file. Typically, the SSH server configuration file is located at `/etc/ssh/sshd_config`. Open the file using a text editor and comment out or remove the line that specifies the non-standard port.
+   - Restart the SSH service to apply the changes. The command to restart the SSH service depends on the Linux distribution you are using. For example, on Ubuntu, you can use the following command:
+   
+     ```shell
+     sudo systemctl restart sshd
+     ```
+
+   - Monitor the SSH logs for any further unauthorized connection attempts. You can use the following command to tail the SSH logs:
+   
+     ```shell
+     kubectl logs -n <namespace> <ssh-pod-name> -c <ssh-container-name> -f | grep sshd
+     ```
+
+3. Implement additional security measures to prevent unauthorized SSH access, such as:
+   
+   - Enforce strong password policies or use key-based authentication instead of passwords.
+   - Implement network policies to restrict SSH access to specific IP ranges or subnets.
+   - Regularly update and patch the SSH server software to address any known vulnerabilities.
+   - Consider using a bastion host or jump server for SSH access, which adds an extra layer of security by limiting direct access to the cluster nodes.
+
+
+ 
