@@ -3,60 +3,113 @@
 
 #### Meaning
 
-- The Microsoft.Compute.images.delete event in AzureRealTime for AzureVirtualMachines refers to the deletion of a custom image in Azure.
-- This event indicates that a custom image, which is a reusable template for creating virtual machines, has been deleted from the Azure environment.
-- Deleting a custom image removes it from the image gallery and prevents it from being used to create new virtual machines.
+- The Microsoft.Compute.images.delete event in Azure for Azure Virtual Machines refers to the deletion of a custom image that was created from a virtual machine.
+- This event indicates that the custom image, which is a snapshot of a virtual machine's disk, has been permanently removed from the Azure environment.
+- Deleting custom images helps to manage and clean up unused resources, reducing costs and improving resource organization.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If an unauthorized user gains access to the Microsoft.Compute.images.delete event in Azure, they could potentially delete critical images used for Azure Virtual Machines. This could lead to service disruption, data loss, or unauthorized access to sensitive information.
+#### Using Console
 
-Remediation:
-- Implement strict access controls: Ensure that only authorized users have permissions to delete images. Use Azure RBAC (Role-Based Access Control) to assign appropriate roles and permissions to users.
-- Enable Azure Monitor: Set up Azure Monitor to track and log all image deletion events. This will help in identifying any unauthorized or suspicious activities.
-- Regular backups: Take regular backups of critical images to ensure that they can be restored in case of accidental or malicious deletion. Use Azure Backup or Azure Site Recovery for automated backups and recovery.
+- Example: If security is impacted with Microsoft.Compute.images.delete in Azure for Azure Virtual Machines, it means that unauthorized users or processes have the ability to delete images used by virtual machines, potentially leading to data loss or service disruption.
 
-Azure CLI command for RBAC assignment:
+- Remediation Steps using Azure Console:
+  1. Sign in to the Azure portal (https://portal.azure.com) using your Azure account credentials.
+  2. Navigate to the Azure Virtual Machines service.
+  3. Select the virtual machine for which you want to remediate the security issue.
+  4. In the left-hand menu, under the "Settings" section, click on "Access control (IAM)".
+  5. On the "Access control (IAM)" page, click on the "Add" button to add a new role assignment.
+  6. In the "Add role assignment" panel, select the appropriate role that restricts the ability to delete images, such as "Virtual Machine Contributor" or a custom role with the necessary permissions.
+  7. In the "Select" field, search for and select the user or group that needs the role assignment.
+  8. Click on the "Save" button to apply the role assignment.
+  9. Repeat steps 5-8 for any additional users or groups that require the same role assignment.
+  10. Verify that the role assignment has been successfully applied by checking the "Access control (IAM)" page for the virtual machine.
+
+Note: It is important to carefully consider the permissions granted to users or groups to ensure they have the necessary access without compromising security.
+
+#### Using CLI
+
+- Example: If security is impacted with `Microsoft.Compute.images.delete` in Azure for `AzureVirtualMachines`, it means that a user or process has the ability to delete images used by virtual machines, which can potentially lead to data loss or unauthorized access.
+
+- Remediation steps using AZ CLI:
+  1. Identify the affected virtual machine: `az vm show --name <vm_name> --resource-group <resource_group_name>`
+  2. Deallocate the virtual machine: `az vm deallocate --name <vm_name> --resource-group <resource_group_name>`
+  3. Remove the image reference from the virtual machine: `az vm update --name <vm_name> --resource-group <resource_group_name> --set storageProfile.imageReference=''`
+
+Note: It is important to ensure that the user or process responsible for deleting images has the necessary permissions and that proper backups are in place to mitigate any potential data loss.
+
+#### Using Python
+
+Example of security impact: If an unauthorized user gains access to the Microsoft.Compute.images.delete permission for AzureVirtualMachines in Azure, they can delete virtual machine images, potentially leading to data loss, service disruption, or unauthorized access to sensitive information.
+
+Remediation for AZU AzureVirtualMachines using Python:
+
+1. Implement Role-Based Access Control (RBAC): Ensure that only authorized users or groups have the necessary permissions to delete virtual machine images. Assign the "Contributor" role or a custom role with the necessary permissions to manage images.
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.authorization import AuthorizationManagementClient
+from azure.mgmt.authorization.models import RoleAssignmentCreateParameters
+
+# Authenticate using DefaultAzureCredential or any other suitable method
+credential = DefaultAzureCredential()
+
+# Create an instance of the AuthorizationManagementClient
+authorization_client = AuthorizationManagementClient(credential, subscription_id)
+
+# Define the scope at which the role assignment should be applied
+scope = "/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers/Microsoft.Compute/virtualMachines/{vm_name}"
+
+# Define the role assignment parameters
+role_assignment_params = RoleAssignmentCreateParameters(
+    role_definition_id="/subscriptions/{subscription_id}/providers/Microsoft.Authorization/roleDefinitions/{role_definition_id}",
+    principal_id="/subscriptions/{subscription_id}/providers/Microsoft.Azure.ActiveDirectory/users/{user_id}",
+    scope=scope
+)
+
+# Create the role assignment
+authorization_client.role_assignments.create(scope, role_assignment_params)
 ```
-az role assignment create --assignee <user or group principal ID> --role "Virtual Machine Image Contributor" --scope /subscriptions/<subscription ID>/resourceGroups/<resource group name>/providers/Microsoft.Compute/images/<image name>
+
+2. Enable Azure Policy: Use Azure Policy to enforce compliance and prevent unauthorized deletion of virtual machine images. Create a policy definition that denies the Microsoft.Compute/images/delete permission for AzureVirtualMachines and assign it to the appropriate scope.
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource import PolicyClient
+from azure.mgmt.resource.policy.models import PolicyDefinition, PolicyAssignment
+
+# Authenticate using DefaultAzureCredential or any other suitable method
+credential = DefaultAzureCredential()
+
+# Create an instance of the PolicyClient
+policy_client = PolicyClient(credential, subscription_id)
+
+# Define the policy definition
+policy_definition = PolicyDefinition(
+    policy_rule={
+        "if": {
+            "field": "type",
+            "equals": "Microsoft.Compute/images/delete"
+        },
+        "then": {
+            "effect": "deny"
+        }
+    },
+    display_name="Restrict deletion of virtual machine images"
+)
+
+# Create the policy definition
+policy_client.policy_definitions.create_or_update(policy_definition_name, policy_definition)
+
+# Assign the policy definition to the appropriate scope
+policy_assignment = PolicyAssignment(
+    policy_definition_id="/subscriptions/{subscription_id}/providers/Microsoft.Authorization/policyDefinitions/{policy_definition_id}",
+    scope="/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+)
+
+# Create the policy assignment
+policy_client.policy_assignments.create(policy_assignment_name, policy_assignment)
 ```
 
-Azure CLI command for enabling Azure Monitor:
-```
-az monitor diagnostic-settings create --name <diagnostic settings name> --resource <resource ID of the virtual machine> --logs '[{"category": "DeleteImage", "enabled": true}]'
-```
-
-2. Example of security impact: If a malicious user gains access to the Microsoft.Compute.images.delete event in Azure, they could delete critical images used for Azure Virtual Machines as part of a larger attack. This could result in service disruption, data loss, or unauthorized access to sensitive information.
-
-Remediation:
-- Implement multi-factor authentication (MFA): Enforce MFA for all user accounts to add an extra layer of security and prevent unauthorized access to the Azure portal or APIs.
-- Regularly review and audit permissions: Conduct regular reviews of user permissions and remove any unnecessary or excessive access. Use Azure AD Privileged Identity Management (PIM) to manage and monitor privileged access.
-- Enable Azure Resource Locks: Apply resource locks to critical images to prevent accidental or unauthorized deletion. This will add an extra layer of protection and require explicit actions to remove the lock before deletion.
-
-Azure CLI command for enabling MFA:
-```
-az ad user update --id <user principal ID> --force-change-password-next-login true
-```
-
-Azure CLI command for applying resource lock:
-```
-az lock create --name <lock name> --resource <resource ID of the image> --lock-type CanNotDelete
-```
-
-3. Example of security impact: If a misconfigured access control policy allows unauthorized users to trigger the Microsoft.Compute.images.delete event in Azure, they could delete critical images used for Azure Virtual Machines. This could lead to service disruption, data loss, or unauthorized access to sensitive information.
-
-Remediation:
-- Regularly review and update access control policies: Ensure that access control policies are properly configured and regularly reviewed to prevent unauthorized access. Use Azure Policy to enforce and monitor compliance with security policies.
-- Implement network security groups (NSGs): Use NSGs to restrict network traffic to only authorized sources and destinations. This will help prevent unauthorized access to the Azure portal or APIs.
-- Enable Azure Security Center: Enable Azure Security Center to get recommendations and alerts for potential security issues related to access control policies and configurations.
-
-Azure CLI command for configuring NSG rules:
-```
-az network nsg rule create --name <rule name> --nsg-name <NSG name> --resource-group <resource group name> --priority <priority number> --source-address-prefix <source IP range> --destination-address-prefix <destination IP range> --destination-port-range <destination port range> --access <allow or deny>
-```
-
-Azure CLI command for enabling Azure Security Center:
-```
-az security pricing create --name <pricing tier> --resource-group <resource group name> --tier <free or standard>
-```
+Note: Replace the placeholders `{subscription_id}`, `{resource_group}`, `{vm_name}`, `{role_definition_id}`, `{user_id}`, `{policy_definition_name}`, and `{policy_assignment_name}` with the actual values specific to your environment.
 

@@ -3,63 +3,83 @@
 
 #### Meaning
 
-- The Microsoft.ClassicCompute.virtualMachines.delete event in AzureRealTime for AzureVirtualMachines refers to the deletion of a virtual machine (VM) in the classic deployment model in Azure.
-- This event indicates that a specific VM, which was created using the classic deployment model, has been deleted from the Azure environment.
-- The event can be used to track and monitor the deletion of VMs, allowing administrators to keep a record of VM lifecycle and take necessary actions if required.
+1. The Microsoft.ClassicCompute.virtualMachines.delete event in Azure signifies the deletion of a virtual machine (VM) in the Classic deployment model.
 
-#### Example
+2. This event indicates that a VM in the Classic deployment model has been permanently removed from the Azure environment.
 
-1. Example of security impact: If an unauthorized user gains access to the Azure portal or API credentials and triggers the Microsoft.ClassicCompute.virtualMachines.delete event, they can delete virtual machines within the Azure environment. This can lead to data loss, service disruption, and potential security breaches.
+3. It is important to note that this event is specific to the Classic deployment model and does not apply to VMs created using the Azure Resource Manager (ARM) deployment model.
 
-Remediation:
-- Enable multi-factor authentication (MFA) for all user accounts to prevent unauthorized access to the Azure portal or API credentials.
-- Regularly review and update access control policies to ensure that only authorized users have the necessary permissions to delete virtual machines.
-- Implement Azure RBAC (Role-Based Access Control) to assign granular permissions to users and restrict the ability to delete virtual machines.
-- Enable Azure Monitor and set up alerts to notify administrators when a virtual machine deletion event occurs, allowing for immediate investigation and response.
+### Remediation
 
-Azure CLI command to enable MFA for a user:
+#### Using Console
+
+- Example: If security is impacted with Microsoft.ClassicCompute.virtualMachines.delete in Azure for Azure Virtual Machines, it means that an unauthorized user or process has the ability to delete virtual machines in the Azure Classic deployment model. This can lead to data loss, service disruption, and potential security breaches.
+
+- Remediation Steps using Azure Console:
+  1. Access the Azure portal and navigate to the Azure Virtual Machines section.
+  2. Identify the affected virtual machine(s) that need to be protected from unauthorized deletion.
+  3. Select the virtual machine(s) and click on the "Access control (IAM)" tab.
+  4. Click on the "+ Add" button to add a new role assignment.
+  5. In the "Add role assignment" window, select the appropriate role (e.g., "Contributor" or "Virtual Machine Contributor") that grants the necessary permissions for managing virtual machines without the ability to delete them.
+  6. Specify the user, group, or service principal that should be assigned the role.
+  7. Click on the "Save" button to apply the role assignment.
+  8. Repeat these steps for all the virtual machines that need to be protected.
+
+Note: It is important to regularly review and update the role assignments to ensure that only authorized users have the necessary permissions and to mitigate any potential security risks.
+
+#### Using CLI
+
+- Example: If security is impacted with `Microsoft.ClassicCompute.virtualMachines.delete` in Azure for `AzureVirtualMachines`, it means that the ability to delete classic virtual machines is not properly restricted, potentially allowing unauthorized users to delete virtual machines and causing data loss or service disruption.
+
+- Remediation steps using AZU CLI:
+  1. Identify the affected virtual machine: `az vm list --resource-group <resource-group-name> --query "[?type=='Microsoft.ClassicCompute/virtualMachines']"`
+  2. Restrict the delete permission for the affected virtual machine: `az role assignment create --role "Contributor" --assignee <principal-id> --scope <virtual-machine-id> --resource-group <resource-group-name>`
+  3. Verify the changes: `az role assignment list --assignee <principal-id> --scope <virtual-machine-id> --resource-group <resource-group-name>`
+
+Note: Replace `<resource-group-name>` with the actual name of the resource group, `<principal-id>` with the ID of the user or group to restrict delete permission, and `<virtual-machine-id>` with the ID of the affected virtual machine.
+
+#### Using Python
+
+1. Example of security impact: If the Microsoft.ClassicCompute.virtualMachines.delete permission is misconfigured or granted to unauthorized users in Azure, it can lead to potential security risks. An attacker with this permission could delete virtual machines (VMs) in the Azure environment, resulting in data loss, service disruption, or unauthorized access to sensitive information.
+
+2. Remediation for AzureVirtualMachines using Python: To remediate this security issue, you can use the Azure SDK for Python to manage access control for Azure resources. Here's an example of how you can revoke the Microsoft.ClassicCompute.virtualMachines.delete permission for a specific user or group:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.authorization import AuthorizationManagementClient
+
+# Authenticate using default credentials
+credential = DefaultAzureCredential()
+
+# Specify your Azure subscription ID
+subscription_id = 'your_subscription_id'
+
+# Specify the resource group and VM name
+resource_group_name = 'your_resource_group_name'
+vm_name = 'your_vm_name'
+
+# Create the authorization management client
+authorization_client = AuthorizationManagementClient(credential, subscription_id)
+
+# Revoke the Microsoft.ClassicCompute.virtualMachines.delete permission for a user or group
+result = authorization_client.role_assignments.list_for_resource(
+    resource_group_name,
+    'Microsoft.ClassicCompute/virtualMachines',
+    filter="principalId eq 'your_principal_id'"
+)
+
+for assignment in result:
+    if assignment.role_definition_id.endswith('/providers/Microsoft.Authorization/roleDefinitions/your_role_definition_id'):
+        authorization_client.role_assignments.delete(
+            resource_group_name,
+            assignment.name
+        )
 ```
-az ad user update --id <user-id> --force-change-password-next-login true
-```
 
-Azure CLI command to assign RBAC role to a user:
-```
-az role assignment create --assignee <user-id> --role <role-name> --scope <resource-scope>
-```
+Note: Replace the placeholders (`your_subscription_id`, `your_resource_group_name`, `your_vm_name`, `your_principal_id`, `your_role_definition_id`) with the actual values specific to your Azure environment.
 
-Azure CLI command to create an Azure Monitor alert for virtual machine deletion:
-```
-az monitor metrics alert create --name <alert-name> --resource-group <resource-group-name> --condition "category=Administrative and operationName=Microsoft.ClassicCompute/virtualMachines/delete" --action <action-group-name> --description <alert-description>
-```
-
-2. Example of security impact: If a malicious insider with elevated privileges intentionally triggers the Microsoft.ClassicCompute.virtualMachines.delete event, they can delete critical virtual machines, causing significant damage to the Azure environment and disrupting business operations.
-
-Remediation:
-- Implement the principle of least privilege by regularly reviewing and updating user roles and permissions to ensure that only necessary privileges are granted.
-- Enable Azure AD Privileged Identity Management (PIM) to enforce just-in-time access and require approval for elevated privileges, reducing the risk of unauthorized virtual machine deletions.
-- Implement robust monitoring and logging solutions to detect and investigate any suspicious activities related to virtual machine deletions.
-- Regularly backup virtual machines and critical data to ensure quick recovery in case of accidental or malicious deletions.
-
-Azure CLI command to enable Azure AD Privileged Identity Management (PIM):
-```
-az ad pim enable --id <user-id> --resource-group <resource-group-name> --role <role-name> --target-id <target-resource-id>
-```
-
-3. Example of security impact: If a misconfigured access control policy allows a user with limited privileges to trigger the Microsoft.ClassicCompute.virtualMachines.delete event, they can delete virtual machines that they should not have access to. This can result in unauthorized data exposure, service disruption, and potential compliance violations.
-
-Remediation:
-- Regularly review and update access control policies to ensure that only authorized users have the necessary permissions to delete virtual machines.
-- Implement Azure Resource Locks to prevent accidental or unauthorized deletion of critical virtual machines.
-- Enable Azure Policy to enforce compliance standards and prevent misconfigurations that could lead to unauthorized virtual machine deletions.
-- Implement continuous monitoring and auditing of access control policies to detect and remediate any misconfigurations or unauthorized changes.
-
-Azure CLI command to apply a resource lock to a virtual machine:
-```
-az lock create --name <lock-name> --resource-group <resource-group-name> --resource-name <virtual-machine-name> --resource-type Microsoft.Compute/virtualMachines --lock-type CanNotDelete
-```
-
-Azure CLI command to enable Azure Policy for virtual machine deletion prevention:
-```
-az policy assignment create --name <policy-assignment-name> --scope <resource-scope> --policy <policy-definition-name> --params <policy-parameters>
-```
+3. Additional considerations:
+- Regularly review and audit the access control configurations for Azure resources to ensure that only authorized users have the necessary permissions.
+- Implement the principle of least privilege by granting only the required permissions to users or groups.
+- Monitor and log any changes to access control configurations to detect and respond to any unauthorized modifications.
 

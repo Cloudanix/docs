@@ -9,36 +9,77 @@ sidebar_label: Microsoft.ContainerRegistry.registries.delete
 
 #### Meaning
 
-- The Microsoft.ContainerRegistry.registries.delete event in AzureRealTime for AzureContainerService indicates that a container registry has been deleted in the Azure environment.
-- This event signifies that all the associated artifacts, such as images and repositories, within the container registry have been permanently removed.
-- It is important to note that this event can have significant implications on any applications or services that were relying on the deleted container registry for image storage and deployment.
+1. The Microsoft.ContainerRegistry.registries.delete event in Azure Container Service signifies the deletion of a container registry in Azure.
+2. This event indicates that a user or an automated process has initiated the removal of a container registry from the Azure environment.
+3. It is important to note that deleting a container registry will permanently remove all the associated container images and artifacts, so caution should be exercised before performing this action.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If an unauthorized user gains access to the Microsoft Container Registry and deletes a registry, it can lead to a loss of critical container images and disrupt the deployment of applications relying on those images. This can result in service downtime, data loss, and potential security vulnerabilities if compromised images are used.
+#### Using Console
 
-Remediation:
-- Enable Azure Active Directory authentication for the container registry to ensure only authorized users can access and modify it.
-- Implement role-based access control (RBAC) to restrict permissions and limit the number of users with delete access.
-- Enable soft-delete for the container registry to retain deleted images for a specified period, allowing for recovery in case of accidental deletion.
-- Regularly monitor and review audit logs for any suspicious activities related to the container registry.
+None
 
-Azure CLI commands for remediation:
-```bash
-# Enable Azure Active Directory authentication for the container registry
-az acr update --name <registry_name> --admin-enabled false
+#### Using CLI
 
-# Grant RBAC access to specific users or groups
-az role assignment create --assignee <user_or_group_id> --role acrpull --scope /subscriptions/<subscription_id>/resourceGroups/<resource_group_name>/providers/Microsoft.ContainerRegistry/registries/<registry_name>
+1. Impact on Security: The `Microsoft.ContainerRegistry.registries.delete` action in Azure Container Service can impact security by allowing unauthorized deletion of container registries. This can result in the loss of critical container images and potential disruption to application deployments.
 
-# Enable soft-delete for the container registry
-az acr update --name <registry_name> --delete-enabled true
-
-# Monitor audit logs for container registry
-az monitor activity-log list --resource-group <resource_group_name> --resource-type Microsoft.ContainerRegistry/registries --query "[?category=='Administrative' && operationName.value=='Microsoft.ContainerRegistry/registries/delete']"
+2. Example: An attacker with access to the necessary permissions could use the `az acr delete` command to delete a container registry in Azure Container Service. For example:
+```
+az acr delete --name <registry_name> --resource-group <resource_group_name>
 ```
 
-Please note that the actual commands may vary based on your specific Azure environment and requirements.
+3. Remediation using Azure CLI: To remediate this security issue, you can follow these steps using Azure CLI:
+
+- Restrict Permissions: Ensure that only authorized users or roles have the necessary permissions to delete container registries. Review and update the access control settings for the Azure Container Registry and Azure Container Service to limit the deletion rights.
+
+- Enable Audit Logging: Enable audit logging for Azure Container Registry and Azure Container Service. This will help in monitoring and detecting any unauthorized deletion attempts. You can use the following command to enable audit logging for Azure Container Registry:
+```
+az monitor diagnostic-settings create --name <diagnostic_settings_name> --resource <registry_resource_id> --logs '[{"category": "RegistryDelete"}]'
+```
+
+- Implement Backup and Recovery: Regularly backup your container registries to ensure that critical container images are not permanently lost in case of accidental or malicious deletion. Azure Container Registry provides options for backup and recovery, such as geo-replication and container image replication.
+
+By implementing these measures, you can mitigate the security impact of the `Microsoft.ContainerRegistry.registries.delete` action in Azure Container Service and protect your container registries from unauthorized deletion.
+
+#### Using Python
+
+1. Example of security impact: When using the `Microsoft.ContainerRegistry.registries.delete` action in Azure Container Service, there is a risk of inadvertently deleting a container registry that is still in use by other services or applications. This can lead to service disruptions, data loss, or unauthorized access to sensitive information stored in the registry.
+
+2. Remediation for Azure Container Service using Python: To mitigate the security impact of deleting container registries in Azure Container Service, you can implement a Python script that performs the following steps:
+
+   a. Retrieve a list of container registries associated with the Azure Container Service using the Azure SDK for Python.
+   
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.containerregistry import ContainerRegistryManagementClient
+
+   # Authenticate using default credentials
+   credential = DefaultAzureCredential()
+
+   # Create a Container Registry Management client
+   registry_client = ContainerRegistryManagementClient(credential, subscription_id)
+
+   # Get a list of container registries
+   registries = registry_client.registries.list_by_resource_group(resource_group_name)
+   ```
+   
+   b. Implement logic to validate if the registry to be deleted is still in use by other services or applications. This can be done by checking if there are any active deployments, running containers, or other dependencies associated with the registry.
+   
+   ```python
+   for registry in registries:
+       # Check if the registry is still in use
+       if registry.name == registry_name:
+           if registry.active_deployments or registry.running_containers:
+               print("Registry is still in use. Cannot delete.")
+           else:
+               # Delete the registry
+               registry_client.registries.begin_delete(resource_group_name, registry_name)
+               print("Registry deleted successfully.")
+   ```
+   
+   c. Execute the script periodically or integrate it into your CI/CD pipeline to ensure that container registries are not deleted without proper validation.
+
+Note: The provided Python script uses the Azure SDK for Python to interact with Azure Container Registry. Make sure to install the required packages (`azure-identity`, `azure-mgmt-containerregistry`) before running the script.
 
 
  

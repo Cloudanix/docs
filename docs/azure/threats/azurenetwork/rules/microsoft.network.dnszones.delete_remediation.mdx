@@ -3,45 +3,92 @@
 
 #### Meaning
 
-1. The Microsoft.Network.dnszones.delete event in AzureRealTime for AzureNetwork indicates that a DNS zone has been deleted in the Azure Network.
-2. This event signifies that the DNS zone and all associated records within that zone have been permanently removed.
-3. It is important to note that deleting a DNS zone can have significant impact on the resolution of domain names within the network, so it should be done with caution and proper planning.
+- The Microsoft.Network.dnszones.delete event in AzureNetwork refers to the deletion of a DNS zone in the Azure Network service.
+- This event indicates that a DNS zone, which is used to manage and resolve domain names within the Azure Network, has been deleted.
+- The event can be used to track changes and monitor the lifecycle of DNS zones in Azure, providing visibility into when and by whom a DNS zone was deleted.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If the Microsoft.Network.dnszones.delete event is triggered in Azure, it could potentially lead to a security breach if an unauthorized user gains access to delete DNS zones within the Azure Network. This could result in disruption of network services, potential data loss, or unauthorized access to resources.
+#### Using Console
 
-Remediation:
-- Implement RBAC (Role-Based Access Control) to ensure that only authorized users have permissions to delete DNS zones. Assign appropriate roles and permissions to users based on their responsibilities.
-- Enable Azure AD Privileged Identity Management (PIM) to enforce just-in-time access for critical actions like DNS zone deletion. This adds an extra layer of security by requiring users to request and justify their access before performing such actions.
-- Regularly monitor and review audit logs and alerts related to DNS zone deletions. Set up Azure Monitor alerts to notify administrators whenever a DNS zone is deleted, allowing for immediate investigation and response.
+- Example: If security is impacted with Microsoft.Network.dnszones.delete in Azure for AzureNetwork, it means that an unauthorized user or process has the ability to delete DNS zones within the Azure Network. This can lead to disruption of network connectivity and potential data breaches.
 
-Azure CLI command to assign RBAC role to a user:
+- Remediation Steps:
+1. Sign in to the Azure portal (https://portal.azure.com) using your Azure account credentials.
+2. Navigate to the Azure Network resource that is impacted by the security issue.
+3. Click on the "Networking" tab in the left-hand menu.
+4. Select "DNS zones" from the sub-menu.
+5. Identify the DNS zone that needs to be protected and click on it.
+6. In the DNS zone overview page, click on the "Access control (IAM)" tab.
+7. Click on the "+ Add" button to add a new role assignment.
+8. In the "Add role assignment" panel, select the appropriate role (e.g., "Contributor" or "DNS Zone Contributor") from the "Role" dropdown menu.
+9. In the "Assign access to" field, search for and select the user or group that should have the ability to manage DNS zones.
+10. Click on the "Save" button to apply the role assignment.
+11. Repeat steps 7-10 for any additional users or groups that require access to the DNS zone.
+12. Review the existing role assignments to ensure that only authorized users or groups have access to the DNS zone.
+13. Regularly monitor the access control settings for the Azure Network resource to detect any unauthorized changes or access.
+
+Note: It is recommended to follow the principle of least privilege when assigning roles and permissions to ensure that only necessary access is granted to users or groups.
+
+#### Using CLI
+
+1. Example of security impact: When the Microsoft.Network.dnszones.delete operation is performed on an Azure Network, it can potentially lead to the deletion of DNS zones associated with the network. This can result in the loss of DNS records and disrupt the resolution of domain names for resources within the network.
+
+2. Remediation using AZU CLI: To remediate this security impact and prevent accidental deletion of DNS zones, you can implement RBAC (Role-Based Access Control) and restrict the permissions for the Microsoft.Network/dnszones/delete operation. Here are the CLI commands to achieve this:
+
+   - First, create a custom role definition with limited permissions:
+     ```
+     az role definition create --name "Limited DNS Zone Deletion" --actions "Microsoft.Network/dnszones/delete" --not-actions "*" --assignable-scopes "/subscriptions/{subscriptionId}"
+     ```
+
+   - Next, assign the custom role to the appropriate user, group, or service principal:
+     ```
+     az role assignment create --assignee {principalId} --role "Limited DNS Zone Deletion" --scope "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworks/{virtualNetworkName}"
+     ```
+
+   Replace `{subscriptionId}`, `{resourceGroupName}`, `{virtualNetworkName}`, and `{principalId}` with the actual values specific to your Azure environment.
+
+3. Ongoing management: Regularly review and audit the RBAC assignments and permissions to ensure that only authorized individuals or entities have the necessary access to perform DNS zone deletions. Additionally, consider implementing Azure Resource Locks to provide an extra layer of protection against accidental deletions.
+
+#### Using Python
+
+1. Example of security impact with Microsoft.Network.dnszones.delete in Azure for Azure Network:
+   - If an unauthorized user gains access to the Azure Network and performs the Microsoft.Network.dnszones.delete operation, they can delete DNS zones associated with the network. This can lead to disruption of DNS resolution for resources within the network, potentially causing service outages or unauthorized access to resources.
+
+2. Remediation for Azure Network using Python:
+   - To remediate this security issue in Azure Network using Python, you can leverage the Azure SDK for Python (azure-mgmt-dns) to implement the necessary controls. Here's an example script:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.dns import DnsManagementClient
+
+# Authenticate using DefaultAzureCredential
+credential = DefaultAzureCredential()
+
+# Specify your Azure subscription ID and resource group name
+subscription_id = '<your-subscription-id>'
+resource_group_name = '<your-resource-group-name>'
+
+# Specify the DNS zone name and Azure Network name
+dns_zone_name = '<your-dns-zone-name>'
+azure_network_name = '<your-azure-network-name>'
+
+# Create the DNS management client
+dns_client = DnsManagementClient(credential, subscription_id)
+
+# Get the DNS zone resource ID
+dns_zone = dns_client.zones.get(resource_group_name, dns_zone_name)
+dns_zone_id = dns_zone.id
+
+# Get the Azure Network resource ID
+azure_network = dns_client.virtual_network_links.get(resource_group_name, azure_network_name)
+azure_network_id = azure_network.id
+
+# Remove the DNS zone from the Azure Network
+dns_client.virtual_network_links.delete(resource_group_name, azure_network_name, dns_zone_id)
 ```
-az role assignment create --assignee <user-object-id> --role "DNS Zone Contributor" --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/dnszones/<dns-zone-name>
-```
 
-2. Example of security impact: If the Microsoft.Network.dnszones.delete event is triggered in Azure, it could be exploited by an attacker to delete critical DNS zones, leading to service disruption or DNS hijacking. This can result in redirecting network traffic to malicious destinations, compromising the confidentiality and integrity of data.
+This script authenticates using the DefaultAzureCredential, retrieves the DNS zone and Azure Network resource IDs, and then removes the DNS zone from the Azure Network using the `virtual_network_links.delete` method.
 
-Remediation:
-- Implement Azure Resource Locks to prevent accidental or unauthorized deletion of DNS zones. Apply a "CanNotDelete" lock on critical DNS zones to ensure they cannot be deleted without explicit permission.
-- Enable Azure DNS zone recovery feature to enable point-in-time recovery of deleted DNS zones. This allows for quick restoration of deleted zones in case of accidental deletion or malicious activity.
-- Regularly backup DNS zone configurations and store them in a secure location. This ensures that even if a DNS zone is deleted, it can be restored from the backup without significant impact on services.
-
-Azure CLI command to apply a resource lock:
-```
-az lock create --name <lock-name> --lock-type CanNotDelete --resource <resource-id>
-```
-
-3. Example of security impact: If the Microsoft.Network.dnszones.delete event is triggered in Azure, it could lead to a loss of DNS resolution for critical services or applications. This can result in service downtime, loss of productivity, and potential financial impact for the organization.
-
-Remediation:
-- Implement a multi-factor authentication (MFA) policy for users with permissions to delete DNS zones. This adds an extra layer of security by requiring additional verification before performing critical actions.
-- Enable Azure DNS zone versioning to maintain a history of DNS zone changes. This allows for easy rollback in case of accidental deletion and provides visibility into any unauthorized changes made to DNS zones.
-- Regularly review and update DNS zone deletion permissions. Remove unnecessary permissions and ensure that only authorized personnel have the ability to delete DNS zones.
-
-Azure CLI command to enable MFA for a user:
-```
-az ad user update --id <user-object-id> --require-mfa true
-```
+Note: Make sure to replace the placeholders (`<your-subscription-id>`, `<your-resource-group-name>`, `<your-dns-zone-name>`, `<your-azure-network-name>`) with the actual values specific to your environment.
 
