@@ -9,25 +9,95 @@ sidebar_label: DeleteGeoMatchSet
 
 #### Meaning
 
-- The DeleteGeoMatchSet event in AWS WAF refers to the action of deleting a Geo Match Set, which is a collection of geographic locations that are used to create rules for AWS WAF.
-- This event indicates that a Geo Match Set has been removed from the WAF configuration, and any associated rules or conditions using this Geo Match Set will no longer be active.
-- It is important to monitor this event to ensure that the deletion of a Geo Match Set does not impact the effectiveness of your WAF rules and protections, and to track any changes made to the WAF configuration.
+- The DeleteGeoMatchSet event in AWS WAF refers to the action of deleting a Geo Match Set, which is a collection of country and IP address ranges used for matching against the geographic location of web requests.
+- This event indicates that a Geo Match Set has been removed from the AWS WAF configuration, potentially impacting the filtering and blocking of web requests based on their originating country or IP address.
+- It is important to monitor this event to ensure that the deletion of a Geo Match Set does not inadvertently affect the security and compliance of the application, and to investigate any unexpected deletions for potential security incidents.
 
-#### Example
+### Remediation
 
-1. Example of how security can be impacted with DeleteGeoMatchSet event in AWS WAF:
-   - If an unauthorized user gains access to the AWS account and deletes a GeoMatchSet, it can lead to a potential security breach. The GeoMatchSet contains rules that allow or block traffic based on the geographic location of the request. Deleting this GeoMatchSet can remove the protection against specific geographic regions, potentially allowing malicious traffic from those regions.
+#### Using Console
 
-2. Remediation for security impact caused by DeleteGeoMatchSet event:
-   - Regularly monitor and review AWS CloudTrail logs to detect any unauthorized access or modifications to WAF resources.
-   - Implement strong access control measures, such as using IAM policies, to restrict access to WAF resources only to authorized users.
-   - Enable AWS WAF logging and integrate it with a centralized logging and monitoring solution to receive real-time alerts and notifications for any changes or deletions of WAF resources.
+- Example of security impact: If an unauthorized user gains access to the AWS WAF console or API credentials and performs a DeleteGeoMatchSet operation, they can delete a GeoMatchSet that is being used to block traffic from specific geographic locations. This can result in allowing traffic from those blocked locations, potentially exposing the application to malicious activities originating from those regions.
 
-3. AWS CLI command for listing GeoMatchSets and their associated resources:
-   ```
-   aws wafv2 list-geo-match-sets --scope CLOUDFRONT --region <region>
-   ```
-   This command will list all the GeoMatchSets in the specified region for AWS WAFv2 deployed with CloudFront. Review the output to ensure that the expected GeoMatchSets are present and no unauthorized deletions have occurred.
+- Remediation steps using AWS console:
+  1. Access the AWS Management Console and navigate to the AWS WAF service.
+  2. In the left navigation pane, click on "Web ACLs" and select the Web ACL associated with the affected GeoMatchSet.
+  3. Under the "Rules" tab, locate the rule that references the GeoMatchSet and click on the rule's name.
+  4. In the rule details page, click on the "Edit" button.
+  5. Scroll down to the "Conditions" section and find the condition that uses the GeoMatchSet.
+  6. Click on the "Edit" button next to the condition.
+  7. In the condition editor, remove the affected GeoMatchSet from the condition.
+  8. Click on the "Save" button to save the changes to the rule.
+  9. Repeat steps 3-8 for any other rules that reference the GeoMatchSet.
+  10. Once all affected rules have been updated, click on the "Save" button at the top of the rule details page to save the changes to the Web ACL.
+
+Note: It is also recommended to review and rotate the AWS WAF console or API credentials to prevent unauthorized access in the future. Additionally, enabling multi-factor authentication (MFA) for AWS accounts can add an extra layer of security.
+
+#### Using CLI
+
+- Example of security impact: If an unauthorized user gains access to the AWS CLI or API credentials and executes the `aws waf delete-geo-match-set` command, they can delete a Geo Match Set in AWS WAF. This can potentially lead to a misconfiguration or bypass of the WAF rules, allowing malicious traffic to reach the protected resources.
+
+- Remediation steps using AWS CLI:
+  1. Rotate and secure AWS CLI or API credentials: Generate new access keys and disable or delete the compromised ones. Store the credentials securely and follow AWS best practices for access management.
+  2. Enable AWS CloudTrail: Enable AWS CloudTrail to capture all API calls made to AWS WAF. This will help in auditing and monitoring any unauthorized or suspicious activities.
+  3. Implement IAM policies: Restrict the permissions of the AWS CLI or API credentials used for managing AWS WAF. Only grant the necessary permissions required for managing WAF resources, such as `waf:DeleteGeoMatchSet` for authorized users.
+
+CLI commands:
+- To rotate AWS CLI access keys:
+  ```
+  aws iam create-access-key --user-name <IAM_USER_NAME>
+  aws iam delete-access-key --access-key-id <ACCESS_KEY_ID>
+  ```
+
+- To enable AWS CloudTrail:
+  ```
+  aws cloudtrail create-trail --name <TRAIL_NAME> --s3-bucket-name <BUCKET_NAME>
+  aws cloudtrail start-logging --name <TRAIL_NAME>
+  ```
+
+- To implement IAM policies:
+  ```
+  aws iam create-policy --policy-name <POLICY_NAME> --policy-document file://policy.json
+  aws iam attach-user-policy --user-name <IAM_USER_NAME> --policy-arn <POLICY_ARN>
+  ```
+
+#### Using Python
+
+- Example of security impact: If an unauthorized user gains access to the AWS WAF console or API credentials, they could potentially execute the `DeleteGeoMatchSet` API action to delete a Geo Match Set. This could lead to a loss of protection against specific geographic locations, allowing potentially malicious traffic from those locations to bypass the WAF rules.
+
+- Remediation steps using Python:
+  1. Implement strict access controls: Ensure that only authorized users have access to the AWS WAF console or API credentials. Use AWS Identity and Access Management (IAM) to create and manage user accounts with appropriate permissions.
+  
+  2. Enable AWS CloudTrail: Enable AWS CloudTrail to monitor and log all API activities related to AWS WAF. This will help in detecting any unauthorized or suspicious activities, including the deletion of Geo Match Sets.
+  
+  3. Implement automated backups: Regularly backup the Geo Match Sets using the `ListGeoMatchSets` and `GetGeoMatchSet` API actions. Store the backups in a secure location, such as Amazon S3. In case of accidental deletion, the backups can be used to restore the Geo Match Sets.
+
+Python script example to list and backup Geo Match Sets:
+
+```python
+import boto3
+
+def list_geo_match_sets():
+    waf_client = boto3.client('waf')
+    response = waf_client.list_geo_match_sets()
+    geo_match_sets = response['GeoMatchSets']
+    for geo_match_set in geo_match_sets:
+        print(geo_match_set['GeoMatchSetId'], geo_match_set['Name'])
+
+def backup_geo_match_set(geo_match_set_id):
+    waf_client = boto3.client('waf')
+    response = waf_client.get_geo_match_set(GeoMatchSetId=geo_match_set_id)
+    backup_file_name = f"{geo_match_set_id}_backup.json"
+    with open(backup_file_name, 'w') as backup_file:
+        backup_file.write(str(response['GeoMatchSet']))
+    print(f"Geo Match Set {geo_match_set_id} backed up to {backup_file_name}")
+
+# Usage
+list_geo_match_sets()
+backup_geo_match_set('geo-match-set-id')
+```
+
+Note: The above script uses the Boto3 library to interact with AWS WAF. Make sure to configure the AWS credentials and region before running the script.
 
 
  

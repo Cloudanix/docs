@@ -3,40 +3,118 @@
 
 #### Meaning
 
-- The DeleteFunction20150331 event in awsrealtime for Lambda refers to the deletion of a Lambda function in AWS.
-- This event is triggered when a user or an automated process initiates the deletion of a Lambda function.
-- It indicates that the Lambda function and its associated resources, such as triggers and permissions, have been removed from the AWS account.
+- The DeleteFunction20150331 event in AWS Lambda refers to the deletion of a Lambda function.
+- This event is triggered when a user or an automated process initiates the deletion of a Lambda function in AWS.
+- The event provides information about the function that was deleted, including its name, ARN (Amazon Resource Name), and the timestamp of the deletion.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If an unauthorized user gains access to the AWS Lambda console or API and triggers the DeleteFunction20150331 event, they can delete a Lambda function that is critical to the application's functionality. This can result in service disruption, data loss, or unauthorized access to sensitive information.
+#### Using Console
 
-Remediation:
-- Enable AWS CloudTrail to monitor and log all API activity related to Lambda functions.
-- Implement strict IAM policies to control access to the Lambda console and API. Only authorized users or roles should have permissions to delete functions.
-- Regularly backup Lambda functions using AWS CLI or SDKs to ensure quick recovery in case of accidental deletion. For example, you can use the following AWS CLI command to create a backup of a Lambda function:
-  ```
-  aws lambda create-function-alias --function-name <function-name> --name <alias-name> --function-version <version> --description "Backup"
-  ```
+- Example of security impact: If an unauthorized user gains access to the DeleteFunction20150331 action in AWS Lambda, they can delete Lambda functions without proper authorization. This can lead to the loss of critical functions and potential disruption of services.
 
-2. Example of security impact: If a malicious insider gains access to the AWS CLI credentials of a user with sufficient permissions, they can execute the DeleteFunction20150331 event command to delete critical Lambda functions without detection. This can lead to significant service disruption and potential data loss.
+- Remediation steps using AWS console:
+  1. Access the AWS Management Console and navigate to the AWS Lambda service.
+  2. Select the specific Lambda function that you want to secure against unauthorized deletion.
+  3. In the function's configuration page, scroll down to the "Permissions" section and click on the "Add Permission" button.
+  4. In the "Add Permission" dialog box, configure the following:
+     - Principal: Specify the AWS account or IAM user/group that should have permission to delete the function.
+     - Action: Choose the specific actions that the principal should be allowed to perform, such as "lambda:DeleteFunction".
+     - Resource: Specify the ARN (Amazon Resource Name) of the Lambda function that you want to secure.
+  5. Click on the "Add" button to save the permission configuration.
+  6. Repeat steps 3-5 for any additional principals that should have delete function permissions.
+  7. Review the function's permissions to ensure that only authorized entities have the necessary delete permissions.
+  8. Test the function's delete functionality with a user or role that does not have the delete permission to verify that the remediation is effective.
 
-Remediation:
-- Implement multi-factor authentication (MFA) for AWS IAM users to add an extra layer of security to prevent unauthorized access to CLI credentials.
-- Regularly rotate and revoke AWS CLI credentials to minimize the risk of compromise.
-- Enable AWS CloudTrail with CloudWatch Events to monitor and alert on any DeleteFunction20150331 event. You can use the following AWS CLI command to create a CloudWatch Event rule for monitoring Lambda function deletions:
-  ```
-  aws events put-rule --name "LambdaFunctionDeletionRule" --event-pattern "{\"source\":[\"aws.lambda\"],\"detail-type\":[\"AWS API Call via CloudTrail\"],\"detail\":{\"eventSource\":[\"lambda.amazonaws.com\"],\"eventName\":[\"DeleteFunction20150331\"]}}"
-  ```
+#### Using CLI
 
-3. Example of security impact: If a Lambda function is mistakenly configured with overly permissive IAM roles or resource-based policies, an attacker can exploit this misconfiguration to trigger the DeleteFunction20150331 event and delete the function. This can result in service disruption and potential unauthorized access to sensitive resources.
+- Example: If security is impacted with DeleteFunction20150331 in AWS Lambda, it means that an unauthorized user or process is able to delete Lambda functions in the AWS account. This can lead to loss of critical functions and potential disruption of services.
 
-Remediation:
-- Regularly review and update IAM roles and resource-based policies associated with Lambda functions to ensure they follow the principle of least privilege.
-- Implement AWS Config rules to automatically detect and remediate any Lambda functions with overly permissive permissions. For example, you can use the following AWS CLI command to create a Config rule for checking Lambda function permissions:
-  ```
-  aws configservice put-config-rule --config-rule file://lambda-function-permissions-rule.json
-  ```
-  (where `lambda-function-permissions-rule.json` is a JSON file defining the rule)
-- Enable AWS CloudTrail with CloudWatch Logs to capture and analyze API calls related to Lambda function modifications, including the DeleteFunction20150331 event.
+- Remediation steps using AWS CLI:
+  1. Restrict IAM permissions: Ensure that only authorized users or roles have the necessary permissions to delete Lambda functions. Review and modify the IAM policies associated with the user or role to limit the `lambda:DeleteFunction` action.
+  
+    ```bash
+    aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    ```
+  
+  2. Enable AWS CloudTrail: Enable AWS CloudTrail to capture all API calls made to AWS Lambda, including function deletions. This will provide visibility into any unauthorized deletions and help with auditing and investigation.
+  
+    ```bash
+    aws cloudtrail create-trail --name <trail-name> --s3-bucket-name <bucket-name> --is-multi-region-trail
+    ```
+  
+  3. Monitor CloudTrail logs: Regularly monitor the CloudTrail logs for any suspicious activity related to Lambda function deletions. Set up alerts or use AWS services like Amazon CloudWatch Events to trigger notifications or automated actions when unauthorized deletions are detected.
+  
+    ```bash
+    aws logs describe-log-groups --log-group-name-prefix /aws/cloudtrail/<trail-name>
+    ```
+
+#### Using Python
+
+Example of security impact with DeleteFunction20150331 in AWS Lambda:
+- If the DeleteFunction20150331 action is mistakenly granted to an unauthorized user or role, it can lead to the deletion of Lambda functions without proper authorization.
+- This can result in the loss of critical functions, disruption of services, and potential data loss.
+
+Remediation for AWS Lambda using Python:
+To remediate this security issue, you can implement a preventive measure by adding a custom IAM policy to restrict the DeleteFunction20150331 action to only authorized users or roles. Here's an example of how you can achieve this using Python and the AWS SDK (boto3):
+
+```python
+import boto3
+
+def add_lambda_policy(lambda_function_name, role_name):
+    client = boto3.client('iam')
+    policy_arn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'  # Assuming you want to use the basic execution role
+
+    response = client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn=policy_arn
+    )
+
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        print(f"Policy attached successfully to role: {role_name}")
+    else:
+        print("Failed to attach policy to role")
+
+def restrict_delete_function_action(lambda_function_name, role_name):
+    client = boto3.client('iam')
+    policy_name = f"RestrictDeleteFunction_{lambda_function_name}"
+
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Action": "lambda:DeleteFunction20150331",
+                "Resource": f"arn:aws:lambda:REGION:ACCOUNT_ID:function:{lambda_function_name}"
+            }
+        ]
+    }
+
+    response = client.create_policy(
+        PolicyName=policy_name,
+        PolicyDocument=json.dumps(policy_document)
+    )
+
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        policy_arn = response['Policy']['Arn']
+        response = client.attach_role_policy(
+            RoleName=role_name,
+            PolicyArn=policy_arn
+        )
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            print(f"Policy attached successfully to role: {role_name}")
+        else:
+            print("Failed to attach policy to role")
+    else:
+        print("Failed to create policy")
+
+# Usage example
+lambda_function_name = 'my-lambda-function'
+role_name = 'my-lambda-role'
+
+add_lambda_policy(lambda_function_name, role_name)
+restrict_delete_function_action(lambda_function_name, role_name)
+```
+
+This script attaches the AWSLambdaBasicExecutionRole policy to the specified role and then creates a custom policy that denies the DeleteFunction20150331 action for the specified Lambda function. By attaching this policy to the role associated with the Lambda function, you can restrict the ability to delete the function to only authorized users or roles.
 

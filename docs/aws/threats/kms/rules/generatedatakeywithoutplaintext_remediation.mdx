@@ -3,25 +3,92 @@
 
 #### Meaning
 
-- The GenerateDataKeyWithoutPlaintext event in AWS KMS refers to the action of generating a data key without returning the plaintext version of the key.
-- This event is useful when you need to encrypt data using a symmetric key, but you don't want to expose the plaintext key.
-- By generating a data key without the plaintext version, you can securely encrypt data and store or transmit it without the risk of exposing the key.
+- The GenerateDataKeyWithoutPlaintext event in AWS Key Management Service (KMS) refers to the action of generating a data key without returning the plaintext version of the key.
+- This event is useful when you need to encrypt large amounts of data and want to avoid exposing the plaintext key in memory or logs.
+- By generating a data key without the plaintext, you can securely encrypt data using the key and then discard the plaintext key, reducing the risk of unauthorized access to sensitive information.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If the GenerateDataKeyWithoutPlaintext event occurs in AWS KMS, it means that a data key was generated without the corresponding plaintext key being provided. This can potentially lead to security vulnerabilities as the plaintext key is required for encrypting and decrypting data.
+#### Using Console
 
-2. Remediation: To mitigate this security issue, you can follow these steps:
+- Example: If security is impacted with GenerateDataKeyWithoutPlaintext in AWS Key Management Service (KMS), it means that the plaintext version of the data key is not generated during the encryption process. This can potentially expose the data key to unauthorized access if it is not properly protected.
 
-   - Identify the specific AWS KMS key that is generating data keys without plaintext.
-   - Review the application or service that is using this key and determine why the plaintext key is not being provided.
-   - Update the application or service to ensure that the plaintext key is provided when generating data keys.
-   - Monitor the KMS GenerateDataKeyWithoutPlaintext event to identify any recurring issues and take appropriate actions.
+To remediate this issue for AWS KMS using the AWS console, you can follow these step-by-step instructions:
 
-   AWS CLI command to monitor the event:
-   ```
-   aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=GenerateDataKeyWithoutPlaintext
-   ```
+1. Open the AWS Management Console and navigate to the AWS KMS service.
+2. Select the appropriate KMS key that is being used for encryption.
+3. In the Key Policy section, click on the "Edit" button to modify the key policy.
+4. In the key policy editor, locate the "Statement" section that allows the GenerateDataKeyWithoutPlaintext action.
+5. Remove or modify the statement that allows GenerateDataKeyWithoutPlaintext action to restrict its usage.
+6. Save the changes to the key policy.
 
-   Note: The remediation steps may vary depending on the specific use case and application architecture. It is recommended to consult AWS documentation and best practices for further guidance.
+By removing or modifying the statement that allows GenerateDataKeyWithoutPlaintext action, you ensure that the plaintext version of the data key is always generated during the encryption process, enhancing the security of your data.
+
+#### Using CLI
+
+- The `GenerateDataKeyWithoutPlaintext` operation in AWS Key Management Service (KMS) allows you to generate a data key without returning the plaintext version of the key. This means that the generated key will only be available in encrypted form, providing an additional layer of security.
+
+- However, if security is impacted with `GenerateDataKeyWithoutPlaintext`, it could be due to the fact that the generated data key cannot be used directly for encryption or decryption operations. This might impact certain use cases where the plaintext version of the key is required.
+
+- To remediate this issue for AWS KMS using AWS CLI, you can use the `generate-data-key` command with the `--key-spec` parameter set to `AES_256` and `--encryption-context` parameter to provide additional security context. This will generate a data key with the plaintext version available, ensuring compatibility with encryption and decryption operations.
+
+Example CLI commands:
+```
+aws kms generate-data-key --key-id <key-id> --key-spec AES_256 --encryption-context <encryption-context>
+```
+Note: Replace `<key-id>` with the ID of the KMS key and `<encryption-context>` with the desired encryption context.
+
+#### Using Python
+
+- Example of security impact: If an attacker gains access to the encrypted data key generated using GenerateDataKeyWithoutPlaintext in AWS KMS, they can potentially decrypt the encrypted data without needing the plaintext data key. This can lead to unauthorized access to sensitive information.
+
+- Remediation for AWS KMS using Python:
+  1. Use GenerateDataKey instead: Instead of using GenerateDataKeyWithoutPlaintext, use the GenerateDataKey API in AWS KMS. This API generates both an encrypted data key and a plaintext data key. By using the plaintext data key, you can encrypt and decrypt your data securely.
+  
+  ```python
+  import boto3
+
+  def generate_data_key_kms(key_id):
+      kms_client = boto3.client('kms')
+      response = kms_client.generate_data_key(
+          KeyId=key_id,
+          KeySpec='AES_256'
+      )
+      encrypted_data_key = response['CiphertextBlob']
+      plaintext_data_key = response['Plaintext']
+      return encrypted_data_key, plaintext_data_key
+  ```
+
+  2. Protect the plaintext data key: Once you have the plaintext data key, it is crucial to protect it securely. You can store it in a secure key management system or use encryption mechanisms provided by your application or infrastructure to protect the key.
+
+  ```python
+  import base64
+
+  def protect_plaintext_data_key(plaintext_data_key):
+      # Example: Encrypt the plaintext data key using a master key stored in AWS KMS
+      kms_client = boto3.client('kms')
+      response = kms_client.encrypt(
+          KeyId='arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123456789012',
+          Plaintext=plaintext_data_key
+      )
+      encrypted_plaintext_data_key = response['CiphertextBlob']
+      return base64.b64encode(encrypted_plaintext_data_key)
+  ```
+
+  3. Decrypt the data key when needed: When you need to decrypt the data, you can use the encrypted data key and the protected plaintext data key to decrypt the data securely.
+
+  ```python
+  def decrypt_data(encrypted_data, encrypted_data_key, protected_plaintext_data_key):
+      # Example: Decrypt the encrypted data key using the protected plaintext data key
+      kms_client = boto3.client('kms')
+      response = kms_client.decrypt(
+          CiphertextBlob=base64.b64decode(encrypted_data_key),
+          EncryptionContext={
+              'PlaintextDataKey': protected_plaintext_data_key
+          }
+      )
+      plaintext_data_key = response['Plaintext']
+      # Use the plaintext data key to decrypt the data
+      # ...
+  ```
 

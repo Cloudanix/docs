@@ -10,66 +10,79 @@ sidebar_label: AddPermission
 #### Meaning
 
 - The AddPermission event in AWS Lambda refers to an action taken to grant permission to another AWS service or entity to invoke a Lambda function.
-- This event is triggered when a new permission is added to a Lambda function's resource policy, allowing a specific AWS service or entity to invoke the function.
-- The AddPermission event is useful for tracking and auditing changes made to the permissions of a Lambda function, ensuring that only authorized services or entities can invoke the function.
+- This event is typically used when you want to allow external services or resources to trigger your Lambda function.
+- By using the AddPermission event, you can specify the necessary permissions and conditions for the invoker to successfully invoke your Lambda function.
 
-#### Example
+### Remediation
 
-1. Example of security impact: If an unauthorized user gains access to the AWS Management Console or API credentials and performs an AddPermission event on a Lambda function, they can potentially grant excessive permissions to the function. This can lead to unauthorized access, data breaches, or even the execution of malicious code within the Lambda function.
+#### Using Console
 
-Remediation:
-- Rotate and secure AWS credentials: Immediately revoke any compromised credentials and rotate all access keys, passwords, and session tokens associated with the affected user or role.
-- Implement least privilege access: Review and modify the IAM policies associated with the Lambda function to ensure that only necessary permissions are granted. Follow the principle of least privilege to restrict access to only the required resources and actions.
-- Enable AWS CloudTrail: Enable CloudTrail to capture all API calls made to the Lambda function. This will help in identifying the unauthorized AddPermission event and provide an audit trail for investigation.
+- Example of security impact with AddPermission in AWS Lambda: Let's say you have a Lambda function that allows public access and you mistakenly use the AddPermission API to grant permission to an unauthorized entity. This can lead to potential security breaches as the unauthorized entity can now invoke your Lambda function and potentially access sensitive data or perform malicious actions.
 
-AWS CLI command to revoke access key:
-```
-aws iam delete-access-key --user-name <username> --access-key-id <access-key-id>
+- Remediation steps for AWS Lambda using AWS console:
+  1. Open the AWS Management Console and navigate to the Lambda service.
+  2. Select the Lambda function for which you want to remediate the security impact.
+  3. In the function's configuration page, scroll down to the "Permissions" section and click on the "Add permission" button.
+  4. Review the existing permissions and identify the unauthorized entity that was granted access using the AddPermission API.
+  5. Click on the "X" button next to the unauthorized entity's permission to remove it.
+  6. Review the remaining permissions to ensure that only authorized entities have access to invoke the Lambda function.
+  7. Click on the "Save" button to apply the changes and remediate the security impact.
+  8. Regularly monitor and review the permissions of your Lambda functions to prevent unauthorized access in the future.
+
+#### Using CLI
+
+- Example of security impact with AddPermission in AWS Lambda:
+  - If the AddPermission action is misconfigured or misused, it can potentially grant excessive permissions to external entities, leading to a security vulnerability. For example, if an incorrect or overly permissive IAM role or AWS account ID is specified in the AddPermission command, it could allow unauthorized access to the Lambda function.
+
+- Remediation for AWS Lambda using AWS CLI:
+  - To remediate the security impact of AddPermission in AWS Lambda, you can follow these steps using AWS CLI:
+    1. Identify the Lambda function for which the permission was added incorrectly.
+    2. Use the `aws lambda remove-permission` command to remove the incorrect permission. For example:
+       ```
+       aws lambda remove-permission --function-name <function-name> --statement-id <statement-id>
+       ```
+       Replace `<function-name>` with the name of the Lambda function and `<statement-id>` with the ID of the statement that needs to be removed.
+    3. Validate the permissions by using the `aws lambda get-policy` command to ensure that only the intended permissions are present. For example:
+       ```
+       aws lambda get-policy --function-name <function-name>
+       ```
+       Replace `<function-name>` with the name of the Lambda function.
+
+Note: It is important to review and validate the permissions before removing them to ensure that the correct permissions are retained and no unintended access is granted.
+
+#### Using Python
+
+- Example of security impact with AddPermission in AWS Lambda: Let's say you have a Lambda function that allows public access by using the `AddPermission` API call with a wide range of IP addresses (0.0.0.0/0) or by allowing access from any AWS account. This can potentially expose your Lambda function to unauthorized access and increase the risk of security breaches.
+
+- Remediation for AWS Lambda using Python: To remediate this security issue, you can update the Lambda function's permissions to restrict access only to trusted sources. Here's an example Python script that uses the `boto3` library to update the function's permissions:
+
+```python
+import boto3
+
+lambda_client = boto3.client('lambda')
+
+def update_lambda_permissions(function_name):
+    response = lambda_client.remove_permission(
+        FunctionName=function_name,
+        StatementId='AllowPublicAccess'
+    )
+    print('Removed public access permission:', response)
+
+    response = lambda_client.add_permission(
+        FunctionName=function_name,
+        StatementId='RestrictAccess',
+        Action='lambda:InvokeFunction',
+        Principal='AWS',
+        SourceArn='arn:aws:iam::123456789012:root',  # Replace with trusted source ARN
+        SourceAccount='123456789012'  # Replace with trusted source account ID
+    )
+    print('Added restricted access permission:', response)
+
+# Usage
+update_lambda_permissions('my-lambda-function')
 ```
 
-AWS CLI command to modify IAM policy:
-```
-aws iam put-role-policy --role-name <role-name> --policy-name <policy-name> --policy-document file://policy.json
-```
-
-2. Example of security impact: If a Lambda function is misconfigured and allows public access, an attacker can potentially invoke the AddPermission event to grant permissions to their own AWS account or a malicious entity. This can result in unauthorized execution of the Lambda function or unauthorized access to sensitive data.
-
-Remediation:
-- Restrict access to the Lambda function: Modify the function's configuration to ensure that it is not publicly accessible. Update the function's VPC settings, security groups, or network ACLs to restrict access to trusted sources only.
-- Implement AWS WAF: Use AWS Web Application Firewall (WAF) to add an additional layer of protection. Configure WAF rules to block requests that are attempting to invoke the Lambda function from unauthorized sources.
-- Regularly review and monitor permissions: Regularly review the permissions granted to the Lambda function and remove any unnecessary or excessive permissions. Implement a monitoring solution to detect and alert on any unauthorized AddPermission events.
-
-AWS CLI command to update Lambda function's VPC settings:
-```
-aws lambda update-function-configuration --function-name <function-name> --vpc-config SubnetIds=<subnet-ids>,SecurityGroupIds=<security-group-ids>
-```
-
-AWS CLI command to add AWS WAF rule:
-```
-aws wafv2 create-rule-group --name <rule-group-name> --scope REGIONAL --capacity <capacity> --rules file://rules.json
-```
-
-3. Example of security impact: If an attacker gains access to the AWS account or IAM user with sufficient privileges, they can perform an AddPermission event on a Lambda function to grant permissions to their own AWS Identity and Access Management (IAM) user or role. This can lead to privilege escalation, allowing the attacker to perform unauthorized actions or access sensitive resources.
-
-Remediation:
-- Implement multi-factor authentication (MFA): Enable MFA for all IAM users and roles with administrative privileges. This adds an extra layer of security and makes it harder for attackers to gain unauthorized access.
-- Regularly review IAM policies: Regularly review and audit the IAM policies associated with the Lambda function. Remove any unnecessary or overly permissive policies and ensure that the principle of least privilege is followed.
-- Enable AWS CloudTrail and AWS Config: Enable CloudTrail and AWS Config to capture and monitor all API calls made to the Lambda function. This will help in detecting and investigating any unauthorized AddPermission events and provide a comprehensive audit trail.
-
-AWS CLI command to enable MFA for an IAM user:
-```
-aws iam enable-mfa-device --user-name <user-name> --serial-number <mfa-serial-number> --authentication-code1 <code1> --authentication-code2 <code2>
-```
-
-AWS CLI command to enable CloudTrail:
-```
-aws cloudtrail create-trail --name <trail-name> --s3-bucket-name <bucket-name> --is-multi-region-trail --include-global-service-events
-```
-
-AWS CLI command to enable AWS Config:
-```
-aws configservice put-configuration-recorder --configuration-recorder name=default --recording-group allSupported=true --resource-types all
-```
+This script removes the existing public access permission (`AllowPublicAccess`) and adds a new permission (`RestrictAccess`) that allows access only from a specific AWS account (`123456789012`) and ARN (`arn:aws:iam::123456789012:root`). Make sure to replace the placeholders with the appropriate values for your use case.
 
 
  

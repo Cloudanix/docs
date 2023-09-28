@@ -3,25 +3,102 @@
 
 #### Meaning
 
-1. The UpdateAssumeRolePolicy event in AWS IAM refers to a change made to the policy that defines which entities are allowed to assume a particular IAM role.
-2. This event is triggered when there is a modification to the trust policy document associated with an IAM role, which determines the trusted entities that can assume the role.
-3. The UpdateAssumeRolePolicy event is important for tracking and auditing changes to the trust relationships between IAM roles and the entities that can assume those roles, ensuring the security and integrity of access control in AWS environments.
+1. The UpdateAssumeRolePolicy event in AWS for IAM refers to a change made to the policy that defines which entities are allowed to assume a specific IAM role.
+2. This event occurs when the assume role policy document is updated for an IAM role, either by adding or removing permissions for entities to assume the role.
+3. It is important to monitor this event as it can indicate changes in the trust relationships between IAM roles and the entities that can assume them, ensuring the security and proper access control within your AWS environment.
 
-#### Example
+### Remediation
 
-1. Example of how security can be impacted with UpdateAssumeRolePolicy event in AWS IAM:
-   - An attacker gains unauthorized access to an IAM role and modifies the AssumeRolePolicy document, allowing them to assume the role and potentially escalate privileges or access sensitive resources.
+#### Using Console
 
-2. Remediation for security impact caused by UpdateAssumeRolePolicy event:
-   - Regularly monitor and review IAM role policies for any unauthorized changes.
-   - Enable AWS CloudTrail to capture API events related to IAM role policy modifications.
-   - Implement least privilege principles by ensuring that IAM roles have only the necessary permissions required for their intended purpose.
-   - Enable multi-factor authentication (MFA) for IAM users with administrative privileges to prevent unauthorized modifications to IAM policies.
+- Example: If an attacker gains access to an IAM user with the necessary permissions, they can modify the AssumeRolePolicy of an IAM role, allowing them to assume that role and potentially gain unauthorized access to resources or perform malicious actions.
 
-3. AWS CLI command to check for unauthorized changes in IAM role policies:
-   ```
-   aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=UpdateAssumeRolePolicy
-   ```
+- Remediation steps using AWS console:
+  1. Sign in to the AWS Management Console and open the IAM console.
+  2. In the navigation pane, choose "Roles".
+  3. Select the role for which you want to update the AssumeRolePolicy.
+  4. In the "Permissions" tab, scroll down to the "Trust relationships" section and click on the "Edit trust relationship" button.
+  5. Review the existing policy and make necessary changes to ensure only trusted entities can assume the role.
+  6. Click on the "Update Trust Policy" button to save the changes.
 
-   This command will retrieve the CloudTrail events related to the UpdateAssumeRolePolicy action, allowing you to identify any unauthorized modifications to IAM role policies.
+Note: It is recommended to regularly review and monitor IAM roles and their policies to ensure they align with the principle of least privilege and follow security best practices.
+
+#### Using CLI
+
+- Example: If an attacker gains access to an IAM user with the necessary permissions, they can modify the AssumeRolePolicy of an IAM role to grant themselves unauthorized access to resources. For instance, they could modify the AssumeRolePolicy to allow any AWS account to assume the role, bypassing any intended restrictions.
+
+- Remediation: To remediate this issue using AWS CLI, you can follow these steps:
+  1. Identify the affected IAM role by checking the AssumeRolePolicy document.
+  2. Create a backup of the existing AssumeRolePolicy document for the IAM role.
+  3. Update the AssumeRolePolicy document to remove any unauthorized or overly permissive statements.
+  4. Use the `aws iam update-assume-role-policy` command to update the AssumeRolePolicy for the IAM role, providing the role name and the updated policy document as parameters.
+  5. Verify the changes by reviewing the updated AssumeRolePolicy document for the IAM role.
+
+Example CLI commands:
+```
+# Create a backup of the existing AssumeRolePolicy document
+aws iam get-role --role-name <role-name> --query 'Role.AssumeRolePolicyDocument' > backup-policy.json
+
+# Update the AssumeRolePolicy document with the desired changes
+# Remove any unauthorized or overly permissive statements
+
+# Update the AssumeRolePolicy for the IAM role
+aws iam update-assume-role-policy --role-name <role-name> --policy-document file://updated-policy.json
+
+# Verify the changes
+aws iam get-role --role-name <role-name> --query 'Role.AssumeRolePolicyDocument'
+```
+
+#### Using Python
+
+1. Example of security impact with UpdateAssumeRolePolicy in AWS IAM:
+   - If an attacker gains unauthorized access to an IAM user or role with the necessary permissions, they can modify the trust policy of an IAM role using the UpdateAssumeRolePolicy API call. By modifying the trust policy, the attacker can grant themselves or other malicious entities access to assume the role, potentially escalating their privileges and compromising the security of the AWS account.
+
+2. Remediation for AWS IAM using Python:
+   - To remediate the security impact of unauthorized changes to the trust policy of an IAM role, you can implement a proactive monitoring and alerting system using AWS CloudTrail and AWS Lambda. Here's an example Python script that can be used to detect and respond to unauthorized changes to the trust policy:
+
+```python
+import boto3
+
+def lambda_handler(event, context):
+    # Extract the role name from the event
+    role_name = event['detail']['requestParameters']['roleName']
+    
+    # Create an IAM client
+    iam_client = boto3.client('iam')
+    
+    # Get the current trust policy of the role
+    response = iam_client.get_role(RoleName=role_name)
+    current_policy = response['Role']['AssumeRolePolicyDocument']
+    
+    # Define the expected trust policy
+    expected_policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "ec2.amazonaws.com"
+                },
+                "Action": "sts:AssumeRole"
+            }
+        ]
+    }
+    
+    # Compare the current policy with the expected policy
+    if current_policy != expected_policy:
+        # If the policies don't match, take remediation actions (e.g., revert to the expected policy, send notifications, etc.)
+        iam_client.update_assume_role_policy(
+            RoleName=role_name,
+            PolicyDocument=json.dumps(expected_policy)
+        )
+        # Send a notification to the security team
+        sns_client = boto3.client('sns')
+        sns_client.publish(
+            TopicArn='arn:aws:sns:us-east-1:123456789012:security-alerts',
+            Message=f"Unauthorized change detected in the trust policy of IAM role: {role_name}"
+        )
+```
+
+This script can be deployed as an AWS Lambda function and triggered by CloudTrail events related to the UpdateAssumeRolePolicy API call. It compares the current trust policy of the affected role with an expected policy and takes remediation actions if a mismatch is detected. Additionally, it sends a notification to an SNS topic to alert the security team about the unauthorized change.
 
