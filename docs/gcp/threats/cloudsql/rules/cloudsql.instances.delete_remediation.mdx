@@ -1,0 +1,136 @@
+
+### Event Information
+
+#### Meaning
+
+- The cloudsql.instances.delete event in GCP for CloudSQL indicates that a Cloud SQL instance has been deleted.
+- This event is triggered when a user or an automated process initiates the deletion of a Cloud SQL instance.
+- The event provides information about the instance that was deleted, such as the instance ID, project ID, and region.
+
+
+
+### Remediation
+
+#### Using Console
+
+- Example: If security is impacted with cloudsql.instances.delete in GCP for CloudSQL, it could potentially lead to unauthorized deletion of CloudSQL instances, resulting in data loss and service disruption.
+
+To remediate this issue for GCP CloudSQL using GCP console, you can follow these step-by-step instructions:
+
+1. Access the GCP Console: Log in to your GCP account and navigate to the GCP Console.
+
+2. Navigate to the CloudSQL Instances: From the GCP Console, go to the CloudSQL Instances page.
+
+3. Select the Target Instance: Identify the CloudSQL instance that you want to protect from accidental deletion and select it.
+
+4. Configure IAM Permissions: Click on the "Permissions" tab within the instance details page. Ensure that the appropriate IAM roles are assigned to the users or service accounts that need access to manage the instance.
+
+5. Restrict Delete Permissions: To prevent accidental deletion, remove the "cloudsql.instances.delete" permission from any users or service accounts that do not require it. This can be done by modifying the IAM roles assigned to those entities.
+
+6. Verify Changes: Double-check the IAM permissions to ensure that the "cloudsql.instances.delete" permission is only granted to trusted users or service accounts who need it for administrative purposes.
+
+By following these steps, you can mitigate the security impact of the "cloudsql.instances.delete" action in GCP CloudSQL and reduce the risk of unauthorized deletion of CloudSQL instances.
+
+#### Using CLI
+
+- Example: If security is impacted with `cloudsql.instances.delete` in GCP for CloudSQL, it means that an unauthorized user or process has the ability to delete CloudSQL instances, potentially leading to data loss or service disruption.
+
+- Remediation steps for GCP CloudSQL using GCP CLI:
+  1. Grant appropriate IAM permissions: Ensure that only authorized users or service accounts have the necessary permissions to delete CloudSQL instances. Grant the `cloudsql.instances.delete` permission to specific IAM roles or service accounts that require this capability.
+  
+  2. Enable VPC Service Controls: Implement VPC Service Controls to create a secure perimeter around your CloudSQL instances. This helps prevent unauthorized access or deletion of instances from outside the designated VPC network.
+  
+  3. Implement IAM conditions: Utilize IAM conditions to further restrict the ability to delete CloudSQL instances based on specific criteria such as IP address, device, or time of day. This adds an extra layer of security and control over the deletion process.
+
+CLI commands:
+- Granting IAM permissions:
+  ```
+  gcloud projects add-iam-policy-binding [PROJECT_ID] --member=[MEMBER] --role=roles/cloudsql.instances.delete
+  ```
+
+- Enabling VPC Service Controls:
+  ```
+  gcloud services vpc-peerings add-allowed-services [PEERING_NAME] --services=servicenetworking.googleapis.com
+  ```
+
+- Implementing IAM conditions:
+  ```
+  gcloud projects add-iam-policy-binding [PROJECT_ID] --member=[MEMBER] --role=roles/cloudsql.instances.delete --condition=[CONDITION]
+  ```
+
+#### Using Python
+
+Example of security impact: If the `cloudsql.instances.delete` permission is misconfigured or granted to unauthorized users, it can lead to unauthorized deletion of CloudSQL instances. This can result in data loss, service disruption, and potential security breaches.
+
+Remediation steps for GCP CloudSQL using Python:
+1. Implement proper access controls: Ensure that only authorized users or service accounts have the `cloudsql.instances.delete` permission. Use IAM roles and policies to grant this permission to specific individuals or groups.
+```python
+from google.cloud import iam
+
+def grant_delete_permission(project_id, instance_name, member):
+    client = iam.IAMClient()
+    policy = client.get_iam_policy(request={"resource": f"projects/{project_id}/instances/{instance_name}"})
+    binding = next((b for b in policy.bindings if b.role == "roles/cloudsql.instances.delete"), None)
+    if binding:
+        binding.members.append(member)
+    else:
+        binding = iam.Binding(role="roles/cloudsql.instances.delete", members=[member])
+        policy.bindings.append(binding)
+    client.set_iam_policy(request={"resource": f"projects/{project_id}/instances/{instance_name}", "policy": policy})
+
+def revoke_delete_permission(project_id, instance_name, member):
+    client = iam.IAMClient()
+    policy = client.get_iam_policy(request={"resource": f"projects/{project_id}/instances/{instance_name}"})
+    binding = next((b for b in policy.bindings if b.role == "roles/cloudsql.instances.delete"), None)
+    if binding:
+        binding.members.remove(member)
+        if not binding.members:
+            policy.bindings.remove(binding)
+    client.set_iam_policy(request={"resource": f"projects/{project_id}/instances/{instance_name}", "policy": policy})
+```
+2. Enable audit logging: Enable Cloud Audit Logs for CloudSQL instances to track any deletion activities. This will help in identifying any unauthorized deletion attempts and provide an audit trail for investigation.
+```python
+from google.cloud import logging_v2
+
+def enable_audit_logging(project_id, instance_name):
+    client = logging_v2.ConfigServiceV2Client()
+    parent = client.location_path(project_id, "global")
+    config_name = f"projects/{project_id}/instances/{instance_name}/logs/cloudaudit.googleapis.com%2Factivity"
+    config = logging_v2.LogSink(
+        name=config_name,
+        destination="bigquery.googleapis.com/projects/{project_id}/datasets/{dataset_id}/tables/{table_id}",
+        filter="protoPayload.methodName=\"google.cloud.sql.v1beta4.SqlInstancesService.Delete\"",
+    )
+    client.create_sink(request={"parent": parent, "sink": config})
+
+def disable_audit_logging(project_id, instance_name):
+    client = logging_v2.ConfigServiceV2Client()
+    config_name = f"projects/{project_id}/instances/{instance_name}/logs/cloudaudit.googleapis.com%2Factivity"
+    client.delete_sink(request={"sink_name": config_name})
+```
+3. Regularly review and monitor permissions: Periodically review the IAM permissions granted to users and service accounts. Remove any unnecessary or excessive permissions to minimize the risk of unauthorized deletion. Implement a monitoring system to alert on any changes to the `cloudsql.instances.delete` permission.
+```python
+from google.cloud import monitoring_v3
+
+def create_alert_policy(project_id, instance_name):
+    client = monitoring_v3.AlertPolicyServiceClient()
+    project_name = f"projects/{project_id}"
+    condition = monitoring_v3.AlertPolicy.Condition(
+        display_name="Unauthorized CloudSQL Instance Deletion",
+        condition_threshold=monitoring_v3.AlertPolicy.Condition.ConditionThreshold(
+            filter='resource.type="cloudsql_database" AND protoPayload.methodName="google.cloud.sql.v1beta4.SqlInstancesService.Delete"',
+            duration=monitoring_v3.Duration(seconds=300),
+            comparison=monitoring_v3.ComparisonType.COMPARISON_GT,
+            threshold_value=0,
+        ),
+        combiner_type=monitoring_v3.AlertPolicy.Condition.CombinerType.AND,
+    )
+    policy = monitoring_v3.AlertPolicy(display_name=f"CloudSQL Instance Deletion - {instance_name}", conditions=[condition])
+    client.create_alert_policy(request={"name": project_name, "alert_policy": policy})
+
+def delete_alert_policy(policy_name):
+    client = monitoring_v3.AlertPolicyServiceClient()
+    client.delete_alert_policy(request={"name": policy_name})
+```
+Note: The provided Python scripts demonstrate how to grant/revoke delete permissions, enable/disable audit logging, and create/delete alert policies. You may need to modify the scripts based on your specific requirements and environment setup.
+
