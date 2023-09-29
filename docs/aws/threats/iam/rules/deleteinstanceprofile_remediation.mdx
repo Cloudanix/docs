@@ -1,97 +1,107 @@
 
 ### Event Information
 
-#### Meaning
-
 - The DeleteInstanceProfile event in AWS for IAM refers to the deletion of an instance profile. 
 - An instance profile is a container for an IAM role that you can use to pass role information to an EC2 instance when the instance starts. 
 - When the DeleteInstanceProfile event occurs, it means that the instance profile and its associated IAM role have been deleted, and any EC2 instances using that instance profile will no longer have access to the permissions granted by the role.
+
+
+### Examples
+
+- Unauthorized deletion of an instance profile can lead to potential security breaches as it may grant unintended access to resources and services.
+- Deleting an instance profile without proper documentation or communication can result in the loss of important permissions and configurations, impacting the security posture of the affected resources.
+- In a multi-account environment, deleting an instance profile without considering its dependencies can disrupt the functioning of other resources and services, potentially compromising security.
 
 ### Remediation
 
 #### Using Console
 
-- Example: If security is impacted with DeleteInstanceProfile in AWS IAM, an attacker could potentially delete an instance profile that is associated with an EC2 instance. This could lead to unauthorized access to the instance or disruption of services that rely on the instance profile.
-
-- Remediation steps using AWS console:
-  1. Sign in to the AWS Management Console.
-  2. Open the IAM console.
-  3. In the navigation pane, choose "Roles".
-  4. Select the role associated with the instance profile that was deleted.
-  5. Choose the "Permissions" tab.
-  6. Click on "Attach policies".
-  7. Select the appropriate policies to attach to the role.
-  8. Choose "Attach policy" to attach the selected policies.
-  9. Repeat steps 4-8 for any other roles affected by the deleted instance profile.
-  10. Monitor the affected EC2 instances and associated services for any unauthorized access or disruption.
-  11. Consider implementing preventive measures such as enabling AWS CloudTrail to capture API activity and setting up appropriate alarms and notifications for any suspicious activity.
+None
 
 #### Using CLI
 
-- Example: If security is impacted with DeleteInstanceProfile in AWS IAM, an attacker could potentially delete an instance profile that is associated with an EC2 instance. This could lead to a loss of necessary permissions for the instance, potentially compromising the security of the resources it has access to.
+1. Ensure IAM users have strong passwords:
+   - Use the `update-login-profile` command to set a strong password for an IAM user:
+     ```
+     aws iam update-login-profile --user-name <IAM_USER_NAME> --password <NEW_PASSWORD> --password-reset-required
+     ```
 
-- Remediation: To remediate this issue for AWS IAM using AWS CLI, you can follow these steps:
+2. Enable multi-factor authentication (MFA) for IAM users:
+   - Use the `enable-mfa-device` command to enable MFA for an IAM user:
+     ```
+     aws iam enable-mfa-device --user-name <IAM_USER_NAME> --serial-number <MFA_DEVICE_SERIAL_NUMBER> --authentication-code1 <CODE1> --authentication-code2 <CODE2>
+     ```
 
-  1. Enable AWS CloudTrail: Enable CloudTrail to capture API activity logs for your AWS account. This will help in monitoring and auditing any changes made to IAM resources.
-
-  2. Implement IAM Policies: Create and attach IAM policies to restrict the permissions required for the DeleteInstanceProfile action. Ensure that only authorized users or roles have the necessary permissions to perform this action.
-
-  3. Monitor and Alert: Set up CloudWatch Events to monitor and alert on any DeleteInstanceProfile API calls. This will help in detecting any unauthorized or suspicious activity related to instance profiles.
-
-CLI Commands:
-- To enable CloudTrail:
-```
-aws cloudtrail create-trail --name <trail-name> --s3-bucket-name <bucket-name> --is-multi-region-trail
-```
-
-- To create an IAM policy:
-```
-aws iam create-policy --policy-name <policy-name> --policy-document file://policy.json
-```
-
-- To attach the IAM policy to a user or role:
-```
-aws iam attach-user-policy --user-name <user-name> --policy-arn <policy-arn>
-```
-
-- To create a CloudWatch Events rule for monitoring DeleteInstanceProfile API calls:
-```
-aws events put-rule --name <rule-name> --event-pattern "{\"source\":[\"aws.iam\"],\"detail-type\":[\"AWS API Call via CloudTrail\"],\"detail\":{\"eventSource\":[\"iam.amazonaws.com\"],\"eventName\":[\"DeleteInstanceProfile\"]}}"
-```
-
-Note: Replace `<trail-name>`, `<bucket-name>`, `<policy-name>`, `<policy-arn>`, `<user-name>`, and `<rule-name>` with appropriate values specific to your environment.
+3. Remove unnecessary IAM access keys:
+   - Use the `delete-access-key` command to delete an IAM access key:
+     ```
+     aws iam delete-access-key --user-name <IAM_USER_NAME> --access-key-id <ACCESS_KEY_ID>
+     ```
 
 #### Using Python
 
-- Example of security impact: If an attacker gains unauthorized access to an IAM user or role with the necessary permissions, they can use the `DeleteInstanceProfile` API call to delete an instance profile. This can lead to disruption of services or unauthorized access to resources associated with the instance profile.
+1. Ensure IAM users have strong passwords:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if their password is strong by validating it against a set of password complexity rules.
+   - If a user's password is weak, use the `update_login_profile` method to force a password reset for that user.
 
-- Remediation using Python: To remediate this security issue, you can implement the following steps using the AWS SDK for Python (Boto3):
+```python
+import boto3
+import re
 
-1. Implement proper IAM permissions: Ensure that only authorized users or roles have the necessary permissions to perform the `DeleteInstanceProfile` action. Restrict access to IAM resources based on the principle of least privilege.
+def check_password_complexity(password):
+    # Implement your password complexity rules here
+    # Example: Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one digit
+    if len(password) < 8 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(r'\d', password):
+        return False
+    return True
 
-2. Enable AWS CloudTrail: Enable AWS CloudTrail to capture API activity logs. This will help in monitoring and auditing any unauthorized or suspicious activities related to the `DeleteInstanceProfile` action.
+def remediate_weak_passwords():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        login_profile = iam_client.get_login_profile(UserName=user['UserName'])
+        if 'LoginProfile' in login_profile:
+            password = login_profile['LoginProfile'].get('Password')
+            if password and not check_password_complexity(password):
+                iam_client.update_login_profile(UserName=user['UserName'], PasswordResetRequired=True)
+```
 
-3. Implement automated monitoring and alerting: Use AWS CloudWatch Events to create a rule that triggers a Lambda function whenever the `DeleteInstanceProfile` action is performed. The Lambda function can send notifications or take further actions, such as disabling the affected IAM user or role, to mitigate the security impact.
-
-Here's an example Python script using Boto3 to implement the above steps:
+2. Enable multi-factor authentication (MFA) for IAM users:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if MFA is enabled by calling the `list_mfa_devices` method.
+   - If MFA is not enabled, use the `enable_mfa` method to enable it for the user.
 
 ```python
 import boto3
 
-# Step 1: Implement proper IAM permissions
-# Update the policy to allow only authorized users or roles to perform DeleteInstanceProfile action
-
-# Step 2: Enable AWS CloudTrail
-# Enable CloudTrail in the desired AWS region
-
-# Step 3: Implement automated monitoring and alerting
-# Create a CloudWatch Events rule to trigger a Lambda function on DeleteInstanceProfile action
-
-def lambda_handler(event, context):
-    # Step 3: Implement automated monitoring and alerting
-    # Perform necessary actions, such as sending notifications or disabling the affected IAM user or role
-    pass
+def remediate_missing_mfa():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        mfa_devices = iam_client.list_mfa_devices(UserName=user['UserName'])['MFADevices']
+        if not mfa_devices:
+            iam_client.enable_mfa(UserName=user['UserName'])
 ```
 
-Note: The above script is a basic example and should be customized based on your specific requirements and environment.
+3. Remove unused IAM access keys:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if they have any access keys by calling the `list_access_keys` method.
+   - If the user has unused access keys, use the `delete_access_key` method to remove them.
+
+```python
+import boto3
+
+def remediate_unused_access_keys():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        access_keys = iam_client.list_access_keys(UserName=user['UserName'])['AccessKeyMetadata']
+        for access_key in access_keys:
+            if access_key['Status'] == 'Inactive':
+                iam_client.delete_access_key(UserName=user['UserName'], AccessKeyId=access_key['AccessKeyId'])
+```
 
