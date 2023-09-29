@@ -1,27 +1,107 @@
 
 ### Event Information
 
-#### Meaning
-
-- The DeleteInstanceProfile event in AWS IAM refers to the deletion of an instance profile. 
+- The DeleteInstanceProfile event in AWS for IAM refers to the deletion of an instance profile. 
 - An instance profile is a container for an IAM role that you can use to pass role information to an EC2 instance when the instance starts. 
-- When the DeleteInstanceProfile event occurs, it means that an instance profile has been successfully deleted from the AWS account.
+- When the DeleteInstanceProfile event occurs, it means that the instance profile and its associated IAM role have been deleted, and any EC2 instances using that instance profile will no longer have access to the permissions granted by the role.
 
-#### Example
 
-1. Example of how security can be impacted with DeleteInstanceProfile event in AWS IAM:
-   - If an attacker gains unauthorized access to an AWS IAM user or role with sufficient permissions, they can potentially delete an instance profile. This can lead to the compromise of EC2 instances associated with that instance profile, as the deleted profile will no longer provide necessary permissions for the instances to function properly.
+### Examples
 
-2. Remediation for security impact caused by DeleteInstanceProfile event:
-   - Regularly review and audit IAM policies and permissions to ensure that only necessary permissions are granted to users and roles.
-   - Enable AWS CloudTrail to capture all API activities, including DeleteInstanceProfile events, and regularly monitor the CloudTrail logs for any suspicious or unauthorized activities.
-   - Implement multi-factor authentication (MFA) for IAM users to add an extra layer of security and reduce the risk of unauthorized access.
-   - Implement least privilege principles by granting only the minimum required permissions to IAM users and roles, reducing the potential impact of compromised credentials.
+- Unauthorized deletion of an instance profile can lead to potential security breaches as it may grant unintended access to resources and services.
+- Deleting an instance profile without proper documentation or communication can result in the loss of important permissions and configurations, impacting the security posture of the affected resources.
+- In a multi-account environment, deleting an instance profile without considering its dependencies can disrupt the functioning of other resources and services, potentially compromising security.
 
-3. AWS CLI command to delete an instance profile:
-   - To delete an instance profile using AWS CLI, you can use the `delete-instance-profile` command:
+### Remediation
+
+#### Using Console
+
+None
+
+#### Using CLI
+
+1. Ensure IAM users have strong passwords:
+   - Use the `update-login-profile` command to set a strong password for an IAM user:
      ```
-     aws iam delete-instance-profile --instance-profile-name <instance-profile-name>
+     aws iam update-login-profile --user-name <IAM_USER_NAME> --password <NEW_PASSWORD> --password-reset-required
      ```
-     Replace `<instance-profile-name>` with the name of the instance profile you want to delete.
+
+2. Enable multi-factor authentication (MFA) for IAM users:
+   - Use the `enable-mfa-device` command to enable MFA for an IAM user:
+     ```
+     aws iam enable-mfa-device --user-name <IAM_USER_NAME> --serial-number <MFA_DEVICE_SERIAL_NUMBER> --authentication-code1 <CODE1> --authentication-code2 <CODE2>
+     ```
+
+3. Remove unnecessary IAM access keys:
+   - Use the `delete-access-key` command to delete an IAM access key:
+     ```
+     aws iam delete-access-key --user-name <IAM_USER_NAME> --access-key-id <ACCESS_KEY_ID>
+     ```
+
+#### Using Python
+
+1. Ensure IAM users have strong passwords:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if their password is strong by validating it against a set of password complexity rules.
+   - If a user's password is weak, use the `update_login_profile` method to force a password reset for that user.
+
+```python
+import boto3
+import re
+
+def check_password_complexity(password):
+    # Implement your password complexity rules here
+    # Example: Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, and one digit
+    if len(password) < 8 or not re.search(r'[A-Z]', password) or not re.search(r'[a-z]', password) or not re.search(r'\d', password):
+        return False
+    return True
+
+def remediate_weak_passwords():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        login_profile = iam_client.get_login_profile(UserName=user['UserName'])
+        if 'LoginProfile' in login_profile:
+            password = login_profile['LoginProfile'].get('Password')
+            if password and not check_password_complexity(password):
+                iam_client.update_login_profile(UserName=user['UserName'], PasswordResetRequired=True)
+```
+
+2. Enable multi-factor authentication (MFA) for IAM users:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if MFA is enabled by calling the `list_mfa_devices` method.
+   - If MFA is not enabled, use the `enable_mfa` method to enable it for the user.
+
+```python
+import boto3
+
+def remediate_missing_mfa():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        mfa_devices = iam_client.list_mfa_devices(UserName=user['UserName'])['MFADevices']
+        if not mfa_devices:
+            iam_client.enable_mfa(UserName=user['UserName'])
+```
+
+3. Remove unused IAM access keys:
+   - Use the `boto3` library in Python to retrieve a list of IAM users.
+   - For each user, check if they have any access keys by calling the `list_access_keys` method.
+   - If the user has unused access keys, use the `delete_access_key` method to remove them.
+
+```python
+import boto3
+
+def remediate_unused_access_keys():
+    iam_client = boto3.client('iam')
+    users = iam_client.list_users()['Users']
+    
+    for user in users:
+        access_keys = iam_client.list_access_keys(UserName=user['UserName'])['AccessKeyMetadata']
+        for access_key in access_keys:
+            if access_key['Status'] == 'Inactive':
+                iam_client.delete_access_key(UserName=user['UserName'], AccessKeyId=access_key['AccessKeyId'])
+```
 
