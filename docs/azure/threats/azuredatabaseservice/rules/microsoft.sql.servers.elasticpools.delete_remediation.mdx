@@ -3,16 +3,16 @@
 
 - The Microsoft.Sql.servers.elasticPools.delete event in Azure for AzureDatabaseService indicates that an elastic pool has been deleted in the Azure SQL Database service.
 - This event signifies that all databases within the elastic pool have been removed and the resources associated with the elastic pool have been deallocated.
-- It is important to note that this event can impact any dependent applications or services that were utilizing the databases within the deleted elastic pool.
+- It is important to note that this event does not delete individual databases within the elastic pool, but rather removes the entire elastic pool itself.
 
 
 ### Examples
 
 1. Unauthorized deletion of an Azure SQL elastic pool can lead to the loss of critical data and disruption of business operations. It is important to ensure that only authorized personnel have the necessary permissions to delete elastic pools in Azure.
 
-2. Inadequate security controls can result in malicious actors gaining access to the Azure SQL elastic pool deletion functionality. This can lead to unauthorized deletion of elastic pools, potentially causing data breaches and compromising the confidentiality, integrity, and availability of sensitive information.
+2. If security is impacted with Microsoft.Sql.servers.elasticPools.delete, it could potentially allow an attacker to delete an elastic pool containing multiple databases. This could result in the loss of data for all the databases within the elastic pool, impacting multiple applications or services relying on those databases.
 
-3. Lack of proper monitoring and auditing of Azure SQL elastic pool deletions can make it difficult to detect and respond to security incidents. Implementing robust logging and monitoring mechanisms can help identify any suspicious or unauthorized activities related to elastic pool deletions, enabling timely investigation and mitigation of potential security risks.
+3. In a multi-tenant environment, if security is compromised with Microsoft.Sql.servers.elasticPools.delete, it could allow a malicious user to delete an elastic pool that is shared by multiple tenants. This could lead to data loss and disruption of services for all the tenants relying on that elastic pool. It is crucial to have proper access controls and monitoring in place to prevent unauthorized deletion of elastic pools.
 
 ### Remediation
 
@@ -26,66 +26,99 @@ To remediate the unauthorized deletion of an Azure SQL elastic pool in Azure usi
 
 3. Take corrective actions: Depending on the findings of the investigation, you can take the following corrective actions:
 
-   - Restore from backups: If data loss has occurred, you should restore the Azure SQL elastic pool from the latest available backup. This will help recover any lost data and minimize the impact of the incident.
-
-   - Review and update access controls: Evaluate the access controls and permissions assigned to the Azure SQL elastic pool. Ensure that only authorized users have the necessary privileges and that access policies are properly configured to prevent unauthorized deletions.
-
-   - Enable auditing and monitoring: Implement auditing and monitoring mechanisms to track any future unauthorized deletion attempts. This can include enabling Azure SQL Database auditing, setting up alerts and notifications for suspicious activities, and regularly reviewing logs and reports.
-
-   - Educate users and enforce best practices: Provide training and awareness programs to educate users about the importance of security and the potential risks associated with unauthorized actions. Enforce best practices such as strong passwords, multi-factor authentication, and regular security assessments to prevent similar incidents in the future.
+   - Restore from backups: If data loss has occurred, restore the Azure SQL elastic pool from the latest available backup to recover the lost data.
+   
+   - Disable compromised accounts: If the incident was caused by unauthorized access, disable the compromised user accounts or entities to prevent further unauthorized actions.
+   
+   - Review and update access controls: Review the access control policies and permissions for the Azure SQL elastic pool to ensure that only authorized users have the necessary privileges. Update the policies if any misconfigurations or gaps are identified.
+   
+   - Implement multi-factor authentication (MFA): Enable MFA for all user accounts accessing the Azure SQL elastic pool to add an extra layer of security and prevent unauthorized access.
+   
+   - Monitor and alert: Set up proactive monitoring and alerting mechanisms to detect and respond to any future unauthorized deletion attempts or security incidents.
 
 By following these steps, you can effectively remediate the unauthorized deletion of an Azure SQL elastic pool and enhance the security of your Azure environment.
 
 #### Using CLI
 
-1. Unauthorized deletion of an Azure SQL elastic pool can be remediated by taking the following steps using Azure CLI:
-   - Identify the unauthorized deletion event by monitoring the Microsoft.Sql.servers.elasticPools.delete event in Azure.
-   - Immediately revoke the access privileges of the unauthorized user or entity by removing their permissions from the Azure SQL elastic pool.
-   - Restore the deleted Azure SQL elastic pool from a backup or snapshot to recover any lost data.
+1. Unauthorized deletion of an Azure SQL elastic pool can be remediated by taking the following steps using Azure CLI commands:
 
-2. To remediate a data breach or data loss incident related to the Microsoft.Sql.servers.elasticPools.delete event in Azure, follow these steps using Azure CLI:
-   - Investigate the incident to determine the extent of the breach and the potential data loss.
-   - Activate your incident response plan to contain the breach and mitigate further damage.
-   - Restore the deleted Azure SQL elastic pool from a backup or snapshot to recover any lost data and ensure data integrity.
+- Identify the unauthorized deletion event by querying the Azure Activity Log:
+  `az monitor activity-log list --resource-group <resource-group-name> --resource-type Microsoft.Sql/servers/elasticPools --query "[?operationName.value=='Microsoft.Sql/servers/elasticPools/delete']"`
 
-3. If the Microsoft.Sql.servers.elasticPools.delete event is triggered due to misconfiguration or human error, you can remediate it using Azure CLI:
-   - Review the access control policies and permissions assigned to the Azure SQL elastic pool to identify any misconfigurations.
-   - Correct the misconfigurations or revoke unnecessary permissions to prevent unintended deletion of the Azure SQL elastic pool.
-   - Implement proper configuration management practices and access control mechanisms to minimize the risk of future incidents.
+- Investigate the event details to determine the source and extent of the unauthorized access:
+  `az monitor activity-log show --ids <activity-log-id>`
+
+- Take immediate action to mitigate the impact by restoring the deleted Azure SQL elastic pool from a backup or snapshot:
+  `az sql elastic-pool restore --name <restored-elastic-pool-name> --source-elastic-pool <source-elastic-pool-name> --resource-group <resource-group-name>`
+
+2. In the case of a data breach or data loss event, the following steps can be taken using Azure CLI commands:
+
+- Identify the event and assess the extent of the breach by querying the Azure Activity Log:
+  `az monitor activity-log list --resource-group <resource-group-name> --resource-type Microsoft.Sql/servers/elasticPools --query "[?operationName.value=='Microsoft.Sql/servers/elasticPools/delete']"`
+
+- Activate incident response procedures to contain the breach and investigate the compromised Azure SQL elastic pool:
+  - Disable public access to the Azure SQL elastic pool:
+    `az sql server firewall-rule create --resource-group <resource-group-name> --server <server-name> --name "DenyAll" --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0`
+  - Isolate the compromised Azure SQL elastic pool from other resources:
+    `az sql server vnet-rule create --resource-group <resource-group-name> --server <server-name> --name <vnet-rule-name> --subnet <subnet-id>`
+  - Monitor and analyze the compromised Azure SQL elastic pool for any unauthorized activities:
+    `az sql elastic-pool list-databases --name <elastic-pool-name> --resource-group <resource-group-name>`
+
+- Report the incident to the appropriate authorities and follow any legal or compliance obligations.
+
+3. To remediate a misconfiguration or human error event related to the deletion of an Azure SQL elastic pool, the following steps can be taken using Azure CLI commands:
+
+- Identify the misconfiguration or human error event by querying the Azure Activity Log:
+  `az monitor activity-log list --resource-group <resource-group-name> --resource-type Microsoft.Sql/servers/elasticPools --query "[?operationName.value=='Microsoft.Sql/servers/elasticPools/delete']"`
+
+- Analyze the event details to understand the cause of the misconfiguration or error:
+  `az monitor activity-log show --ids <activity-log-id>`
+
+- Implement corrective actions to prevent similar incidents in the future, such as:
+  - Review and update access control policies to ensure only authorized users have the necessary permissions to delete Azure SQL elastic pools:
+    `az sql server ad-admin create --resource-group <resource-group-name> --server <server-name> --display-name <display-name> --object-id <object-id>`
+  - Implement proper configuration management practices, including version control and testing of changes before applying them to production environments.
+  - Provide training and awareness programs to educate authorized users about the potential impact of their actions and the importance of following best practices.
+
+Remember to adapt the commands to your specific environment and requirements.
 
 #### Using Python
 
-To remediate the unauthorized deletion of an Azure SQL elastic pool in Azure using Python, you can follow these steps:
+To remediate the unauthorized deletion of an Azure SQL elastic pool in AzureDatabaseService, you can follow these steps using Python scripts:
 
-1. Monitor and detect the event: Set up event monitoring and detection mechanisms to identify the Microsoft.Sql.servers.elasticPools.delete event. This can be done using Azure Monitor or Azure Security Center.
+1. Monitor and detect the event: Set up event monitoring and alerting for the Microsoft.Sql.servers.elasticPools.delete event in Azure. This can be done using Azure Monitor or Azure Event Grid. You can use the Azure SDK for Python to programmatically configure the monitoring and alerting.
 
-2. Investigate and respond: Once the event is detected, investigate the incident to determine the cause and severity. If it is confirmed as an unauthorized deletion, take immediate action to mitigate the impact. This may involve restoring the deleted elastic pool from a backup or initiating disaster recovery procedures.
+2. Investigate and mitigate the incident: Once the event is detected, investigate the incident to determine the cause and extent of the unauthorized deletion. You can use the Azure SDK for Python to retrieve information about the deleted elastic pool, such as its name, configuration, and associated resources.
 
-3. Enhance security controls: To prevent future unauthorized deletions, strengthen the security controls around the Azure SQL elastic pool. This includes implementing strong access control policies, regularly reviewing and updating permissions, enabling multi-factor authentication, and monitoring for suspicious activities.
+3. Restore the deleted elastic pool: If the deletion was unauthorized or accidental, you can restore the deleted elastic pool from a backup or a point-in-time restore. You can use the Azure SDK for Python to automate the restoration process by interacting with Azure SQL Database backups and restore APIs.
 
-Here is an example Python script using the Azure SDK for Python (azure-mgmt-sql) to monitor and detect the event:
+Here's an example of how you can use Python scripts to monitor and detect the event:
 
 ```python
+from azure.monitor.query import LogsQueryClient
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.monitor import MonitorManagementClient
 
-# Authenticate using default credentials
+# Set up Azure credentials
 credential = DefaultAzureCredential()
 
-# Create a MonitorManagementClient
-monitor_client = MonitorManagementClient(credential, subscription_id)
+# Set up Logs Query client
+logs_client = LogsQueryClient(credential)
 
 # Define the query to monitor the event
-query = "AzureActivity | where operationName == 'Microsoft.Sql/servers/elasticPools/delete'"
+query = """
+AzureActivity
+| where OperationName == "Microsoft.Sql/servers/elasticPools/delete"
+| where ResourceProvider == "Microsoft.Sql"
+"""
 
 # Execute the query
-response = monitor_client.metrics.list(resource_group_name, query)
+response = logs_client.query_workspace('{workspace_id}', query)
 
-# Process the response and take necessary actions
-for metric in response.value:
-    # Perform actions based on the metric data
-    # For example, send an alert or trigger remediation steps
+# Process the query results
+for result in response.tables[0].rows:
+    # Send alert or trigger further actions
+    print(result)
 ```
 
-Please note that the above script is a basic example and may need to be customized based on your specific requirements and environment.
+Please note that you need to replace `{workspace_id}` with the actual ID of your Azure Log Analytics workspace. Additionally, you may need to install the required Python packages (`azure-monitor-query`, `azure-identity`) using pip before running the script.
 

@@ -18,7 +18,7 @@ sidebar_label: Microsoft.Resources.subscriptions.resourceGroups.delete
 
 2. Data exposure and leakage: In some cases, the deletion of resource groups may not completely remove all associated resources, such as storage accounts or virtual machines. If security is compromised, an attacker could potentially gain access to these resources before they are fully deleted, leading to data exposure and leakage.
 
-3. Impact on compliance and auditability: Deletion of resource groups without proper authorization and documentation can have a significant impact on compliance and auditability. It becomes difficult to track and monitor the changes made to the Azure environment, potentially leading to non-compliance with regulatory requirements and making it challenging to investigate security incidents.
+3. Impact on compliance and auditability: Deletion of resource groups without proper authorization and control can have a significant impact on compliance and auditability. It becomes difficult to track and monitor the changes made to the Azure environment, potentially leading to non-compliance with regulatory requirements and making it challenging to investigate security incidents.
 
 ### Remediation
 
@@ -30,53 +30,47 @@ To remediate unauthorized deletion of resource groups in Azure using the Azure c
    - Go to the Azure portal and navigate to the resource group you want to secure.
    - Click on "Access control (IAM)" in the left-hand menu.
    - Click on "Add" and select the appropriate role (e.g., Owner, Contributor, or User Access Administrator).
-   - Specify the user or group that should have the role assigned and click on "Save".
+   - Specify the user or group that should have the role and click on "Save".
 
-2. Enable resource group locks: Resource group locks can prevent accidental or unauthorized deletion of resource groups. To enable resource group locks, follow these steps:
+2. Enable Azure Resource Locks: Resource locks can be used to prevent accidental deletion of resource groups. Follow these steps to enable resource locks:
    - Go to the Azure portal and navigate to the resource group you want to protect.
    - Click on "Locks" in the left-hand menu.
    - Click on "Add" and provide a name and description for the lock.
-   - Select the appropriate lock type (e.g., CanNotDelete) and click on "OK".
+   - Select the lock type as "Delete" to prevent deletion of the resource group.
+   - Click on "OK" to save the lock.
 
-3. Enable Azure Policy: Azure Policy allows you to define and enforce specific rules and conditions for resource group deletion. To enable Azure Policy, follow these steps:
-   - Go to the Azure portal and navigate to the Azure Policy service.
-   - Click on "Definitions" in the left-hand menu.
-   - Click on "Assign policy" and select the appropriate policy definition (e.g., "Deny resource group deletion").
-   - Specify the scope (e.g., subscription or resource group) and click on "Assign".
+3. Enable Azure Resource Manager Policies: Azure Resource Manager policies can be used to enforce specific rules and restrictions on resource groups. To enable policies:
+   - Go to the Azure portal and navigate to the subscription level.
+   - Click on "Policies" in the left-hand menu.
+   - Click on "Assign policy" and select the desired policy from the list.
+   - Configure the policy parameters as per your requirements.
+   - Click on "Assign" to apply the policy to the subscription.
 
 By implementing these steps, you can mitigate the risk of unauthorized deletion of resource groups in Azure and ensure better security, compliance, and auditability.
 
 #### Using CLI
 
-To remediate unauthorized deletion of resource groups in Azure using Azure CLI, you can follow these steps:
+To remediate unauthorized deletion of resource groups in Azure using Azure CLI commands, you can follow these steps:
 
-1. Implement Role-Based Access Control (RBAC): Ensure that proper RBAC roles and permissions are assigned to users and groups. Limit the delete access to resource groups only to authorized personnel.
+1. Implement Role-Based Access Control (RBAC): Grant appropriate permissions to users and groups to ensure that only authorized individuals can delete resource groups. Use the `az role assignment create` command to assign the necessary roles to users or groups. For example:
 
-2. Enable Azure Resource Manager Locks: Use Azure Resource Manager locks to prevent accidental or unauthorized deletion of resource groups. You can apply a delete lock to the resource group, which will prevent any resources within it from being deleted.
-
-3. Enable Azure Resource Manager Policies: Implement Azure Resource Manager policies to enforce governance and compliance rules. You can create a policy that restricts the deletion of resource groups without proper authorization.
-
-CLI commands:
-
-1. Assign RBAC roles:
    ```
-   az role assignment create --assignee <user or group principal ID> --role "Contributor" --scope /subscriptions/<subscription ID>/resourceGroups/<resource group name>
+   az role assignment create --role "Contributor" --assignee <user or group principal ID> --scope /subscriptions/<subscription ID>/resourceGroups/<resource group name>
    ```
 
-2. Apply delete lock:
+2. Enable Azure Resource Manager Locks: Apply locks to resource groups to prevent accidental or unauthorized deletion. Use the `az lock create` command to create a lock on the resource group. For example:
+
    ```
-   az lock create --name "DeleteLock" --lock-type CanNotDelete --resource-group <resource group name>
+   az lock create --name <lock name> --lock-type CanNotDelete --resource-group <resource group name>
    ```
 
-3. Create policy definition:
+3. Enable Azure Resource Manager Policies: Implement policies to enforce specific rules and restrictions on resource group deletion. Use the `az policy assignment create` command to assign a policy to the resource group. For example:
+
    ```
-   az policy definition create --name "RestrictResourceGroupDeletion" --rules "{'if': {'field': 'type', 'equals': 'Microsoft.Resources/subscriptions/resourceGroups/delete'}, 'then': {'effect': 'deny'}}" --mode All
+   az policy assignment create --name <policy assignment name> --policy <policy definition ID> --scope /subscriptions/<subscription ID>/resourceGroups/<resource group name>
    ```
 
-4. Assign policy to subscription:
-   ```
-   az policy assignment create --name "RestrictResourceGroupDeletionAssignment" --policy "RestrictResourceGroupDeletion" --scope /subscriptions/<subscription ID>
-   ```
+By implementing RBAC, resource locks, and policies, you can mitigate the risk of unauthorized deletion of resource groups in Azure and ensure compliance with security and regulatory requirements.
 
 #### Using Python
 
@@ -84,37 +78,41 @@ To remediate unauthorized deletion of resource groups in Azure, you can take the
 
 1. Implement Role-Based Access Control (RBAC): Ensure that proper RBAC permissions are assigned to users and groups. Limit the delete permission for resource groups to only authorized individuals or roles. Regularly review and update these permissions to maintain the principle of least privilege.
 
-2. Enable Azure Resource Manager Locks: Use Azure Resource Manager locks to prevent accidental or unauthorized deletion of resource groups. Apply the "CanNotDelete" lock to critical resource groups to prevent any deletion attempts. This lock can only be removed by users with the appropriate permissions.
+2. Enable Azure Resource Manager Locks: Use Azure Resource Manager locks to prevent accidental or unauthorized deletion of resource groups. Apply the "CanNotDelete" lock to critical resource groups to ensure they cannot be deleted without proper authorization.
 
-3. Enable Azure Resource Manager Policies: Implement Azure Resource Manager policies to enforce specific rules and restrictions on resource group deletion. For example, you can create a policy that requires a specific tag to be present on a resource group before it can be deleted. This helps prevent accidental or unauthorized deletions.
+3. Enable Azure Resource Manager Audit Logs: Enable Azure Resource Manager audit logs to track and monitor any changes made to resource groups. This will help in identifying unauthorized deletion attempts and provide an audit trail for investigation and compliance purposes.
 
-Here is an example Python script using the Azure SDK for Python (azure-mgmt-resource) to implement an RBAC role assignment for a resource group:
+Here is an example of a Python script that can be used to implement RBAC permissions for resource groups:
 
 ```python
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.authorization import AuthorizationManagementClient
-from azure.mgmt.authorization.models import RoleAssignmentProperties
+from azure.mgmt.authorization.models import RoleAssignmentCreateParameters
 
-# Authenticate using default credentials
+# Authenticate using DefaultAzureCredential
 credential = DefaultAzureCredential()
 
-# Create the Authorization Management client
+# Create an instance of the AuthorizationManagementClient
 authorization_client = AuthorizationManagementClient(credential, "<subscription_id>")
 
-# Define the role assignment properties
-role_assignment = RoleAssignmentProperties(
+# Define the role assignment parameters
+role_assignment = RoleAssignmentCreateParameters(
+    role_definition_id="<role_definition_id>",
     principal_id="<principal_id>",
-    role_definition_id="/subscriptions/<subscription_id>/providers/Microsoft.Authorization/roleDefinitions/<role_definition_id>",
-    scope="/subscriptions/<subscription_id>/resourceGroups/<resource_group_name>"
+    principal_type="ServicePrincipal"
 )
 
-# Create the role assignment
-authorization_client.role_assignments.create("<scope>", "<role_assignment_name>", role_assignment)
+# Create the role assignment for the resource group
+authorization_client.role_assignments.create(
+    "<resource_group_id>",
+    "<role_assignment_name>",
+    role_assignment
+)
 ```
 
-Note: Replace `<subscription_id>`, `<principal_id>`, `<role_definition_id>`, `<resource_group_name>`, `<scope>`, and `<role_assignment_name>` with the appropriate values for your environment.
+Note: Replace `<subscription_id>`, `<role_definition_id>`, `<principal_id>`, `<resource_group_id>`, and `<role_assignment_name>` with the appropriate values for your environment.
 
-Please refer to the official Azure SDK for Python documentation for more information on how to use the SDK and customize the script according to your specific requirements.
+Please note that the above script is just an example and may need to be modified based on your specific requirements and environment.
 
 
  

@@ -18,7 +18,7 @@ sidebar_label: Microsoft.Storage.storageAccounts.blobServices.containers.delete
 
 2. Data leakage: Another security impact could be the potential for data leakage. If an attacker gains access to delete containers, they may also have the ability to access and download the data stored within those containers before deleting them. This could result in the exposure of sensitive or confidential information, leading to potential compliance violations and reputational damage.
 
-3. Denial of Service (DoS) attacks: The deletion of containers in Azure Storage could also be leveraged as part of a Denial of Service (DoS) attack. By continuously deleting containers, an attacker could exhaust the storage resources and disrupt the availability of the storage service. This could impact the ability of legitimate users to access their data and services, leading to potential financial losses and customer dissatisfaction.
+3. Denial of Service (DoS) attacks: The deletion of containers in Azure Storage could also be leveraged as part of a Denial of Service (DoS) attack. By continuously deleting containers, an attacker could exhaust the storage resources and disrupt the availability of the storage account. This could impact the ability of legitimate users to access and use the storage services, leading to service interruptions and potential financial losses.
 
 ### Remediation
 
@@ -36,90 +36,116 @@ Remember to regularly monitor the logs and audit trails for any suspicious activ
 
 #### Using CLI
 
-To remediate unauthorized deletion of containers in Azure Storage using Azure CLI, you can take the following steps:
+1. To remediate unauthorized deletion of containers in Azure Storage, you can implement the following steps using Azure CLI commands:
 
-1. Implement Role-Based Access Control (RBAC): Ensure that proper RBAC permissions are assigned to users and service principals. Limit the delete access to only authorized individuals or groups. You can use the following Azure CLI command to grant the necessary permissions:
+- Enable soft delete: Soft delete allows you to recover deleted containers and their contents within a specified retention period. You can enable soft delete for a storage account using the following command:
+  `az storage account update --name <storage_account_name> --resource-group <resource_group_name> --enable-soft-delete true`
 
-   ```
-   az role assignment create --role "Storage Blob Data Contributor" --assignee <principal-id> --scope <storage-account-id>
-   ```
+- Implement RBAC and access controls: Ensure that proper Role-Based Access Control (RBAC) is in place to restrict access to container deletion operations. Grant permissions only to authorized users or roles. You can use the following command to assign RBAC roles to users or groups:
+  `az role assignment create --assignee <user_or_group_id> --role <role_name> --scope /subscriptions/<subscription_id>/resourceGroups/<resource_group_name>/providers/Microsoft.Storage/storageAccounts/<storage_account_name>`
 
-2. Enable Soft Delete: Soft Delete is a feature in Azure Storage that allows you to recover deleted containers and blobs within a specified retention period. By enabling Soft Delete, you can mitigate the risk of permanent data loss due to unauthorized deletions. Use the following Azure CLI command to enable Soft Delete for a storage account:
+- Enable auditing and monitoring: Set up auditing and monitoring for container deletion activities to detect any unauthorized access or suspicious behavior. You can configure Azure Monitor or Azure Security Center to receive alerts for container deletion events.
 
-   ```
-   az storage account blob-service-properties update --account-name <storage-account-name> --enable-delete-retention true --delete-retention-days <retention-days>
-   ```
+2. To remediate data leakage in Azure Storage, you can take the following actions:
 
-3. Enable Storage Account Firewall and Virtual Network Service Endpoints: By configuring network security measures, you can restrict access to your storage account from specific IP ranges or virtual networks. This helps prevent unauthorized access and reduces the attack surface. Use the following Azure CLI commands to enable firewall and virtual network service endpoints:
+- Implement strong access controls: Ensure that access to containers and their contents is restricted to authorized users or roles. Use RBAC and Azure Active Directory (AAD) authentication to control access. Avoid using shared access signatures (SAS) with excessive permissions.
 
-   ```
-   az storage account network-rule add --account-name <storage-account-name> --ip-address <ip-address>
-   az storage account network-rule add --account-name <storage-account-name> --subnet <subnet-id>
-   ```
+- Enable encryption at rest and in transit: Encrypt the data stored within containers using Azure Storage Service Encryption (SSE). Enable HTTPS for data transmission to prevent interception and unauthorized access.
 
-Remember to replace the placeholders (<principal-id>, <storage-account-id>, <storage-account-name>, <retention-days>, <ip-address>, <subnet-id>) with the appropriate values specific to your environment.
+- Implement data classification and labeling: Classify and label sensitive or confidential data stored within containers. Use Azure Information Protection (AIP) or Azure Data Classification to apply appropriate security controls and prevent unauthorized access.
+
+3. To mitigate Denial of Service (DoS) attacks in Azure Storage, consider the following steps:
+
+- Implement rate limiting and throttling: Configure rate limits and throttling policies to prevent excessive container deletion requests. This can help mitigate the impact of DoS attacks by limiting the rate at which containers can be deleted.
+
+- Enable Azure DDoS Protection: Enable Azure DDoS Protection Standard for your storage account. This service provides network layer protection against volumetric and application layer attacks, including DoS attacks.
+
+- Monitor and analyze traffic patterns: Use Azure Monitor or Azure Security Center to monitor and analyze traffic patterns to detect any abnormal or suspicious behavior. Set up alerts to notify you of potential DoS attacks or unusual spikes in container deletion requests.
 
 #### Using Python
 
-To remediate unauthorized deletion of containers in Azure Storage using Python, you can follow these steps:
+To remediate unauthorized deletion of containers in Azure Storage using Python scripts, you can:
 
-1. Implement Role-Based Access Control (RBAC): Ensure that proper RBAC permissions are assigned to users and service principals. Limit the delete access to only authorized individuals or applications. You can use the Azure SDK for Python to manage RBAC roles and permissions programmatically.
+1. Implement RBAC (Role-Based Access Control): Ensure that proper access controls are in place to limit the permissions of users and applications. Grant only the necessary permissions to delete containers to trusted entities. You can use the Azure SDK for Python to manage RBAC roles and permissions programmatically.
 
 ```python
 from azure.identity import DefaultAzureCredential
 from azure.mgmt.authorization import AuthorizationManagementClient
 
-# Authenticate using DefaultAzureCredential
+# Authenticate using default credentials
 credential = DefaultAzureCredential()
+
+# Create the authorization management client
 authorization_client = AuthorizationManagementClient(credential, subscription_id)
 
-# Grant delete permission to a user or service principal
-authorization_client.role_assignments.create(
-    scope="/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers/Microsoft.Storage/storageAccounts/{storage_account}",
-    role_definition_id="/subscriptions/{subscription_id}/providers/Microsoft.Authorization/roleDefinitions/{role_definition_id}",
-    principal_id="{principal_id}"
-)
+# Grant the necessary permissions to the user or application
+authorization_client.role_assignments.create(scope, role_definition_id, principal_id)
 ```
 
-2. Enable Storage Account Soft Delete: Soft Delete is a feature in Azure Storage that allows you to recover deleted containers and blobs within a specified retention period. By enabling Soft Delete, you can mitigate the risk of permanent data loss due to unauthorized deletions.
+2. Enable Azure Storage Service Encryption: Enable encryption at rest for your Azure Storage accounts. This ensures that even if an attacker gains access to delete containers, the data within those containers remains encrypted and protected. You can use the Azure SDK for Python to enable encryption for your storage accounts.
 
 ```python
-from azure.storage.blob import BlobServiceClient
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.storage import StorageManagementClient
 
-# Authenticate using connection string or storage account key
-blob_service_client = BlobServiceClient.from_connection_string("{connection_string}")
-
-# Enable Soft Delete for the storage account
-blob_service_client.set_service_properties(delete_retention_policy=dict(enabled=True, days=7))
-```
-
-3. Implement Monitoring and Alerting: Set up monitoring and alerting mechanisms to detect and respond to any unauthorized deletion attempts. Azure Monitor and Azure Security Center can be used to monitor storage account activities and trigger alerts based on predefined rules.
-
-```python
-from azure.monitor.query import LogsQueryClient
-
-# Authenticate using DefaultAzureCredential
+# Authenticate using default credentials
 credential = DefaultAzureCredential()
-logs_query_client = LogsQueryClient(credential)
 
-# Query Azure Monitor logs for container deletion events
-query = """
-AzureActivity
-| where OperationName == "Microsoft.Storage/storageAccounts/blobServices/containers/delete"
-| where ResourceProvider == "MICROSOFT.STORAGE"
-| where ResourceGroup == "{resource_group}"
-| where Resource == "{storage_account}"
-| where TimeGenerated > ago(1d)
-"""
-result = logs_query_client.query_workspace("{workspace_id}", query)
+# Create the storage management client
+storage_client = StorageManagementClient(credential, subscription_id)
 
-# Send alert or trigger automated response based on the query result
-if len(result.tables[0].rows) > 0:
-    # Send alert or trigger automated response
-    pass
+# Enable encryption for the storage account
+storage_client.storage_accounts.update(resource_group_name, account_name, {
+    "encryption": {
+        "services": {
+            "blob": {
+                "enabled": True
+            }
+        },
+        "key_source": "Microsoft.Storage"
+    }
+})
 ```
 
-By implementing these measures, you can mitigate the risk of unauthorized deletion of containers in Azure Storage and ensure the security and availability of your data.
+3. Implement monitoring and alerting: Set up monitoring and alerting mechanisms to detect and respond to any unauthorized deletion of containers. Azure Monitor and Azure Security Center can help you monitor storage account activities and send alerts when suspicious activities are detected. You can use the Azure SDK for Python to configure monitoring and alerting.
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.monitor import MonitorManagementClient
+
+# Authenticate using default credentials
+credential = DefaultAzureCredential()
+
+# Create the monitor management client
+monitor_client = MonitorManagementClient(credential, subscription_id)
+
+# Create an alert rule to monitor container deletions
+monitor_client.alert_rules.create_or_update(resource_group_name, rule_name, {
+    "location": location,
+    "enabled": True,
+    "condition": {
+        "odata.type": "Microsoft.Azure.Management.Monitor.Models.ThresholdRuleCondition",
+        "dataSource": {
+            "odata.type": "Microsoft.Azure.Management.Monitor.Models.RuleMetricDataSource",
+            "resourceUri": storage_account_id,
+            "metricName": "DeleteRequests",
+            "aggregation": {
+                "odata.type": "Microsoft.Azure.Management.Monitor.Models.AggregationType",
+                "type": "Total"
+            }
+        },
+        "operator": "GreaterThan",
+        "threshold": 0,
+        "windowSize": "PT5M"
+    },
+    "actions": {
+        "odata.type": "Microsoft.Azure.Management.Monitor.Models.RuleEmailAction",
+        "sendToServiceOwners": True
+    }
+})
+```
+
+These scripts demonstrate how to implement RBAC, enable encryption, and set up monitoring and alerting for Azure Storage accounts using Python. Adjust the parameters and customize the scripts according to your specific requirements and environment.
 
 
  

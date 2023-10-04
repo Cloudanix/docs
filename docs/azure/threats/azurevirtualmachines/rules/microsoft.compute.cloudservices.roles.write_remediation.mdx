@@ -2,8 +2,8 @@
 ### Event Information
 
 - The Microsoft.Compute.cloudServices.roles.write event in Azure for AzureVirtualMachines refers to a write operation performed on the roles associated with a cloud service in Azure.
-- This event indicates that there has been a change or update made to the roles within a cloud service, specifically related to Azure Virtual Machines.
-- It could involve actions such as creating, updating, or deleting roles within the cloud service, which are responsible for managing and controlling access to the virtual machines within that service.
+- This event indicates that a change has been made to the roles configuration of a cloud service, specifically related to Azure Virtual Machines.
+- It could involve actions such as adding, modifying, or deleting roles within the cloud service, which can impact the deployment and management of virtual machines within that service.
 
 
 ### Examples
@@ -50,15 +50,26 @@
 
 #### Using CLI
 
-To remediate unauthorized users gaining write access to the Microsoft.Compute.cloudServices.roles.write permission in Azure Virtual Machines, you can follow these steps using Azure CLI:
+To remediate unauthorized users gaining write access to the Microsoft.Compute.cloudServices.roles.write permission in Azure Virtual Machines, you can follow these steps using Azure CLI commands:
 
-1. Regularly review and audit role assignments: Use the `az role assignment list` command to list all role assignments in your Azure subscription. Identify any unauthorized or suspicious role assignments and remove them using the `az role assignment delete` command.
+1. Identify the affected Azure Virtual Machines:
+   - Run the following command to list all the Azure Virtual Machines in your subscription:
+     ```
+     az vm list
+     ```
 
-2. Limit access to the Microsoft.Compute.cloudServices.roles.write permission: Restrict the assignment of this permission to only trusted and authorized users or groups. Use the `az role assignment create` command to assign the permission to specific users or groups, ensuring that only necessary individuals have write access.
+2. Remove the write permission from unauthorized users:
+   - Run the following command to remove the write permission for a specific user or group from a Virtual Machine:
+     ```
+     az role assignment delete --assignee <user or group ID> --scope <Virtual Machine ID> --role "Microsoft.Compute/cloudServices.roles/write"
+     ```
+     Replace `<user or group ID>` with the ID of the unauthorized user or group, and `<Virtual Machine ID>` with the ID of the affected Virtual Machine.
 
-3. Implement just-in-time (JIT) access controls: Enable JIT access controls for Azure Virtual Machines to limit the exposure of the Microsoft.Compute.cloudServices.roles.write permission. This allows you to grant temporary access to users for a specific time window when they need it, reducing the risk of unauthorized access.
+3. Implement proper access controls and monitoring:
+   - Regularly review and audit role assignments for Azure Virtual Machines to ensure that only authorized users have the necessary permissions.
+   - Enable Azure Monitor to track and alert on any changes to role assignments or suspicious activities related to Azure Virtual Machines.
 
-Remember to regularly monitor and review role assignments, and promptly revoke any unnecessary or suspicious permissions to maintain a secure Azure environment.
+Remember to replace `<user or group ID>` and `<Virtual Machine ID>` with the appropriate values specific to your Azure environment.
 
 #### Using Python
 
@@ -86,7 +97,7 @@ for assignment in role_assignments:
         authorization_client.role_assignments.delete_by_id(assignment.id)
 ```
 
-2. Implement just-in-time access control: Enable just-in-time (JIT) access control for Azure Virtual Machines. This feature allows you to restrict access to specific ports and protocols for a specified period of time. By limiting access to only authorized users and for a limited time, you can reduce the risk of unauthorized modifications to roles.
+2. Implement just-in-time access control: Enable just-in-time (JIT) access control for Azure Virtual Machines. This feature allows you to restrict access to virtual machines by only granting temporary access when needed. By limiting the time window for access, you can reduce the risk of unauthorized users gaining write access to roles.
 
 ```python
 import os
@@ -101,9 +112,9 @@ network_client = NetworkManagementClient(credential, os.environ['AZURE_SUBSCRIPT
 
 # Enable just-in-time access control for Azure Virtual Machines
 network_client.virtual_machine_scale_set_extensions.create_or_update(
-    resource_group_name='my-resource-group',
-    vm_scale_set_name='my-vm-scale-set',
-    vmss_extension_name='JitExtension',
+    resource_group_name='your-resource-group',
+    vm_scale_set_name='your-vm-scale-set',
+    extension_name='JitExtension',
     extension_parameters={
         'publisher': 'Microsoft.Azure.Security',
         'type': 'AzureSecurityCenter',
@@ -111,21 +122,20 @@ network_client.virtual_machine_scale_set_extensions.create_or_update(
         'auto_upgrade_minor_version': True,
         'settings': {
             'protectedSettings': {
-                'storageAccountName': 'my-storage-account',
-                'storageAccountSasToken': 'my-storage-account-sas-token'
+                'storageAccountName': 'your-storage-account',
+                'storageAccountSasToken': 'your-storage-account-sas-token'
             },
             'publicSettings': {
-                'port': '22',
-                'protocol': 'Tcp',
-                'allowedSourceAddressPrefix': '0.0.0.0/0',
-                'requestAccessTimeout': 'PT1H'
+                'Jit': {
+                    'enabled': True
+                }
             }
         }
     }
 )
 ```
 
-3. Implement Azure AD Privileged Identity Management (PIM): Azure AD PIM allows you to manage, control, and monitor access to Azure resources. By enabling PIM for Azure Virtual Machines, you can require users to request and justify elevated access, and enforce time-bound access for privileged roles. This helps prevent unauthorized modifications to roles and reduces the risk of privilege escalation attacks.
+3. Implement strong access control policies: Ensure that only authorized users have the necessary permissions to modify role assignments for Azure Virtual Machines. Use Azure RBAC (Role-Based Access Control) to define granular access control policies and assign roles to users based on their responsibilities. Regularly review and update these policies to maintain a secure environment.
 
 ```python
 import os
@@ -138,30 +148,38 @@ credential = DefaultAzureCredential()
 # Create the authorization management client
 authorization_client = AuthorizationManagementClient(credential, os.environ['AZURE_SUBSCRIPTION_ID'])
 
-# Enable Azure AD Privileged Identity Management for Azure Virtual Machines
-authorization_client.role_definitions.update(
-    scope='/subscriptions/my-subscription-id',
-    role_definition_id='Microsoft.Compute/cloudServices.roles/write',
+# Create a custom role definition with restricted permissions for modifying role assignments
+role_definition = authorization_client.role_definitions.create_or_update(
+    scope='/subscriptions/your-subscription-id',
+    role_definition_id='CustomRoleDefinitionId',
     role_definition={
+        'role_name': 'Custom Role',
+        'description': 'Custom role with restricted permissions for modifying role assignments',
+        'assignable_scopes': ['/subscriptions/your-subscription-id'],
         'permissions': [
             {
                 'actions': [
-                    'Microsoft.Compute/cloudServices/roles/write'
+                    'Microsoft.Authorization/roleAssignments/write',
+                    'Microsoft.Authorization/roleAssignments/delete'
                 ],
                 'notActions': [],
                 'dataActions': [],
                 'notDataActions': []
             }
-        ],
-        'assignableScopes': [
-            '/subscriptions/my-subscription-id'
-        ],
-        'description': 'Allows users to write roles for Azure Virtual Machines',
-        'roleName': 'Virtual Machine Role Writer',
-        'type': 'BuiltInRole'
+        ]
+    }
+)
+
+# Assign the custom role to authorized users
+authorization_client.role_assignments.create(
+    scope='/subscriptions/your-subscription-id',
+    role_assignment_name='CustomRoleAssignment',
+    parameters={
+        'role_definition_id': role_definition.id,
+        'principal_id': 'your-user-or-group-object-id'
     }
 )
 ```
 
-These scripts demonstrate how to remediate unauthorized write access to the Microsoft.Compute.cloudServices.roles.write permission in Azure Virtual Machines using Python. However, please note that you should customize the scripts according to your specific environment and requirements.
+These steps will help remediate the unauthorized write access to the Microsoft.Compute.cloudServices.roles.write permission in Azure Virtual Machines and enhance the security of your environment.
 

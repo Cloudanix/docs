@@ -35,62 +35,84 @@
 
 #### Using CLI
 
-1. Unauthorized access: To remediate unauthorized access to Microsoft.KeyVault.vaults.keys.write in Azure for AzureSecurityService, you can follow these steps using Azure CLI:
+1. Unauthorized access:
+- Identify the impacted security setting: `az keyvault show --name <key_vault_name> --resource-group <resource_group_name>`
+- Update the security setting to ensure authorized access only: `az keyvault update --name <key_vault_name> --resource-group <resource_group_name> --set accessPolicies[0].permissions.keys="[<authorized_permissions>]"`
+- Monitor and review access logs regularly to detect any unauthorized access attempts: `az monitor activity-log list --resource-group <resource_group_name> --resource-type Microsoft.KeyVault/vaults --query "[?operationName.value=='Microsoft.KeyVault/vaults/write']"`
 
-- Identify the affected Key Vault: `az keyvault list --query "[?name=='<key_vault_name>']"`
-- Revoke the compromised access policy: `az keyvault set-policy --name <key_vault_name> --upn <user_principal_name> --key-permissions ""`
-- Monitor and review access logs for any suspicious activities: `az monitor activity-log list --resource-group <resource_group_name> --resource-type Microsoft.KeyVault/vaults --query "[?operationName=='Microsoft.KeyVault/vaults/write']"`
+2. Data integrity:
+- Enable soft-delete for the Key Vault to protect against accidental key deletion: `az keyvault update --name <key_vault_name> --resource-group <resource_group_name> --enable-soft-delete true`
+- Enable key versioning to track and restore previous versions of keys if integrity is compromised: `az keyvault update --name <key_vault_name> --resource-group <resource_group_name> --set properties.enableKeyVaultManagedStorage=true`
+- Regularly backup the Key Vault to ensure data integrity: `az keyvault backup start --name <key_vault_name> --resource-group <resource_group_name> --storage-container <storage_container_uri>`
 
-2. Data integrity: To remediate the impact on data integrity due to a security issue with Microsoft.KeyVault.vaults.keys.write in Azure, you can take the following steps using Azure CLI:
-
-- Enable soft delete for the Key Vault: `az keyvault update --name <key_vault_name> --enable-soft-delete true`
-- Enable key versioning for better key management: `az keyvault update --name <key_vault_name> --enable-key-version true`
-- Regularly backup and restore the Key Vault to ensure data integrity: `az keyvault backup --name <key_vault_name> --storage-container <storage_container_uri>`
-
-3. Compliance violations: To remediate compliance violations caused by a compromised Microsoft.KeyVault.vaults.keys.write security in Azure, you can perform the following actions using Azure CLI:
-
-- Enable Azure Key Vault diagnostics logs: `az monitor diagnostic-settings create --name <diagnostic_settings_name> --resource <key_vault_id> --logs '[{"category": "AuditEvent", "enabled": true}]'`
-- Regularly review and analyze the diagnostic logs for any compliance violations: `az monitor activity-log list --resource-group <resource_group_name> --resource-type Microsoft.KeyVault/vaults --query "[?operationName=='Microsoft.KeyVault/vaults/write']"`
-- Implement Azure Security Center recommendations to enhance compliance and security: `az security secure-score-controls list --resource-id <key_vault_id>`
+3. Compliance violations:
+- Enable Azure Key Vault diagnostics to capture security events and compliance-related logs: `az monitor diagnostic-settings create --name <diagnostic_settings_name> --resource <key_vault_id> --logs '[{"category": "AuditEvent", "enabled": true}]'`
+- Regularly review and analyze the captured logs to identify any compliance violations: `az monitor activity-log list --resource-group <resource_group_name> --resource-type Microsoft.KeyVault/vaults --query "[?operationName.value=='Microsoft.KeyVault/vaults/write']"`
+- Take necessary actions to remediate any compliance violations and ensure adherence to industry regulations and standards.
 
 #### Using Python
 
-1. Unauthorized access:
-- Regularly monitor and review access controls and permissions for Microsoft.KeyVault.vaults.keys.write in Azure.
-- Implement strong authentication mechanisms such as multi-factor authentication (MFA) to prevent unauthorized access.
-- Utilize Azure Active Directory (AAD) to manage and control user access to the Key Vault.
+To remediate unauthorized access, data integrity, and compliance violations related to Microsoft.KeyVault.vaults.keys.write in Azure for AzureSecurityService, you can follow these steps:
 
-2. Data integrity:
-- Enable auditing and logging for Microsoft.KeyVault.vaults.keys.write operations to detect any unauthorized modifications.
-- Implement encryption at rest and in transit to protect the integrity of the keys and data stored in the Key Vault.
-- Regularly backup the keys stored in the Key Vault to ensure data can be restored in case of corruption or unauthorized modifications.
-
-3. Compliance violations:
-- Regularly review and update security policies and procedures to align with industry-specific compliance standards.
-- Implement continuous monitoring and alerting mechanisms to detect any security breaches or violations in real-time.
-- Conduct regular security assessments and audits to ensure compliance with regulations and promptly address any identified vulnerabilities or non-compliance issues.
-
-Python script example for monitoring access controls and permissions:
+1. Implement strong access controls: Ensure that only authorized users or applications have the necessary permissions to access and modify the keys in the Key Vault. Use Azure RBAC (Role-Based Access Control) to assign appropriate roles and permissions to users and service principals. Regularly review and update access policies to minimize the risk of unauthorized access.
 
 ```python
+# Python script to assign RBAC role to a user or service principal
 from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
+from azure.keyvault.administration import KeyVaultAccessControlClient
 
-# Set the Azure Key Vault URL
-vault_url = "https://your-key-vault-name.vault.azure.net/"
-
-# Create a SecretClient using DefaultAzureCredential for authentication
+# Authenticate using DefaultAzureCredential
 credential = DefaultAzureCredential()
-client = SecretClient(vault_url=vault_url, credential=credential)
 
-# Get the access policies for the Key Vault
-access_policies = client.get_access_control()
+# Create KeyVaultAccessControlClient
+access_control_client = KeyVaultAccessControlClient(vault_url="https://your-key-vault.vault.azure.net/", credential=credential)
 
-# Iterate through the access policies and check for any unauthorized access
-for policy in access_policies:
-    if policy.permissions.get("Microsoft.KeyVault.vaults.keys.write") is not None:
-        print(f"User/Service Principal: {policy.object_id} has write access to keys.")
+# Assign a role to a user or service principal
+access_control_client.set_role_assignment(vault_name="your-key-vault", role_definition_id="your-role-definition-id", principal_id="your-principal-id")
 ```
 
-Note: The above script uses the Azure SDK for Python (azure-identity and azure-keyvault-secrets packages) to authenticate and interact with the Azure Key Vault. Make sure to install the required packages before running the script.
+2. Enable auditing and monitoring: Enable Azure Key Vault diagnostics logs and Azure Monitor to track and monitor any suspicious activities or access attempts. Regularly review the logs and alerts to detect any potential security breaches or compliance violations.
+
+```python
+# Python script to enable diagnostics logs for Key Vault
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.monitor import MonitorManagementClient
+
+# Authenticate using DefaultAzureCredential
+credential = DefaultAzureCredential()
+
+# Create MonitorManagementClient
+monitor_client = MonitorManagementClient(credential, subscription_id="your-subscription-id")
+
+# Enable diagnostics logs for Key Vault
+monitor_client.diagnostic_settings.create_or_update(resource_uri="your-key-vault-id", parameters={
+    "name": "key-vault-diagnostics",
+    "storage_account_id": "your-storage-account-id",
+    "logs": [{
+        "category": "AuditEvent",
+        "enabled": True
+    }]
+})
+```
+
+3. Regularly update and patch: Keep your Azure resources, including Azure Security Service and Key Vault, up to date with the latest security patches and updates. Regularly review and apply security recommendations provided by Azure Security Center to mitigate any known vulnerabilities.
+
+```python
+# Python script to update Azure Security Service
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.security import SecurityCenter
+
+# Authenticate using DefaultAzureCredential
+credential = DefaultAzureCredential()
+
+# Create SecurityCenter client
+security_center_client = SecurityCenter(credential, subscription_id="your-subscription-id")
+
+# Update Azure Security Service
+security_center_client.security_solutions.update(resource_group_name="your-resource-group", solution_name="AzureSecurityService", properties={
+    "autoUpdate": True
+})
+```
+
+These Python scripts demonstrate how to assign RBAC roles, enable diagnostics logs, and update Azure Security Service. Replace the placeholders with your actual values and execute the scripts in your Python environment.
 
