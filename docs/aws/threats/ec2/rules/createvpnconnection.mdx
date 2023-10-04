@@ -38,8 +38,8 @@ sidebar_label: CreateVpnConnection
 - Navigate to the EC2 service.
 - Select the desired EC2 instance.
 - Click on the "Actions" button and choose "Modify VPN Connection".
-- In the "Authentication Options" section, select "Mutual RSA" or "Mutual RSA + XAuth" depending on your requirements.
-- Configure the necessary settings for mutual authentication, such as uploading digital certificates or configuring other secure methods.
+- In the "Authentication Options" section, select the desired authentication method, such as mutual authentication using digital certificates.
+- Configure the necessary settings for the selected authentication method.
 - Click on "Save" to apply the changes.
 
 3. Misconfigured access controls:
@@ -47,35 +47,45 @@ sidebar_label: CreateVpnConnection
 - Navigate to the EC2 service.
 - Select the desired EC2 instance.
 - Click on the "Actions" button and choose "Modify VPN Connection".
-- In the "Tunnel Options" section, review the "Inside IP CIDR" and "Pre-Shared Key" settings to ensure they are properly configured.
-- In the "VPN Tunnel Options" section, review the "Tunnel Options" and "Tunnel Inside IP CIDR" settings to ensure they are properly configured.
+- In the "Access Control" section, review and update the access control policies.
+- Ensure that the VPN connection is restricted to authorized users or IP ranges.
+- Regularly review and update the access control policies to prevent any security breaches.
 - Click on "Save" to apply the changes.
-- Regularly review and update the security group and network ACL rules associated with the EC2 instance to restrict access to the VPN connection only to authorized users or IP ranges.
 
 #### Using CLI
 
-1. Inadequate encryption: To remediate inadequate encryption for an AWS EC2 instance using AWS CLI, you can follow these steps:
+1. Inadequate encryption: To remediate inadequate encryption for an AWS EC2 instance, you can use the AWS CLI commands to configure the VPN connection with strong encryption protocols. 
 
-- Identify the EC2 instance for which you want to configure encryption.
-- Use the `describe-instances` command to retrieve the instance details, including the security groups associated with it.
-- Update the security group rules to allow only secure VPN connections. For example, you can modify the inbound rules to allow traffic only from specific IP ranges or authorized users.
-- Configure the VPN connection to use strong encryption protocols and secure key exchange mechanisms. Use the `create-vpn-connection` command to create a new VPN connection or `modify-vpn-connection` to update an existing one. Specify the appropriate encryption algorithm (e.g., AES-256) and key exchange mechanism (e.g., Diffie-Hellman) in the command.
+- Use the `create-vpn-connection` command to create a new VPN connection:
+```
+aws ec2 create-vpn-connection --type ipsec.1 --customer-gateway-id <customer_gateway_id> --vpn-gateway-id <vpn_gateway_id> --transit-gateway-id <transit_gateway_id> --ike-versions "ikev2" --vpn-tunnel-protocol "ikev2" --vpn-tunnel-options "PreSharedKey=<pre_shared_key>,Phase1EncryptionAlgorithm=AES256,Phase2EncryptionAlgorithm=AES256"
+```
 
-2. Weak authentication: To remediate weak authentication for an AWS EC2 instance using AWS CLI, you can take the following steps:
+- Replace `<customer_gateway_id>`, `<vpn_gateway_id>`, `<transit_gateway_id>`, and `<pre_shared_key>` with the appropriate values.
 
-- Enable mutual authentication for the VPN connection. This ensures that both the client and server authenticate each other using digital certificates or other secure methods.
-- Generate or obtain the necessary digital certificates for authentication. You can use the `create-certificate` command to generate a new certificate or `import-certificate` to import an existing one.
-- Configure the VPN connection to use mutual authentication. Use the `modify-vpn-connection` command to update the VPN connection settings and specify the appropriate certificates for client and server authentication.
+2. Weak authentication: To remediate weak authentication for an AWS EC2 instance, you can configure the VPN connection to enforce strong authentication mechanisms using digital certificates.
 
-3. Misconfigured access controls: To remediate misconfigured access controls for an AWS EC2 instance using AWS CLI, you can follow these steps:
+- Use the `create-vpn-connection` command with the `--vpn-tunnel-options` parameter to specify the authentication method as "certificate":
+```
+aws ec2 create-vpn-connection --type ipsec.1 --customer-gateway-id <customer_gateway_id> --vpn-gateway-id <vpn_gateway_id> --transit-gateway-id <transit_gateway_id> --ike-versions "ikev2" --vpn-tunnel-protocol "ikev2" --vpn-tunnel-options "PreSharedKey=<pre_shared_key>,Phase1EncryptionAlgorithm=AES256,Phase2EncryptionAlgorithm=AES256,Phase1IntegrityAlgorithm=SHA256,Phase2IntegrityAlgorithm=SHA256,Phase1DiffieHellmanGroup14=MODP2048,Phase2DiffieHellmanGroup14=MODP2048,Phase1AuthenticationMethod=certificate,Phase2AuthenticationMethod=certificate"
+```
 
-- Review the existing access control policies for the VPN connection. Use the `describe-vpn-connections` command to retrieve the current configuration.
-- Identify any unauthorized access or overly permissive rules in the access control policies.
-- Update the access control policies to restrict access to the VPN connection only to authorized users or IP ranges. Use the `modify-vpn-connection` command to update the VPN connection settings and specify the desired access control rules. Regularly review and update these policies to ensure ongoing security.
+- Replace `<customer_gateway_id>`, `<vpn_gateway_id>`, `<transit_gateway_id>`, and `<pre_shared_key>` with the appropriate values.
+
+3. Misconfigured access controls: To remediate misconfigured access controls for an AWS EC2 instance, you can update the security group rules to restrict access to the VPN connection.
+
+- Use the `authorize-security-group-ingress` command to add an inbound rule that allows access only from authorized IP ranges:
+```
+aws ec2 authorize-security-group-ingress --group-id <security_group_id> --protocol tcp --port <vpn_port> --source-cidr <authorized_ip_range>
+```
+
+- Replace `<security_group_id>`, `<vpn_port>`, and `<authorized_ip_range>` with the appropriate values.
+
+- Regularly review and update the security group rules to ensure that only authorized users or IP ranges have access to the VPN connection.
 
 #### Using Python
 
-To remediate inadequate encryption, weak authentication, and misconfigured access controls for AWS EC2 using Python, you can utilize the AWS SDK (Boto3) to configure the necessary settings. Here are some example Python scripts:
+To remediate inadequate encryption, weak authentication, and misconfigured access controls for AWS EC2 using Python scripts, you can utilize the AWS SDK for Python (Boto3) to automate the configuration and management of your VPN connections. Here are some example Python scripts:
 
 1. Inadequate encryption:
 ```python
@@ -83,23 +93,26 @@ import boto3
 
 ec2 = boto3.client('ec2')
 
-def enable_encryption(vpn_connection_id):
+def update_vpn_encryption(vpn_connection_id):
     response = ec2.modify_vpn_connection(
         VpnConnectionId=vpn_connection_id,
-        TransitGatewayId='transit-gateway-id',
-        Options={
-            'IKEVersions': ['ikev2'],
-            'Phase1EncryptionAlgorithms': ['aes256'],
-            'Phase2EncryptionAlgorithms': ['aes256'],
-            'Phase1IntegrityAlgorithms': ['sha256'],
-            'Phase2IntegrityAlgorithms': ['sha256'],
-            'Phase1DHGroupNumbers': [14],
-            'Phase2DHGroupNumbers': [14]
-        }
+        TunnelOptions=[
+            {
+                'TunnelInsideCidr': '169.254.0.0/30',
+                'PreSharedKey': 'your_pre_shared_key',
+                'Phase1EncryptionAlgorithm': 'AES256',
+                'Phase1IntegrityAlgorithm': 'SHA256',
+                'Phase1DHGroup': 'group14',
+                'Phase2EncryptionAlgorithm': 'AES256',
+                'Phase2IntegrityAlgorithm': 'SHA256',
+                'Phase2DHGroup': 'group14'
+            },
+        ]
     )
     print(response)
 
-enable_encryption('vpn-connection-id')
+# Usage
+update_vpn_encryption('your_vpn_connection_id')
 ```
 
 2. Weak authentication:
@@ -108,49 +121,30 @@ import boto3
 
 ec2 = boto3.client('ec2')
 
-def enable_mutual_authentication(vpn_connection_id):
+def update_vpn_authentication(vpn_connection_id):
     response = ec2.modify_vpn_connection(
         VpnConnectionId=vpn_connection_id,
-        TransitGatewayId='transit-gateway-id',
-        Options={
-            'IKEVersions': ['ikev2'],
-            'Phase1EncryptionAlgorithms': ['aes256'],
-            'Phase2EncryptionAlgorithms': ['aes256'],
-            'Phase1IntegrityAlgorithms': ['sha256'],
-            'Phase2IntegrityAlgorithms': ['sha256'],
-            'Phase1DHGroupNumbers': [14],
-            'Phase2DHGroupNumbers': [14],
-            'TunnelInsideIpVersion': 'ipv4',
-            'StaticRoutesOnly': False,
-            'TunnelOptions': [
-                {
-                    'TunnelInsideCidr': '169.254.0.0/30',
-                    'PreSharedKey': 'your-pre-shared-key',
-                    'Phase1LifetimeSeconds': 28800,
-                    'Phase2LifetimeSeconds': 3600,
-                    'RekeyMarginTimeSeconds': 540,
-                    'RekeyFuzzPercentage': 100,
-                    'ReplayWindowSize': 1024,
-                    'DPDTimeoutSeconds': 120,
-                    'DPDTimeoutAction': 'restart',
-                    'Phase1EncryptionAlgorithms': ['aes256'],
-                    'Phase2EncryptionAlgorithms': ['aes256'],
-                    'Phase1IntegrityAlgorithms': ['sha256'],
-                    'Phase2IntegrityAlgorithms': ['sha256'],
-                    'Phase1DHGroupNumbers': [14],
-                    'Phase2DHGroupNumbers': [14],
-                    'IKEVersion': 'ikev2',
-                    'StartupAction': 'clear',
-                    'TunnelInsideIpv6Cidr': 'string',
-                    'Phase1LifetimeTraffic': 'string',
-                    'Phase2LifetimeTraffic': 'string'
-                },
-            ]
-        }
+        VpnTunnelOptionsSpecifications=[
+            {
+                'TunnelInsideCidr': '169.254.0.0/30',
+                'PreSharedKey': 'your_pre_shared_key',
+                'Phase1EncryptionAlgorithm': 'AES256',
+                'Phase1IntegrityAlgorithm': 'SHA256',
+                'Phase1DHGroup': 'group14',
+                'Phase2EncryptionAlgorithm': 'AES256',
+                'Phase2IntegrityAlgorithm': 'SHA256',
+                'Phase2DHGroup': 'group14',
+                'IKEVersions': ['ikev2'],
+                'IKEAuthentications': ['rsa', 'ecdsa'],
+                'IKEPolicies': ['your_ike_policy_arn'],
+                'IPSecPolicies': ['your_ipsec_policy_arn']
+            },
+        ]
     )
     print(response)
 
-enable_mutual_authentication('vpn-connection-id')
+# Usage
+update_vpn_authentication('your_vpn_connection_id')
 ```
 
 3. Misconfigured access controls:
@@ -159,49 +153,50 @@ import boto3
 
 ec2 = boto3.client('ec2')
 
-def configure_access_controls(vpn_connection_id):
+def update_vpn_access_controls(vpn_connection_id):
     response = ec2.modify_vpn_connection(
         VpnConnectionId=vpn_connection_id,
-        TransitGatewayId='transit-gateway-id',
+        VpnGatewayId='your_vpn_gateway_id',
+        CustomerGatewayId='your_customer_gateway_id',
         Options={
-            'StaticRoutesOnly': True,
+            'StaticRoutesOnly': False,
             'TunnelOptions': [
                 {
                     'TunnelInsideCidr': '169.254.0.0/30',
-                    'PreSharedKey': 'your-pre-shared-key',
-                    'Phase1LifetimeSeconds': 28800,
-                    'Phase2LifetimeSeconds': 3600,
-                    'RekeyMarginTimeSeconds': 540,
-                    'RekeyFuzzPercentage': 100,
-                    'ReplayWindowSize': 1024,
-                    'DPDTimeoutSeconds': 120,
-                    'DPDTimeoutAction': 'restart',
-                    'Phase1EncryptionAlgorithms': ['aes256'],
-                    'Phase2EncryptionAlgorithms': ['aes256'],
-                    'Phase1IntegrityAlgorithms': ['sha256'],
-                    'Phase2IntegrityAlgorithms': ['sha256'],
-                    'Phase1DHGroupNumbers': [14],
-                    'Phase2DHGroupNumbers': [14],
-                    'IKEVersion': 'ikev2',
-                    'StartupAction': 'clear',
-                    'TunnelInsideIpv6Cidr': 'string',
-                    'Phase1LifetimeTraffic': 'string',
-                    'Phase2LifetimeTraffic': 'string'
+                    'PreSharedKey': 'your_pre_shared_key',
+                    'Phase1EncryptionAlgorithm': 'AES256',
+                    'Phase1IntegrityAlgorithm': 'SHA256',
+                    'Phase1DHGroup': 'group14',
+                    'Phase2EncryptionAlgorithm': 'AES256',
+                    'Phase2IntegrityAlgorithm': 'SHA256',
+                    'Phase2DHGroup': 'group14'
                 },
             ],
-            'VpnGatewayId': 'vpn-gateway-id',
-            'LocalIpv4NetworkCidr': '10.0.0.0/16',
-            'RemoteIpv4NetworkCidr': '10.1.0.0/16',
-            'LocalIpv6NetworkCidr': 'string',
-            'RemoteIpv6NetworkCidr': 'string'
+            'VpnTunnelOptionsSpecifications': [
+                {
+                    'TunnelInsideCidr': '169.254.0.0/30',
+                    'PreSharedKey': 'your_pre_shared_key',
+                    'Phase1EncryptionAlgorithm': 'AES256',
+                    'Phase1IntegrityAlgorithm': 'SHA256',
+                    'Phase1DHGroup': 'group14',
+                    'Phase2EncryptionAlgorithm': 'AES256',
+                    'Phase2IntegrityAlgorithm': 'SHA256',
+                    'Phase2DHGroup': 'group14',
+                    'IKEVersions': ['ikev2'],
+                    'IKEAuthentications': ['rsa', 'ecdsa'],
+                    'IKEPolicies': ['your_ike_policy_arn'],
+                    'IPSecPolicies': ['your_ipsec_policy_arn']
+                },
+            ]
         }
     )
     print(response)
 
-configure_access_controls('vpn-connection-id')
+# Usage
+update_vpn_access_controls('your_vpn_connection_id')
 ```
 
-Please note that you need to replace `'vpn-connection-id'`, `'transit-gateway-id'`, `'your-pre-shared-key'`, and other placeholders with the actual values specific to your AWS environment.
+Please note that you need to replace the placeholders (`your_vpn_connection_id`, `your_pre_shared_key`, etc.) with the actual values specific to your environment.
 
 
  

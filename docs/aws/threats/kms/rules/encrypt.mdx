@@ -18,7 +18,7 @@ sidebar_label: Encrypt
 
 2. Data Protection: Encrypting data with KMS provides an additional layer of protection against unauthorized access. Even if an attacker gains access to the encrypted data, they would not be able to decrypt it without the appropriate encryption keys. This helps safeguard sensitive information from potential data breaches.
 
-3. Access Control: KMS allows organizations to manage and control access to encryption keys. By defining fine-grained access policies, organizations can ensure that only authorized individuals or services have access to the keys required for encryption and decryption. This helps prevent unauthorized access to sensitive data and reduces the risk of insider threats.
+3. Access Control: KMS allows organizations to manage and control access to encryption keys. By defining fine-grained access policies, organizations can ensure that only authorized individuals or services have access to the keys required for encryption and decryption. This helps prevent unauthorized access to sensitive data and reduces the risk of data exposure.
 
 ### Remediation
 
@@ -26,107 +26,85 @@ sidebar_label: Encrypt
 
 1. Open the AWS Management Console and navigate to the AWS Key Management Service (KMS) dashboard.
 2. Click on "Create key" to start the key creation process.
-3. Select the desired key type (symmetric or asymmetric) and choose the key material origin (AWS KMS or external).
-4. Configure the key settings, such as key alias, description, and key usage permissions.
-5. Choose the key administrators and key users who will have access to the key.
-6. Configure key rotation settings if required.
-7. Review the key configuration and click on "Finish" to create the key.
-8. Once the key is created, you can use it to encrypt and decrypt data by calling the appropriate AWS KMS API or SDK methods.
-9. To encrypt data using the AWS KMS key, you can use the Encrypt API or SDK method, providing the key ID and the plaintext data as input.
-10. To decrypt the encrypted data, you can use the Decrypt API or SDK method, providing the key ID and the ciphertext data as input.
+3. Select the appropriate key type based on your requirements (symmetric or asymmetric).
+4. Choose the key material origin, either AWS Key Management Service or External.
+5. Configure the key settings, such as key alias, description, and key administrators.
+6. Define the key usage permissions by specifying the IAM roles or users that can manage and use the key.
+7. Enable key rotation if required for compliance or security purposes.
+8. Review the key configuration and click on "Finish" to create the key.
+9. Once the key is created, you can use it to encrypt and decrypt data by calling the appropriate AWS KMS API or SDK methods.
 
-Note: It is important to follow AWS security best practices and ensure that appropriate access controls and permissions are in place for managing and using AWS KMS keys.
+Note: It is important to follow AWS security best practices and ensure that the appropriate IAM policies and access controls are in place to protect the encryption keys and the data they protect.
 
 #### Using CLI
 
-1. To create a customer master key (CMK) in AWS KMS using AWS CLI, you can use the `aws kms create-key` command. This command will generate a new CMK that can be used for encrypting data.
+1. To create a customer master key (CMK) in AWS KMS using AWS CLI, you can use the `aws kms create-key` command. For example:
+```
+aws kms create-key --description "My CMK" --key-usage ENCRYPT_DECRYPT
+```
+This command will create a new CMK with the specified description and key usage.
 
-2. To enable encryption for a specific AWS service, such as Amazon S3, using AWS KMS, you can use the `aws s3api put-bucket-encryption` command. This command allows you to specify the CMK ARN (Amazon Resource Name) that should be used for encrypting the data in the S3 bucket.
+2. To encrypt data using AWS KMS, you can use the `aws kms encrypt` command. For example:
+```
+aws kms encrypt --key-id <key-id> --plaintext fileb://<input-file> --output text --query CiphertextBlob
+```
+Replace `<key-id>` with the ID of the CMK you want to use for encryption, and `<input-file>` with the path to the file you want to encrypt. This command will encrypt the data and return the ciphertext.
 
-3. To grant permissions to a user or role to use a specific CMK for encryption and decryption, you can use the `aws kms create-grant` command. This command allows you to specify the CMK ARN and the principal (user or role) that should be granted access to the key.
+3. To decrypt data using AWS KMS, you can use the `aws kms decrypt` command. For example:
+```
+aws kms decrypt --ciphertext-blob fileb://<input-file> --output text --query Plaintext | base64 --decode > <output-file>
+```
+Replace `<input-file>` with the path to the file containing the ciphertext, and `<output-file>` with the desired path for the decrypted output. This command will decrypt the data and save the plaintext to the specified output file.
 
 #### Using Python
 
-To remediate compliance issues with AWS Key Management Service (KMS) using Python, you can utilize the AWS SDK (Boto3) to perform the following actions:
+To remediate compliance issues related to AWS Key Management Service (KMS) using Python scripts, you can follow these steps:
 
-1. Enable Encryption for S3 Buckets:
-   - Use the `boto3.client('s3')` method to create an S3 client object.
-   - Use the `put_bucket_encryption()` method to enable server-side encryption for the desired S3 bucket.
-   - Specify the encryption configuration with the appropriate KMS key ID and encryption algorithm.
+1. Install the AWS SDK for Python (Boto3) by running the following command:
+   ```
+   pip install boto3
+   ```
 
-```python
-import boto3
+2. Create a new Python script and import the necessary libraries:
+   ```python
+   import boto3
+   ```
 
-s3_client = boto3.client('s3')
+3. Initialize the AWS KMS client:
+   ```python
+   kms_client = boto3.client('kms')
+   ```
 
-def enable_s3_bucket_encryption(bucket_name, kms_key_id):
-    encryption_config = {
-        'Rules': [
-            {
-                'ApplyServerSideEncryptionByDefault': {
-                    'SSEAlgorithm': 'aws:kms',
-                    'KMSMasterKeyID': kms_key_id
-                }
-            }
-        ]
-    }
+4. Generate a new data encryption key (DEK) using the KMS client:
+   ```python
+   response = kms_client.generate_data_key(
+       KeyId='your_key_id',
+       KeySpec='AES_256'
+   )
+   encrypted_data_key = response['CiphertextBlob']
+   ```
 
-    s3_client.put_bucket_encryption(
-        Bucket=bucket_name,
-        ServerSideEncryptionConfiguration=encryption_config
-    )
-```
+5. Encrypt the sensitive data using the generated DEK:
+   ```python
+   plaintext_data = b'your_sensitive_data'
+   response = kms_client.encrypt(
+       KeyId='your_key_id',
+       Plaintext=plaintext_data
+   )
+   encrypted_data = response['CiphertextBlob']
+   ```
 
-2. Encrypt Data with KMS:
-   - Use the `boto3.client('kms')` method to create a KMS client object.
-   - Use the `encrypt()` method to encrypt the sensitive data using the desired KMS key.
-   - Specify the encryption context if required.
+6. Decrypt the encrypted data using the KMS client:
+   ```python
+   response = kms_client.decrypt(
+       CiphertextBlob=encrypted_data
+   )
+   decrypted_data = response['Plaintext']
+   ```
 
-```python
-import boto3
+7. Implement proper error handling and exception handling in your script.
 
-kms_client = boto3.client('kms')
-
-def encrypt_data(data, kms_key_id, encryption_context=None):
-    encryption_params = {
-        'KeyId': kms_key_id,
-        'Plaintext': data
-    }
-
-    if encryption_context:
-        encryption_params['EncryptionContext'] = encryption_context
-
-    response = kms_client.encrypt(**encryption_params)
-    encrypted_data = response['CiphertextBlob']
-
-    return encrypted_data
-```
-
-3. Decrypt Data with KMS:
-   - Use the `boto3.client('kms')` method to create a KMS client object.
-   - Use the `decrypt()` method to decrypt the encrypted data using the appropriate KMS key.
-   - Provide the encrypted data and encryption context if used.
-
-```python
-import boto3
-
-kms_client = boto3.client('kms')
-
-def decrypt_data(encrypted_data, encryption_context=None):
-    decryption_params = {
-        'CiphertextBlob': encrypted_data
-    }
-
-    if encryption_context:
-        decryption_params['EncryptionContext'] = encryption_context
-
-    response = kms_client.decrypt(**decryption_params)
-    decrypted_data = response['Plaintext']
-
-    return decrypted_data
-```
-
-These Python scripts can be used to enable encryption for S3 buckets, encrypt data using KMS, and decrypt encrypted data using KMS in AWS. Remember to configure the necessary IAM roles and permissions for the Python code to interact with AWS services.
+Please note that you need to replace `'your_key_id'` with the actual ID of your KMS key. Additionally, ensure that your AWS credentials are properly configured for the Python script to access the KMS service.
 
 
  

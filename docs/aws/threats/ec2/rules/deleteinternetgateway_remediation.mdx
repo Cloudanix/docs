@@ -17,81 +17,79 @@
 #### Using Console
 
 1. Identify the unauthorized deletion: 
-   - Monitor AWS CloudTrail logs or any other logging mechanism to identify the event of unauthorized deletion of the internet gateway.
-   - Review the logs to determine the user or entity responsible for the deletion.
+   - Monitor the CloudTrail logs to identify any unauthorized API calls related to the deletion of the internet gateway.
+   - Look for any unusual or unexpected activities in the VPC flow logs that indicate the loss of connectivity.
 
 2. Restore the internet gateway:
    - Access the AWS Management Console and navigate to the VPC service.
    - Select the VPC where the internet gateway was deleted.
    - Click on "Actions" and choose "Create Internet Gateway".
-   - Attach the newly created internet gateway to the VPC.
+   - Attach the newly created internet gateway to the VPC by selecting the VPC and clicking on "Actions" and then "Attach to VPC".
+   - Update the route tables associated with the VPC to ensure proper routing to the internet gateway.
 
-3. Verify connectivity and security:
-   - Ensure that the EC2 instances within the VPC have regained internet connectivity.
-   - Review the VPC's security groups and network ACLs to ensure that they are properly configured to allow the desired inbound and outbound traffic.
-   - Consider implementing additional security measures, such as enabling VPC flow logs or configuring network security groups, to prevent future unauthorized deletions.
+3. Investigate and mitigate the root cause:
+   - Review the IAM policies and user permissions to identify any misconfigurations or unauthorized access.
+   - Implement least privilege access control by granting only necessary permissions to users or roles.
+   - Enable MFA (Multi-Factor Authentication) for critical actions like deleting internet gateways to prevent unauthorized deletions.
+   - Regularly review and rotate access keys to minimize the risk of compromised credentials.
+
+Note: It is recommended to automate the monitoring and alerting of critical actions like internet gateway deletion using AWS CloudWatch Events and AWS Lambda functions to proactively detect and respond to such incidents.
 
 #### Using CLI
 
-To remediate the unauthorized deletion of an internet gateway in AWS EC2 using AWS CLI, you can follow these steps:
+To remediate the unauthorized deletion of an internet gateway in AWS EC2, you can follow these steps using AWS CLI commands:
 
-1. Identify the deleted internet gateway:
-   - Use the `describe-internet-gateways` command to list all the internet gateways in the VPC: 
-     ```
-     aws ec2 describe-internet-gateways --region <region> --profile <profile>
-     ```
-   - Look for the internet gateway that has been deleted or is no longer associated with the VPC.
+1. Enable AWS CloudTrail: Enable CloudTrail to capture API activity and log events related to the internet gateway. This will help in identifying the unauthorized deletion and provide necessary audit trails for investigation.
 
-2. Restore the internet gateway:
-   - Use the `create-internet-gateway` command to create a new internet gateway:
-     ```
-     aws ec2 create-internet-gateway --region <region> --profile <profile>
-     ```
-   - Use the `attach-internet-gateway` command to attach the newly created internet gateway to the VPC:
-     ```
-     aws ec2 attach-internet-gateway --internet-gateway-id <new_gateway_id> --vpc-id <vpc_id> --region <region> --profile <profile>
-     ```
+2. Implement IAM Policies: Ensure that proper IAM policies are in place to restrict access to the internet gateway. Only authorized users or roles should have the necessary permissions to modify or delete the internet gateway.
 
-3. Verify connectivity and restore routes:
-   - Check the route tables associated with the VPC using the `describe-route-tables` command:
-     ```
-     aws ec2 describe-route-tables --region <region> --profile <profile>
-     ```
-   - Ensure that the routes for internet access are properly configured, and if necessary, add or update the routes using the `create-route` or `replace-route` command:
-     ```
-     aws ec2 create-route --route-table-id <route_table_id> --destination-cidr-block 0.0.0.0/0 --gateway-id <new_gateway_id> --region <region> --profile <profile>
-     ```
+3. Enable MFA Delete: Enable Multi-Factor Authentication (MFA) Delete on the internet gateway. This adds an extra layer of security by requiring an additional authentication factor (such as a physical token or virtual MFA device) to delete the internet gateway.
 
-Note: Replace `<region>` with the appropriate AWS region, `<profile>` with the AWS CLI profile name, `<new_gateway_id>` with the ID of the newly created internet gateway, `<vpc_id>` with the ID of the affected VPC, and `<route_table_id>` with the ID of the affected route table.
+CLI Commands:
+- To enable CloudTrail: `aws cloudtrail create-trail --name <trail-name> --s3-bucket-name <bucket-name> --is-multi-region-trail`
+- To create an IAM policy: `aws iam create-policy --policy-name <policy-name> --policy-document file://policy.json`
+- To attach the IAM policy to a user or role: `aws iam attach-user-policy --user-name <user-name> --policy-arn <policy-arn>`
+- To enable MFA Delete: `aws ec2 modify-internet-gateway-attribute --internet-gateway-id <gateway-id> --enable-mfa-delete`
 
 #### Using Python
 
-To remediate the unauthorized deletion of an internet gateway in AWS EC2 using Python, you can follow these steps:
+To remediate the unauthorized deletion of an internet gateway in AWS EC2, you can follow these steps:
 
-1. Implement proper access controls: Ensure that only authorized users or roles have the necessary permissions to delete internet gateways. This can be achieved by using AWS Identity and Access Management (IAM) policies to restrict access to the necessary resources.
+1. Implement IAM Policies: Ensure that proper IAM policies are in place to control access to the internet gateway. Only authorized users or roles should have the permission to delete or modify the internet gateway.
 
-2. Enable AWS CloudTrail: CloudTrail provides detailed logs of API activity in your AWS account, including the deletion of internet gateways. By enabling CloudTrail, you can monitor and track any unauthorized deletion attempts. You can use the Boto3 library in Python to interact with the CloudTrail API and retrieve relevant logs.
+2. Enable CloudTrail: Enable AWS CloudTrail to capture all API calls related to the internet gateway. This will help in identifying any unauthorized deletion attempts and provide an audit trail for investigation.
 
-3. Implement automated backups: Regularly backing up your internet gateway configurations can help mitigate the impact of accidental deletions. You can use the Boto3 library to create a script that periodically takes snapshots of your internet gateway configurations and stores them in a secure location such as Amazon S3.
-
-Here's an example Python script using Boto3 to check for unauthorized deletion of internet gateways:
+3. Implement Automation with Python: You can use the AWS SDK for Python (Boto3) to automate the remediation process. Here's an example Python script that can be used to detect and restore a deleted internet gateway:
 
 ```python
 import boto3
 
-def check_internet_gateway_deletion():
+def restore_internet_gateway(vpc_id):
     ec2_client = boto3.client('ec2')
-    response = ec2_client.describe_internet_gateways()
     
-    for internet_gateway in response['InternetGateways']:
-        if 'Tags' in internet_gateway:
-            for tag in internet_gateway['Tags']:
-                if tag['Key'] == 'Authorized' and tag['Value'] == 'False':
-                    print(f"Unauthorized deletion detected for internet gateway: {internet_gateway['InternetGatewayId']}")
-                    # Perform necessary actions to remediate the issue, such as restoring the internet gateway or notifying the appropriate personnel.
+    # Describe VPCs to check if internet gateway is missing
+    response = ec2_client.describe_vpcs(VpcIds=[vpc_id])
+    vpc = response['Vpcs'][0]
+    
+    # Check if internet gateway is missing
+    if 'InternetGatewayId' not in vpc:
+        # Create a new internet gateway
+        response = ec2_client.create_internet_gateway()
+        internet_gateway_id = response['InternetGateway']['InternetGatewayId']
+        
+        # Attach the internet gateway to the VPC
+        ec2_client.attach_internet_gateway(VpcId=vpc_id, InternetGatewayId=internet_gateway_id)
+        
+        print(f"Restored internet gateway {internet_gateway_id} for VPC {vpc_id}")
+    else:
+        print(f"Internet gateway already exists for VPC {vpc_id}")
 
-check_internet_gateway_deletion()
+# Usage example
+vpc_id = 'your-vpc-id'
+restore_internet_gateway(vpc_id)
 ```
 
-Please note that this script is a basic example and may need to be customized based on your specific requirements and environment.
+This script checks if the internet gateway is missing for a given VPC. If it is missing, it creates a new internet gateway and attaches it to the VPC. Otherwise, it prints a message indicating that the internet gateway already exists.
+
+Note: Make sure you have the necessary permissions and configure the AWS credentials for the Python script to work correctly.
 

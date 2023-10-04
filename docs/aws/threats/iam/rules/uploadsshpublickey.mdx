@@ -9,7 +9,7 @@ sidebar_label: UploadSSHPublicKey
 
 - The UploadSSHPublicKey event in AWS for IAM refers to the action of uploading an SSH public key to an IAM user's account.
 - This event is typically used to enable SSH key-based authentication for the IAM user, allowing them to securely access AWS resources using SSH.
-- By uploading an SSH public key, the IAM user can authenticate themselves without relying on traditional username/password credentials, enhancing security and convenience.
+- Uploading an SSH public key is an important step in configuring secure remote access to EC2 instances or other AWS services that support SSH authentication.
 
 
 ### Examples
@@ -18,7 +18,7 @@ sidebar_label: UploadSSHPublicKey
 
 2. Privilege escalation: If an attacker gains access to an IAM user or role and is able to upload their own SSH public key, they can potentially escalate their privileges within the AWS environment. By associating their SSH key with a higher privileged user or role, they can gain access to sensitive resources and perform actions that they are not authorized to do.
 
-3. Key tampering: If an attacker is able to intercept the SSH public key during the upload process, they can potentially tamper with the key and replace it with a malicious one. This can lead to unauthorized access or even allow the attacker to perform malicious actions within the AWS environment, compromising the overall security of the system.
+3. Key tampering: If an attacker is able to intercept the SSH public key during the upload process, they can potentially tamper with the key and replace it with a malicious one. This can lead to unauthorized access or even allow the attacker to perform malicious actions within the AWS environment, compromising the security of the system. It is important to ensure the integrity of the SSH public keys being uploaded to IAM.
 
 ### Remediation
 
@@ -47,68 +47,65 @@ sidebar_label: UploadSSHPublicKey
 
 #### Using CLI
 
-1. To remediate unauthorized access in AWS IAM using AWS CLI, you can follow these steps:
-   - Review and update the IAM policies associated with the user or role to ensure that only authorized individuals have the necessary permissions.
-   - Regularly monitor and audit the IAM user and role configurations to identify any misconfigurations or unauthorized SSH public key uploads.
-   - Implement multi-factor authentication (MFA) for IAM users to add an extra layer of security and prevent unauthorized access.
+1. To remediate unauthorized access in AWS IAM, you can use the following AWS CLI commands:
+   - Use `aws iam update-sshpublic-key` to update the SSH public key associated with an IAM user or role.
+   - Regularly review and audit the SSH public keys associated with IAM users and roles using `aws iam list-ssh-public-keys`.
+   - Implement strong IAM policies and permissions to restrict access to the `UpdateSSHPublicKey` operation.
 
-2. To remediate privilege escalation in AWS IAM using AWS CLI, you can take the following actions:
-   - Regularly review and update the IAM policies to ensure that users and roles have the least privilege necessary to perform their tasks.
-   - Implement strong password policies and enforce regular password rotations to reduce the risk of compromised credentials.
-   - Enable AWS CloudTrail to monitor and log all API calls related to IAM, allowing you to detect and investigate any suspicious activities.
+2. To remediate privilege escalation in AWS IAM, you can take the following steps:
+   - Regularly review and audit the IAM users and roles in your AWS environment using `aws iam list-users` and `aws iam list-roles`.
+   - Implement the principle of least privilege by assigning only necessary permissions to IAM users and roles.
+   - Enable multi-factor authentication (MFA) for IAM users to add an extra layer of security.
 
-3. To remediate key tampering in AWS IAM using AWS CLI, consider the following steps:
-   - Implement secure transmission protocols, such as HTTPS, to protect the SSH public key during the upload process.
-   - Regularly monitor and review the IAM user and role configurations to identify any unauthorized changes to the SSH public keys.
-   - Enable AWS CloudTrail to capture and log all API calls related to IAM, including SSH public key uploads, for auditing and investigation purposes.
+3. To remediate key tampering in AWS IAM, consider the following measures:
+   - Implement secure communication channels, such as HTTPS, to prevent interception of SSH public keys during the upload process.
+   - Regularly monitor and review the integrity of SSH public keys using tools like AWS CloudTrail and AWS Config.
+   - Implement strong access controls and permissions to prevent unauthorized modification of SSH public keys.
 
 #### Using Python
 
 1. Unauthorized access:
-- Regularly review and audit IAM user and role permissions to ensure they have the least privilege necessary.
-- Implement multi-factor authentication (MFA) for IAM users to add an extra layer of security.
+- Regularly review and monitor the IAM policies and permissions associated with IAM users and roles to ensure they are properly configured.
+- Implement multi-factor authentication (MFA) for IAM users to add an extra layer of security and prevent unauthorized access.
 
 2. Privilege escalation:
-- Implement strong password policies and enforce regular password rotation for IAM users.
-- Monitor and analyze IAM user activity logs to detect any suspicious behavior or privilege escalation attempts.
+- Implement least privilege principles by assigning IAM users and roles with only the necessary permissions required to perform their tasks.
+- Regularly review and audit IAM user and role permissions to identify any potential privilege escalation vulnerabilities.
 
 3. Key tampering:
-- Implement encryption and secure transmission protocols (e.g., HTTPS) when uploading SSH public keys.
-- Use cryptographic hash functions to verify the integrity of the SSH public keys during the upload process.
+- Implement secure communication channels, such as HTTPS, when uploading SSH public keys to IAM.
+- Validate the integrity of the SSH public keys by comparing their fingerprints or using cryptographic signatures.
+- Implement strong access controls and monitoring mechanisms to detect and prevent any unauthorized modifications to the SSH public keys.
 
-Here is an example of a Python script that can help with auditing IAM user permissions:
+Here is an example of a Python script that can be used to automate the remediation process for unauthorized access:
 
 ```python
 import boto3
 
-def get_iam_users():
-    iam = boto3.client('iam')
-    response = iam.list_users()
-    return response['Users']
+def remove_unauthorized_ssh_keys():
+    iam_client = boto3.client('iam')
 
-def get_iam_user_permissions(user_name):
-    iam = boto3.client('iam')
-    response = iam.list_attached_user_policies(UserName=user_name)
-    attached_policies = response['AttachedPolicies']
-    permissions = []
-    for policy in attached_policies:
-        permissions.append(policy['PolicyName'])
-    return permissions
+    # Get all IAM users
+    response = iam_client.list_users()
 
-def main():
-    users = get_iam_users()
-    for user in users:
-        user_name = user['UserName']
-        permissions = get_iam_user_permissions(user_name)
-        print(f"IAM User: {user_name}")
-        print(f"Permissions: {permissions}")
-        print()
+    for user in response['Users']:
+        username = user['UserName']
 
-if __name__ == '__main__':
-    main()
+        # Get SSH public keys for the user
+        response = iam_client.list_ssh_public_keys(UserName=username)
+
+        for ssh_key in response['SSHPublicKeys']:
+            ssh_key_id = ssh_key['SSHPublicKeyId']
+
+            # Check if the SSH key is unauthorized
+            if ssh_key['Status'] == 'Active' and ssh_key['UploadDate'] < datetime.datetime.now() - datetime.timedelta(days=7):
+                # Delete the unauthorized SSH key
+                iam_client.delete_ssh_public_key(UserName=username, SSHPublicKeyId=ssh_key_id)
+
+remove_unauthorized_ssh_keys()
 ```
 
-This script uses the Boto3 library to interact with the AWS IAM service. It retrieves a list of IAM users and their attached policies, providing visibility into the permissions assigned to each user.
+Please note that this is just an example and may need to be customized based on your specific requirements and environment.
 
 
  

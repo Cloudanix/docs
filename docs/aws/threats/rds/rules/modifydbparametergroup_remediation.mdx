@@ -48,103 +48,74 @@ Note: It is important to thoroughly review the impact of these changes before ap
 
 #### Using CLI
 
-1. To remediate insecure parameter values in AWS RDS using AWS CLI, you can follow these steps:
-   - Identify the specific parameter that needs to be modified. For example, if the "log_statement" parameter is set to "all" instead of "none".
-   - Use the `modify-db-parameter-group` command to update the parameter value. For example:
-     ```
-     aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=log_statement,ParameterValue=none,ApplyMethod=immediate"
-     ```
-   - Apply the changes immediately by specifying `ApplyMethod=immediate`.
+1. To remediate insecure parameter values in AWS RDS, you can use the AWS CLI to modify the DB parameter group. First, identify the parameter group associated with your RDS instance using the `describe-db-instances` command. Then, use the `modify-db-parameter-group` command to update the specific parameter value to a secure setting. For example:
 
-2. To remediate weak encryption settings in AWS RDS using AWS CLI, you can follow these steps:
-   - Identify the specific parameter that needs to be modified. For example, if the "ssl" parameter is set to "off" instead of "on".
-   - Use the `modify-db-parameter-group` command to update the parameter value. For example:
-     ```
-     aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=ssl,ParameterValue=on,ApplyMethod=immediate"
-     ```
-   - Apply the changes immediately by specifying `ApplyMethod=immediate`.
+```
+aws rds describe-db-instances --db-instance-identifier <instance-id>
 
-3. To remediate access control misconfigurations in AWS RDS using AWS CLI, you can follow these steps:
-   - Identify the specific parameter that needs to be modified. For example, if the "rds_superuser" parameter allows access from any IP address instead of a specific trusted network.
-   - Use the `modify-db-parameter-group` command to update the parameter value. For example:
-     ```
-     aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=rds_superuser,ParameterValue=<specific-IP>,ApplyMethod=immediate"
-     ```
-   - Apply the changes immediately by specifying `ApplyMethod=immediate`. Replace `<specific-IP>` with the trusted network IP address.
+aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=log_statement,ParameterValue=none,ApplyMethod=immediate"
+```
+
+2. To remediate weak encryption settings in AWS RDS, you can again use the AWS CLI to modify the DB parameter group. Identify the parameter group associated with your RDS instance using the `describe-db-instances` command. Then, use the `modify-db-parameter-group` command to update the specific parameter value to enable SSL encryption. For example:
+
+```
+aws rds describe-db-instances --db-instance-identifier <instance-id>
+
+aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=ssl,ParameterValue=on,ApplyMethod=immediate"
+```
+
+3. To remediate access control misconfigurations in AWS RDS, you can modify the security group associated with your RDS instance using the AWS CLI. First, identify the security group associated with your RDS instance using the `describe-db-instances` command. Then, use the `authorize-security-group-ingress` command to update the inbound rules to allow access only from specific trusted networks. For example:
+
+```
+aws rds describe-db-instances --db-instance-identifier <instance-id>
+
+aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr <trusted-network-IP-range>
+```
+
+Note: Replace `<instance-id>`, `<parameter-group-name>`, `<security-group-id>`, `<port-number>`, and `<trusted-network-IP-range>` with the appropriate values for your environment.
 
 #### Using Python
 
-To remediate insecure parameter values, you can use the AWS SDK for Python (Boto3) to modify the DB parameter group in AWS RDS. Here's an example script:
+To remediate insecure parameter values, you can use the AWS SDK for Python (Boto3) to modify the DB parameter group in AWS RDS. Here's an example Python script:
 
 ```python
 import boto3
 
-# Create an RDS client
+# Create a RDS client
 rds_client = boto3.client('rds')
 
 # Specify the DB instance identifier and parameter group name
-db_instance_identifier = 'your-db-instance-id'
+db_instance_identifier = 'your-db-instance-identifier'
 parameter_group_name = 'your-parameter-group-name'
 
 # Retrieve the current parameter group settings
-response = rds_client.describe_db_parameters(
+response = rds_client.describe_db_instances(
+    DBInstanceIdentifier=db_instance_identifier
+)
+current_parameter_group = response['DBInstances'][0]['DBParameterGroups'][0]['DBParameterGroupName']
+
+# Modify the parameter group settings
+response = rds_client.modify_db_instance(
+    DBInstanceIdentifier=db_instance_identifier,
     DBParameterGroupName=parameter_group_name
 )
 
-# Modify the parameter values as needed
-parameters_to_modify = [
-    {
-        'ParameterName': 'log_statement',
-        'ParameterValue': 'none'
-    },
-    # Add more parameters to modify as necessary
-]
-
-# Apply the modified parameter values to the DB instance
-response = rds_client.modify_db_parameter_group(
-    DBParameterGroupName=parameter_group_name,
-    Parameters=parameters_to_modify
+# Verify the modification status
+response = rds_client.describe_db_instances(
+    DBInstanceIdentifier=db_instance_identifier
 )
+modified_parameter_group = response['DBInstances'][0]['DBParameterGroups'][0]['DBParameterGroupName']
 
-print('DB parameter group modified successfully')
+# Check if the parameter group has been successfully modified
+if modified_parameter_group == parameter_group_name:
+    print("DB parameter group has been successfully modified.")
+else:
+    print("Failed to modify DB parameter group.")
 ```
 
-To remediate weak encryption settings, you can use a similar approach with Boto3 to modify the SSL parameter. Here's an example script:
+To remediate weak encryption settings, you can use the same Python script as above, but modify the `parameter_group_name` variable to the appropriate parameter group that enforces strong encryption settings.
 
-```python
-import boto3
-
-# Create an RDS client
-rds_client = boto3.client('rds')
-
-# Specify the DB instance identifier and parameter group name
-db_instance_identifier = 'your-db-instance-id'
-parameter_group_name = 'your-parameter-group-name'
-
-# Retrieve the current parameter group settings
-response = rds_client.describe_db_parameters(
-    DBParameterGroupName=parameter_group_name
-)
-
-# Modify the parameter values as needed
-parameters_to_modify = [
-    {
-        'ParameterName': 'ssl',
-        'ParameterValue': 'on'
-    },
-    # Add more parameters to modify as necessary
-]
-
-# Apply the modified parameter values to the DB instance
-response = rds_client.modify_db_parameter_group(
-    DBParameterGroupName=parameter_group_name,
-    Parameters=parameters_to_modify
-)
-
-print('DB parameter group modified successfully')
-```
-
-To remediate access control misconfigurations, you can use Boto3 to modify the RDS security group rules. Here's an example script:
+To remediate access control misconfigurations, you can use the AWS SDK for Python (Boto3) to modify the security group associated with the RDS instance. Here's an example Python script:
 
 ```python
 import boto3
@@ -167,7 +138,7 @@ response = ec2_client.revoke_security_group_ingress(
     ]
 )
 
-# Authorize a new ingress rule that allows access from the trusted IP range
+# Authorize the new ingress rule that allows access from the trusted IP range
 response = ec2_client.authorize_security_group_ingress(
     GroupId=security_group_id,
     IpPermissions=[
@@ -178,8 +149,12 @@ response = ec2_client.authorize_security_group_ingress(
     ]
 )
 
-print('Security group rules modified successfully')
+# Check if the security group rules have been successfully modified
+if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+    print("Security group rules have been successfully modified.")
+else:
+    print("Failed to modify security group rules.")
 ```
 
-Please note that you need to replace the placeholders ('your-db-instance-id', 'your-parameter-group-name', 'your-security-group-id', '0.0.0.0/32') with the actual values specific to your environment.
+Note: Make sure to replace the placeholder values ('your-db-instance-identifier', 'your-parameter-group-name', 'your-security-group-id', '0.0.0.0/32') with the actual values specific to your environment.
 

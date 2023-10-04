@@ -7,9 +7,9 @@ sidebar_label: CreateDBSubnetGroup
                        
 ### Event Information
 
-- The CreateDBSubnetGroup event in AWS for RDS refers to the action of creating a subnet group specifically for a relational database service (RDS) instance.
-- A subnet group is a collection of subnets within a virtual private cloud (VPC) that can be used to deploy RDS instances. It defines the subnets where the RDS instance will be launched and determines the network connectivity for the RDS instance.
-- This event is typically triggered when a user or an automated process creates a new DB subnet group to configure the network settings for an RDS instance, such as specifying the subnets and availability zones where the RDS instance will be deployed.
+- The CreateDBSubnetGroup event in AWS for RDS refers to the action of creating a subnet group specifically for Amazon RDS (Relational Database Service).
+- A subnet group is a collection of subnets within a VPC (Virtual Private Cloud) that RDS uses to launch database instances. It helps in defining the network configuration for RDS instances.
+- This event is typically used when setting up or configuring an RDS database, where you need to create a subnet group to specify the subnets where the RDS instances will be deployed.
 
 
 ### Examples
@@ -50,359 +50,101 @@ sidebar_label: CreateDBSubnetGroup
 - Step 1: Log in to the AWS Management Console.
 - Step 2: Navigate to the Amazon RDS service.
 - Step 3: Click on "Subnet groups" in the left-hand menu.
-- Step 4: Select the DB subnet group that lacks encryption.
+- Step 4: Select the DB subnet group that needs encryption remediation.
 - Step 5: Click on the "Modify" button.
 - Step 6: Scroll down to the "Encryption" section.
 - Step 7: Enable encryption for data in transit by selecting the appropriate SSL/TLS option.
 - Step 8: Enable encryption for data at rest by selecting the appropriate AWS Key Management Service (KMS) option and specifying the encryption key.
-- Step 9: Review the changes and click on the "Save" button to apply the encryption settings.
+- Step 9: Review the changes and click on the "Save" button to apply the encryption modifications.
 
 #### Using CLI
 
-1. To remediate inadequate network segmentation for a DB subnet group in AWS RDS using AWS CLI, you can follow these steps:
+1. To remediate inadequate network segmentation for a DB subnet group in AWS RDS, you can follow these steps using AWS CLI commands:
 
-- Identify the subnets that need to be included in the DB subnet group and ensure they are properly isolated from other networks.
-- Create a new DB subnet group using the `create-db-subnet-group` command, specifying the appropriate subnet IDs and security group IDs.
-- Update the RDS instances to use the newly created DB subnet group using the `modify-db-instance` command, specifying the DB instance identifier and the `db-subnet-group-name` parameter.
+- Identify the subnets that are currently included in the DB subnet group: `aws rds describe-db-subnet-groups --db-subnet-group-name <subnet-group-name>`
 
-Example CLI commands:
-```
-aws rds create-db-subnet-group --db-subnet-group-name <subnet-group-name> --subnet-ids <subnet-id-1> <subnet-id-2> --db-subnet-group-description "DB subnet group for RDS"
-aws rds modify-db-instance --db-instance-identifier <db-instance-id> --db-subnet-group-name <subnet-group-name>
-```
+- Review the security group rules associated with the subnets: `aws ec2 describe-security-groups --filters "Name=vpc-id,Values=<vpc-id>"`
 
-2. To remediate weak access controls for a DB subnet group in AWS RDS using AWS CLI, you can follow these steps:
+- Modify the DB subnet group to ensure proper network segmentation by adding or removing subnets as needed: `aws rds modify-db-subnet-group --db-subnet-group-name <subnet-group-name> --subnet-ids <comma-separated-subnet-ids>`
 
-- Review the existing permissions granted to the subnet group and identify any excessive or unnecessary permissions.
-- Update the subnet group's security group rules to restrict access only to authorized users or services.
-- Use the `modify-db-subnet-group` command to update the subnet group with the new security group rules.
+2. To remediate weak access controls for a DB subnet group in AWS RDS, you can use the following AWS CLI commands:
 
-Example CLI commands:
-```
-aws rds describe-db-subnet-groups --db-subnet-group-name <subnet-group-name>
-aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --source <authorized-ip-range>
-aws rds modify-db-subnet-group --db-subnet-group-name <subnet-group-name> --subnet-ids <subnet-id-1> <subnet-id-2> --db-subnet-group-description "Updated DB subnet group"
-```
+- Review the current permissions granted to the subnet group: `aws rds describe-db-subnet-groups --db-subnet-group-name <subnet-group-name>`
 
-3. To remediate the lack of encryption for a DB subnet group in AWS RDS using AWS CLI, you can follow these steps:
+- Modify the DB subnet group to remove excessive permissions and grant only necessary access: `aws rds modify-db-subnet-group --db-subnet-group-name <subnet-group-name> --db-subnet-group-description <new-description> --subnet-ids <comma-separated-subnet-ids>`
 
-- Enable SSL/TLS encryption for data in transit by modifying the RDS instances' parameter group settings. Set the `rds.force_ssl` parameter to `1`.
-- Enable encryption at rest by modifying the RDS instances' parameter group settings. Set the `rds.encryption_enabled` parameter to `1` and specify the appropriate AWS KMS key ARN.
-- Restart the RDS instances for the changes to take effect.
+3. To remediate the lack of encryption for a DB subnet group in AWS RDS, you can utilize the following AWS CLI commands:
 
-Example CLI commands:
-```
-aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=rds.force_ssl,ParameterValue=1,ApplyMethod=immediate"
-aws rds modify-db-parameter-group --db-parameter-group-name <parameter-group-name> --parameters "ParameterName=rds.encryption_enabled,ParameterValue=1,ApplyMethod=immediate" "ParameterName=rds.kms_key_arn,ParameterValue=<kms-key-arn>,ApplyMethod=immediate"
-aws rds reboot-db-instance --db-instance-identifier <db-instance-id>
-```
+- Check the encryption settings for the RDS instances associated with the subnet group: `aws rds describe-db-instances --db-instance-identifier <db-instance-identifier>`
+
+- Enable encryption for data in transit by modifying the DB instance: `aws rds modify-db-instance --db-instance-identifier <db-instance-identifier> --apply-immediately --engine-version <engine-version> --storage-encrypted`
+
+- Enable encryption for data at rest using AWS Key Management Service (KMS): `aws rds modify-db-instance --db-instance-identifier <db-instance-identifier> --apply-immediately --engine-version <engine-version> --kms-key-id <kms-key-id>`
 
 #### Using Python
 
-To remediate inadequate network segmentation, you can use the AWS SDK for Python (Boto3) to create a DB subnet group with proper network segmentation. Here's an example script:
+To remediate the security issues mentioned above for AWS RDS using Python scripts, you can utilize the AWS SDK for Python (Boto3) to automate the configuration and management of the DB subnet group. Here are some example Python scripts:
 
+1. Inadequate network segmentation:
 ```python
 import boto3
 
-def create_db_subnet_group():
-    client = boto3.client('rds')
+def remediate_network_segmentation(db_subnet_group_name, subnet_ids):
+    rds_client = boto3.client('rds')
     
-    response = client.create_db_subnet_group(
-        DBSubnetGroupName='your-subnet-group-name',
-        DBSubnetGroupDescription='your-subnet-group-description',
-        SubnetIds=[
-            'subnet-1a2b3c4d',
-            'subnet-5e6f7g8h',
-            # Add more subnet IDs as needed
-        ]
+    response = rds_client.modify_db_subnet_group(
+        DBSubnetGroupName=db_subnet_group_name,
+        SubnetIds=subnet_ids
     )
     
-    print(response)
+    print("DB subnet group updated successfully")
 
-create_db_subnet_group()
+# Usage
+remediate_network_segmentation('my-db-subnet-group', ['subnet-12345678', 'subnet-87654321'])
 ```
 
-To remediate weak access controls, you can use the AWS SDK for Python (Boto3) to configure proper access controls for the DB subnet group. Here's an example script:
-
+2. Weak access controls:
 ```python
 import boto3
 
-def modify_db_subnet_group():
-    client = boto3.client('rds')
+def remediate_access_controls(db_subnet_group_name, vpc_security_group_ids):
+    rds_client = boto3.client('rds')
     
-    response = client.modify_db_subnet_group(
-        DBSubnetGroupName='your-subnet-group-name',
-        DBSubnetGroupDescription='your-updated-subnet-group-description',
-        SubnetIds=[
-            'subnet-1a2b3c4d',
-            'subnet-5e6f7g8h',
-            # Add more subnet IDs as needed
-        ]
+    response = rds_client.modify_db_subnet_group(
+        DBSubnetGroupName=db_subnet_group_name,
+        VpcSecurityGroupIds=vpc_security_group_ids
     )
     
-    print(response)
+    print("DB subnet group updated successfully")
 
-modify_db_subnet_group()
+# Usage
+remediate_access_controls('my-db-subnet-group', ['sg-12345678', 'sg-87654321'])
 ```
 
-To remediate lack of encryption, you can use the AWS SDK for Python (Boto3) to enable encryption options for the DB subnet group. Here's an example script:
-
+3. Lack of encryption:
 ```python
 import boto3
 
-def modify_db_subnet_group_encryption():
-    client = boto3.client('rds')
+def remediate_encryption(db_subnet_group_name):
+    rds_client = boto3.client('rds')
     
-    response = client.modify_db_subnet_group(
-        DBSubnetGroupName='your-subnet-group-name',
-        DBSubnetGroupDescription='your-updated-subnet-group-description',
-        SubnetIds=[
-            'subnet-1a2b3c4d',
-            'subnet-5e6f7g8h',
-            # Add more subnet IDs as needed
-        ],
-        VpcId='your-vpc-id',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        Tags=[
-            {
-                'Key': 'your-tag-key',
-                'Value': 'your-tag-value'
-            },
-            # Add more tags as needed
-        ],
-        DBSubnetGroupStatus='Complete',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-subnet-group-arn',
-        DBSubnetGroupArn='your-sub
+    response = rds_client.modify_db_subnet_group(
+        DBSubnetGroupName=db_subnet_group_name,
+        VpcSecurityGroupIds=vpc_security_group_ids
+    )
+    
+    response = rds_client.modify_db_instance(
+        DBInstanceIdentifier='my-db-instance',
+        StorageEncrypted=True
+    )
+    
+    print("DB subnet group and instance updated successfully")
+
+# Usage
+remediate_encryption('my-db-subnet-group')
+```
+
+Please note that these scripts are just examples and may need to be customized based on your specific requirements and environment.
 
 
  
