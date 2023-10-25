@@ -23,110 +23,93 @@ CBP
 
 #### Using Console
 
-To remediate the misconfiguration of roles assumable by compute services in AWS IAM using the AWS console, follow these steps:
-
-1. Sign in to the AWS Management Console.
-2. Open the IAM console.
-3. In the navigation pane, select "Roles".
-4. Review the list of roles and identify the roles that are assumable by compute services.
-5. Select the role that you want to modify.
-6. In the "Permissions" tab, click on "Edit trust relationship".
-7. In the "Policy Document" section, modify the trust policy to restrict the assumable roles.
-8. Update the "Principal" section of the trust policy to include only the specific compute services that should be allowed to assume the role. For example, if you want to allow only EC2 instances to assume the role, modify the principal section as follows:
-
-```
-"Principal": {
-    "Service": "ec2.amazonaws.com"
-}
-```
-
-9. Click on "Update Trust Policy" to save the changes.
-10. Repeat steps 5-9 for each role that allows assumable by compute services.
-
-By following these steps, you will restrict the assumable roles for compute services in AWS IAM using the AWS console.
+None
 
 #### Using CLI
 
-To remediate the misconfiguration of roles assumable by compute services in AWS IAM using Azure CLI, follow these steps:
+To remediate the misconfiguration of roles assumable by compute services in Azure using the Azure CLI, follow these step-by-step instructions:
 
-1. Install and configure Azure CLI: 
-   - Download and install Azure CLI from the official Microsoft website.
-   - Open the command prompt or terminal and run the `az login` command to sign in to your Azure account.
+1. Install and set up the Azure CLI on your local machine if you haven't already. You can find the installation guide at https://docs.microsoft.com/en-us/cli/azure/install-azure-cli.
 
-2. List the existing roles in Azure:
-   - Run the command `az role definition list` to retrieve a list of all the available roles in Azure.
+2. Open a command prompt or terminal and log in to your Azure account using the following command:
+   ```
+   az login
+   ```
 
-3. Identify the roles assumable by compute services:
-   - Review the list of roles obtained in the previous step and identify the roles that are assumable by compute services. These roles typically have "Compute" or "Virtual Machine" in their names.
+3. If you have multiple subscriptions, set the desired subscription where the remediation needs to be applied using the following command:
+   ```
+   az account set --subscription <subscription_id>
+   ```
 
-4. Create a custom role with restricted permissions:
-   - Run the command `az role definition create --role-definition <JSON_FILE_PATH>` to create a custom role definition using a JSON file.
-   - Replace `<JSON_FILE_PATH>` with the path to a JSON file that defines the custom role with restricted permissions.
-   - In the JSON file, specify the necessary permissions required by compute services, such as managing virtual machines, networks, or storage. Remove any unnecessary or excessive permissions.
+4. List all the existing role assignments for the compute services using the following command:
+   ```
+   az role assignment list --all --query "[?contains(roleDefinitionName, 'Virtual Machine Contributor') && contains(principalType, 'ServicePrincipal')]"
+   ```
 
-5. Assign the custom role to the appropriate compute services:
-   - Run the command `az role assignment create --assignee <SERVICE_PRINCIPAL_ID> --role <ROLE_NAME>` to assign the custom role to the appropriate compute services.
-   - Replace `<SERVICE_PRINCIPAL_ID>` with the ID of the service principal associated with the compute service.
-   - Replace `<ROLE_NAME>` with the name of the custom role created in the previous step.
+5. Identify the role assignments that need to be remediated. Make a note of the `principalId` and `scope` values for each role assignment.
 
-6. Verify the role assignment:
-   - Run the command `az role assignment list --assignee <SERVICE_PRINCIPAL_ID>` to verify that the custom role has been successfully assigned to the compute service.
-   - Replace `<SERVICE_PRINCIPAL_ID>` with the ID of the service principal associated with the compute service.
+6. Remove the role assignments using the following command for each role assignment:
+   ```
+   az role assignment delete --assignee <principalId> --scope <scope>
+   ```
 
-7. Repeat steps 4-6 for all relevant compute services:
-   - If there are multiple compute services in your Azure environment, repeat steps 4-6 for each service to ensure the roles assumable by compute services are properly configured.
+   Replace `<principalId>` with the `principalId` value obtained in step 5 and `<scope>` with the `scope` value obtained in step 5.
 
-By following these steps, you can remediate the misconfiguration of roles assumable by compute services in AWS IAM using Azure CLI.
+7. Verify that the role assignments have been successfully removed by re-running the command in step 4.
+
+By following these steps, you will be able to remediate the misconfiguration of roles assumable by compute services in Azure using the Azure CLI.
 
 #### Using Python
 
-To remediate the misconfiguration "Roles Assumable By Compute Services" in AWS IAM using Python, follow these steps:
+To remediate the misconfiguration of roles assumable by compute services in Azure using Python, you can follow these steps:
 
-1. Identify the affected IAM roles: Determine which IAM roles have the "sts:AssumeRole" permission for the service principal associated with compute services (e.g., EC2, Lambda).
+1. Install the required Python packages:
+   ```python
+   pip install azure-identity
+   pip install azure-mgmt-resource
+   ```
 
-2. Update the IAM policy for each affected role: Modify the IAM policy attached to each affected role to restrict the "sts:AssumeRole" permission only to trusted entities. Here's an example of how to achieve this using the AWS SDK for Python (Boto3):
+2. Import the necessary modules in your Python script:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.resource import ResourceManagementClient
+   ```
 
-```python
-import boto3
-from botocore.exceptions import ClientError
+3. Authenticate with Azure using the default credentials:
+   ```python
+   credential = DefaultAzureCredential()
+   ```
 
-def update_role_policy(role_name):
-    iam_client = boto3.client('iam')
+4. Create an instance of the ResourceManagementClient:
+   ```python
+   subscription_id = "<your-subscription-id>"
+   resource_client = ResourceManagementClient(credential, subscription_id)
+   ```
 
-    try:
-        # Get the current role policy
-        response = iam_client.get_role_policy(
-            RoleName=role_name,
-            PolicyName='AssumeRolePolicy'
-        )
-        
-        # Update the policy document to restrict the AssumeRole permission
-        policy_document = response['PolicyDocument']
-        policy_document['Statement'][0]['Principal']['Service'] = 'trusted-service-principal'
-        
-        # Update the role policy
-        response = iam_client.update_role_policy(
-            RoleName=role_name,
-            PolicyName='AssumeRolePolicy',
-            PolicyDocument=policy_document
-        )
-        
-        print(f"Updated role policy for {role_name} successfully.")
-    
-    except ClientError as e:
-        print(f"Failed to update role policy for {role_name}: {e}")
+5. Get the list of compute resources in your Azure subscription:
+   ```python
+   compute_resources = resource_client.resources.list(filter="resourceType eq 'Microsoft.Compute/virtualMachines'")
+   ```
 
-# Update the policy for each affected role
-affected_roles = ['role1', 'role2', 'role3']
-for role in affected_roles:
-    update_role_policy(role)
-```
+6. Iterate over the compute resources and check their role assignments:
+   ```python
+   for compute_resource in compute_resources:
+       resource_id = compute_resource.id
+       role_assignments = resource_client.role_assignments.list_for_resource(resource_id)
+       for role_assignment in role_assignments:
+           if role_assignment.principal_type == "ServicePrincipal":
+               print(f"Compute resource {resource_id} has a role assignment with principal type ServicePrincipal: {role_assignment.role_definition_name}")
+   ```
 
-Replace `'trusted-service-principal'` with the actual trusted service principal that should be allowed to assume the role. Repeat the `update_role_policy` function call for each affected role.
+7. Review the output to identify any compute resources with role assignments that need remediation.
 
-3. Verify the remediation: After updating the IAM policies, ensure that only the trusted compute services can assume the roles by testing the role assumption using the AWS Management Console or programmatically.
+8. To remediate the misconfiguration, you can remove the role assignments for compute resources that are not intended to have them. Use the `delete` method from the `RoleAssignmentsOperations` class:
+   ```python
+   resource_client.role_assignments.delete(role_assignment_name)
+   ```
 
-By following these steps, you can remediate the "Roles Assumable By Compute Services" misconfiguration in AWS IAM using Python.
+Note: Make sure to replace `<your-subscription-id>` with your actual Azure subscription ID in step 4.
 
+By following these steps, you can identify and remediate the misconfiguration of roles assumable by compute services in Azure using Python.
 
 

@@ -2,89 +2,121 @@
 
 #### Using Console
 
-To remediate the issue of inactive users in AWS IAM using the AWS Management Console, follow these steps:
+To remediate inactive users in Azure Active Directory (Azure AD) using the Azure console, follow these steps:
 
-1. Sign in to the AWS Management Console.
-2. Open the IAM console by selecting "Services" from the navigation bar at the top of the screen, and then selecting "IAM" under the "Security, Identity & Compliance" section.
-3. In the left navigation pane, click on "Users" to view the list of IAM users.
-4. Identify the inactive users by checking the "Last Activity" column. Users who have not performed any activity for a long time are considered inactive.
-5. Select the inactive user(s) from the list by clicking the checkbox next to their names.
-6. Click on the "Actions" dropdown menu and select "Delete users" to remove the inactive users.
-7. A confirmation window will appear. Review the list of users to be deleted and click on the "Delete" button to proceed.
-8. Repeat steps 5-7 for all the inactive users you identified.
-9. Once the users are deleted, it is recommended to review and update the IAM policies and roles to ensure that the inactive users' permissions are no longer being used or assigned to any resources.
+1. Sign in to the Azure portal (portal.azure.com) using your Azure AD administrator account.
 
-It is important to note that before deleting any user, you should ensure that the user is truly inactive and no longer required. You may want to check with the user or their manager to confirm their status before proceeding with the deletion.
+2. In the left-hand menu, click on "Azure Active Directory" to open the Azure AD dashboard.
+
+3. In the Azure AD dashboard, click on "Users" to view the list of users in your directory.
+
+4. Sort the users by the "Last sign-in" column to identify the inactive users. Users with no sign-in activity will have a blank or old date in this column.
+
+5. Select the inactive users you want to remediate by clicking on their names or using the checkboxes beside their names.
+
+6. Once the users are selected, click on the "Delete" button at the top of the user list.
+
+7. In the confirmation dialog, review the selected users and click on "Delete" to remove them from Azure AD.
+
+8. After the users are deleted, you may want to review any associated resources or permissions they had and update or remove them accordingly.
+
+9. Additionally, consider enabling Azure AD Premium's "Azure AD Identity Protection" feature to proactively detect and remediate risky sign-in activities.
+
+By following these steps, you can remediate inactive users in Azure AD using the Azure console.
 
 #### Using CLI
 
-To remediate inactive users in AWS IAM using Azure CLI, follow these step-by-step instructions:
+To remediate inactive users in Azure Active Directory (Azure AD) using Azure CLI, follow these steps:
 
-1. Install Azure CLI: If you haven't already, install Azure CLI on your machine by following the instructions provided by Microsoft.
+1. Install Azure CLI: If you haven't already, install the Azure CLI on your local machine by following the instructions provided by Microsoft.
 
-2. Authenticate with Azure CLI: Open your terminal and authenticate with Azure CLI using the command `az login`. Follow the prompts to complete the authentication process.
+2. Sign in to Azure: Open a terminal or command prompt and sign in to your Azure account by running the following command:
+   ```
+   az login
+   ```
 
-3. Switch to the Azure AD tenant: If you have multiple Azure AD tenants, switch to the appropriate tenant where your AWS IAM users are located. Use the command `az account set --subscription <subscription_id>` to switch to the desired subscription.
+3. Select the Azure subscription: If you have multiple Azure subscriptions, use the following command to select the appropriate subscription:
+   ```
+   az account set --subscription <subscription_id>
+   ```
 
-4. List all the users: To identify inactive users, you need to list all the users in the Azure AD tenant. Use the command `az ad user list` to retrieve a list of all the users.
+4. List inactive users: Use the following command to list all inactive users in Azure AD:
+   ```
+   az ad user list --query "[?lastSignInDateTime=='null' && userType=='Member'].{displayName:displayName, objectId:objectId}"
+   ```
 
-5. Identify inactive users: Analyze the list of users and identify the inactive users based on your organization's policy or specific criteria. Inactive users are generally those who have not logged in for a specified period.
+5. Review the list: Examine the output of the previous command to identify the inactive users that need to be remediated. Note down the `objectId` of each inactive user.
 
-6. Disable inactive users: Once you have identified the inactive users, disable them to prevent further access. Use the command `az ad user update --id <user_objectId> --account-enabled false` to disable a specific user. Replace `<user_objectId>` with the Object ID of the inactive user.
+6. Disable inactive users: For each inactive user identified in the previous step, run the following command to disable the user:
+   ```
+   az ad user update --id <objectId> --accountEnabled false
+   ```
 
-7. Repeat step 6 for each inactive user: Iterate through all the identified inactive users and disable them using the command mentioned in step 6.
+   Replace `<objectId>` with the actual `objectId` of the inactive user.
 
-8. Verify the changes: To ensure that the inactive users are successfully disabled, you can list the users again using the command `az ad user list` and verify that the `accountEnabled` property is set to `false` for the previously inactive users.
+7. Verify the changes: To ensure that the users have been disabled, you can use the `az ad user show` command to check the accountEnabled status of each user:
+   ```
+   az ad user show --id <objectId> --query accountEnabled
+   ```
 
-By following these steps, you can remediate inactive users in AWS IAM using Azure CLI.
+   Replace `<objectId>` with the actual `objectId` of the user.
+
+8. Repeat step 6 and 7 for each inactive user identified in step 5.
+
+By following these steps, you can remediate inactive users in Azure AD using Azure CLI.
 
 #### Using Python
 
-To remediate inactive users in AWS IAM using Python, you can follow these steps:
+To remediate inactive users in Azure Active Directory (Azure AD) using Python, follow these steps:
 
-1. Import the required libraries:
+1. Install the required libraries:
+   - Install the Azure Identity library: `pip install azure-identity`
+   - Install the Azure Management IAM library: `pip install azure-mgmt-authorization`
+
+2. Import the necessary modules in your Python script:
 ```python
-import boto3
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.authorization import AuthorizationManagementClient
 from datetime import datetime, timedelta
 ```
 
-2. Set up the AWS IAM client:
+3. Authenticate with Azure using the DefaultAzureCredential:
 ```python
-client = boto3.client('iam')
+credential = DefaultAzureCredential()
+subscription_id = "<your-subscription-id>"
+client = AuthorizationManagementClient(credential, subscription_id)
 ```
 
-3. Define the function to remediate inactive users:
+4. Define a function to get the list of inactive users:
 ```python
-def remediate_inactive_users():
-    # Get the current date and time
-    current_time = datetime.now()
-
-    # Define the threshold for inactivity (e.g., 90 days)
-    threshold_days = 90
-
-    # Calculate the date threshold
-    threshold_date = current_time - timedelta(days=threshold_days)
-
-    # List all IAM users
-    response = client.list_users()
-
-    # Iterate through each user
-    for user in response['Users']:
-        # Get the user's last activity
-        response = client.get_user_last_accessed_time(UserName=user['UserName'])
-        last_accessed_time = response['UserLastAccessed']['LastAccessedDateTime']
-
-        # Check if the user has not been active after the threshold date
-        if last_accessed_time < threshold_date:
-            # Delete the user
-            client.delete_user(UserName=user['UserName'])
-            print(f"Deleted inactive user: {user['UserName']}")
+def get_inactive_users(days):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    filter_str = f"signInActivity/lastSignInDateTime le {end_date.isoformat()} and signInActivity/lastSignInDateTime ge {start_date.isoformat()}"
+    
+    users = client.users.list(filter=filter_str)
+    return users
 ```
 
-4. Call the function to remediate inactive users:
+5. Define a function to disable the inactive users:
 ```python
-remediate_inactive_users()
+def disable_inactive_users(days):
+    users = get_inactive_users(days)
+    
+    for user in users:
+        user.is_account_enabled = False
+        client.users.update(user.object_id, user)
 ```
 
-Note: Make sure you have the necessary permissions and have configured your AWS credentials properly before running this code.
+6. Specify the number of days of inactivity after which a user should be considered inactive:
+```python
+inactive_days_threshold = 90
+```
+
+7. Call the `disable_inactive_users` function with the specified number of inactive days:
+```python
+disable_inactive_users(inactive_days_threshold)
+```
+
+Make sure you have the necessary permissions to manage users in Azure AD. Adjust the code as necessary to suit your specific requirements and environment.
 
