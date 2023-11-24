@@ -1,0 +1,146 @@
+### Remediation
+
+#### Using Console
+
+To remediate the vulnerability of AWS S3 CNAME Records, you can follow the steps below using the AWS Management Console:
+
+1. Sign in to the AWS Management Console and open the Route 53 service.
+2. In the Route 53 dashboard, click on "Hosted zones" in the left sidebar.
+3. Select the hosted zone that contains the misconfigured CNAME record.
+4. In the hosted zone details, locate the CNAME record that points to the S3 bucket.
+5. Click on the checkbox next to the CNAME record to select it.
+6. Click on the "Actions" button above the record list and select "Edit record set" from the dropdown menu.
+7. In the "Edit record set" dialog box, you will see the CNAME record details.
+8. Change the value of the "Alias" field to "No" to remove the CNAME alias.
+9. In the "Value" field, enter the actual endpoint or domain name of the S3 bucket that the CNAME record was pointing to.
+10. Click on the "Save Record Set" button to save the changes.
+
+By following these steps, you have successfully remediated the vulnerability of AWS S3 CNAME Records in Route 53 using the AWS Management Console.
+
+#### Using CLI
+
+To remediate the vulnerability of AWS S3 CNAME Records, you can follow the steps below using AWS CLI:
+
+Step 1: Identify the vulnerable CNAME record in AWS Route53:
+1. Open the AWS Management Console and go to the Route53 service.
+2. Select the hosted zone where the vulnerable CNAME record is located.
+3. Identify the CNAME record that is pointing to an S3 bucket.
+
+Step 2: Create an S3 Endpoint:
+1. Open the AWS Management Console and go to the VPC service.
+2. Select the VPC where your S3 bucket is located.
+3. Click on "Endpoints" in the left sidebar.
+4. Click on "Create Endpoint" and select `com.amazonaws.<region>.s3` as the service name.
+5. Choose the relevant route table and security groups.
+6. Click on "Create Endpoint" to create the S3 endpoint.
+
+Step 3: Update the CNAME record to use the S3 Endpoint:
+1. Open the AWS CLI on your local machine.
+2. Run the following command to update the CNAME record:
+```
+aws route53 change-resource-record-sets --hosted-zone-id <hosted-zone-id> --change-batch '{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "<cname-record-name>",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "<s3-endpoint-domain>"
+          }
+        ]
+      }
+    }
+  ]
+}'
+```
+Replace `<hosted-zone-id>` with the ID of your hosted zone, `<cname-record-name>` with the name of the CNAME record, and `<s3-endpoint-domain>` with the domain name of the S3 endpoint you created in Step 2.
+
+Step 4: Verify the changes:
+1. Wait for the changes to propagate, which may take a few minutes.
+2. Use the following command to check the status of the change:
+```
+aws route53 get-change --id <change-id>
+```
+Replace `<change-id>` with the ID of the change returned in the previous step.
+3. Once the change status is "INSYNC," the CNAME record has been updated successfully.
+
+By following these steps, you can remediate the vulnerability of AWS S3 CNAME Records in AWS Route53 using AWS CLI.
+
+#### Using Python
+
+To remediate the vulnerability of AWS S3 CNAME Records in AWS Route53 using Python, follow these steps:
+
+1. Install the required dependencies:
+   - boto3: AWS SDK for Python
+   - dnspython: DNS toolkit for Python
+
+   You can use the following command to install them:
+   ```
+   pip install boto3 dnspython
+   ```
+
+2. Import the necessary modules in your Python script:
+   ```python
+   import boto3
+   import dns.resolver
+   ```
+
+3. Create a function to check for vulnerable CNAME records:
+   ```python
+   def check_vulnerable_cname(domain):
+       try:
+           resolver = dns.resolver.Resolver()
+           cname_records = resolver.query(domain, 'CNAME')
+           for record in cname_records:
+               if record.target.to_text().endswith('.s3.amazonaws.com.'):
+                   print(f'{domain} has a vulnerable CNAME record pointing to {record.target.to_text()}')
+       except dns.resolver.NXDOMAIN:
+           print(f'{domain} does not exist')
+       except dns.resolver.NoAnswer:
+           print(f'{domain} does not have any CNAME records')
+   ```
+
+4. Create a function to fix the vulnerable CNAME records:
+   ```python
+   def fix_vulnerable_cname(domain):
+       try:
+           client = boto3.client('route53')
+           hosted_zones = client.list_hosted_zones_by_name(DNSName=domain)
+           for zone in hosted_zones['HostedZones']:
+               zone_id = zone['Id']
+               records = client.list_resource_record_sets(HostedZoneId=zone_id)
+               for record in records['ResourceRecordSets']:
+                   if record['Type'] == 'CNAME' and record['ResourceRecords'][0]['Value'].endswith('.s3.amazonaws.com.'):
+                       record['ResourceRecords'][0]['Value'] = '<new_value>'
+                       client.change_resource_record_sets(
+                           HostedZoneId=zone_id,
+                           ChangeBatch={
+                               'Changes': [
+                                   {
+                                       'Action': 'UPSERT',
+                                       'ResourceRecordSet': record
+                                   }
+                               ]
+                           }
+                       )
+                       print(f'Successfully fixed CNAME record in {zone["Name"]}')
+       except Exception as e:
+           print(f'Error: {str(e)}')
+   ```
+
+   Note: Replace `<new_value>` with the desired value for the CNAME record.
+
+5. Call the functions with the domain you want to check and fix:
+   ```python
+   domain = '<your_domain>'
+   check_vulnerable_cname(domain)
+   fix_vulnerable_cname(domain)
+   ```
+
+   Note: Replace `<your_domain>` with the actual domain name.
+
+By following these steps, you can check for vulnerable CNAME records and fix them in AWS Route53 using Python.
+
