@@ -1,0 +1,173 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of missing CNames for a GCP storage bucket in GCP DNS using the GCP console, follow these steps:
+
+1. Open the GCP Console (https://console.cloud.google.com) and log in to your GCP account.
+
+2. Navigate to the Cloud Storage section by clicking on the menu icon in the top-left corner and selecting "Storage" under the "Storage" category.
+
+3. Select the storage bucket for which you want to add CNames.
+
+4. In the bucket details page, click on the "Edit website configuration" button located in the top bar.
+
+5. Scroll down to the "Custom domain" section and click on the "Add a custom domain" button.
+
+6. In the "Domain name" field, enter the desired domain name or subdomain for your storage bucket. For example, if you want to use "assets.example.com," enter "assets" in the field.
+
+7. Click on the "Add" button to add the custom domain.
+
+8. GCP will validate the domain ownership by providing you with a unique verification token. Copy the token provided.
+
+9. Open a new tab or window and navigate to your DNS provider's website.
+
+10. Sign in to your DNS provider's console and locate the DNS management section.
+
+11. Create a new CNAME record for your desired domain or subdomain. In the "Name" or "Host" field, enter the desired domain or subdomain name (e.g., "assets" or "assets.example.com").
+
+12. In the "Value" or "Points to" field, enter the storage bucket URL provided by GCP. It should be in the format "c.storage.googleapis.com" followed by your bucket name (e.g., "c.storage.googleapis.com/example-bucket").
+
+13. Save the CNAME record.
+
+14. Return to the GCP console tab and click on the "Verify" button next to the domain you added.
+
+15. Paste the verification token you copied earlier into the provided field and click on the "Verify" button.
+
+16. Once the domain ownership is verified, click on the "Save" button to apply the changes.
+
+17. Wait for DNS propagation to complete, which may take some time (usually a few minutes to a few hours) depending on your DNS provider.
+
+After following these steps, the CNames for your GCP storage bucket will be added and properly configured in GCP DNS using the GCP console.
+
+#### Using CLI
+
+To remediate the misconfiguration of missing CNames for a storage bucket in GCP DNS using GCP CLI, follow these step-by-step instructions:
+
+1. Open the GCP Cloud Shell or ensure that you have the GCP CLI (Command Line Interface) installed on your local machine.
+
+2. Authenticate with your GCP account by running the following command:
+   ```
+   gcloud auth login
+   ```
+
+3. Set the appropriate GCP project where the misconfigured storage bucket resides:
+   ```
+   gcloud config set project <project_id>
+   ```
+
+4. Verify the existing DNS records for the project by running:
+   ```
+   gcloud dns record-sets list --zone=<zone_name>
+   ```
+   Replace `<zone_name>` with the name of the DNS zone where the storage bucket is located.
+
+5. Identify the missing CName record for the storage bucket. It should have a type of `CNAME` and a name corresponding to the desired subdomain.
+
+6. Create the CName record using the `gcloud dns record-sets transaction` command. Start a new transaction by running:
+   ```
+   gcloud dns record-sets transaction start --zone=<zone_name>
+   ```
+
+7. Add the missing CName record. Replace `<subdomain>` with the desired subdomain and `<bucket_name>` with the name of the storage bucket:
+   ```
+   gcloud dns record-sets transaction add --zone=<zone_name> --name=<subdomain> --type=CNAME --ttl=<ttl> --rrdatas=<bucket_name>.storage.googleapis.com.
+   ```
+
+8. Commit the transaction to apply the changes:
+   ```
+   gcloud dns record-sets transaction execute --zone=<zone_name>
+   ```
+
+9. Verify that the CName record has been successfully added by running the following command:
+   ```
+   gcloud dns record-sets list --zone=<zone_name>
+   ```
+
+10. Check if the CName record is resolving correctly by using a DNS lookup tool or running the following command:
+    ```
+    nslookup <subdomain>.<your_domain>
+    ```
+    Replace `<subdomain>` and `<your_domain>` with the appropriate values.
+
+By following these steps, you should be able to remediate the misconfiguration of missing CNames for a storage bucket in GCP DNS using GCP CLI.
+
+#### Using Python
+
+To remediate the misconfiguration of missing CNames for a GCP Storage Bucket in GCP DNS using Python, follow these step-by-step instructions:
+
+1. Install the necessary libraries:
+   - Install the Google Cloud SDK by following the instructions provided in the official documentation: https://cloud.google.com/sdk/docs/install
+   - Install the `google-cloud-dns` library using pip:
+     ```shell
+     pip install google-cloud-dns
+     ```
+
+2. Set up authentication:
+   - Generate a service account key file for your GCP project by following the steps mentioned in the official documentation: https://cloud.google.com/docs/authentication/getting-started
+   - Save the generated JSON key file securely on your system.
+
+3. Import the required libraries and authenticate using the service account key file:
+   ```python
+   from google.cloud import dns
+   from google.oauth2 import service_account
+
+   credentials = service_account.Credentials.from_service_account_file('<path_to_service_account_key_file>')
+   client = dns.Client(project='<your_project_id>', credentials=credentials)
+   ```
+
+4. Retrieve the existing DNS zone:
+   ```python
+   zone_name = '<your_dns_zone_name>'
+   zone = client.zone(zone_name)
+   ```
+
+5. Retrieve the existing records for the zone:
+   ```python
+   existing_records = zone.list_resource_record_sets()
+   ```
+
+6. Identify the missing CName record for your GCP Storage Bucket:
+   ```python
+   bucket_name = '<your_bucket_name>'
+   cname_name = '<your_cname_name>'
+   cname_ttl = <your_cname_ttl>
+
+   cname_record = dns.Cname(cname_name, bucket_name + '.storage.googleapis.com.', ttl=cname_ttl)
+   ```
+
+7. Check if the CName record already exists in the DNS zone:
+   ```python
+   cname_exists = False
+   for record in existing_records:
+       if record.name == cname_record.name and record.record_type == 'CNAME':
+           cname_exists = True
+           break
+   ```
+
+8. If the CName record doesn't exist, add it to the DNS zone:
+   ```python
+   if not cname_exists:
+       changes = zone.changes()
+       changes.add_record_set(cname_record)
+       changes.create()
+       changes.wait_for()
+   ```
+
+9. Once the CName record is added, verify its existence:
+   ```python
+   existing_records = zone.list_resource_record_sets()
+   cname_exists = False
+   for record in existing_records:
+       if record.name == cname_record.name and record.record_type == 'CNAME':
+           cname_exists = True
+           break
+
+   if cname_exists:
+       print('CName record added successfully.')
+   else:
+       print('Failed to add CName record.')
+   ```
+
+By following these steps, you should be able to remediate the misconfiguration of missing CNames for a GCP Storage Bucket in GCP DNS using Python.
+
