@@ -12,11 +12,54 @@
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Write below binary dir" event in the falco alert. Note down the name of the pod.
+1. Bash script:
+   - Create a bash script file, e.g., `remediation.sh`, and open it for editing.
+   - Add the following lines to the script:
+     ```bash
+     #!/bin/bash
+     echo "New content" > /path/to/binary/dir/file.txt
+     ```
+   - Save and close the file.
+   - Make the script executable by running the command: `chmod +x remediation.sh`.
+   - Execute the script using: `./remediation.sh`.
 
-2. Inspect the container: Use the `kubectl exec` command to access the shell of the affected pod. For example, `kubectl exec -it <pod-name> -- /bin/bash`. Once inside the container, navigate to the directory mentioned in the falco alert and check for any unauthorized files or directories.
+2. Kubectl commands:
+   - Create a Kubernetes ConfigMap to store the new content:
+     ```bash
+     kubectl create configmap new-content --from-literal=file.txt="New content"
+     ```
+   - Create a Pod or Deployment that mounts the ConfigMap as a volume and runs the Python script:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: python-pod
+     spec:
+       containers:
+       - name: python-container
+         image: python:latest
+         command: ["python", "your_script.py"]
+         volumeMounts:
+         - name: config-volume
+           mountPath: /path/to/binary/dir
+       volumes:
+       - name: config-volume
+         configMap:
+           name: new-content
+     ```
+   - Apply the Pod configuration using: `kubectl apply -f pod.yaml`.
 
-3. Update container security policies: Review the security policies for the container image running in the affected pod. Ensure that the container is running with the least privileges necessary and that it does not have write access to critical system directories. Modify the container's security context or apparmor profile to restrict write access to the necessary directories only. Rebuild and redeploy the container with the updated security policies.
-
-Note: It is important to investigate the root cause of the event and ensure that the write access was not intentional or required for the application to function properly.
+3. Combined bash script and kubectl commands:
+   - Create a bash script file, e.g., `remediation.sh`, and open it for editing.
+   - Add the following lines to the script:
+     ```bash
+     #!/bin/bash
+     echo "New content" > /path/to/binary/dir/file.txt
+     kubectl create configmap new-content --from-file=/path/to/binary/dir/file.txt
+     kubectl apply -f pod.yaml
+     ```
+   - Create a Pod configuration file, e.g., `pod.yaml`, with the content from the previous example.
+   - Save and close both files.
+   - Make the script executable by running the command: `chmod +x remediation.sh`.
+   - Execute the script using: `./remediation.sh`.
 

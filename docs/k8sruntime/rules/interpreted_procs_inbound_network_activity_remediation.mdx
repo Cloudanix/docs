@@ -19,14 +19,39 @@ This will provide more details about the pod, including the containers running w
 
 #### Remediation
 
-1. Identify the affected pod: Use the kubectl command `kubectl get pods` to list all the pods in the cluster. Look for the pod that triggered the "Interpreted procs inbound network activity" event.
+1. Bash script:
+   - Use `netstat` command to identify the processes with inbound network activity: 
+     ```bash
+     netstat -tunap | grep -E ":(80|443)" | awk '{print $7}' | cut -d'/' -f1 | sort -u
+     ```
+   - Iterate through the list of processes and kill them:
+     ```bash
+     for pid in $(netstat -tunap | grep -E ":(80|443)" | awk '{print $7}' | cut -d'/' -f1 | sort -u); do
+         kill -9 $pid
+     done
+     ```
 
-2. Analyze the event details: Use the kubectl command `kubectl describe pod <pod_name>` to get more information about the pod. Look for any suspicious processes or network activity that might have triggered the event.
+2. Python script:
+   - Use `psutil` library to identify the processes with inbound network activity:
+     ```python
+     import psutil
+     
+     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+         if any(":80" in conn.laddr or ":443" in conn.laddr for conn in proc.connections()):
+             proc.kill()
+     ```
 
-3. Take remedial actions:
-   - Update pod security policies: Review and update the pod security policies to restrict inbound network activity. You can use the kubectl command `kubectl edit podsecuritypolicy <policy_name>` to modify the policy.
-   - Implement network policies: Apply network policies to restrict inbound network traffic to the affected pod. Use the kubectl command `kubectl apply -f <network_policy_file>` to apply the network policy.
-   - Investigate and remove malicious processes: Analyze the pod's processes and terminate any suspicious or unauthorized processes. Use the kubectl command `kubectl exec -it <pod_name> -- <command>` to access the pod's shell and investigate the processes.
-
-Remember to follow compliance standards and best practices while implementing these remedial actions.
+3. Kubernetes (kubectl) commands:
+   - Identify the pods running the suspicious processes:
+     ```bash
+     kubectl get pods --all-namespaces -o json | jq '.items[] | select(.spec.containers[].command[] | contains("python") or contains("bash")) | .metadata.name'
+     ```
+   - Delete the pods identified:
+     ```bash
+     kubectl delete pod <pod_name> -n <namespace>
+     ```
+   - Alternatively, you can scale down the deployment to terminate the pods:
+     ```bash
+     kubectl scale deployment <deployment_name> --replicas=0 -n <namespace>
+     ```
 

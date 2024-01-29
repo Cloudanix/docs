@@ -5,26 +5,53 @@ title: Unexpected inbound connection source
 sidebar_label: Unexpected inbound connection source
 ---
                    
+
 ### Event Information
 
 #### Meaning
 
 - The Unexpected inbound connection source event in a Kubernetes cluster indicates that a network connection was established from an unexpected source to a pod or service within the cluster.
-- This event could potentially indicate a security breach or unauthorized access attempt, as it suggests that a connection was made from an external source that is not allowed or expected to communicate with the cluster.
-- To investigate this event, you can use kubectl to check the logs of the affected pod or service, analyze network policies and firewall rules, and review the cluster's network configuration to ensure that only authorized sources are allowed to establish connections.
+- This event could potentially indicate a security breach or unauthorized access attempt, as it suggests that a connection was made from an external source that is not whitelisted or expected.
+- To investigate this event, you can use kubectl commands to check the network policies, pod logs, and cluster firewall rules to identify any potential misconfigurations or security vulnerabilities. For example, you can use "kubectl get networkpolicies" to list the network policies in the cluster and "kubectl logs <pod-name>" to view the logs of a specific pod.
 
 #### Remediation
 
-1. Identify the source of the unexpected inbound connection by checking the source IP address mentioned in the event. You can use the following command to get more details about the source IP:
-   - `kubectl describe event <event_name>`
+Bash script:
+1. Identify the source IP address of the unexpected inbound connection using the falco event details.
+2. Use the iptables command to block the incoming connection from the identified IP address.
+3. Save the iptables rules to persist across reboots.
 
-2. Once you have identified the source IP, investigate if it is a legitimate connection or a potential security threat. You can use tools like `nslookup` or `whois` to gather more information about the IP address and determine if it belongs to a trusted entity.
+```bash
+#!/bin/bash
 
-3. Take appropriate actions based on your investigation:
-   - If the connection is legitimate, you may need to update your network policies or firewall rules to allow the inbound connection from the identified source IP.
-   - If the connection is suspicious or malicious, you should block the IP address at the network level using tools like `iptables` or by updating your cloud provider's security group rules.
+# Extract the source IP address from the falco event details
+SOURCE_IP=<source_ip_address>
 
-Remember to follow your organization's security policies and compliance standards while taking these actions.
+# Block the incoming connection from the identified IP address using iptables
+iptables -A INPUT -s $SOURCE_IP -j DROP
 
+# Save the iptables rules to persist across reboots
+iptables-save > /etc/iptables/rules.v4
+```
+
+Python script:
+1. Use the subprocess module to execute the kubectl command to get the pod name associated with the falco event.
+2. Use the kubectl command to delete the pod identified in the previous step.
+3. Optionally, you can use the kubectl command to create a new pod to replace the deleted one.
+
+```python
+import subprocess
+
+# Execute kubectl command to get the pod name associated with the falco event
+pod_name = subprocess.check_output(["kubectl", "get", "pods", "--all-namespaces", "--field-selector", "status.phase=Running", "--output", "jsonpath='{.items[*].metadata.name}'"])
+
+# Delete the identified pod using kubectl command
+subprocess.call(["kubectl", "delete", "pod", pod_name])
+
+# Optionally, create a new pod to replace the deleted one
+subprocess.call(["kubectl", "create", "-f", "path/to/new_pod.yaml"])
+```
+
+Note: Replace `<source_ip_address>` with the actual source IP address in the bash script, and make sure to provide the correct path to the new pod YAML file in the Python script.
 
  

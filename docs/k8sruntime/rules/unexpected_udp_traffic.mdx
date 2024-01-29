@@ -5,6 +5,7 @@ title: Unexpected UDP Traffic
 sidebar_label: Unexpected UDP Traffic
 ---
                    
+
 ### Event Information
 
 #### Meaning
@@ -14,23 +15,63 @@ sidebar_label: Unexpected UDP Traffic
 - To investigate and mitigate this event, you can use the following steps:
   1. Identify the source and destination of the unexpected UDP traffic by checking the source IP address and port number.
   2. Use network monitoring tools like tcpdump or Wireshark to capture and analyze the network traffic.
-  3. Review the network policies and firewall rules in your Kubernetes cluster to ensure that only authorized UDP traffic is allowed.
+  3. Review the network policies and firewall rules in your Kubernetes cluster to ensure that only authorized UDP traffic is allowed. Use `kubectl get networkpolicies` to list the network policies and `kubectl describe networkpolicy <policy-name>` to get more details about a specific policy.
 
 #### Remediation
 
-1. Identify the source of the unexpected UDP traffic by checking the source IP address and port number mentioned in the event. You can use the following command to filter the logs related to the event:
-   ```
-   kubectl logs -n <namespace> <falco-pod-name> --since=1h | grep "Unexpected UDP Traffic"
-   ```
+Bash Script:
+1. Identify the source IP address of the unexpected UDP traffic using the falco event details.
+2. Use the iptables command to block incoming UDP traffic from the identified source IP address.
+3. Save the iptables rules to persist across reboots.
 
-2. Once you have identified the source, investigate the pod or container associated with that IP address. You can use the following command to get the pod details:
-   ```
-   kubectl get pods -n <namespace> -o wide --field-selector=status.podIP=<source-IP>
-   ```
+```bash
+#!/bin/bash
 
-3. Once you have identified the pod, inspect its configuration and logs to understand why it is generating unexpected UDP traffic. Check for any misconfigured applications or services running inside the pod that might be causing the issue. Update the pod's configuration or application settings accordingly to prevent the unexpected traffic.
+# Extract source IP address from falco event details
+SOURCE_IP="<source_ip_address>"
 
-Note: If the unexpected UDP traffic is originating from outside the cluster, you may need to investigate the network configuration and firewall rules to ensure that only necessary traffic is allowed into the cluster.
+# Block incoming UDP traffic from the identified source IP address
+iptables -A INPUT -p udp -s $SOURCE_IP -j DROP
 
+# Save iptables rules to persist across reboots
+iptables-save > /etc/iptables/rules.v4
+```
+
+Python Script:
+1. Use the subprocess module to execute the kubectl command to identify the source IP address of the unexpected UDP traffic.
+2. Use the subprocess module to execute the kubectl command to create a NetworkPolicy that blocks incoming UDP traffic from the identified source IP address.
+3. Handle any exceptions that may occur during the execution of the kubectl commands.
+
+```python
+import subprocess
+
+# Extract source IP address from falco event details
+source_ip = "<source_ip_address>"
+
+try:
+    # Create NetworkPolicy to block incoming UDP traffic from the identified source IP address
+    subprocess.run(["kubectl", "apply", "-f", "-"], input=f"""
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-udp-traffic
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: {source_ip}/32
+        except:
+        - 0.0.0.0/0
+    ports:
+    - protocol: UDP
+""", check=True, text=True)
+except subprocess.CalledProcessError as e:
+    print(f"Error executing kubectl command: {e}")
+```
+
+Note: Replace `<source_ip_address>` with the actual source IP address obtained from the falco event details.
 
  

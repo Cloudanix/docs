@@ -5,6 +5,7 @@ title: Container Run as Root User
 sidebar_label: Container Run as Root User
 ---
                    
+
 ### Event Information
 
 #### Meaning
@@ -14,19 +15,59 @@ sidebar_label: Container Run as Root User
 - Compliance standards such as CIS Kubernetes Benchmark recommend running containers with non-root users to minimize the potential impact of security vulnerabilities. 
 
 To address this event:
-- Identify the specific container that is running as the root user by checking the container's security context or the user specified in the Dockerfile.
-- Update the container's security context or Dockerfile to run as a non-root user.
-- Use Kubernetes Role-Based Access Control (RBAC) to restrict the permissions of the container and limit its access to the host system.
+1. Identify the specific container that is running as root using the container ID or name.
+2. Update the container's security context by specifying a non-root user in the pod's security context or using the `securityContext` field in the container definition.
+3. Rebuild and redeploy the container with the updated configuration to ensure it runs with a non-root user.
 
 #### Remediation
 
-1. Identify the affected container: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Container Run as Root User" event. Note down the pod name.
+To remediate the "Container Run as Root User" event, you can use the following bash script or kubectl commands:
 
-2. Update the pod's security context: Use the `kubectl edit pod <pod-name>` command to edit the pod's configuration. Locate the `securityContext` section and set the `runAsNonRoot` field to `true`. This ensures that the container runs as a non-root user.
+Bash Script:
+1. Identify the affected pod(s) by querying the Kubernetes API:
+   ```bash
+   #!/bin/bash
+   PODS=$(kubectl get pods -o json | jq -r '.items[] | select(.spec.securityContext.runAsUser == 0) | .metadata.name')
+   ```
 
-3. Verify the changes: Use the `kubectl describe pod <pod-name>` command to check if the pod has been updated successfully. Look for the `Security Context` section and ensure that the `RunAsNonRoot` field is set to `true`. Additionally, you can also check the pod logs to ensure that the container is running without root privileges.
+2. Patch the security context of the affected pod(s) to run as a non-root user:
+   ```bash
+   for POD in $PODS; do
+       kubectl patch pod $POD --type='json' -p='[{"op": "replace", "path": "/spec/securityContext/runAsUser", "value": <non-root-user-id>}]'
+   done
+   ```
 
-Note: It is recommended to follow the principle of least privilege and avoid running containers as the root user unless absolutely necessary.
+Python Script:
+1. Install the required Python libraries:
+   ```python
+   import subprocess
 
+   def install_libraries():
+       subprocess.run(["pip", "install", "kubernetes"])
+   ```
+
+2. Identify the affected pod(s) by querying the Kubernetes API:
+   ```python
+   from kubernetes import client, config
+
+   def get_affected_pods():
+       config.load_kube_config()
+       v1 = client.CoreV1Api()
+       pods = v1.list_pod_for_all_namespaces().items
+       affected_pods = [pod.metadata.name for pod in pods if pod.spec.security_context.run_as_user == 0]
+       return affected_pods
+   ```
+
+3. Patch the security context of the affected pod(s) to run as a non-root user:
+   ```python
+   def remediate_pods(pods, non_root_user_id):
+       config.load_kube_config()
+       v1 = client.CoreV1Api()
+       for pod in pods:
+           patch_body = [{"op": "replace", "path": "/spec/securityContext/runAsUser", "value": non_root_user_id}]
+           v1.patch_namespaced_pod(pod, pod.metadata.namespace, patch_body)
+   ```
+
+Note: Replace `<non-root-user-id>` with the desired non-root user ID in the bash script, and `non_root_user_id` in the Python script.
 
  

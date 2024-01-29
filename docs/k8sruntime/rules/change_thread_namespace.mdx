@@ -5,6 +5,7 @@ title: Change thread namespace
 sidebar_label: Change thread namespace
 ---
                    
+
 ### Event Information
 
 #### Meaning
@@ -20,17 +21,45 @@ To investigate the Change thread namespace event in a Kubernetes cluster, you ca
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the Change thread namespace event by checking the pod name and namespace.
+To remediate the falco event "Change thread namespace" using a bash script or kubectl commands and integrate it into a Python script, you can follow these steps:
 
-2. Review the pod's configuration: Use the `kubectl describe pod <pod-name> -n <namespace>` command to get detailed information about the pod. Look for any misconfigurations or vulnerabilities that could have allowed the thread namespace change.
+1. Bash Script:
+   - Create a bash script, e.g., `remediate.sh`, with the following content:
+     ```bash
+     #!/bin/bash
+     pid=$1
+     new_namespace=$2
+     nsenter -t $pid -m -u -i -n -p -- bash -c "ip netns exec $new_namespace"
+     ```
+   - Make the script executable: `chmod +x remediate.sh`
+   - In your Python script, when you detect the falco event, you can call the bash script with the required parameters:
+     ```python
+     import subprocess
+     
+     pid = 1234  # Replace with the actual PID of the process
+     new_namespace = "new_namespace"  # Replace with the desired new namespace
+     
+     subprocess.run(["./remediate.sh", str(pid), new_namespace])
+     ```
 
-3. Apply security patches or updates: If the pod's configuration is found to be secure, ensure that the underlying host operating system and container runtime are up to date with the latest security patches. Use the appropriate package manager (e.g., apt, yum) to update the host OS, and ensure that the container runtime (e.g., Docker) is also updated to the latest version.
+2. Kubectl Commands:
+   - If you prefer using kubectl commands instead of a bash script, you can use the `exec` command to change the thread namespace of a running container.
+   - First, identify the pod and container where the event occurred. You can use `kubectl describe falcoevents <event_id>` to get this information.
+   - Once you have the pod and container names, you can execute the following kubectl command to change the thread namespace:
+     ```bash
+     kubectl exec -it <pod_name> -c <container_name> -- ip netns exec <new_namespace>
+     ```
+   - In your Python script, when you detect the falco event, you can execute the kubectl command using the `subprocess` module:
+     ```python
+     import subprocess
+     
+     pod_name = "my-pod"  # Replace with the actual pod name
+     container_name = "my-container"  # Replace with the actual container name
+     new_namespace = "new_namespace"  # Replace with the desired new namespace
+     
+     subprocess.run(["kubectl", "exec", "-it", pod_name, "-c", container_name, "--", "ip", "netns", "exec", new_namespace])
+     ```
 
-4. Implement Pod Security Policies (PSPs): PSPs can be used to enforce security policies on pods in the cluster. Create and apply a PSP that restricts or denies the ability to change thread namespaces. This can be done using the `kubectl apply -f <psp-definition.yaml>` command.
-
-5. Monitor and audit: Implement a monitoring and auditing solution to detect and alert on any unauthorized or suspicious activities related to thread namespace changes. This can help identify potential security breaches and allow for timely remediation.
-
-6. Regularly review and update security practices: Continuously review and update your security practices to ensure that you are following best practices and staying up to date with the latest security recommendations for Kubernetes. Regularly review and update your PSPs, as well as other security configurations, to address any new threats or vulnerabilities that may arise.
-
+Remember to replace the placeholders (`<event_id>`, `<pod_name>`, `<container_name>`, `<new_namespace>`) with the actual values specific to your environment.
 
  

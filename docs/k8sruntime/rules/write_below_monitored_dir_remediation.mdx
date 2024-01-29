@@ -9,14 +9,54 @@
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Write below monitored dir" event in the falco output. Note down the name of the pod.
+1. Bash script:
+   - Create a new bash script file, e.g., `remediation.sh`.
+   - Use the `sed` command to replace the content of the monitored directory with a predefined value. For example:
+     ```bash
+     #!/bin/bash
+     sed -i 's/.*/<your_predefined_value>/' /path/to/monitored/dir/file.txt
+     ```
+   - Save and close the file.
+   - Make the script executable by running `chmod +x remediation.sh`.
+   - Execute the script using `./remediation.sh` whenever needed.
 
-2. Inspect the pod's configuration: Use the `kubectl describe pod <pod-name>` command to get detailed information about the pod. Look for any misconfigurations or vulnerabilities that could have led to the event. Pay attention to the volume mounts and file system permissions.
+2. Kubernetes (kubectl) commands:
+   - Create a ConfigMap with the predefined content that you want to replace the monitored directory with. For example:
+     ```bash
+     kubectl create configmap remediation-config --from-literal=content=<your_predefined_value>
+     ```
+   - Create a Pod or Deployment YAML file for your Python script, and mount the ConfigMap as a volume. For example:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: python-pod
+     spec:
+       containers:
+       - name: python-container
+         image: python:latest
+         command: ["python", "your_script.py"]
+         volumeMounts:
+         - name: remediation-volume
+           mountPath: /path/to/monitored/dir
+       volumes:
+       - name: remediation-volume
+         configMap:
+           name: remediation-config
+     ```
+   - Apply the YAML file using `kubectl apply -f your_yaml_file.yaml`.
 
-3. Update the pod's security configuration:
-   - Modify the pod's security context: If the pod is running with a privileged security context, consider removing it or reducing the privileges to the minimum required for the application to function properly.
-   - Restrict file system access: Review the volume mounts and file system permissions in the pod's configuration. Ensure that the pod only has write access to the necessary directories and restrict access to sensitive or critical directories.
-   - Implement Pod Security Policies (PSP): PSPs allow you to define security policies that pods must adhere to. Create and apply a PSP that enforces the necessary restrictions and permissions to prevent unauthorized write access below monitored directories.
-
-Remember to test the changes thoroughly before applying them to production environments. Regularly monitor and review the logs and events to ensure that the remediation measures are effective and compliant with the required security standards.
+3. Python script:
+   - Use the `os` module in your Python script to modify the content of the monitored directory. For example:
+     ```python
+     import os
+     
+     monitored_dir = '/path/to/monitored/dir/file.txt'
+     predefined_value = '<your_predefined_value>'
+     
+     with open(monitored_dir, 'w') as file:
+         file.write(predefined_value)
+     ```
+   - Save the Python script and execute it whenever needed using `python your_script.py`.
+   - Ensure that the script has the necessary permissions to modify the monitored directory.
 

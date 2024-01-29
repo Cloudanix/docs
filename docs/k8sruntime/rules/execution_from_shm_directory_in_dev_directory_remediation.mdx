@@ -5,15 +5,62 @@
 
 - The "Execution from shm directory in dev directory" event in a Kubernetes cluster indicates that a process within a container is attempting to execute a file from the shared memory (shm) directory located in the /dev directory.
 - This event could potentially be a security concern as executing files from the shm directory can be a sign of malicious activity or an attempt to bypass security measures.
-- To investigate this event, you can use the kubectl command to inspect the container and its associated pod, check for any suspicious files or processes running within the container, and review the container's security policies and configurations.
+- To investigate this event, you can use the following kubectl command to check the containers running in the pod: 
+  `kubectl describe pod <pod_name>`
+
+Note: The provided kubectl command is a general example and may need to be modified based on your specific cluster configuration.
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Execution from shm directory in dev directory" event.
+To remediate the falco event "Execution from shm directory in dev directory" using a bash script or kubectl commands, you can follow these steps:
 
-2. Inspect the pod's YAML configuration: Use the `kubectl describe pod <pod-name>` command to get detailed information about the pod. Look for any volume mounts or hostPath volumes that may be allowing execution from the `/dev/shm` directory.
+1. Bash Script:
+   - Create a bash script, e.g., `remediate.sh`, with the following content:
+     ```bash
+     #!/bin/bash
+     rm -rf /dev/shm/*
+     ```
+   - Make the script executable by running the command: `chmod +x remediate.sh`
+   - In your Python script, you can call this bash script using the `subprocess` module:
+     ```python
+     import subprocess
+     
+     subprocess.run(["./remediate.sh"])
+     ```
 
-3. Update the pod's configuration: If you find any volume mounts or hostPath volumes that allow execution from `/dev/shm`, modify the pod's YAML configuration file to remove or restrict the access to the `/dev/shm` directory. Once the changes are made, apply the updated configuration using the `kubectl apply -f <pod-config.yaml>` command.
+2. Kubectl Commands:
+   - Delete the contents of the `/dev/shm` directory using the `kubectl exec` command:
+     ```bash
+     kubectl exec <pod-name> -- rm -rf /dev/shm/*
+     ```
+     Replace `<pod-name>` with the name of the pod where the event occurred.
+   - You can use the Kubernetes API to execute this command from within your Python script:
+     ```python
+     from kubernetes import client, config
+     
+     config.load_kube_config()
+     v1 = client.CoreV1Api()
+     
+     pod_name = "<pod-name>"
+     exec_command = [
+         "/bin/sh",
+         "-c",
+         "rm -rf /dev/shm/*"
+     ]
+     
+     response = v1.connect_get_namespaced_pod_exec(
+         name=pod_name,
+         namespace="default",
+         command=exec_command,
+         stderr=True,
+         stdin=False,
+         stdout=True,
+         tty=False,
+     )
+     ```
 
-Note: Ensure that the changes made to the pod's configuration comply with any relevant compliance standards or security policies in your organization.
+3. Additional Considerations:
+   - Ensure that the user executing the bash script or running the kubectl commands has the necessary permissions to perform the remediation actions.
+   - Test the remediation script in a controlled environment before applying it to production systems.
+   - Consider implementing RBAC (Role-Based Access Control) to restrict access to the kubectl commands and limit the execution to authorized users or service accounts.
 

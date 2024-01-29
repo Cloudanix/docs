@@ -4,16 +4,42 @@
 #### Meaning
 
 - The Directory traversal monitored file read event in a Kubernetes cluster indicates that a process within a container is attempting to read a file outside of its designated directory.
-- This event could potentially be a security vulnerability as it may allow an attacker to access sensitive files or execute arbitrary code.
-- To investigate and mitigate this event, you can use kubectl to check the container's security context, ensure that appropriate file permissions are set, and review the container's configuration to prevent unauthorized file access.
+- This event could potentially be a security vulnerability as it may allow an attacker to access sensitive files or escalate privileges within the cluster.
+- To investigate this event, you can use kubectl to check the logs of the container where the event occurred, and analyze the file path that was being accessed. Additionally, you can review the container's security context and ensure that appropriate file system restrictions are in place.
 
 #### Remediation
 
-1. Identify the affected pod: Use the kubectl command `kubectl get pods` to list all the pods in the cluster. Look for the pod that triggered the Directory Traversal Monitored File Read event.
+1. Identify the affected pod:
+   - Use `kubectl get pods` to list all the pods in the cluster.
+   - Look for the pod that triggered the Directory Traversal event based on the pod name or other relevant information.
 
-2. Update the pod's security context: Edit the pod's YAML file using `kubectl edit pod <pod-name>` and add a security context to restrict the pod's access to the file system. Set the `readOnlyRootFilesystem` field to `true` to prevent any write access to the file system.
+2. Inspect the pod's container:
+   - Use `kubectl describe pod <pod_name>` to get detailed information about the pod.
+   - Look for the container name within the pod that triggered the event.
 
-3. Implement Pod Security Policies (PSP): PSPs allow you to define fine-grained security policies for pods in your cluster. Create a PSP that enforces restrictions on file system access and apply it to the cluster using `kubectl apply -f <psp-file.yaml>`. Then, update the pod's YAML file to include the `securityContext` field and set the `runAsUser` and `runAsGroup` fields to non-root values to further restrict access.
+3. Access the container and investigate the issue:
+   - Use `kubectl exec -it <pod_name> -c <container_name> -- /bin/bash` to access the container's shell.
+   - Navigate to the directory mentioned in the event and check for any unauthorized file reads or suspicious activities.
+   - Remove any unauthorized scripts or files that may have caused the event.
 
-Note: Ensure that the remediation steps align with your organization's compliance standards and security policies.
+4. Remediation script (Python):
+   ```python
+   import subprocess
+
+   def remediate_directory_traversal(pod_name, container_name, directory_path):
+       # Step 1: Delete unauthorized files
+       delete_command = f"kubectl exec -it {pod_name} -c {container_name} -- /bin/bash -c 'rm -rf {directory_path}/*'"
+       subprocess.run(delete_command, shell=True, check=True)
+
+       # Step 2: Verify deletion
+       verify_command = f"kubectl exec -it {pod_name} -c {container_name} -- /bin/bash -c 'ls {directory_path}'"
+       subprocess.run(verify_command, shell=True, check=True)
+
+   # Usage example
+   pod_name = "example-pod"
+   container_name = "example-container"
+   directory_path = "/path/to/directory"
+   remediate_directory_traversal(pod_name, container_name, directory_path)
+   ```
+   Note: Replace `example-pod`, `example-container`, and `/path/to/directory` with the actual values from your environment.
 

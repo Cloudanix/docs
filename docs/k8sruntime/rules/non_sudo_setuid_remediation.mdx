@@ -13,23 +13,38 @@ The "Non sudo setuid" event in a Kubernetes cluster refers to a situation where 
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the Non sudo setuid event in the Falco alert. Note down the name of the pod.
+1. Bash script remediation:
+   - Create a bash script, let's say `remediate.sh`, with the following content:
+     ```bash
+     #!/bin/bash
+     sudo chmod -s <path_to_binary>
+     ```
+   - Replace `<path_to_binary>` with the actual path of the binary that has the setuid permission.
+   - Make the script executable by running `chmod +x remediate.sh`.
+   - In your Python script, call this bash script using `subprocess` module:
+     ```python
+     import subprocess
+     subprocess.run(["./remediate.sh"])
+     ```
 
-2. Inspect the pod's container: Use the `kubectl describe pod <pod-name>` command to get detailed information about the pod. Look for the container name within the pod that triggered the event.
+2. Kubernetes remediation using kubectl:
+   - Identify the pod where the unauthorized setuid binary is running. You can use `kubectl` commands like `kubectl get pods` or `kubectl describe pods` to find the pod name.
+   - Execute a shell inside the pod using the following command:
+     ```bash
+     kubectl exec -it <pod_name> -- /bin/bash
+     ```
+   - Once inside the pod, find the path of the unauthorized setuid binary and remove the setuid permission using the `chmod` command:
+     ```bash
+     chmod -s <path_to_binary>
+     ```
+   - Exit the shell and the setuid permission will be removed.
 
-3. Update the container's security context: Edit the deployment or pod specification YAML file for the affected pod using `kubectl edit deployment <deployment-name>` or `kubectl edit pod <pod-name>`. Add or modify the `securityContext` section to set the `runAsNonRoot` and `runAsUser` properties appropriately. Ensure that the container is not running with root privileges and is using a non-root user.
-
-Example YAML snippet for the security context:
-```
-spec:
-  containers:
-  - name: <container-name>
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: <non-root-user-id>
-```
-
-Save the changes and exit the editor. Kubernetes will automatically update the pod with the new configuration.
-
-Note: Ensure that the non-root user specified in the `runAsUser` property has the necessary permissions and access within the container to perform its intended tasks.
+3. Python script integration:
+   - In your Python script, you can use the `subprocess` module to execute the kubectl commands mentioned above.
+   - Example:
+     ```python
+     import subprocess
+     subprocess.run(["kubectl", "exec", "-it", "<pod_name>", "--", "/bin/bash", "-c", "chmod -s <path_to_binary>"])
+     ```
+   - Replace `<pod_name>` with the actual name of the pod and `<path_to_binary>` with the path of the unauthorized setuid binary.
 

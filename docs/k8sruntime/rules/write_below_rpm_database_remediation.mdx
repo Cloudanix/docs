@@ -7,19 +7,47 @@
 - This event could potentially indicate unauthorized or malicious activity, as modifying the RPM database can lead to tampering with the installed packages and compromising the integrity of the system.
 - To investigate this event, you can use the following commands:
   1. List all running pods in the cluster: `kubectl get pods -A`
-  2. Inspect the logs of the suspicious pod: `kubectl logs <pod_name> -n <namespace>`
-  3. Check the container's filesystem for any modifications: `kubectl exec -it <pod_name> -n <namespace> -- ls -l /var/lib/rpm`
+  2. Check the logs of the suspicious pod: `kubectl logs <pod_name> -n <namespace>`
+  3. Inspect the container's filesystem within the pod: `kubectl exec -it <pod_name> -n <namespace> -- sh`
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Write below rpm database" event in the Falco alert. Note down the name of the pod.
+To generate a remediation script for the event of writing to the RPM database using bash script or kubectl commands, you can follow these steps:
 
-2. Inspect the pod's YAML configuration: Use the `kubectl describe pod <pod-name>` command to get detailed information about the pod. Look for any misconfigurations or vulnerabilities that could have led to the event. Pay attention to the pod's security context, volume mounts, and container images.
+1. Bash Script:
+   - Create a bash script file, e.g., `remediate.sh`.
+   - Use the `rpm` command to remove the package that is being written to the RPM database. For example:
+     ```bash
+     #!/bin/bash
+     rpm -e <package_name>
+     ```
+   - Save the file and make it executable using the `chmod +x remediate.sh` command.
+   - You can then call this script from your Python script using the `subprocess` module.
 
-3. Remediate the issue:
-   - Update the pod's security context: If the pod's security context is not properly configured, modify the pod's YAML file to set appropriate security context settings. Ensure that the pod runs with the least privileges necessary and that it cannot write to sensitive areas like the RPM database.
-   - Verify container images: Check if the container image used by the pod is from a trusted source and does not contain any known vulnerabilities. Use tools like Trivy or Clair to scan the container image for vulnerabilities and update it if necessary.
-   - Implement RBAC policies: Ensure that the pod has the necessary Role-Based Access Control (RBAC) policies in place. Limit the pod's permissions to only what is required for its functionality, preventing unauthorized access to critical resources.
+2. Kubectl Commands:
+   - Create a Kubernetes manifest file, e.g., `remediate.yaml`.
+   - Use the `kubectl` command with the `exec` option to run a container that has the necessary tools installed, such as `rpm`. For example:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: remediation-pod
+     spec:
+       containers:
+       - name: remediation-container
+         image: <image_with_rpm_installed>
+         command: ["rpm", "-e", "<package_name>"]
+     ```
+   - Apply the manifest using the `kubectl apply -f remediate.yaml` command.
+   - This will create a pod that executes the `rpm` command to remove the package from the RPM database.
 
-Remember to test the changes in a non-production environment before applying them to the production cluster.
+3. Python Script:
+   - In your Python script, you can use the `subprocess` module to execute the bash script or kubectl command.
+   - For example, using the bash script approach:
+     ```python
+     import subprocess
+     
+     subprocess.run(["./remediate.sh"], check=True)
+     ```
+   - This will execute the bash script and perform the remediation action of removing the package from the RPM database.
 

@@ -3,17 +3,51 @@
 
 #### Meaning
 
-- The PTRACE attached to process event in a Kubernetes cluster indicates that a process is being traced by another process using the PTRACE system call.
+- PTRACE attached to process event in a Kubernetes cluster indicates that a process is being traced by another process using the PTRACE system call.
 - This event can be a potential security concern as it may indicate unauthorized debugging or monitoring of processes within the cluster.
-- To investigate further, you can use the following kubectl command to list all the running pods in the cluster: `kubectl get pods`. Then, you can inspect the logs of the suspicious pod using: `kubectl logs <pod_name>`.
+- To investigate further, you can use the following kubectl command to list all running pods in the cluster: `kubectl get pods`. Then, inspect the logs of the suspicious pod using: `kubectl logs <pod_name>`.
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the PTRACE attached to process event.
+To remediate the falco event "PTRACE attached to process" using a bash script or kubectl commands and integrate it into a Python script, you can follow these steps:
 
-2. Inspect the pod's security context: Use the `kubectl describe pod <pod-name>` command to view the pod's details. Look for the security context section and check if the `allowPrivilegeEscalation` field is set to `true`. If it is, this could be a potential security risk.
+1. Bash Script Remediation:
+   - Create a bash script, e.g., `ptrace_remediation.sh`, with the following content:
+     ```bash
+     #!/bin/bash
+     # Kill the process with the given PID
+     PID=$1
+     kill -9 $PID
+     ```
+   - Make the script executable by running the command: `chmod +x ptrace_remediation.sh`
+   - In your Python script, call the bash script using the `subprocess` module:
+     ```python
+     import subprocess
+     
+     # Replace <PID> with the actual process ID
+     subprocess.run(["./ptrace_remediation.sh", "<PID>"])
+     ```
 
-3. Update the pod's security context: Modify the pod's YAML file and set the `allowPrivilegeEscalation` field to `false`. You can use the `kubectl edit pod <pod-name>` command to directly edit the pod's YAML file. Alternatively, you can save the YAML to a file, make the necessary changes, and then apply the updated YAML using `kubectl apply -f <file-name>`.
+2. Kubernetes Remediation:
+   - Identify the pod where the process is running. You can use the `kubectl` command to list all pods: `kubectl get pods`
+   - Once you have the pod name, execute a shell inside the pod using the `kubectl exec` command:
+     ```bash
+     kubectl exec -it <pod_name> -- /bin/bash
+     ```
+   - Inside the pod, find the process ID (PID) of the affected process using tools like `ps` or `pgrep`. Once you have the PID, you can kill the process using the `kill` command:
+     ```bash
+     kill -9 <PID>
+     ```
 
-Note: Ensure that the change does not violate any compliance standards or specific requirements for the application running in the pod.
+3. Integrating into Python script:
+   - Use the `subprocess` module in Python to execute the kubectl commands:
+     ```python
+     import subprocess
+     
+     # Replace <pod_name> and <PID> with the actual values
+     subprocess.run(["kubectl", "exec", "-it", "<pod_name>", "--", "/bin/bash", "-c", "kill -9 <PID>"])
+     ```
+   - Ensure that the Python script has the necessary permissions to execute the kubectl command by running it with appropriate privileges or using a service account with sufficient permissions.
+
+Remember to test the remediation script thoroughly in a controlled environment before applying it to production systems.
 

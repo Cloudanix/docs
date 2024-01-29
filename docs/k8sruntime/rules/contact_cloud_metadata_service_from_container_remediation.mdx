@@ -4,27 +4,28 @@
 #### Meaning
 
 - The "Contact cloud metadata service from container" event in a Kubernetes cluster indicates that a container within the cluster is attempting to access the cloud metadata service.
-- This event could be triggered by a container trying to retrieve information about the underlying cloud infrastructure, such as instance metadata or credentials.
-- It is important to analyze this event in the context of compliance standards, as unauthorized access to cloud metadata can potentially lead to security breaches or unauthorized access to sensitive information.
+- The cloud metadata service provides information about the underlying cloud infrastructure, such as instance metadata, network configuration, and security credentials.
+- This event could be a potential security concern as unauthorized access to the cloud metadata service can lead to information disclosure or compromise of the cluster's security. 
 
-To investigate further, you can use the following kubectl command:
-- `kubectl get pods` to list all the pods running in the cluster and identify the pod associated with the event.
-- `kubectl logs <pod_name>` to view the logs of the specific pod and check for any relevant information or error messages.
-- `kubectl describe pod <pod_name>` to get detailed information about the pod, including its metadata and any associated cloud-related configurations.
+To investigate further and mitigate the issue:
+1. Identify the container generating the event by checking the container name or ID mentioned in the event.
+2. Inspect the container's configuration and deployment files to determine if the access to the cloud metadata service is intentional or accidental.
+3. If the access is unauthorized or unnecessary, modify the container's configuration to remove the access or restrict it to only authorized containers or namespaces.
 
 #### Remediation
 
-1. Identify the affected container: Use the Kubernetes dashboard or run the command `kubectl get pods -n <namespace>` to list all the pods in the namespace. Look for the pod that generated the event.
+1. Disable the container's access to the cloud metadata service by modifying the container's security context or network policies:
+   - Use `kubectl edit pod <pod_name>` to edit the pod's YAML configuration.
+   - Add a security context to the container spec, setting `allowPrivilegeEscalation` to `false` and `readOnlyRootFilesystem` to `true`.
+   - Apply network policies to restrict outbound traffic from the container to the cloud metadata service IP or domain.
 
-2. Review the container's configuration: Inspect the container's YAML file or deployment manifest to check if it has access to the cloud metadata service. Look for environment variables, volume mounts, or any other configuration that allows the container to access the metadata service.
+2. Implement a bash script to validate and restrict container access to the cloud metadata service:
+   - Create a bash script that runs as a sidecar container alongside the main container.
+   - Use `curl` or `wget` commands to check if the container is attempting to access the cloud metadata service.
+   - If a request is detected, terminate the main container or take appropriate action based on your organization's policies.
 
-3. Update the container's configuration: Remove or modify the configuration that allows the container to access the cloud metadata service. If the container requires certain information from the metadata service, consider using a different approach like passing the required information as environment variables or using a secret manager instead. Apply the changes by running `kubectl apply -f <path_to_updated_yaml>`.
-
-4. Validate the remediation: Monitor the cluster for any new events related to the container. Ensure that the container no longer attempts to contact the cloud metadata service. Use tools like Falco or Kubernetes audit logs to verify that the security issue has been resolved.
-
-5. Implement network policies: Consider implementing network policies using Kubernetes Network Policies or a network plugin like Calico to restrict outbound traffic from the container. This can help prevent unauthorized access to external services, including the cloud metadata service.
-
-6. Regularly review and update configurations: Continuously review and update container configurations to ensure that access to sensitive services like the cloud metadata service is properly controlled. Regularly audit and monitor the cluster for any security-related events or vulnerabilities.
-
-Note: The specific steps may vary depending on your Kubernetes setup and the container runtime being used. It is important to consult your organization's security policies and best practices while remediating security issues.
+3. Modify the Python script to prevent access to the cloud metadata service:
+   - Add a check at the beginning of the Python script to validate the environment and ensure it is not running within a container.
+   - If the script detects it is running within a container, terminate the script or handle the situation according to your organization's policies.
+   - You can use the `os.environ` or `platform` module in Python to check for container-specific environment variables or characteristics.
 

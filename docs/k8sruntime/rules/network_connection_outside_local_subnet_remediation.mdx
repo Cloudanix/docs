@@ -5,52 +5,50 @@
 
 - The Network Connection outside Local Subnet event in a Kubernetes cluster indicates that a pod or container within the cluster has established a network connection to an IP address outside of the defined local subnet range.
 - This event could potentially indicate unauthorized network communication from within the cluster, which may be a security concern.
-- To investigate this event, you can use the following steps:
-  1. Identify the pod or container involved in the event by checking the relevant metadata in the event details.
-  2. Use the `kubectl describe pod <pod_name>` command to gather more information about the pod, including its network configuration.
-  3. Review the network policies and firewall rules in place to ensure that only authorized network connections are allowed from within the cluster.
+- To investigate this event, you can use the kubectl command to check the network policies applied to the pod or namespace in question, and review the pod's logs for any suspicious activity or unauthorized network connections.
 
 #### Remediation
 
-1. Identify the affected pod: Use the following command to list all the pods in the cluster and identify the pod with the suspicious network connection:
-   ```
-   kubectl get pods -o wide
-   ```
+To generate a remediation script for the falco event "Network Connection outside Local Subnet" using bash script or kubectl commands, you can follow these steps:
 
-2. Inspect the pod's network configuration: Once you have identified the pod, use the following command to inspect its network configuration:
-   ```
-   kubectl describe pod <pod_name>
-   ```
+1. Identify the IP address or subnet that is considered the local subnet in your environment. Let's assume it is 192.168.0.0/24 for this example.
 
-3. Implement network policies: To restrict network connections outside the local subnet, you can create a network policy that allows only specific traffic. Here's an example of a network policy that allows traffic within the local subnet:
-   ```
-   apiVersion: networking.k8s.io/v1
-   kind: NetworkPolicy
-   metadata:
-     name: local-subnet-policy
-   spec:
-     podSelector: {}
-     policyTypes:
-     - Ingress
-     - Egress
-     ingress:
-     - from:
-       - podSelector: {}
-       - ipBlock:
-           cidr: <local_subnet_cidr>
-     egress:
-     - to:
-       - podSelector: {}
-       - ipBlock:
-           cidr: <local_subnet_cidr>
-   ```
+2. Bash script:
+   - Use the `iptables` command to block outgoing network connections to IP addresses outside the local subnet:
+     ```bash
+     #!/bin/bash
+     iptables -A OUTPUT ! -d 192.168.0.0/24 -j DROP
+     ```
+   - Save the script to a file, e.g., `remediate_network.sh`, and make it executable:
+     ```bash
+     chmod +x remediate_network.sh
+     ```
 
-   Apply the network policy using the following command:
-   ```
-   kubectl apply -f network-policy.yaml
-   ```
+3. Python script:
+   - Use the `subprocess` module in Python to execute the kubectl command to create a NetworkPolicy that blocks egress traffic to IP addresses outside the local subnet:
+     ```python
+     import subprocess
 
-   Note: Replace `<local_subnet_cidr>` with the actual CIDR range of your local subnet.
+     def create_network_policy():
+         network_policy_yaml = '''
+         apiVersion: networking.k8s.io/v1
+         kind: NetworkPolicy
+         metadata:
+           name: block-egress
+         spec:
+           podSelector: {}
+           policyTypes:
+           - Egress
+           egress:
+           - to:
+             - ipBlock:
+                 cidr: 192.168.0.0/24
+                 except:
+                 - 192.168.0.0/24
+         '''
+         subprocess.run(['kubectl', 'apply', '-f', '-'], input=network_policy_yaml.encode(), check=True)
+     ```
+   - Call the `create_network_policy()` function in your Python script to create the NetworkPolicy.
 
-   This network policy will only allow traffic within the local subnet and block any connections outside of it. Apply this policy to the affected pod or to all pods in the cluster, depending on your requirements.
+Remember to customize the local subnet IP address or subnet mask according to your environment. Also, ensure that you have the necessary permissions to execute the bash script or run kubectl commands.
 
