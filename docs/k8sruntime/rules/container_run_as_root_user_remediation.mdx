@@ -8,58 +8,61 @@
 - Compliance standards such as CIS Kubernetes Benchmark recommend running containers with non-root users to minimize the potential impact of security vulnerabilities. 
 
 To address this event:
-1. Identify the specific container that is running as root using the container ID or name.
-2. Update the container's security context by specifying a non-root user in the pod's security context or using the `securityContext` field in the container definition.
-3. Rebuild and redeploy the container with the updated configuration to ensure it runs with a non-root user.
+- Identify the specific container that is running as the root user by checking the container's security context or the user specified in the Dockerfile.
+- Update the container's security context or Dockerfile to run as a non-root user.
+- Use Kubernetes Role-Based Access Control (RBAC) to restrict the permissions of the container and limit its access to the host system.
 
 #### Remediation
 
-To remediate the "Container Run as Root User" event, you can use the following bash script or kubectl commands:
+To remediate the event "Container Run as Root User" using the Python Kubernetes API, you can follow these steps:
 
-Bash Script:
-1. Identify the affected pod(s) by querying the Kubernetes API:
-   ```bash
-   #!/bin/bash
-   PODS=$(kubectl get pods -o json | jq -r '.items[] | select(.spec.securityContext.runAsUser == 0) | .metadata.name')
-   ```
+1. Identify the affected deployment or pod:
+   - Use the Kubernetes API to list all deployments or pods in the cluster.
+   - Filter the list to find the deployment or pod that triggered the event.
 
-2. Patch the security context of the affected pod(s) to run as a non-root user:
-   ```bash
-   for POD in $PODS; do
-       kubectl patch pod $POD --type='json' -p='[{"op": "replace", "path": "/spec/securityContext/runAsUser", "value": <non-root-user-id>}]'
-   done
-   ```
+2. Update the deployment or pod manifest:
+   - Modify the security context of the container to run as a non-root user.
+   - Set the `runAsNonRoot` field to `true` in the container's security context.
+   - Optionally, specify a specific user ID or group ID to run the container as.
 
-Python Script:
-1. Install the required Python libraries:
-   ```python
-   import subprocess
+3. Apply the updated manifest:
+   - Use the Kubernetes API to apply the updated deployment or pod manifest.
+   - Use the Python Kubernetes API client to send a PATCH request to the Kubernetes API server with the updated manifest.
 
-   def install_libraries():
-       subprocess.run(["pip", "install", "kubernetes"])
-   ```
+Here's an example of how you can use the Python Kubernetes API to remediate the event:
 
-2. Identify the affected pod(s) by querying the Kubernetes API:
-   ```python
-   from kubernetes import client, config
+```python
+from kubernetes import client, config
 
-   def get_affected_pods():
-       config.load_kube_config()
-       v1 = client.CoreV1Api()
-       pods = v1.list_pod_for_all_namespaces().items
-       affected_pods = [pod.metadata.name for pod in pods if pod.spec.security_context.run_as_user == 0]
-       return affected_pods
-   ```
+# Load the Kubernetes configuration
+config.load_kube_config()
 
-3. Patch the security context of the affected pod(s) to run as a non-root user:
-   ```python
-   def remediate_pods(pods, non_root_user_id):
-       config.load_kube_config()
-       v1 = client.CoreV1Api()
-       for pod in pods:
-           patch_body = [{"op": "replace", "path": "/spec/securityContext/runAsUser", "value": non_root_user_id}]
-           v1.patch_namespaced_pod(pod, pod.metadata.namespace, patch_body)
-   ```
+# Create an instance of the Kubernetes API client
+api_client = client.ApiClient()
 
-Note: Replace `<non-root-user-id>` with the desired non-root user ID in the bash script, and `non_root_user_id` in the Python script.
+# Identify the affected deployment or pod
+deployment_name = "your-deployment-name"
+namespace = "your-namespace"
+
+# Get the deployment manifest
+deployment = api_client.call_api(
+    f"/apis/apps/v1/namespaces/{namespace}/deployments/{deployment_name}",
+    "GET",
+    response_type=client.V1Deployment,
+)
+
+# Modify the security context of the container
+container = deployment.spec.template.spec.containers[0]
+container.security_context = client.V1SecurityContext(run_as_non_root=True)
+
+# Apply the updated manifest
+api_client.call_api(
+    f"/apis/apps/v1/namespaces/{namespace}/deployments/{deployment_name}",
+    "PATCH",
+    body=deployment,
+    response_type=client.V1Deployment,
+)
+```
+
+Please note that you need to replace `"your-deployment-name"` and `"your-namespace"` with the actual names of the affected deployment or pod and its namespace.
 

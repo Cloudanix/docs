@@ -9,35 +9,46 @@
 
 #### Remediation
 
-Bash Script:
-1. Identify the directory or file that contains the bulk data that needs to be removed.
-2. Use the `rm` command to delete the directory or file. Make sure to use the appropriate options to force the removal and avoid any prompts.
+To remediate the event "Remove Bulk Data from Disk" using the Python Kubernetes API, you can follow these steps:
 
-Example Bash Script:
-```bash
-#!/bin/bash
+1. Identify the affected Pod:
+   - Use the event details to determine the Pod name or any other relevant information.
+   - Run the following command to get the Pod details:
+     ```
+     kubectl get pods <pod-name> -o yaml > pod.yaml
+     ```
 
-# Specify the directory or file path to be removed
-data_path="/path/to/bulk/data"
+2. Create a Kubernetes Job to restore the deleted data:
+   - Create a YAML manifest file (e.g., `remediation-job.yaml`) with the following content:
+     ```yaml
+     apiVersion: batch/v1
+     kind: Job
+     metadata:
+       name: data-restoration-job
+     spec:
+       template:
+         spec:
+           containers:
+           - name: data-restoration-container
+             image: <image-with-python-and-data-restoration-script>
+             command: ["python", "data_restoration_script.py"]
+             volumeMounts:
+             - name: data-volume
+               mountPath: /data
+           restartPolicy: Never
+           volumes:
+           - name: data-volume
+             persistentVolumeClaim:
+               claimName: <pvc-name>
+     ```
+   - Replace `<image-with-python-and-data-restoration-script>` with the image that contains the Python script for data restoration.
+   - Replace `<pvc-name>` with the name of the PersistentVolumeClaim (PVC) that contains the deleted data.
 
-# Remove the directory or file
-rm -rf "$data_path"
-```
+3. Apply the remediation Job:
+   - Run the following command to apply the Job manifest:
+     ```
+     kubectl apply -f remediation-job.yaml
+     ```
 
-Python Script:
-1. Import the `subprocess` module to execute shell commands from within the Python script.
-2. Use the `subprocess.run()` function to run the `kubectl delete` command with the appropriate options to remove the bulk data.
-
-Example Python Script:
-```python
-import subprocess
-
-# Specify the Kubernetes resource (e.g., Pod, Deployment) that contains the bulk data
-resource_name = "your-resource-name"
-
-# Execute the kubectl delete command
-subprocess.run(["kubectl", "delete", "your-resource-type", resource_name])
-```
-
-Note: Replace "your-resource-name" and "your-resource-type" with the actual name and type of the Kubernetes resource that contains the bulk data.
+Please note that the above steps assume you have a Python script (`data_restoration_script.py`) that can restore the deleted data. You need to replace `<image-with-python-and-data-restoration-script>` with the actual image that contains this script. Additionally, make sure to replace `<pod-name>` and `<pvc-name>` with the appropriate values based on your environment.
 

@@ -6,64 +6,34 @@ sidebar_label: Program run with disallowed http proxy env
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
 
-- This event indicates that a program running in the Kubernetes cluster is attempting to use an HTTP proxy environment variable that is not allowed according to the cluster's security policies.
-- It suggests that the program is trying to bypass network restrictions or potentially exfiltrate data through an unauthorized proxy server.
-- This event could be a violation of compliance standards, such as PCI DSS, which require strict control over network traffic and prohibit unauthorized proxy usage.
+- This event indicates that a program running in the Kubernetes cluster is attempting to use an HTTP proxy environment variable that is not allowed.
+- It suggests that the program is trying to bypass network restrictions or security measures by using an unauthorized proxy.
+- This event could be a potential violation of compliance standards, as it may indicate an attempt to access unauthorized resources or bypass network monitoring.
 
-To investigate and mitigate this event:
-1. Identify the pod or container generating the event by checking the `output` field in the Falco event. 
-2. Use the `kubectl describe pod <pod_name>` command to gather more information about the pod, including its labels, annotations, and environment variables.
-3. Review the pod's configuration and deployment files to ensure that only authorized HTTP proxy environment variables are allowed. Update the configuration if necessary and redeploy the pod.
+To investigate and mitigate this event, you can:
+- Identify the specific program causing the event by checking the `proc.name` field in the Falco event output.
+- Use `kubectl exec` to access the container running the program and inspect its environment variables using the command `kubectl exec <pod-name> -- env`.
+- Remove or modify the disallowed HTTP proxy environment variable from the program's configuration or deployment manifest.
+- Ensure that only authorized HTTP proxy environment variables are allowed in the cluster, following compliance standards and security best practices.
 
 #### Remediation
 
-1. Bash script:
-   - Create a bash script, e.g., `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     unset http_proxy
-     unset https_proxy
-     unset HTTP_PROXY
-     unset HTTPS_PROXY
-     ```
-   - Make the script executable: `chmod +x remediate.sh`
-   - Use the script in your Python script by calling it using `subprocess` module:
-     ```python
-     import subprocess
-     subprocess.call("./remediate.sh", shell=True)
-     ```
+1. Identify the pod that triggered the event:
+   - Use `kubectl get pods` to list all the pods in the cluster.
+   - Look for the pod that triggered the event based on the timestamp or other relevant information.
 
-2. Kubectl commands:
-   - Create a ConfigMap with the proxy environment variables removed:
-     ```bash
-     kubectl create configmap proxy-config --from-literal=http_proxy= --from-literal=https_proxy= --from-literal=HTTP_PROXY= --from-literal=HTTPS_PROXY=
-     ```
-   - Mount the ConfigMap as environment variables in your deployment YAML file:
-     ```yaml
-     spec:
-       containers:
-       - name: your-container
-         envFrom:
-         - configMapRef:
-             name: proxy-config
-     ```
+2. Update the pod's YAML manifest file:
+   - Use `kubectl get pod <pod_name> -o yaml > pod.yaml` to export the pod's YAML manifest to a file.
+   - Open the `pod.yaml` file and locate the `env` section under `spec.containers`.
+   - Remove or comment out any environment variables related to the disallowed http proxy.
 
-3. Python script:
-   - Modify your Python script to unset the proxy environment variables:
-     ```python
-     import os
-     
-     os.environ.pop('http_proxy', None)
-     os.environ.pop('https_proxy', None)
-     os.environ.pop('HTTP_PROXY', None)
-     os.environ.pop('HTTPS_PROXY', None)
-     ```
-   - Use the modified Python script in your application.
-
-Remember to test the remediation script or commands in a non-production environment before applying them to your production environment.
+3. Apply the updated manifest file:
+   - Use `kubectl apply -f pod.yaml` to apply the changes and update the pod.
+   - Verify that the pod is running without the disallowed http proxy environment variable using `kubectl get pods` or `kubectl describe pod <pod_name>`.
 
  

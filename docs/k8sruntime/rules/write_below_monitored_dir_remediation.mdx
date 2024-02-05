@@ -9,54 +9,36 @@
 
 #### Remediation
 
-1. Bash script:
-   - Create a new bash script file, e.g., `remediation.sh`.
-   - Use the `sed` command to replace the content of the monitored directory with a predefined value. For example:
-     ```bash
-     #!/bin/bash
-     sed -i 's/.*/<your_predefined_value>/' /path/to/monitored/dir/file.txt
-     ```
-   - Save and close the file.
-   - Make the script executable by running `chmod +x remediation.sh`.
-   - Execute the script using `./remediation.sh` whenever needed.
-
-2. Kubernetes (kubectl) commands:
-   - Create a ConfigMap with the predefined content that you want to replace the monitored directory with. For example:
-     ```bash
-     kubectl create configmap remediation-config --from-literal=content=<your_predefined_value>
-     ```
-   - Create a Pod or Deployment YAML file for your Python script, and mount the ConfigMap as a volume. For example:
-     ```yaml
-     apiVersion: v1
-     kind: Pod
-     metadata:
-       name: python-pod
-     spec:
-       containers:
-       - name: python-container
-         image: python:latest
-         command: ["python", "your_script.py"]
-         volumeMounts:
-         - name: remediation-volume
-           mountPath: /path/to/monitored/dir
-       volumes:
-       - name: remediation-volume
-         configMap:
-           name: remediation-config
-     ```
-   - Apply the YAML file using `kubectl apply -f your_yaml_file.yaml`.
-
-3. Python script:
-   - Use the `os` module in your Python script to modify the content of the monitored directory. For example:
-     ```python
-     import os
-     
-     monitored_dir = '/path/to/monitored/dir/file.txt'
-     predefined_value = '<your_predefined_value>'
-     
-     with open(monitored_dir, 'w') as file:
-         file.write(predefined_value)
-     ```
-   - Save the Python script and execute it whenever needed using `python your_script.py`.
-   - Ensure that the script has the necessary permissions to modify the monitored directory.
+1. Create a Kubernetes Deployment manifest file with the necessary specifications for the Python application:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+    spec:
+      containers:
+      - name: python-app
+        image: python:latest
+        command: ["python", "-c"]
+        args: ["import os; os.remove('/path/to/monitored/dir/file.txt')"]
+```
+2. Apply the Deployment manifest using kubectl:
+```bash
+kubectl apply -f deployment.yaml
+```
+3. Verify that the Deployment is running and the file has been removed:
+```bash
+kubectl get deployments
+kubectl exec -it <pod-name> -- ls /path/to/monitored/dir
+```
+Note: Replace `/path/to/monitored/dir` with the actual path to the monitored directory and `<pod-name>` with the name of the pod created by the Deployment.
 

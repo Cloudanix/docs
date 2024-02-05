@@ -4,54 +4,31 @@
 #### Meaning
 
 - The Unprivileged Delegation of Page Faults Handling to a Userspace Process event in a Kubernetes cluster refers to a situation where a process running in a container is allowed to handle page faults directly, without the need for kernel intervention.
-- This event can indicate a potential security risk, as it allows a user-space process to access and manipulate memory directly, bypassing the kernel's memory management mechanisms.
-- It is important to investigate this event further to ensure that it is not being exploited for malicious purposes, as it may violate compliance standards related to container isolation and security. To investigate, you can use the following kubectl command to check the security context of the container: `kubectl get pod <pod_name> -o jsonpath='{.spec.containers[*].securityContext}'`.
+- This event can indicate a potential security risk, as it allows a user-level process to access and manipulate memory directly, bypassing the kernel's memory management mechanisms.
+- To investigate this event, you can use the following kubectl command to check the security context of the container: `kubectl get pod <pod_name> -o jsonpath='{.spec.containers[*].securityContext}'`. Ensure that the container's security context does not have any privileged settings that could enable unprivileged delegation of page faults handling.
+
+Compliance considerations:
+- This event may violate compliance standards that require strict separation of user-level and kernel-level memory management.
+- Ensure that the Kubernetes cluster is configured to enforce appropriate security policies, such as preventing containers from running with privileged settings.
+- Regularly audit and monitor container security settings to detect and mitigate any instances of unprivileged delegation of page faults handling.
 
 #### Remediation
 
-To remediate the "Unprivileged Delegation of Page Faults Handling to a Userspace Process" event, you can follow these steps:
+1. Create a Kubernetes Deployment manifest file to deploy a Python script that will handle the page faults handling within the cluster.
+   - Use the `apiVersion`, `kind`, and `metadata` fields to define the Deployment.
+   - Set the `replicas` field to ensure the desired number of pods running the script.
+   - Specify the container image that contains the Python script using the `image` field.
+   - Mount any necessary volumes or configmaps to provide the required resources to the script.
 
-1. Identify the process causing the event:
-   - Use the `kubectl` command to list all the pods in the cluster: `kubectl get pods -A`
-   - Look for the pod associated with the event and note its name.
+2. Use the Kubernetes ServiceAccount and Role-Based Access Control (RBAC) to restrict the privileges of the Deployment.
+   - Create a ServiceAccount manifest file to define a new service account for the Deployment.
+   - Create a Role manifest file to define the necessary permissions for the ServiceAccount.
+   - Create a RoleBinding manifest file to bind the Role to the ServiceAccount.
+   - Apply the ServiceAccount, Role, and RoleBinding manifests using `kubectl apply -f <manifest-file>`.
 
-2. Restart the affected pod:
-   - Use the `kubectl` command to delete the pod: `kubectl delete pod <pod_name> -n <namespace>`
-   - Kubernetes will automatically recreate the pod, ensuring that the process causing the event is restarted.
+3. Update the Deployment manifest file to use the newly created ServiceAccount.
+   - Add the `serviceAccountName` field to the Deployment manifest and set it to the name of the ServiceAccount created in step 2.
+   - Apply the updated Deployment manifest using `kubectl apply -f <manifest-file>`.
 
-3. Investigate and fix the root cause:
-   - Analyze the logs of the restarted pod to identify the root cause of the event.
-   - Make necessary changes to the application or container configuration to prevent the unprivileged delegation of page faults handling.
-
-Here's an example of how you can incorporate these steps into a bash script:
-
-```bash
-#!/bin/bash
-
-# Step 1: Identify the process causing the event
-pod_name="<pod_name>"
-namespace="<namespace>"
-
-# Step 2: Restart the affected pod
-kubectl delete pod $pod_name -n $namespace
-
-# Step 3: Investigate and fix the root cause
-# Add your code here to analyze logs and make necessary changes
-```
-
-You can then use this bash script within your Python script by calling it using the `subprocess` module. Here's an example:
-
-```python
-import subprocess
-
-bash_script = """
-#!/bin/bash
-# ... your bash script code here ...
-"""
-
-# Execute the bash script
-subprocess.run(bash_script, shell=True)
-```
-
-Make sure to replace `<pod_name>` and `<namespace>` with the actual values specific to your environment.
+Note: The Python script itself should handle the unprivileged delegation of page faults handling to a userspace process. The script can use the Kubernetes Python API client to interact with the Kubernetes API and perform the necessary actions to remediate the event.
 

@@ -3,31 +3,27 @@
 
 #### Meaning
 
-Fileless execution via memfd_create event in a Kubernetes cluster means that a process is attempting to execute code without creating a traditional file on disk. Instead, it is using the memfd_create system call to create an in-memory file-like object to store the executable code.
-
-To analyze this event in a Kubernetes cluster, you can take the following steps:
-
-1. Identify the affected pod: Use the kubectl command `kubectl get pods` to list all the pods in the cluster. Look for the pod that triggered the event based on the timestamp and other relevant information provided in the event.
-
-2. Inspect the pod's containers: Once you have identified the affected pod, use the kubectl command `kubectl describe pod <pod_name>` to get detailed information about the pod. Look for any suspicious containers or images that might be responsible for the fileless execution.
-
-3. Investigate the container image: If you suspect a specific container or image, use the kubectl command `kubectl exec -it <pod_name> -c <container_name> -- sh` to access the container's shell. Inspect the container's filesystem, processes, and any running scripts or binaries to identify any malicious activities or unauthorized code execution.
+- Fileless execution via memfd_create event refers to a security event where a process in the Kubernetes cluster attempts to execute code without creating a traditional file on the file system.
+- This event indicates a potential malicious activity, as fileless execution techniques are often used by attackers to evade detection and carry out unauthorized actions.
+- To investigate this event in a Kubernetes cluster, you can use the following command: `kubectl logs <falco-pod-name> -n <falco-namespace>`. This will provide you with the logs of the Falco pod, where you can find more details about the fileless execution event and the associated process or container.
 
 #### Remediation
 
-1. Disable the memfd_create system call:
-   - Edit the sysctl.conf file: `sudo vi /etc/sysctl.conf`
-   - Add the following line: `kernel.unprivileged_userns_clone = 0`
-   - Save and exit the file.
-   - Apply the changes: `sudo sysctl -p`
+To remediate the event of Fileless execution via memfd_create using the Python Kubernetes API, you can follow these steps:
 
-2. Implement strict file system permissions:
-   - Identify the vulnerable directories: `kubectl get pods --all-namespaces -o json | jq '.items[].spec.containers[].securityContext'`
-   - Update the file system permissions for those directories: `kubectl exec <pod_name> -n <namespace> -- chmod 700 <directory_path>`
+1. Identify the affected pod(s):
+   - Use the `kubectl get pods` command to list all the pods in the cluster.
+   - Filter the pods based on the criteria related to the event, such as the pod name or labels.
 
-3. Implement Pod Security Policies (PSP):
-   - Create a Pod Security Policy: `kubectl create -f psp.yaml`
-   - Apply the Pod Security Policy to a namespace: `kubectl annotate namespace <namespace> psp=<psp_name>`
+2. Update the pod's security context:
+   - Retrieve the YAML manifest of the affected pod using the `kubectl get pod <pod-name> -o yaml` command.
+   - Add or modify the `securityContext` section in the pod's YAML manifest to restrict the usage of memfd_create.
+   - Set the `allowUntrusted` field to `false` in the `securityContext` section to prevent the usage of memfd_create.
+   - Save the modified YAML manifest to a file.
 
-Note: The above remediation steps are general recommendations. Please review and test them in your specific environment before implementing them.
+3. Apply the updated manifest:
+   - Use the `kubectl apply -f <path-to-updated-manifest>` command to apply the changes to the affected pod.
+   - Verify that the pod's security context has been updated by checking the pod's YAML manifest again using `kubectl get pod <pod-name> -o yaml`.
+
+Note: The above steps assume that you have the necessary permissions to modify pods and apply changes to the cluster.
 

@@ -19,66 +19,42 @@ To investigate and mitigate this event in a Kubernetes cluster:
      ```
 
 2. Inspect the container or pod configuration to ensure that it does not have unnecessary privileges or access to sensitive files.
-   - Use the following command to describe the pod and check its security context:
+   - Use the following command to describe a pod and check its configuration:
      ```
      kubectl describe pod <pod_name> -n <namespace>
      ```
-   - Ensure that the pod or container does not have excessive permissions or access to sensitive files/directories.
 
-3. Implement security measures to prevent unauthorized symlink creation and protect sensitive files.
-   - Apply Pod Security Policies (PSPs) to restrict the capabilities and permissions of pods.
-   - Regularly scan and monitor the cluster for any unauthorized symlink creations or modifications.
-   - Implement file integrity monitoring (FIM) tools to detect any unauthorized changes to sensitive files or directories.
+3. Review the security policies and RBAC (Role-Based Access Control) settings in the cluster to ensure that only authorized processes or containers have access to sensitive files or directories.
+   - Use the following command to view RBAC roles and bindings:
+     ```
+     kubectl get roles,rolebindings -n <namespace>
+     ```
+   - Update RBAC settings as necessary to restrict access to sensitive files or directories.
 
 #### Remediation
 
-Bash Script:
-1. Identify the sensitive files that need to be protected.
-2. Create a backup of the sensitive files.
-3. Remove the symlink and replace it with the original file.
+To remediate the event "Create Symlink Over Sensitive Files" using the Python Kubernetes API, you can follow these steps:
 
-```bash
-#!/bin/bash
+1. Identify the sensitive files that are being symlinked:
+   - Use the `kubectl exec` command to access the affected container within the pod: `kubectl exec -it <pod-name> -c <container-name> -- /bin/bash`
+   - List the sensitive files in the container: `ls -l /path/to/sensitive/files`
 
-# Specify the sensitive files
-sensitive_files=(
-    "/path/to/file1"
-    "/path/to/file2"
-    "/path/to/file3"
-)
+2. Remove the symlinked file and restore the original file:
+   - Use the Python Kubernetes API to delete the pod: 
+     ```python
+     from kubernetes import client, config
 
-# Create a backup of the sensitive files
-for file in "${sensitive_files[@]}"; do
-    cp "$file" "$file.bak"
-done
+     config.load_kube_config()
+     v1 = client.CoreV1Api()
 
-# Remove the symlink and replace it with the original file
-for file in "${sensitive_files[@]}"; do
-    if [ -L "$file" ]; then
-        rm "$file"
-        cp "$file.bak" "$file"
-    fi
-done
-```
+     v1.delete_namespaced_pod(name="<pod-name>", namespace="<namespace>")
+     ```
+   - Alternatively, you can use the `kubectl delete` command: `kubectl delete pod <pod-name> -n <namespace>`
 
-Python Script:
-1. Import the necessary modules.
-2. Use the `subprocess` module to execute kubectl commands.
-3. Use the `subprocess.run()` function to run the kubectl commands.
+3. Investigate and fix the root cause of the symlink creation:
+   - Review the pod's YAML manifest file to identify any volume mounts or hostPath configurations that allow write access to sensitive files.
+   - Update the pod's manifest file to remove or restrict the write access to sensitive files.
+   - Apply the updated manifest file using the Python Kubernetes API or the `kubectl apply` command.
 
-```python
-import subprocess
-
-# Specify the kubectl commands
-kubectl_commands = [
-    "kubectl delete symlink <symlink_name>",
-    "kubectl cp <original_file> <pod_name>:<destination_path>"
-]
-
-# Execute the kubectl commands
-for command in kubectl_commands:
-    subprocess.run(command, shell=True)
-```
-
-Note: Replace `<symlink_name>`, `<original_file>`, `<pod_name>`, and `<destination_path>` with the actual values specific to your environment.
+Remember to test the remediation script in a non-production environment before applying it to your production cluster.
 

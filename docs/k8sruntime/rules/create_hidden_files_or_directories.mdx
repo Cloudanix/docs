@@ -6,48 +6,54 @@ sidebar_label: Create Hidden Files or Directories
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
 
 - The Create Hidden Files or Directories event in a Kubernetes cluster indicates that a process running within a container has attempted to create a hidden file or directory.
-- This event could be a potential security concern as hidden files or directories can be used to hide malicious activities or sensitive information.
+- This event could potentially be a security concern as hidden files or directories can be used to hide malicious activities or sensitive information.
 - To investigate this event, you can use the `kubectl exec` command to access the container and inspect the file system for any hidden files or directories. For example: `kubectl exec -it <pod_name> -- /bin/bash`
 
 #### Remediation
 
-To remediate the "Create Hidden Files or Directories" falco event, you can follow these steps:
+To remediate the event "Create Hidden Files or Directories" using the Python Kubernetes API, you can follow these steps:
 
-1. Bash Script Remediation:
-   - Create a bash script, let's say `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     find /path/to/directory -type f -name ".*" -exec rm {} +
+1. Identify the affected pod:
+   - Use the event details to determine the pod name and namespace.
+   - Run the following command to get the pod details:
      ```
-   - Replace `/path/to/directory` with the actual directory path where the hidden files or directories were created.
-   - Make the script executable by running the command: `chmod +x remediate.sh`
-   - Run the script using: `./remediate.sh`
+     kubectl get pod <pod-name> -n <namespace> -o yaml
+     ```
+   - Note down the pod's labels and annotations for later use.
 
-2. Kubectl Commands Remediation:
-   - Identify the Kubernetes pod where the hidden files or directories were created. Let's assume the pod name is `my-pod`.
-   - Execute a shell command inside the pod using the following kubectl command:
-     ```bash
-     kubectl exec -it my-pod -- bash -c 'find /path/to/directory -type f -name ".*" -exec rm {} +'
+2. Update the pod's security context:
+   - Create a YAML manifest file (e.g., `remediation.yaml`) with the following content:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       name: <pod-name>
+       namespace: <namespace>
+     spec:
+       securityContext:
+         runAsNonRoot: true
+         runAsUser: 1000
      ```
-   - Replace `/path/to/directory` with the actual directory path where the hidden files or directories were created.
+   - Replace `<pod-name>` and `<namespace>` with the actual values from step 1.
+   - Apply the changes using the following command:
+     ```
+     kubectl apply -f remediation.yaml
+     ```
 
-3. Python Script Remediation:
-   - Modify your Python script to include the following code snippet:
-     ```python
-     import os
-     
-     directory_path = "/path/to/directory"
-     for root, dirs, files in os.walk(directory_path):
-         for file in files:
-             if file.startswith("."):
-                 os.remove(os.path.join(root, file))
+3. Verify the remediation:
+   - Check the pod's security context to ensure it has been updated:
      ```
-   - Replace `/path/to/directory` with the actual directory path where the hidden files or directories were created.
-   - Run the modified Python script to remove the hidden files or directories.
+     kubectl get pod <pod-name> -n <namespace> -o jsonpath='{.spec.securityContext}'
+     ```
+   - Ensure that the `runAsNonRoot` field is set to `true` and `runAsUser` is set to `1000`.
+   - Monitor the pod for any further events related to creating hidden files or directories.
+
+Note: Make sure to test the remediation steps in a non-production environment before applying them to production.
 
  

@@ -14,38 +14,39 @@ To investigate further, you can use the following kubectl commands:
 
 #### Remediation
 
-1. Bash script:
-```bash
-#!/bin/bash
+1. Identify the affected container:
+   - Use the Kubernetes API to list all the pods in the cluster: `kubectl get pods -o wide`
+   - Look for the pod that triggered the event and note its name.
 
-# Get the container ID where the suspicious network tool is running
-container_id=$(kubectl get pods -o jsonpath='{.items[*].metadata.name}' | xargs -I {} kubectl get pod {} -o jsonpath='{.metadata.name}{"\t"}{.status.containerStatuses[0].containerID}{"\n"}' | grep suspicious-network-tool | awk '{print $2}')
+2. Delete the suspicious network tool container:
+   - Use the Kubernetes API to delete the container from the pod: 
+     ```python
+     from kubernetes import client, config
 
-# Stop and delete the container
-kubectl delete pod $container_id
-```
+     # Load the Kubernetes configuration
+     config.load_kube_config()
 
-2. Python script:
-```python
-import subprocess
+     # Create the Kubernetes API client
+     api = client.CoreV1Api()
 
-# Get the container ID where the suspicious network tool is running
-container_id = subprocess.check_output("kubectl get pods -o jsonpath='{.items[*].metadata.name}' | xargs -I {} kubectl get pod {} -o jsonpath='{.metadata.name}{\"\t\"}{.status.containerStatuses[0].containerID}{\"\n\"}' | grep suspicious-network-tool | awk '{print $2}'", shell=True).decode().strip()
+     # Specify the pod name and namespace
+     pod_name = "<pod_name>"
+     namespace = "<namespace>"
 
-# Stop and delete the container
-subprocess.run(f"kubectl delete pod {container_id}", shell=True)
-```
+     # Get the pod object
+     pod = api.read_namespaced_pod(name=pod_name, namespace=namespace)
 
-Note: Replace "suspicious-network-tool" with the actual name or label of the suspicious network tool container.
+     # Remove the suspicious network tool container from the pod
+     containers = pod.spec.containers
+     updated_containers = [c for c in containers if c.name != "<container_name>"]
+     pod.spec.containers = updated_containers
 
-3. Kubectl commands:
-```bash
-# Get the pod name where the suspicious network tool is running
-pod_name=$(kubectl get pods -o jsonpath='{.items[*].metadata.name}' | grep suspicious-network-tool)
+     # Update the pod
+     api.replace_namespaced_pod(name=pod_name, namespace=namespace, body=pod)
+     ```
+     Replace `<pod_name>`, `<namespace>`, and `<container_name>` with the actual values.
 
-# Stop and delete the pod
-kubectl delete pod $pod_name
-```
-
-Note: Replace "suspicious-network-tool" with the actual name or label of the suspicious network tool container.
+3. Verify the remediation:
+   - Check the pod's status to ensure that the suspicious network tool container is no longer running: `kubectl describe pod <pod_name> -n <namespace>`
+   - Monitor the cluster for any further suspicious activity using appropriate security tools and policies.
 

@@ -4,23 +4,53 @@
 #### Meaning
 
 - The "Read sensitive file trusted after startup" event in a Kubernetes cluster indicates that a process running within a container has accessed a sensitive file after the container has started up, and this access is considered trusted.
-- This event could be triggered when a containerized application reads a file containing sensitive information such as passwords, API keys, or configuration files.
-- It is important to investigate this event to ensure that the sensitive file is being accessed by authorized processes and that proper security measures are in place to protect the confidentiality of the sensitive data.
+- This event could occur when a containerized application needs to read sensitive configuration files or credentials during runtime.
+- It is important to ensure that the sensitive files are properly protected and access to them is restricted to only authorized processes and users. Regularly review and update file permissions and access controls to minimize the risk of unauthorized access.
 
 #### Remediation
 
-1. Bash script remediation:
-   - Identify the sensitive file that is being read by the python script after startup.
-   - Use the `chmod` command to change the permissions of the sensitive file to restrict access. For example, `chmod 600 sensitive_file.txt` will only allow the owner to read and write the file.
-   - Update the python script to handle the permission denied error gracefully and provide appropriate error handling or fallback mechanism.
+1. Create a Kubernetes Deployment manifest file to deploy a Python script that will remediate the event:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-script
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remediation-script
+  template:
+    metadata:
+      labels:
+        app: remediation-script
+    spec:
+      containers:
+      - name: remediation-script
+        image: python:3
+        command: ["python", "-c"]
+        args: ["<python script to remediate the event>"]
+```
 
-2. Kubectl commands remediation:
-   - Identify the pod or deployment where the python script is running. Use `kubectl get pods` or `kubectl get deployments` to find the relevant resource.
-   - Use `kubectl exec` command to access the container running the python script. For example, `kubectl exec -it <pod_name> -- /bin/bash`.
-   - Inside the container, modify the permissions of the sensitive file using `chmod` command as mentioned in the bash script remediation.
+2. Write a Python script to remediate the event by deleting the sensitive file:
+```python
+import os
 
-3. Python script remediation:
-   - Update the python script to use appropriate file access control mechanisms like file permissions, encryption, or access control lists (ACLs) to protect sensitive files.
-   - Implement proper error handling and logging mechanisms in the python script to handle permission denied errors and other exceptions gracefully.
-   - Consider using secure file storage solutions like Kubernetes Secrets or external key management systems to store sensitive files separately from the application code.
+def remediate_event():
+    sensitive_file_path = "/path/to/sensitive/file"
+    if os.path.exists(sensitive_file_path):
+        os.remove(sensitive_file_path)
+        print("Sensitive file deleted successfully.")
+    else:
+        print("Sensitive file does not exist.")
+
+remediate_event()
+```
+
+3. Apply the Deployment manifest file using kubectl to deploy the remediation script:
+```bash
+kubectl apply -f deployment.yaml
+```
+
+Note: Make sure to replace `<python script to remediate the event>` with the actual Python script file name or inline script content. Also, update the `sensitive_file_path` variable with the correct path to the sensitive file.
 

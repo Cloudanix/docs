@@ -7,51 +7,31 @@
 - This event could be triggered when a containerized application is accepting network connections from external sources.
 - It is important to investigate this event to ensure that the inbound network activity is expected and compliant with the security policies and compliance standards in place.
 
-To investigate further, you can use the following kubectl command:
-```
-kubectl get pods
-```
-This will list all the pods running in the cluster. You can then inspect the specific pod in question using:
-```
-kubectl describe pod <pod_name>
-```
-This will provide more details about the pod, including the containers running within it.
+To investigate this event in a Kubernetes cluster, you can use the following commands:
+1. List all pods in the cluster: `kubectl get pods`
+2. Describe the specific pod associated with the event: `kubectl describe pod <pod_name>`
+3. Check the logs of the container within the pod to gather more information: `kubectl logs <pod_name> -c <container_name>`
 
 #### Remediation
 
-1. Bash script:
-   - Use `netstat` command to identify the processes with inbound network activity: 
-     ```bash
-     netstat -tunap | grep -E ":(80|443)" | awk '{print $7}' | cut -d'/' -f1 | sort -u
-     ```
-   - Iterate through the list of processes and kill them:
-     ```bash
-     for pid in $(netstat -tunap | grep -E ":(80|443)" | awk '{print $7}' | cut -d'/' -f1 | sort -u); do
-         kill -9 $pid
-     done
-     ```
+1. Create a Kubernetes Deployment manifest file to deploy a Python script that uses the Kubernetes API to monitor and block inbound network activity of interpreted processes.
+   - Use the `apiVersion`, `kind`, and `metadata` fields to define the Deployment.
+   - Set the `replicas` field to 1 to ensure only one instance of the script is running.
+   - Specify the container image that contains the Python script in the `spec.template.spec.containers` field.
+   - Mount the necessary Kubernetes API credentials as a volume in the container.
+   - Set the `command` field to execute the Python script.
 
-2. Python script:
-   - Use `psutil` library to identify the processes with inbound network activity:
-     ```python
-     import psutil
-     
-     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-         if any(":80" in conn.laddr or ":443" in conn.laddr for conn in proc.connections()):
-             proc.kill()
-     ```
+2. Create a Kubernetes NetworkPolicy manifest file to restrict inbound network traffic to the deployed Python script.
+   - Use the `apiVersion`, `kind`, and `metadata` fields to define the NetworkPolicy.
+   - Specify the `spec.podSelector` field to select the pods running the Python script.
+   - Define the `spec.ingress` field to specify the allowed inbound traffic rules.
+   - Set the `ports` field to restrict traffic to specific ports or port ranges.
+   - Specify the `from` field to restrict traffic based on source IP addresses or namespaces.
 
-3. Kubernetes (kubectl) commands:
-   - Identify the pods running the suspicious processes:
-     ```bash
-     kubectl get pods --all-namespaces -o json | jq '.items[] | select(.spec.containers[].command[] | contains("python") or contains("bash")) | .metadata.name'
-     ```
-   - Delete the pods identified:
-     ```bash
-     kubectl delete pod <pod_name> -n <namespace>
-     ```
-   - Alternatively, you can scale down the deployment to terminate the pods:
-     ```bash
-     kubectl scale deployment <deployment_name> --replicas=0 -n <namespace>
-     ```
+3. Apply the generated manifest files using `kubectl` to deploy the Python script and enforce the NetworkPolicy.
+   - Use `kubectl apply -f <deployment_manifest_file>` to deploy the Python script.
+   - Use `kubectl apply -f <networkpolicy_manifest_file>` to enforce the NetworkPolicy.
+   - Verify the deployment and NetworkPolicy using `kubectl get deployments` and `kubectl get networkpolicies`.
+
+Note: Make sure to customize the manifest files according to your specific requirements, such as specifying the correct container image, API credentials, and network traffic rules.
 

@@ -15,50 +15,41 @@ This command will provide detailed information about the pod where the package m
 
 #### Remediation
 
-To remediate the falco event "Launch Package Management Process in Container" using a bash script or kubectl commands, you can follow these steps:
+To remediate the event "Launch Package Management Process in Container" using the Python Kubernetes API, you can follow these steps:
 
-1. Bash Script:
-   - Create a bash script, e.g., `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     # Stop the container
-     docker stop <container_name>
+1. Identify the container in which the event occurred:
+   - Use the Kubernetes API to list all the pods in the affected namespace: `kubectl get pods -n <namespace>`
+   - Identify the pod that triggered the event based on the pod name or labels.
 
-     # Remove the container
-     docker rm <container_name>
-
-     # Re-create the container with the necessary security measures
-     docker run --name <container_name> --security-opt=no-new-privileges --cap-drop=ALL <image_name>
+2. Update the pod's manifest file to include a command or entrypoint that prevents the package management process from launching:
+   - Retrieve the pod's manifest file: `kubectl get pod <pod-name> -n <namespace> -o yaml > pod.yaml`
+   - Open the `pod.yaml` file and locate the container definition within the `spec` section.
+   - Add a `command` or `args` field to the container definition, specifying a command that does not launch the package management process. For example:
+     ```yaml
+     spec:
+       containers:
+       - name: <container-name>
+         command: ["sleep", "infinity"]
      ```
-   - Replace `<container_name>` with the name of the affected container.
-   - Replace `<image_name>` with the name of the image used by the container.
-   - Make the script executable: `chmod +x remediate.sh`.
-   - Run the script: `./remediate.sh`.
 
-2. Kubectl Commands:
-   - Identify the affected pod: `kubectl get pods`.
-   - Get the container name within the pod: `kubectl describe pod <pod_name>`.
-   - Delete the pod: `kubectl delete pod <pod_name>`.
-   - Kubernetes will automatically recreate the pod with the necessary security measures.
-
-3. Python Script:
-   - Install the `kubernetes` Python library: `pip install kubernetes`.
-   - Use the following Python script as an example to delete the affected pod:
+3. Apply the updated manifest file to the cluster to remediate the event:
+   - Use the Python Kubernetes API to apply the updated manifest file: 
      ```python
      from kubernetes import client, config
 
-     # Load Kubernetes configuration
      config.load_kube_config()
-
-     # Create Kubernetes API client
      api = client.CoreV1Api()
 
-     # Delete the affected pod
-     api.delete_namespaced_pod(name='<pod_name>', namespace='<namespace>')
-     ```
-   - Replace `<pod_name>` with the name of the affected pod.
-   - Replace `<namespace>` with the namespace in which the pod resides.
-   - Run the Python script using `python remediate.py`.
+     with open("pod.yaml", "r") as file:
+         pod_manifest = yaml.safe_load(file)
 
-Remember to customize the script or commands based on your specific environment and requirements.
+     api.patch_namespaced_pod(
+         name="<pod-name>",
+         namespace="<namespace>",
+         body=pod_manifest
+     )
+     ```
+   - This will update the pod in the cluster, preventing the package management process from launching.
+
+Remember to replace `<pod-name>` and `<namespace>` with the actual values for the affected pod.
 

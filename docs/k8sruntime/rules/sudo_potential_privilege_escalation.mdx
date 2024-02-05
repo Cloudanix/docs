@@ -6,6 +6,7 @@ sidebar_label: Sudo Potential Privilege Escalation
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
@@ -16,33 +17,45 @@ sidebar_label: Sudo Potential Privilege Escalation
 
 To investigate and mitigate this event in a Kubernetes cluster:
 1. Identify the user or process involved in the event by checking the relevant logs or audit trails.
-   - Use the following command to view the cluster's audit logs: `kubectl logs -n kube-system <audit-log-pod-name>`
-   - Look for entries related to the "sudo" command or any suspicious privilege escalation attempts.
-2. Review the RBAC (Role-Based Access Control) policies to ensure that only authorized users have sudo access or other elevated privileges.
-   - Use the following command to list the ClusterRoles and their associated RoleBindings: `kubectl get clusterroles,rolebindings --all-namespaces`
-   - Look for any misconfigurations or overly permissive access controls.
-3. Implement additional security measures like enabling Pod Security Policies (PSPs) or using a Kubernetes security solution like Falco to detect and prevent unauthorized privilege escalations.
-   - Use the following command to enable Pod Security Policies: `kubectl create clusterrolebinding falco-psp --clusterrole=psp:privileged --serviceaccount=falco:falco`
-   - This example assumes that Falco is deployed in the "falco" namespace. Adjust the command accordingly if using a different namespace.
+   - Use the following command to view the logs of the Kubernetes cluster:
+     ```
+     kubectl logs <falco-pod-name> -n <falco-namespace>
+     ```
+2. Review the RBAC (Role-Based Access Control) policies to ensure that only authorized users have sudo access.
+   - Use the following command to list the RBAC roles and bindings:
+     ```
+     kubectl get roles,rolebindings -n <namespace>
+     ```
+3. Consider implementing additional security measures like Pod Security Policies (PSP) to restrict privileged access and prevent unauthorized privilege escalation attempts.
+   - Use the following command to check the status of Pod Security Policies:
+     ```
+     kubectl get psp
+     ```
 
 #### Remediation
 
-To generate a remediation script for the "Sudo Potential Privilege Escalation" event, you can use a bash script or kubectl commands. Here's an example of how you can achieve this:
+1. Identify the affected pod(s) by checking the `output` field in the Falco event. This field contains the command executed by the user. Use the `kubectl` command to get the pod details:
+   - `kubectl get pods --all-namespaces -o wide | grep <pod_name>`
 
-Bash Script:
-1. Create a bash script file, e.g., "remediate_sudo_privilege_escalation.sh".
-2. Use the "sed" command to modify the sudoers file and remove the user's privilege.
-   - Example command: `sed -i '/<username> ALL=(ALL:ALL) ALL/d' /etc/sudoers`
-   - Replace "<username>" with the actual username that needs to be removed from sudoers.
-3. Save the script and make it executable using the command: `chmod +x remediate_sudo_privilege_escalation.sh`.
+2. Once you have identified the affected pod(s), create a Kubernetes manifest file (e.g., `remediation.yaml`) with the following content:
+   ```yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: <remediation_pod_name>
+     namespace: <namespace>
+   spec:
+     containers:
+     - name: remediation-container
+       image: <image_name>
+       command: ["python", "<remediation_script.py>"]
+       securityContext:
+         privileged: false
+   ```
 
-Python Script:
-1. Import the "subprocess" module in your Python script.
-2. Use the subprocess module to execute the bash script using the following command:
-   - Example command: `subprocess.call(["./remediate_sudo_privilege_escalation.sh"])`
-   - Make sure the bash script file is in the same directory as the Python script.
-3. Run the Python script to execute the remediation steps.
+3. Apply the remediation manifest using the `kubectl` command:
+   - `kubectl apply -f remediation.yaml`
 
-Please note that modifying the sudoers file should be done with caution, as it can impact system security. Ensure that you have the necessary permissions and follow your organization's compliance standards before making any changes.
+Note: Replace `<pod_name>`, `<remediation_pod_name>`, `<namespace>`, `<image_name>`, and `<remediation_script.py>` with the appropriate values specific to your environment and requirements.
 
  

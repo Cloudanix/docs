@@ -6,68 +6,62 @@ sidebar_label: Write below binary dir
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
 
 - The "Write below binary dir" event in a Kubernetes cluster indicates that a process running within a container attempted to write or modify files within the binary directory of the container's file system.
 - This event could potentially indicate a malicious activity or a misconfiguration, as modifying files within the binary directory can lead to unauthorized changes to the container's executable files.
-- To investigate this event, you can use the following commands:
-  1. List all running pods in the cluster: `kubectl get pods -A`
-  2. Inspect the logs of the suspicious pod: `kubectl logs <pod_name> -n <namespace>`
-  3. Check the container's file system for any unauthorized modifications: `kubectl exec -it <pod_name> -n <namespace> -- ls -l /path/to/binary/dir`
+- To investigate this event, you can use the following steps:
+  1. Identify the specific container and pod where the event occurred using the metadata provided in the event.
+  2. Inspect the container's file system using the `kubectl exec` command to check for any unauthorized modifications or suspicious files within the binary directory.
+  3. Review the container's configuration and deployment files to ensure that the appropriate security measures are in place, such as read-only file systems or proper file permissions, to prevent unauthorized modifications.
 
 #### Remediation
 
-1. Bash script:
-   - Create a bash script file, e.g., `remediation.sh`, and open it for editing.
-   - Add the following lines to the script:
-     ```bash
-     #!/bin/bash
-     echo "New content" > /path/to/binary/dir/file.txt
-     ```
-   - Save and close the file.
-   - Make the script executable by running the command: `chmod +x remediation.sh`.
-   - Execute the script using: `./remediation.sh`.
+1. Create a Kubernetes Deployment manifest file with the necessary specifications for the Python application:
 
-2. Kubectl commands:
-   - Create a Kubernetes ConfigMap to store the new content:
-     ```bash
-     kubectl create configmap new-content --from-literal=file.txt="New content"
-     ```
-   - Create a Pod or Deployment that mounts the ConfigMap as a volume and runs the Python script:
-     ```yaml
-     apiVersion: v1
-     kind: Pod
-     metadata:
-       name: python-pod
-     spec:
-       containers:
-       - name: python-container
-         image: python:latest
-         command: ["python", "your_script.py"]
-         volumeMounts:
-         - name: config-volume
-           mountPath: /path/to/binary/dir
-       volumes:
-       - name: config-volume
-         configMap:
-           name: new-content
-     ```
-   - Apply the Pod configuration using: `kubectl apply -f pod.yaml`.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+    spec:
+      containers:
+      - name: python-app
+        image: <your-python-image>
+        command: ["python", "/path/to/your/script.py"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /path/to/binary/dir
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+```
 
-3. Combined bash script and kubectl commands:
-   - Create a bash script file, e.g., `remediation.sh`, and open it for editing.
-   - Add the following lines to the script:
-     ```bash
-     #!/bin/bash
-     echo "New content" > /path/to/binary/dir/file.txt
-     kubectl create configmap new-content --from-file=/path/to/binary/dir/file.txt
-     kubectl apply -f pod.yaml
-     ```
-   - Create a Pod configuration file, e.g., `pod.yaml`, with the content from the previous example.
-   - Save and close both files.
-   - Make the script executable by running the command: `chmod +x remediation.sh`.
-   - Execute the script using: `./remediation.sh`.
+2. Apply the Deployment manifest using the `kubectl apply` command:
+
+```bash
+kubectl apply -f deployment.yaml
+```
+
+3. Verify that the Deployment is running and the Python application is writing to the desired binary directory:
+
+```bash
+kubectl get pods
+kubectl logs <pod-name>
+```
+
+Note: Replace `<your-python-image>` with the appropriate Python image and `/path/to/your/script.py` with the actual path to your Python script.
 
  

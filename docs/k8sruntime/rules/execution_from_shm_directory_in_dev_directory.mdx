@@ -6,6 +6,7 @@ sidebar_label: Execution from shm directory in dev directory
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
@@ -15,60 +16,28 @@ sidebar_label: Execution from shm directory in dev directory
 - To investigate this event, you can use the following kubectl command to check the containers running in the pod: 
   `kubectl describe pod <pod_name>`
 
-Note: The provided kubectl command is a general example and may need to be modified based on your specific cluster configuration.
+Note: The provided kubectl command is a starting point for investigation and may need to be modified based on the specific pod and namespace where the event occurred.
 
 #### Remediation
 
-To remediate the falco event "Execution from shm directory in dev directory" using a bash script or kubectl commands, you can follow these steps:
+To remediate the event of execution from the shm directory in the dev directory using the Python Kubernetes API, you can follow these steps:
 
-1. Bash Script:
-   - Create a bash script, e.g., `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     rm -rf /dev/shm/*
-     ```
-   - Make the script executable by running the command: `chmod +x remediate.sh`
-   - In your Python script, you can call this bash script using the `subprocess` module:
-     ```python
-     import subprocess
-     
-     subprocess.run(["./remediate.sh"])
-     ```
+1. Identify the affected pod:
+   - Use the `kubectl get pods` command to list all the pods in the cluster.
+   - Look for the pod that triggered the event based on the pod name or other identifying information.
+   - Note down the name of the affected pod.
 
-2. Kubectl Commands:
-   - Delete the contents of the `/dev/shm` directory using the `kubectl exec` command:
-     ```bash
-     kubectl exec <pod-name> -- rm -rf /dev/shm/*
-     ```
-     Replace `<pod-name>` with the name of the pod where the event occurred.
-   - You can use the Kubernetes API to execute this command from within your Python script:
-     ```python
-     from kubernetes import client, config
-     
-     config.load_kube_config()
-     v1 = client.CoreV1Api()
-     
-     pod_name = "<pod-name>"
-     exec_command = [
-         "/bin/sh",
-         "-c",
-         "rm -rf /dev/shm/*"
-     ]
-     
-     response = v1.connect_get_namespaced_pod_exec(
-         name=pod_name,
-         namespace="default",
-         command=exec_command,
-         stderr=True,
-         stdin=False,
-         stdout=True,
-         tty=False,
-     )
-     ```
+2. Update the pod's manifest file:
+   - Use the `kubectl get pod <pod-name> -o yaml > pod.yaml` command to export the pod's manifest file to a YAML file.
+   - Open the `pod.yaml` file in a text editor.
+   - Find the `securityContext` section under the `spec` section of the YAML file.
+   - Add or modify the `securityContext` section to include the `runAsNonRoot: true` and `runAsUser: <non-root-user-id>` fields. This will ensure that the pod runs as a non-root user.
+   - Save the changes to the `pod.yaml` file.
 
-3. Additional Considerations:
-   - Ensure that the user executing the bash script or running the kubectl commands has the necessary permissions to perform the remediation actions.
-   - Test the remediation script in a controlled environment before applying it to production systems.
-   - Consider implementing RBAC (Role-Based Access Control) to restrict access to the kubectl commands and limit the execution to authorized users or service accounts.
+3. Apply the updated manifest file:
+   - Use the `kubectl apply -f pod.yaml` command to apply the updated manifest file and make the necessary changes to the pod.
+   - Verify that the pod has been updated successfully by using the `kubectl get pod <pod-name>` command and checking the pod's status.
+
+Note: Make sure to replace `<pod-name>` with the actual name of the affected pod, and `<non-root-user-id>` with the desired non-root user ID to be used by the pod.
 
  

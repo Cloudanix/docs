@@ -6,40 +6,53 @@ sidebar_label: Read environment variable from proc files
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
 
 - The "Read environment variable from proc files" event in a Kubernetes cluster indicates that a process running within a container is attempting to read environment variables from the /proc filesystem.
-- This event could be a potential security concern as it may expose sensitive information stored in environment variables to unauthorized users or processes.
-- To investigate this event, you can use the kubectl command to check the logs of the container where the event occurred. For example, you can use "kubectl logs <pod_name> -c <container_name>" to view the logs and identify any suspicious activity related to reading environment variables from proc files.
+- This event could potentially indicate a security concern, as reading environment variables from /proc can expose sensitive information such as passwords or API keys.
+- To investigate this event, you can use the kubectl command to check the logs of the container where the event occurred. For example, you can use "kubectl logs <pod_name> -c <container_name>" to view the logs and look for any suspicious activity related to reading environment variables from /proc.
 
 #### Remediation
 
-1. To read environment variables from proc files using a bash script, you can use the following command:
-   ```bash
-   cat /proc/<PID>/environ | tr '\0' '\n'
-   ```
-   Replace `<PID>` with the process ID of the container where you want to read the environment variables.
+1. Create a Kubernetes ConfigMap to store the environment variables:
+   - Create a YAML file named `configmap.yaml` with the following content:
+     ```yaml
+     apiVersion: v1
+     kind: ConfigMap
+     metadata:
+       name: env-vars
+     data:
+       MY_ENV_VAR: <value>
+     ```
+   - Replace `<value>` with the desired value for the environment variable.
+   - Apply the ConfigMap using the following command:
+     ```
+     kubectl apply -f configmap.yaml
+     ```
 
-2. To read environment variables from proc files using kubectl commands, you can use the following command:
-   ```bash
-   kubectl exec <pod-name> -- cat /proc/1/environ | tr '\0' '\n'
-   ```
-   Replace `<pod-name>` with the name of the pod where you want to read the environment variables.
+2. Update the deployment to use the ConfigMap:
+   - Modify the YAML file of the deployment that reads the environment variable from `/proc` files.
+   - Add the `envFrom` field under the `spec.template.spec.containers` section:
+     ```yaml
+     envFrom:
+       - configMapRef:
+           name: env-vars
+     ```
+   - Apply the updated deployment using the following command:
+     ```
+     kubectl apply -f deployment.yaml
+     ```
 
-3. To use the environment variables in a Python script, you can use the `os.environ` dictionary to access them. Here's an example:
-   ```python
-   import os
+3. Verify the environment variable is being read correctly:
+   - Check the logs of the pod associated with the deployment to ensure the environment variable is being read correctly.
+     ```
+     kubectl logs <pod-name>
+     ```
+   - Look for the output that confirms the environment variable value is as expected.
 
-   # Accessing environment variables
-   var1 = os.environ.get('VAR1')
-   var2 = os.environ.get('VAR2')
-
-   # Using the environment variables in your Python script
-   # ...
-   ```
-
-Remember to replace `VAR1` and `VAR2` with the actual names of the environment variables you want to use in your Python script.
+Note: Make sure to replace `<pod-name>` with the actual name of the pod associated with the deployment.
 
  

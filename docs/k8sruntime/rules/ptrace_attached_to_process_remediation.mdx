@@ -9,45 +9,32 @@
 
 #### Remediation
 
-To remediate the falco event "PTRACE attached to process" using a bash script or kubectl commands and integrate it into a Python script, you can follow these steps:
+1. Identify the affected pod and its container:
+   - Use the `kubectl get pods` command to list all the pods in the cluster.
+   - Look for the pod that triggered the PTRACE event.
+   - Identify the container within the pod that is associated with the event.
 
-1. Bash Script Remediation:
-   - Create a bash script, e.g., `ptrace_remediation.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     # Kill the process with the given PID
-     PID=$1
-     kill -9 $PID
-     ```
-   - Make the script executable by running the command: `chmod +x ptrace_remediation.sh`
-   - In your Python script, call the bash script using the `subprocess` module:
-     ```python
-     import subprocess
-     
-     # Replace <PID> with the actual process ID
-     subprocess.run(["./ptrace_remediation.sh", "<PID>"])
-     ```
+2. Patch the pod's security context:
+   - Use the `kubectl patch` command to update the pod's security context.
+   - Specify the pod name, namespace, and container name in the command.
+   - Set the `securityContext` field to disable the `ptrace` capability for the container.
 
-2. Kubernetes Remediation:
-   - Identify the pod where the process is running. You can use the `kubectl` command to list all pods: `kubectl get pods`
-   - Once you have the pod name, execute a shell inside the pod using the `kubectl exec` command:
-     ```bash
-     kubectl exec -it <pod_name> -- /bin/bash
-     ```
-   - Inside the pod, find the process ID (PID) of the affected process using tools like `ps` or `pgrep`. Once you have the PID, you can kill the process using the `kill` command:
-     ```bash
-     kill -9 <PID>
-     ```
+3. Apply the changes to the pod:
+   - Use the `kubectl apply` command to apply the updated manifest file.
+   - Specify the path to the modified manifest file in the command.
+   - The changes will be applied to the pod, disabling the `ptrace` capability for the affected container.
 
-3. Integrating into Python script:
-   - Use the `subprocess` module in Python to execute the kubectl commands:
-     ```python
-     import subprocess
-     
-     # Replace <pod_name> and <PID> with the actual values
-     subprocess.run(["kubectl", "exec", "-it", "<pod_name>", "--", "/bin/bash", "-c", "kill -9 <PID>"])
-     ```
-   - Ensure that the Python script has the necessary permissions to execute the kubectl command by running it with appropriate privileges or using a service account with sufficient permissions.
+Example:
+```bash
+# Identify the affected pod and container
+kubectl get pods
 
-Remember to test the remediation script thoroughly in a controlled environment before applying it to production systems.
+# Patch the pod's security context
+kubectl patch pod <pod-name> -n <namespace> --type='json' -p='[{"op": "add", "path": "/spec/containers/<container-name>/securityContext", "value": {"capabilities": {"add": ["NET_ADMIN"]}}}]'
+
+# Apply the changes to the pod
+kubectl apply -f <path-to-modified-manifest-file>
+```
+
+Note: Replace `<pod-name>`, `<namespace>`, `<container-name>`, and `<path-to-modified-manifest-file>` with the appropriate values for your environment.
 

@@ -4,54 +4,44 @@
 #### Meaning
 
 - The Change thread namespace event in a Kubernetes cluster indicates that a process has attempted to change its thread namespace.
-- This event can be triggered by a container attempting to escape its own namespace and access resources or processes outside of its intended scope.
+- This event can be triggered by a container attempting to escape its namespace and gain access to resources outside of its intended scope.
 - It is important to investigate this event as it may indicate a potential security breach or unauthorized access attempt within the cluster.
 
 To investigate the Change thread namespace event in a Kubernetes cluster, you can:
-- Use the `kubectl get pods` command to list all the running pods in the cluster and identify the pod associated with the event.
+- Use the `kubectl get pods` command to list all running pods in the cluster and identify the pod associated with the event.
 - Use the `kubectl logs <pod-name>` command to view the logs of the identified pod and look for any suspicious activities or error messages related to namespace changes.
-- Analyze the pod's YAML configuration file using `kubectl describe pod <pod-name>` to check if any specific configurations or security vulnerabilities might have allowed the namespace change event to occur.
+- Analyze the pod's security context and ensure that appropriate security measures, such as namespace restrictions and RBAC policies, are in place to prevent unauthorized namespace changes.
 
 #### Remediation
 
-To remediate the falco event "Change thread namespace" using a bash script or kubectl commands and integrate it into a Python script, you can follow these steps:
+To remediate the event "Change thread namespace using python kubernetes api", you can follow these steps using the Python Kubernetes API:
 
-1. Bash Script:
-   - Create a bash script, e.g., `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     pid=$1
-     new_namespace=$2
-     nsenter -t $pid -m -u -i -n -p -- bash -c "ip netns exec $new_namespace"
-     ```
-   - Make the script executable: `chmod +x remediate.sh`
-   - In your Python script, when you detect the falco event, you can call the bash script with the required parameters:
-     ```python
-     import subprocess
-     
-     pid = 1234  # Replace with the actual PID of the process
-     new_namespace = "new_namespace"  # Replace with the desired new namespace
-     
-     subprocess.run(["./remediate.sh", str(pid), new_namespace])
-     ```
+1. Identify the affected pod:
+   - Use the Kubernetes API to list all pods in the cluster: `kubectl get pods -n <namespace>`
+   - Look for the pod that triggered the event based on the pod name or other identifying information.
 
-2. Kubectl Commands:
-   - If you prefer using kubectl commands instead of a bash script, you can use the `exec` command to change the thread namespace of a running container.
-   - First, identify the pod and container where the event occurred. You can use `kubectl describe falcoevents <event_id>` to get this information.
-   - Once you have the pod and container names, you can execute the following kubectl command to change the thread namespace:
-     ```bash
-     kubectl exec -it <pod_name> -c <container_name> -- ip netns exec <new_namespace>
+2. Update the pod's YAML manifest:
+   - Retrieve the YAML manifest for the affected pod: `kubectl get pod <pod-name> -n <namespace> -o yaml > pod.yaml`
+   - Open the `pod.yaml` file and locate the `spec` section.
+   - Find the `securityContext` section within the `spec` section.
+   - Add or modify the `securityContext` section to set the desired namespace for the pod's threads. For example:
+     ```yaml
+     securityContext:
+       runAsUser: <user-id>
+       runAsGroup: <group-id>
+       namespaceOptions:
+         hostNetwork: false
+         hostIPC: false
+         hostPID: false
+         shareProcessNamespace: false
+         runAsUser: <user-id>
+         runAsGroup: <group-id>
+         runAsNonRoot: true
      ```
-   - In your Python script, when you detect the falco event, you can execute the kubectl command using the `subprocess` module:
-     ```python
-     import subprocess
-     
-     pod_name = "my-pod"  # Replace with the actual pod name
-     container_name = "my-container"  # Replace with the actual container name
-     new_namespace = "new_namespace"  # Replace with the desired new namespace
-     
-     subprocess.run(["kubectl", "exec", "-it", pod_name, "-c", container_name, "--", "ip", "netns", "exec", new_namespace])
-     ```
+     Replace `<user-id>` and `<group-id>` with the appropriate values.
 
-Remember to replace the placeholders (`<event_id>`, `<pod_name>`, `<container_name>`, `<new_namespace>`) with the actual values specific to your environment.
+3. Apply the updated manifest:
+   - Apply the changes to the pod: `kubectl apply -f pod.yaml -n <namespace>`
+
+Note: Make sure you have the necessary permissions to modify pods in the specified namespace.
 

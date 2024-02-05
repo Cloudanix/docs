@@ -5,45 +5,42 @@
 
 - The Unexpected inbound connection source event in a Kubernetes cluster indicates that a network connection was established from an unexpected source to a pod or service within the cluster.
 - This event could potentially indicate a security breach or unauthorized access attempt, as it suggests that a connection was made from an external source that is not whitelisted or expected.
-- To investigate this event, you can use kubectl commands to check the network policies, pod logs, and cluster firewall rules to identify any potential misconfigurations or security vulnerabilities. For example, you can use "kubectl get networkpolicies" to list the network policies in the cluster and "kubectl logs <pod-name>" to view the logs of a specific pod.
+- To investigate this event, you can use kubectl commands to check the network policies, pod logs, and cluster firewall rules to identify any potential misconfigurations or security vulnerabilities. For example, you can use "kubectl get networkpolicies" to list the network policies in the cluster and "kubectl logs <pod-name>" to view the logs of the affected pod.
 
 #### Remediation
 
-Bash script:
-1. Identify the source IP address of the unexpected inbound connection using the falco event details.
-2. Use the iptables command to block the incoming connection from the identified IP address.
-3. Save the iptables rules to persist across reboots.
+1. Identify the affected pod(s) by checking the source IP address mentioned in the event.
+   - Use the following command to filter the pods based on the source IP address:
+     ```
+     kubectl get pods -o json | jq '.items[] | select(.status.podIP == "<source_ip>") | .metadata.name'
+     ```
+   - Replace `<source_ip>` with the actual source IP address mentioned in the event.
 
-```bash
-#!/bin/bash
+2. Update the affected pod(s) by adding a network policy to block inbound connections from the identified source IP address.
+   - Create a YAML file named `network-policy.yaml` with the following content:
+     ```yaml
+     apiVersion: networking.k8s.io/v1
+     kind: NetworkPolicy
+     metadata:
+       name: block-inbound-connections
+     spec:
+       podSelector:
+         matchLabels:
+           app: <app_label>
+       policyTypes:
+         - Ingress
+       ingress:
+         - from:
+             - ipBlock:
+                 cidr: <source_ip>/32
+     ```
+   - Replace `<app_label>` with the label of the affected application.
+   - Replace `<source_ip>` with the actual source IP address mentioned in the event.
 
-# Extract the source IP address from the falco event details
-SOURCE_IP=<source_ip_address>
-
-# Block the incoming connection from the identified IP address using iptables
-iptables -A INPUT -s $SOURCE_IP -j DROP
-
-# Save the iptables rules to persist across reboots
-iptables-save > /etc/iptables/rules.v4
-```
-
-Python script:
-1. Use the subprocess module to execute the kubectl command to get the pod name associated with the falco event.
-2. Use the kubectl command to delete the pod identified in the previous step.
-3. Optionally, you can use the kubectl command to create a new pod to replace the deleted one.
-
-```python
-import subprocess
-
-# Execute kubectl command to get the pod name associated with the falco event
-pod_name = subprocess.check_output(["kubectl", "get", "pods", "--all-namespaces", "--field-selector", "status.phase=Running", "--output", "jsonpath='{.items[*].metadata.name}'"])
-
-# Delete the identified pod using kubectl command
-subprocess.call(["kubectl", "delete", "pod", pod_name])
-
-# Optionally, create a new pod to replace the deleted one
-subprocess.call(["kubectl", "create", "-f", "path/to/new_pod.yaml"])
-```
-
-Note: Replace `<source_ip_address>` with the actual source IP address in the bash script, and make sure to provide the correct path to the new pod YAML file in the Python script.
+3. Apply the network policy to the cluster to block inbound connections from the identified source IP address.
+   - Run the following command to apply the network policy:
+     ```
+     kubectl apply -f network-policy.yaml
+     ```
+   - This will enforce the network policy on the cluster and block inbound connections from the specified source IP address to the affected pod(s).
 

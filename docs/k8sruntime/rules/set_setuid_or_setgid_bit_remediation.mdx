@@ -3,50 +3,54 @@
 
 #### Meaning
 
-- The "Set Setuid or Setgid bit" event in a Kubernetes cluster refers to a situation where a file or directory has its Setuid or Setgid bit set.
+- The Set Setuid or Setgid bit event in a Kubernetes cluster refers to a situation where a file or directory has its Setuid or Setgid bit set.
 - The Setuid (Set User ID) bit allows a user to execute a file with the permissions of the file's owner, while the Setgid (Set Group ID) bit allows a user to execute a file with the permissions of the file's group.
 - This event can indicate a potential security risk as it may allow unauthorized users to gain elevated privileges or access sensitive information. It is important to investigate and remediate such events to ensure compliance with security standards.
 
 To investigate and remediate this event in a Kubernetes cluster:
-1. Identify the specific file or directory that has the Setuid or Setgid bit set using the following command:
+1. Identify the specific file or directory that triggered the event using the provided details in the event log.
+2. Use the kubectl command to inspect the permissions of the file or directory:
    ```
    kubectl exec <pod_name> -- ls -l <file_path>
    ```
-2. Remove the Setuid or Setgid bit from the file or directory using the following command:
+3. If the Setuid or Setgid bit is set, remove it using the chmod command:
    ```
    kubectl exec <pod_name> -- chmod u-s <file_path>
    ```
-3. Regularly audit and monitor file permissions in the cluster to detect and address any instances of the Setuid or Setgid bit being set without proper authorization.
+   or
+   ```
+   kubectl exec <pod_name> -- chmod g-s <file_path>
+   ```
+   Ensure that the appropriate permissions are set to maintain security and compliance standards.
 
 #### Remediation
 
-Bash Script:
-1. Create a bash script, let's say "remediate.sh", with the following content:
-   ```bash
-   #!/bin/bash
-   chmod u-s <file_path>  # Remove setuid bit
-   chmod g-s <file_path>  # Remove setgid bit
-   ```
+To remediate the event "Set Setuid or Setgid bit" using the Python Kubernetes API, you can follow these steps:
 
-2. Replace `<file_path>` with the actual path of the file that has the setuid or setgid bit set.
+1. Identify the affected pod:
+   - Use the Kubernetes API to list all pods in the cluster: `kubectl get pods -o wide`
+   - Look for the pod that triggered the event based on the pod name or other identifying information.
 
-Python Script:
-1. Install the `kubectl` command-line tool if not already installed.
+2. Update the pod's security context:
+   - Retrieve the pod's YAML manifest using the Kubernetes API: `kubectl get pod <pod-name> -o yaml > pod.yaml`
+   - Open the `pod.yaml` file and locate the container section for the affected pod.
+   - Add or modify the `securityContext` section to remove the `setuid` and `setgid` bits. For example:
+     ```yaml
+     spec:
+       containers:
+       - name: <container-name>
+         securityContext:
+           allowPrivilegeEscalation: false
+           runAsUser: <user-id>
+           runAsGroup: <group-id>
+           capabilities:
+             add: []
+     ```
+   - Save the changes to `pod.yaml`.
 
-2. In your Python script, use the `subprocess` module to execute the `kubectl` command to remove the setuid or setgid bit. Here's an example:
-   ```python
-   import subprocess
+3. Apply the updated manifest to the cluster:
+   - Use the Kubernetes API to apply the updated manifest: `kubectl apply -f pod.yaml`
+   - Verify that the pod has been updated successfully: `kubectl get pods`
 
-   file_path = "<file_path>"  # Replace with the actual path of the file
-
-   # Execute kubectl command to remove setuid bit
-   subprocess.run(["kubectl", "exec", "<pod_name>", "--", "chmod", "u-s", file_path])
-
-   # Execute kubectl command to remove setgid bit
-   subprocess.run(["kubectl", "exec", "<pod_name>", "--", "chmod", "g-s", file_path])
-   ```
-
-   Replace `<file_path>` with the actual path of the file that has the setuid or setgid bit set, and `<pod_name>` with the name of the pod where the file is located.
-
-   Note: Make sure you have the necessary permissions to execute the `kubectl` commands on the Kubernetes cluster.
+Note: Make sure to replace `<pod-name>`, `<container-name>`, `<user-id>`, and `<group-id>` with the appropriate values for your environment.
 

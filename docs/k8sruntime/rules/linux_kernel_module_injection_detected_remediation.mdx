@@ -3,39 +3,43 @@
 
 #### Meaning
 
-- The Linux Kernel Module Injection Detected event in a Kubernetes cluster indicates that a process attempted to inject a kernel module into the Linux kernel.
-- This event is a potential security threat as it can allow unauthorized access and control over the system.
-- It is important to investigate this event further to identify the source of the injection attempt and take appropriate actions to mitigate the risk, such as removing the malicious module and securing the affected system.
+- The Linux Kernel Module Injection Detected event in a Kubernetes cluster indicates that an unauthorized or malicious kernel module has been injected into the system.
+- This event could potentially compromise the security and stability of the cluster, as the injected module can perform unauthorized actions or provide unauthorized access to the system.
+- It is crucial to investigate and remediate this event promptly to ensure the integrity and compliance of the Kubernetes cluster. 
 
-To investigate and mitigate this event in a Kubernetes cluster:
-1. Identify the affected pod or node using the Kubernetes event logs or monitoring tools.
-2. Inspect the pod or node for any suspicious processes or files using the following command: `kubectl exec <pod-name> -- <command>`
-3. If a malicious module is found, remove it using the appropriate command for your Linux distribution, such as `rmmod` or `modprobe -r`. Additionally, consider implementing security measures like restricting kernel module loading and monitoring for any further attempts.
+To investigate and remediate this event, you can:
+- Use the `kubectl get pods` command to identify the affected pod(s) and their corresponding nodes.
+- Use the `kubectl describe pod <pod_name>` command to gather more information about the pod, such as the image being used and any suspicious activities.
+- If necessary, delete and recreate the affected pod(s) using the `kubectl delete pod <pod_name>` and `kubectl create -f <pod_manifest.yaml>` commands, respectively.
 
 #### Remediation
 
-Bash script:
-1. Identify the malicious kernel module using the event details.
-   - Use the `dmesg` command to check the kernel logs for any suspicious module loading messages.
-   - Extract the module name from the log output.
+1. Identify the affected pod(s) by checking the `podName` field in the Falco event.
+   - Use the Kubernetes API to get the pod details: `kubectl get pod <podName> -o yaml`
+   - Note down the namespace and labels of the affected pod.
 
-2. Remove the malicious kernel module.
-   - Use the `rmmod` command followed by the module name to unload the module from the kernel.
-   - Example: `sudo rmmod <module_name>`
+2. Create a Kubernetes manifest file to delete the affected pod(s) and prevent further injection:
+   - Create a YAML file (e.g., `remediation.yaml`) with the following content:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       namespace: <namespace>
+       labels:
+         <labels>
+     spec:
+       restartPolicy: Never
+       containers:
+       - name: remediation-container
+         image: alpine:latest
+         command: ["sh", "-c", "sleep 10"]
+     ```
+   - Replace `<namespace>` with the namespace of the affected pod(s).
+   - Replace `<labels>` with the labels of the affected pod(s).
+   - This manifest creates a temporary pod that sleeps for 10 seconds and then terminates. This will effectively delete the affected pod(s) and prevent further injection.
 
-3. Prevent future kernel module injections.
-   - Disable the ability to load kernel modules by modifying the kernel configuration.
-   - Edit the `/etc/modprobe.d/blacklist.conf` file and add the module name to the blacklist.
-   - Example: `echo "blacklist <module_name>" | sudo tee -a /etc/modprobe.d/blacklist.conf`
-
-Python script:
-1. Use the `subprocess` module to execute the bash commands within the Python script.
-   - Import the `subprocess` module: `import subprocess`
-
-2. Execute the bash commands using `subprocess.run()` function.
-   - Example: `subprocess.run(["sudo", "rmmod", "<module_name>"])`
-
-3. Handle any errors or exceptions that may occur during the execution of the commands.
-   - Use `try-except` blocks to catch and handle any exceptions raised by the `subprocess.run()` function.
-   - Print appropriate error messages or perform necessary actions based on the exception type.
+3. Apply the remediation manifest to the cluster:
+   - Use the Kubernetes API to apply the remediation manifest: `kubectl apply -f remediation.yaml`
+   - Verify that the remediation pod is created and completes successfully: `kubectl get pod -l=app=remediation-container`
+   - Monitor the cluster to ensure that the affected pod(s) are deleted and no new injection occurs: `kubectl get pod -n <namespace>`
 

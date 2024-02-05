@@ -3,48 +3,47 @@
 
 #### Meaning
 
-The "Non sudo setuid" event in a Kubernetes cluster refers to a situation where a non-root user attempts to execute a process with the setuid permission, which allows the process to run with the privileges of the file owner. This event can have security implications and may violate compliance standards. Here are three key points about this event:
+- The "Non sudo setuid" event in a Kubernetes cluster refers to a situation where a non-root user attempts to execute a process with the setuid permission, which allows the process to run with the privileges of the file owner.
+- This event can indicate a potential security vulnerability, as it may allow an unauthorized user to gain elevated privileges and perform actions they should not have access to.
+- To investigate this event, you can use the following kubectl command to check the permissions and ownership of the file: `kubectl exec <pod_name> -- ls -l <file_path>`. This will help identify if the file has the setuid permission and if it is owned by a non-root user.
 
-1. Security risk: The "Non sudo setuid" event indicates that a non-root user is attempting to execute a process with elevated privileges. This can be a security risk as it may allow unauthorized access or privilege escalation within the cluster.
-
-2. Compliance violation: Many compliance standards, such as PCI DSS or HIPAA, require strict control over user privileges and access. The "Non sudo setuid" event violates these standards as it allows non-root users to execute processes with elevated privileges.
-
-3. Investigation and mitigation: To address this event, it is important to investigate the process and user involved. Check if the process is legitimate and necessary for the cluster's operation. If not, remove or restrict the process. Additionally, review user permissions and ensure that only authorized users have the necessary privileges to execute processes with elevated permissions.
+Compliance considerations:
+- This event may violate compliance standards such as the Principle of Least Privilege (PoLP), which requires that users and processes should only have the minimum privileges necessary to perform their tasks.
+- It may also violate compliance standards related to user access controls and unauthorized privilege escalation.
+- Organizations should regularly audit and monitor for such events to ensure compliance with security and access control policies.
 
 #### Remediation
 
-1. Bash script remediation:
-   - Create a bash script, let's say `remediate.sh`, with the following content:
-     ```bash
-     #!/bin/bash
-     sudo chmod -s <path_to_binary>
-     ```
-   - Replace `<path_to_binary>` with the actual path of the binary that has the setuid permission.
-   - Make the script executable by running `chmod +x remediate.sh`.
-   - In your Python script, call this bash script using `subprocess` module:
-     ```python
-     import subprocess
-     subprocess.run(["./remediate.sh"])
-     ```
+1. Create a Kubernetes Deployment manifest file (e.g., `remediation.yaml`) with the following content:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: falco-remediation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: falco-remediation
+  template:
+    metadata:
+      labels:
+        app: falco-remediation
+    spec:
+      containers:
+      - name: falco-remediation
+        image: python:latest
+        command: ["python", "-c"]
+        args: ["import os; os.setuid(0); os.system('chmod u-s /usr/bin/sudo')"]
+```
+2. Apply the remediation manifest using the following command:
+```bash
+kubectl apply -f remediation.yaml
+```
+3. Verify that the remediation deployment is running successfully:
+```bash
+kubectl get pods -l app=falco-remediation
+```
 
-2. Kubernetes remediation using kubectl:
-   - Identify the pod where the unauthorized setuid binary is running. You can use `kubectl` commands like `kubectl get pods` or `kubectl describe pods` to find the pod name.
-   - Execute a shell inside the pod using the following command:
-     ```bash
-     kubectl exec -it <pod_name> -- /bin/bash
-     ```
-   - Once inside the pod, find the path of the unauthorized setuid binary and remove the setuid permission using the `chmod` command:
-     ```bash
-     chmod -s <path_to_binary>
-     ```
-   - Exit the shell and the setuid permission will be removed.
-
-3. Python script integration:
-   - In your Python script, you can use the `subprocess` module to execute the kubectl commands mentioned above.
-   - Example:
-     ```python
-     import subprocess
-     subprocess.run(["kubectl", "exec", "-it", "<pod_name>", "--", "/bin/bash", "-c", "chmod -s <path_to_binary>"])
-     ```
-   - Replace `<pod_name>` with the actual name of the pod and `<path_to_binary>` with the path of the unauthorized setuid binary.
+Note: This remediation script assumes that you have Python installed in the container image and that the `chmod` command is used to remove the setuid permission from the `/usr/bin/sudo` binary. Adjust the script accordingly based on your specific requirements and environment.
 

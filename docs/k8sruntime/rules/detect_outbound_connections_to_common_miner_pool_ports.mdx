@@ -6,6 +6,7 @@ sidebar_label: Detect outbound connections to common miner pool ports
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
@@ -16,24 +17,67 @@ sidebar_label: Detect outbound connections to common miner pool ports
 
 #### Remediation
 
-1. Bash script:
-   - Use `netstat` command to identify outbound connections to common miner pool ports. For example, to check for connections to port 3333, you can use the following command:
-     ```bash
-     netstat -tn | awk '$4 ~ /:3333$/ {print $5}'
-     ```
-   - Iterate over the output of the above command and take appropriate actions, such as terminating the connection or blocking the IP address.
+1. Create a Kubernetes Deployment manifest file to deploy a Python script as a container:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-script
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remediation-script
+  template:
+    metadata:
+      labels:
+        app: remediation-script
+    spec:
+      containers:
+      - name: remediation-script
+        image: python:3
+        command: ["python", "-u"]
+        args: ["remediation_script.py"]
+```
 
-2. Kubectl commands:
-   - Use `kubectl get pods` command to list all running pods in the cluster.
-   - Use `kubectl exec` command to execute a command inside a specific pod. For example, to execute `netstat` command inside a pod named `my-pod`, you can use the following command:
-     ```bash
-     kubectl exec my-pod -- netstat -tn | awk '$4 ~ /:3333$/ {print $5}'
-     ```
-   - Iterate over the output of the above command and take appropriate actions, such as terminating the connection or blocking the IP address.
+2. Create a Kubernetes Service manifest file to expose the deployment:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: remediation-script-service
+spec:
+  selector:
+    app: remediation-script
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+```
 
-3. Python script:
-   - Use the `subprocess` module in Python to execute the `netstat` command or the `kubectl exec` command.
-   - Parse the output of the command to identify the outbound connections to common miner pool ports.
-   - Implement the necessary logic to take appropriate actions, such as terminating the connection or blocking the IP address, within your Python script.
+3. Create a Python script named `remediation_script.py` that uses the Kubernetes Python API to perform the remediation actions:
+```python
+import os
+from kubernetes import client, config
+
+# Load the in-cluster Kubernetes configuration
+config.load_incluster_config()
+
+# Create a Kubernetes API client
+api_client = client.ApiClient()
+
+# Define the remediation actions here
+# For example, you can delete the Pods that triggered the event
+def remediate_event():
+    v1 = client.CoreV1Api(api_client)
+    namespace = os.getenv("POD_NAMESPACE")
+    pod_name = os.getenv("POD_NAME")
+    v1.delete_namespaced_pod(pod_name, namespace)
+
+# Call the remediation function
+remediate_event()
+```
+
+Note: Make sure to replace the remediation actions with the appropriate actions for your specific use case.
 
  

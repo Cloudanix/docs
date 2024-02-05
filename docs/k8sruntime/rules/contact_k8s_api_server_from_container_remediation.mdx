@@ -9,46 +9,64 @@
 
 To investigate further, you can:
 - Use the `kubectl get pods` command to list all the pods running in the cluster and check if any suspicious or unauthorized pods are present.
-- Review the logs of the container that triggered the event using `kubectl logs <pod-name> -c <container-name>` to look for any abnormal or unauthorized API requests.
-- Analyze the network policies and RBAC (Role-Based Access Control) configurations to ensure that only authorized containers have access to the Kubernetes API server. Use `kubectl get networkpolicies` and `kubectl get roles` to retrieve relevant information.
+- Review the logs of the container that triggered the event using `kubectl logs <pod-name> -c <container-name>` to identify any abnormal behavior or unauthorized API requests.
+- Monitor network traffic using tools like `kubectl port-forward` or `kubectl proxy` to capture and analyze the network communication between the container and the API server.
 
 #### Remediation
 
-1. Bash script:
-   - Use the `kubectl exec` command to execute a bash command inside the container that triggered the event.
-   - Within the bash command, use the `curl` command to send a request to the Kubernetes API server.
-   - Capture the response and handle it accordingly in the script.
+1. Create a Python script that uses the Kubernetes Python client library to interact with the Kubernetes API server.
+2. Use the script to create a Kubernetes ServiceAccount with limited permissions that can be used by the containers running in the cluster.
+3. Modify the deployment manifest of the container that triggered the event to use the newly created ServiceAccount.
 
-   Example:
-   ```bash
-   #!/bin/bash
-   POD_NAME=<pod_name>
-   CONTAINER_NAME=<container_name>
-   K8S_API_SERVER=<k8s_api_server>
+Here's an example of how the remediation script could look like:
 
-   kubectl exec -it $POD_NAME -c $CONTAINER_NAME -- bash -c "curl $K8S_API_SERVER"
-   ```
+```python
+from kubernetes import client, config
 
-2. Python script:
-   - Use the `subprocess` module in Python to execute the `kubectl exec` command.
-   - Within the command, use the `curl` command to send a request to the Kubernetes API server.
-   - Capture the output of the command and handle it accordingly in the script.
+# Load the Kubernetes configuration
+config.load_kube_config()
 
-   Example:
-   ```python
-   import subprocess
+# Create a Kubernetes API client
+api_client = client.ApiClient()
 
-   pod_name = "<pod_name>"
-   container_name = "<container_name>"
-   k8s_api_server = "<k8s_api_server>"
+# Create a ServiceAccount
+service_account = client.V1ServiceAccount(
+    metadata=client.V1ObjectMeta(name="restricted-service-account")
+)
 
-   command = f"kubectl exec -it {pod_name} -c {container_name} -- curl {k8s_api_server}"
-   output = subprocess.check_output(command, shell=True)
-   print(output)
-   ```
+# Create the ServiceAccount in the cluster
+api_instance = client.CoreV1Api(api_client)
+api_instance.create_namespaced_service_account(
+    namespace="your-namespace",
+    body=service_account
+)
 
-3. Ensure compliance:
-   - Make sure the script is executed with appropriate permissions to access the Kubernetes API server.
-   - Validate that the script is executed within the context of a Kubernetes cluster.
-   - Consider using RBAC (Role-Based Access Control) to restrict access to the Kubernetes API server from containers, ensuring only authorized containers can make API requests.
+# Modify the deployment manifest to use the newly created ServiceAccount
+deployment_manifest = {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "name": "your-deployment",
+        "namespace": "your-namespace"
+    },
+    "spec": {
+        "template": {
+            "spec": {
+                "serviceAccountName": "restricted-service-account",
+                # Add other container specifications here
+            }
+        }
+    }
+}
+
+# Update the deployment in the cluster
+api_instance = client.AppsV1Api(api_client)
+api_instance.patch_namespaced_deployment(
+    name="your-deployment",
+    namespace="your-namespace",
+    body=deployment_manifest
+)
+```
+
+Make sure to replace "your-namespace" with the actual namespace where the deployment is running, and "your-deployment" with the name of the deployment that triggered the event.
 

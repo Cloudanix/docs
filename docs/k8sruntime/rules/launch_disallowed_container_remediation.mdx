@@ -9,44 +9,55 @@
 
 #### Remediation
 
-Bash script:
-1. Identify the disallowed container by checking its name or image.
-2. Use the `docker stop` command to stop the container.
-3. Optionally, use the `docker rm` command to remove the container.
+1. Identify the namespace in which the disallowed container was launched:
+   - Use the `kubectl get pods` command to list all the pods in the cluster.
+   - Look for the pod that triggered the event and note its namespace.
 
-```bash
-#!/bin/bash
+2. Delete the disallowed pod:
+   - Use the Python Kubernetes API to create a Kubernetes client.
+   - Use the client to delete the pod in the identified namespace using the pod's name.
 
-# Identify the disallowed container by name or image
-CONTAINER_NAME="your-container-name"
-CONTAINER_IMAGE="your-container-image"
+3. Ensure compliance by preventing future occurrences:
+   - Create a Kubernetes NetworkPolicy to restrict the deployment of disallowed containers.
+   - Use the Python Kubernetes API to create the NetworkPolicy manifest.
+   - Apply the manifest using the `kubectl apply -f` command.
 
-# Stop the container
-docker stop $CONTAINER_NAME
-
-# Remove the container (optional)
-docker rm $CONTAINER_NAME
-```
-
-Python script:
-1. Install the `pykube-ng` library using `pip install pykube-ng`.
-2. Use the `pykube.Config` class to load the Kubernetes configuration.
-3. Use the `pykube.Pod.objects` class to find the disallowed pod and delete it.
-
+Example Python code to delete the pod:
 ```python
-import pykube
+from kubernetes import client, config
 
-# Load Kubernetes configuration
-config = pykube.Config.from_file("~/.kube/config")
+# Load the Kubernetes configuration
+config.load_kube_config()
 
-# Find the disallowed pod
-pod_name = "your-pod-name"
-api = pykube.HTTPClient(config)
-pod = pykube.Pod.objects(api).get_by_name(pod_name)
+# Create a Kubernetes client
+api_client = client.CoreV1Api()
 
-# Delete the pod
-pod.delete()
+# Delete the pod in the identified namespace
+api_client.delete_namespaced_pod(name="pod-name", namespace="namespace")
 ```
 
-Note: Make sure to replace the placeholders (`your-container-name`, `your-container-image`, `your-pod-name`) with the actual values specific to your environment.
+Example NetworkPolicy manifest to restrict disallowed containers:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: disallowed-containers-policy
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          disallowed: "true"
+    ports:
+    - protocol: TCP
+      port: 80
+```
+
+Apply the NetworkPolicy manifest using the `kubectl apply -f` command:
+```bash
+kubectl apply -f networkpolicy.yaml
+```
 

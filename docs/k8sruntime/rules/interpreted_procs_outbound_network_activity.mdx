@@ -6,6 +6,7 @@ sidebar_label: Interpreted procs outbound network activity
 ---
                    
 
+
 ### Event Information
 
 #### Meaning
@@ -14,63 +15,79 @@ sidebar_label: Interpreted procs outbound network activity
 - This event could be triggered when a containerized application is attempting to communicate with external services or resources over the network.
 - It is important to investigate this event to ensure that the outbound network activity is legitimate and compliant with the organization's security policies and compliance standards.
 
-To investigate this event in a Kubernetes cluster, you can use the following commands:
-1. List all pods in the cluster: `kubectl get pods`
-2. Describe the specific pod associated with the event: `kubectl describe pod <pod_name>`
-3. Check the logs of the container within the pod to gather more information about the outbound network activity: `kubectl logs <pod_name> -c <container_name>`
+To investigate further, you can use the following kubectl command:
+```
+kubectl get pods --all-namespaces
+```
+This command will list all the pods running in the cluster, allowing you to identify the pod associated with the event.
 
 #### Remediation
 
-1. Bash script:
-   - Use `netstat` command to identify the processes with outbound network activity: `netstat -tunap | grep ESTABLISHED`
-   - Extract the process IDs (PIDs) from the output and store them in a variable.
-   - Use `ps` command to get the process details for each PID: `ps -p <PID> -o command`
-   - Log or take necessary actions based on the process details.
-
-2. Python script:
-   - Use the `subprocess` module to execute the `netstat` command and capture the output.
-   - Parse the output to extract the process IDs (PIDs) with outbound network activity.
-   - Use the `subprocess` module again to execute the `ps` command for each PID and capture the process details.
-   - Log or take necessary actions based on the process details.
-
-Note: The above scripts provide a general approach to identify and handle processes with outbound network activity. You may need to customize them based on your specific requirements and environment.
-
-Example bash script:
-```bash
-#!/bin/bash
-
-# Get the process IDs with outbound network activity
-pids=$(netstat -tunap | grep ESTABLISHED | awk '{print $7}' | awk -F '/' '{print $1}')
-
-# Iterate over the process IDs and get the process details
-for pid in $pids; do
-    process_details=$(ps -p $pid -o command)
-    # Log or take necessary actions based on the process details
-    echo "Process ID: $pid, Details: $process_details"
-done
+1. Create a Kubernetes Deployment manifest file to deploy a Python script as a container:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-script
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remediation-script
+  template:
+    metadata:
+      labels:
+        app: remediation-script
+    spec:
+      containers:
+      - name: remediation-script
+        image: python:3
+        command: ["python", "-u"]
+        args: ["remediation_script.py"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /data
+      volumes:
+      - name: shared-data
+        emptyDir: {}
 ```
 
-Example Python script:
+2. Create a Kubernetes Service manifest file to expose the deployment:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: remediation-script-service
+spec:
+  selector:
+    app: remediation-script
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+```
+
+3. Create a Python script named `remediation_script.py` that uses the Kubernetes Python API to perform the remediation actions:
 ```python
-import subprocess
+import os
+from kubernetes import client, config
 
-# Execute netstat command and capture the output
-netstat_output = subprocess.check_output(['netstat', '-tunap']).decode('utf-8')
+# Load the in-cluster Kubernetes configuration
+config.load_incluster_config()
 
-# Parse the output to extract the process IDs with outbound network activity
-pids = []
-for line in netstat_output.split('\n'):
-    if 'ESTABLISHED' in line:
-        pid = line.split()[6].split('/')[0]
-        pids.append(pid)
+# Create a Kubernetes API client
+api_client = client.ApiClient()
 
-# Iterate over the process IDs and get the process details
-for pid in pids:
-    process_details = subprocess.check_output(['ps', '-p', pid, '-o', 'command']).decode('utf-8')
-    # Log or take necessary actions based on the process details
-    print(f"Process ID: {pid}, Details: {process_details}")
+# Perform the remediation actions here
+# Example: Delete a Pod with a specific label
+v1 = client.CoreV1Api(api_client)
+v1.delete_collection_namespaced_pod(namespace="default", label_selector="app=malicious-pod")
+
+# Clean up the remediation script Deployment and Service
+os.system("kubectl delete deployment remediation-script")
+os.system("kubectl delete service remediation-script-service")
 ```
 
-Remember to run these scripts with appropriate permissions and ensure compliance with your organization's security policies and standards.
+Note: Replace `app=malicious-pod` with the appropriate label selector for the Pods exhibiting the "Interpreted procs outbound network activity" event.
 
  
