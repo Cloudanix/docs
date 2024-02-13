@@ -45,29 +45,67 @@ spec:
       - name: scripts
         configMap:
           name: ptrace-remediation-scripts
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ptrace-remediation-scripts
-data:
-  ptrace_remediation.py: |
-    # Python script to monitor for PTRACE anti-debug attempts and take remedial actions
-    import os
-    import subprocess
-    
-    def main():
-        while True:
-            # Check for PTRACE anti-debug attempts
-            result = subprocess.run(["falco", "-r", "/etc/falco/falco_rules.yaml", "-o", "json"], capture_output=True)
-            output = result.stdout.decode("utf-8")
-            if "PTRACE anti-debug attempt" in output:
-                # Take remedial actions here
-                # For example, kill the process or send an alert
-    
-    if __name__ == "__main__":
-        main()
 ```
+Remediation script
+```python
+from kubernetes import client, config
+import time
+
+def check_ptrace_status():
+    """
+    Check the PTrace status for the current process.
+    """
+    try:
+        with open('/proc/self/status', 'r') as status_file:
+            status_data = status_file.read()
+            ptrace_tracer = None
+
+            for line in status_data.split('\n'):
+                if line.startswith('TracerPid:'):
+                    ptrace_tracer = int(line.split()[1])
+                    break
+
+            return ptrace_tracer
+
+    except FileNotFoundError:
+        print("/proc/self/status file not found. Are you running on a Linux system?")
+        return None
+
+def remediate_ptrace_attempt(api_instance, pod_name, namespace):
+    """
+    Remediate a PTrace anti-debugging attempt by deleting the pod.
+    """
+    ptrace_tracer = check_ptrace_status()
+
+    if ptrace_tracer is not None and ptrace_tracer != 0:
+        print(f"PTrace anti-debugging attempt detected. TracerPid: {ptrace_tracer}")
+
+        try:
+            api_instance.delete_namespaced_pod(pod_name, namespace)
+            print(f"Pod {pod_name} in namespace {namespace} deleted.")
+        except Exception as e:
+            print(f"Failed to delete pod: {e}")
+
+def main():
+    config.load_kube_config()
+
+    v1 = client.CoreV1Api()
+
+    pod_name = "your-pod-name"
+    namespace = "your-namespace"
+
+    while True:
+        # Check PTrace status periodically
+        ptrace_tracer = check_ptrace_status()
+
+        if ptrace_tracer is not None and ptrace_tracer != 0:
+            remediate_ptrace_attempt(v1, pod_name, namespace)
+
+        # Adjust the sleep interval based on your specific requirements
+        time.sleep(5)
+
+if __name__ == "__main__":
+    main()
 
 2. Apply the Kubernetes manifest file to deploy the remediation script:
 ```bash
