@@ -3,17 +3,38 @@
 
 #### Meaning
 
-- The PTRACE attached to process event in a Kubernetes cluster indicates that a process is being traced by another process using the PTRACE system call.
+- PTRACE attached to process event in a Kubernetes cluster indicates that a process is being traced by another process using the PTRACE system call.
 - This event can be a potential security concern as it may indicate unauthorized debugging or monitoring of processes within the cluster.
-- To investigate further, you can use the following kubectl command to list all the running pods in the cluster: `kubectl get pods`. Then, you can inspect the logs of the suspicious pod using: `kubectl logs <pod_name>`.
+- To investigate further, you can use the following kubectl command to list all running pods in the cluster: `kubectl get pods`. Then, inspect the logs of the suspicious pod using: `kubectl logs <pod_name>`.
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the PTRACE attached to process event.
+1. Identify the affected pod and its container:
+   - Use the `kubectl get pods` command to list all the pods in the cluster.
+   - Look for the pod that triggered the PTRACE event.
+   - Identify the container within the pod that is associated with the event.
 
-2. Inspect the pod's security context: Use the `kubectl describe pod <pod-name>` command to view the pod's details. Look for the security context section and check if the `allowPrivilegeEscalation` field is set to `true`. If it is, this could be a potential security risk.
+2. Patch the pod's security context:
+   - Use the `kubectl patch` command to update the pod's security context.
+   - Specify the pod name, namespace, and container name in the command.
+   - Set the `securityContext` field to disable the `ptrace` capability for the container.
 
-3. Update the pod's security context: Modify the pod's YAML file and set the `allowPrivilegeEscalation` field to `false`. You can use the `kubectl edit pod <pod-name>` command to directly edit the pod's YAML file. Alternatively, you can save the YAML to a file, make the necessary changes, and then apply the updated YAML using `kubectl apply -f <file-name>`.
+3. Apply the changes to the pod:
+   - Use the `kubectl apply` command to apply the updated manifest file.
+   - Specify the path to the modified manifest file in the command.
+   - The changes will be applied to the pod, disabling the `ptrace` capability for the affected container.
 
-Note: Ensure that the change does not violate any compliance standards or specific requirements for the application running in the pod.
+Example:
+```bash
+# Identify the affected pod and container
+kubectl get pods
+
+# Patch the pod's security context
+kubectl patch pod <pod-name> -n <namespace> --type='json' -p='[{"op": "add", "path": "/spec/containers/<container-name>/securityContext", "value": {"capabilities": {"add": ["NET_ADMIN"]}}}]'
+
+# Apply the changes to the pod
+kubectl apply -f <path-to-modified-manifest-file>
+```
+
+Note: Replace `<pod-name>`, `<namespace>`, `<container-name>`, and `<path-to-modified-manifest-file>` with the appropriate values for your environment.
 

@@ -5,18 +5,51 @@
 
 - The Launch Package Management Process in Container event indicates that a process related to package management has been launched within a container in the Kubernetes cluster.
 - This event could occur when a package manager, such as apt or yum, is executed within a container to install, update, or remove packages.
-- It is important to ensure that the package management process is authorized and aligns with the compliance standards of the cluster. To investigate further, you can use the kubectl command to check the logs of the container where the event occurred. For example, `kubectl logs <pod_name> -c <container_name>` can provide insights into the specific package management actions performed.
+- It is important to ensure that the package management process is authorized and aligns with the compliance standards of the cluster. Regularly review and validate the packages being installed or updated to prevent any security vulnerabilities or compliance violations.
+
+To investigate further, you can use the following kubectl command:
+```
+kubectl describe pod <pod_name> -n <namespace>
+```
+This command will provide detailed information about the pod where the package management process was launched, including the container name and the command executed.
 
 #### Remediation
 
-1. Identify the affected container: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the Launch Package Management Process event. Note down the pod name.
+To remediate the event "Launch Package Management Process in Container" using the Python Kubernetes API, you can follow these steps:
 
-2. Inspect the container image: Use the `kubectl describe pod <pod-name>` command to get more details about the pod. Look for the container name within the pod and note it down. Then, use the `kubectl describe pod <pod-name> -c <container-name>` command to inspect the container image details.
+1. Identify the container in which the event occurred:
+   - Use the Kubernetes API to list all the pods in the affected namespace: `kubectl get pods -n <namespace>`
+   - Identify the pod that triggered the event based on the pod name or labels.
 
-3. Remediate the security issue:
-   - Update the container image: If the container image is outdated or known to have vulnerabilities, update it to a more secure version. Use the `kubectl set image` command to update the container image for the affected pod.
-   - Implement image scanning: Set up an image scanning process as part of your CI/CD pipeline to detect vulnerabilities in container images before deployment.
-   - Apply security patches: If the issue is related to missing security patches, ensure that the underlying host and container runtime are up to date with the latest security patches.
+2. Update the pod's manifest file to include a command or entrypoint that prevents the package management process from launching:
+   - Retrieve the pod's manifest file: `kubectl get pod <pod-name> -n <namespace> -o yaml > pod.yaml`
+   - Open the `pod.yaml` file and locate the container definition within the `spec` section.
+   - Add a `command` or `args` field to the container definition, specifying a command that does not launch the package management process. For example:
+     ```yaml
+     spec:
+       containers:
+       - name: <container-name>
+         command: ["sleep", "infinity"]
+     ```
 
-Remember to follow your organization's compliance standards and best practices while remediating the security issue.
+3. Apply the updated manifest file to the cluster to remediate the event:
+   - Use the Python Kubernetes API to apply the updated manifest file: 
+     ```python
+     from kubernetes import client, config
+
+     config.load_kube_config()
+     api = client.CoreV1Api()
+
+     with open("pod.yaml", "r") as file:
+         pod_manifest = yaml.safe_load(file)
+
+     api.patch_namespaced_pod(
+         name="<pod-name>",
+         namespace="<namespace>",
+         body=pod_manifest
+     )
+     ```
+   - This will update the pod in the cluster, preventing the package management process from launching.
+
+Remember to replace `<pod-name>` and `<namespace>` with the actual values for the affected pod.
 

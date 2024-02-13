@@ -10,21 +10,62 @@
 
 #### Remediation
 
-1. Identify the source of the event: Use the event details to determine which pod or container triggered the "Create files below dev" event. You can check the pod logs or use the Kubernetes dashboard to find the relevant information.
+1. Use the Kubernetes API to create a Python script that generates a Kubernetes manifest file for creating a Pod with a volume mount to the "dev" directory.
 
-2. Review and update RBAC policies: Ensure that the RBAC (Role-Based Access Control) policies are properly configured to restrict access to sensitive directories like /dev. Review the existing roles and bindings to ensure that only authorized users or service accounts have the necessary permissions to create files in /dev.
+```python
+import yaml
 
-   - Use the command `kubectl get roles` to list all the roles in the cluster.
-   - Use the command `kubectl describe role <role-name>` to view the details of a specific role.
-   - Use the command `kubectl get rolebindings` to list all the role bindings in the cluster.
-   - Use the command `kubectl describe rolebinding <rolebinding-name>` to view the details of a specific role binding.
+def generate_manifest():
+    manifest = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": "remediation-pod",
+            "labels": {
+                "app": "remediation"
+            }
+        },
+        "spec": {
+            "containers": [
+                {
+                    "name": "remediation-container",
+                    "image": "python:latest",
+                    "command": ["python", "-m", "http.server", "8000"],
+                    "volumeMounts": [
+                        {
+                            "name": "dev-volume",
+                            "mountPath": "/dev"
+                        }
+                    ]
+                }
+            ],
+            "volumes": [
+                {
+                    "name": "dev-volume",
+                    "emptyDir": {}
+                }
+            ]
+        }
+    }
 
-3. Implement Pod Security Policies (PSP): PSPs allow you to define a set of security policies that pods must adhere to. By creating a PSP that disallows file creation below /dev, you can prevent unauthorized file creation in sensitive directories.
+    with open("remediation.yaml", "w") as file:
+        yaml.dump(manifest, file)
 
-   - Use the command `kubectl get psp` to check if any PSPs are already defined.
-   - If no PSPs exist, create a new PSP with the necessary restrictions using a YAML file.
-   - Apply the PSP to the relevant namespace(s) using the command `kubectl apply -f <psp-yaml-file>`.
-   - Update the pod's YAML file or deployment configuration to include the PSP name under the `spec.securityContext` section.
+generate_manifest()
+```
 
-Note: It is important to thoroughly test the changes in a non-production environment before applying them to a production cluster.
+2. Apply the generated manifest file using kubectl to create the remediation Pod.
+
+```bash
+kubectl apply -f remediation.yaml
+```
+
+3. Verify that the remediation Pod is running and the volume mount to the "dev" directory is successful.
+
+```bash
+kubectl get pods -l app=remediation
+kubectl exec -it <pod-name> -- ls /dev
+```
+
+Note: Replace `<pod-name>` with the actual name of the remediation Pod obtained from the previous command.
 

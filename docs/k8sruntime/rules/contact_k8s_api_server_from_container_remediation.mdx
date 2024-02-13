@@ -4,29 +4,69 @@
 #### Meaning
 
 - The "Contact K8S API Server From Container" event in a Kubernetes cluster indicates that a container within the cluster attempted to communicate with the Kubernetes API server.
-- This event could be triggered by a containerized application or a process running within a container that requires interaction with the Kubernetes API server for various reasons, such as retrieving cluster information, creating or modifying resources, or querying the status of pods or services.
-- It is important to analyze this event to ensure that the container's communication with the Kubernetes API server is legitimate and aligns with the compliance standards of the cluster.
+- This event could be triggered by a legitimate action, such as a pod querying the API server for information or performing an operation like scaling or updating resources.
+- However, it could also indicate a potential security concern if the container is attempting unauthorized access or performing malicious activities against the API server.
+
+To investigate further, you can:
+- Use the `kubectl get pods` command to list all the pods running in the cluster and check if any suspicious or unauthorized pods are present.
+- Review the logs of the container that triggered the event using `kubectl logs <pod-name> -c <container-name>` to identify any abnormal behavior or unauthorized API requests.
+- Monitor network traffic using tools like `kubectl port-forward` or `kubectl proxy` to capture and analyze the network communication between the container and the API server.
 
 #### Remediation
 
-1. Identify the container that is making unauthorized API calls to the Kubernetes API server by checking the source IP address mentioned in the event. You can use the following command to filter the events related to this specific container:
+1. Create a Python script that uses the Kubernetes Python client library to interact with the Kubernetes API server.
+2. Use the script to create a Kubernetes ServiceAccount with limited permissions that can be used by the containers running in the cluster.
+3. Modify the deployment manifest of the container that triggered the event to use the newly created ServiceAccount.
 
-   ```
-   kubectl get events --field-selector involvedObject.kind=Pod,source_component=kubelet,source_host=<node_name>,source_ip=<container_ip>
-   ```
+Here's an example of how the remediation script could look like:
 
-2. Once you have identified the pod associated with the container, review its YAML manifest using the following command:
+```python
+from kubernetes import client, config
 
-   ```
-   kubectl get pod <pod_name> -n <namespace> -o yaml
-   ```
+# Load the Kubernetes configuration
+config.load_kube_config()
 
-   Look for any suspicious or unauthorized volumes, environment variables, or command arguments that could be used to make unauthorized API calls.
+# Create a Kubernetes API client
+api_client = client.ApiClient()
 
-3. Take appropriate actions to remediate the issue, such as:
-   - Remove any unauthorized volumes, environment variables, or command arguments from the pod's YAML manifest.
-   - Update the container image to a trusted version that does not contain any malicious code.
-   - Implement RBAC (Role-Based Access Control) to restrict the permissions of the pod/container, ensuring that it only has the necessary privileges to perform its intended tasks.
+# Create a ServiceAccount
+service_account = client.V1ServiceAccount(
+    metadata=client.V1ObjectMeta(name="restricted-service-account")
+)
 
-Remember to follow the principle of least privilege and regularly review and update your pod configurations to minimize the risk of unauthorized API calls.
+# Create the ServiceAccount in the cluster
+api_instance = client.CoreV1Api(api_client)
+api_instance.create_namespaced_service_account(
+    namespace="your-namespace",
+    body=service_account
+)
+
+# Modify the deployment manifest to use the newly created ServiceAccount
+deployment_manifest = {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "name": "your-deployment",
+        "namespace": "your-namespace"
+    },
+    "spec": {
+        "template": {
+            "spec": {
+                "serviceAccountName": "restricted-service-account",
+                # Add other container specifications here
+            }
+        }
+    }
+}
+
+# Update the deployment in the cluster
+api_instance = client.AppsV1Api(api_client)
+api_instance.patch_namespaced_deployment(
+    name="your-deployment",
+    namespace="your-namespace",
+    body=deployment_manifest
+)
+```
+
+Make sure to replace "your-namespace" with the actual namespace where the deployment is running, and "your-deployment" with the name of the deployment that triggered the event.
 

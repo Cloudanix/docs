@@ -5,26 +5,79 @@ title: Detect outbound connections to common miner pool ports
 sidebar_label: Detect outbound connections to common miner pool ports
 ---
                    
+
+
 ### Event Information
 
 #### Meaning
 
-- This event indicates that a pod in the Kubernetes cluster is making outbound connections to common miner pool ports, which are typically used for cryptocurrency mining. It suggests that there may be unauthorized or malicious activity taking place within the cluster.
-- It is important to investigate this event promptly as it could be a sign of a compromised pod or an attacker attempting to exploit the cluster's resources for mining purposes.
-- To further investigate this event, you can use kubectl to identify the pod involved by checking the pod logs or running commands like `kubectl get pods --all-namespaces` to list all pods in the cluster. Once the pod is identified, you can inspect its configuration, network policies, and any suspicious processes running inside it.
+- This event indicates that a pod in the Kubernetes cluster is making outbound connections to common miner pool ports. Miner pool ports are commonly used by cryptocurrency mining software to connect to mining pools for resource-intensive mining operations.
+- It could be a sign of unauthorized cryptocurrency mining activity taking place within the cluster, which can consume significant computing resources and impact the performance of other applications running in the cluster.
+- To investigate this event, you can use the following kubectl command to identify the pod making the outbound connections: `kubectl get pods --all-namespaces -o wide`. This will provide information about the pods running in the cluster, including their IP addresses and namespaces.
 
 #### Remediation
 
-1. Identify the affected pod(s): Use the kubectl command `kubectl get pods --all-namespaces` to list all pods in the cluster. Look for pods that are generating the "Detect outbound connections to common miner pool ports" event.
+1. Create a Kubernetes Deployment manifest file to deploy a Python script as a container:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-script
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: remediation-script
+  template:
+    metadata:
+      labels:
+        app: remediation-script
+    spec:
+      containers:
+      - name: remediation-script
+        image: python:3
+        command: ["python", "-u"]
+        args: ["remediation_script.py"]
+```
 
-2. Investigate the pod(s): Use the kubectl command `kubectl describe pod <pod_name> -n <namespace>` to get more information about the pod(s) in question. Look for any suspicious containers or processes running within the pod(s).
+2. Create a Kubernetes Service manifest file to expose the deployment:
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: remediation-script-service
+spec:
+  selector:
+    app: remediation-script
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+```
 
-3. Take remedial actions:
-   - Remove the malicious container: If you find a suspicious container running within the pod, delete the pod using the command `kubectl delete pod <pod_name> -n <namespace>`. Kubernetes will automatically recreate the pod without the malicious container.
-   - Update pod security policies: Review and update the pod security policies to prevent unauthorized outbound connections. You can use the command `kubectl edit podsecuritypolicy <policy_name>` to modify the policy and restrict outbound connections to trusted ports only.
-   - Implement network policies: Use Kubernetes Network Policies to restrict outbound connections from pods to specific IP addresses or ports. Create a network policy that denies egress traffic to the common miner pool ports. You can use the command `kubectl create -f <network_policy_file>` to apply the network policy to the cluster.
+3. Create a Python script named `remediation_script.py` that uses the Kubernetes Python API to perform the remediation actions:
+```python
+import os
+from kubernetes import client, config
 
-Remember to follow compliance standards and best practices while implementing these remedial actions.
+# Load the in-cluster Kubernetes configuration
+config.load_incluster_config()
 
+# Create a Kubernetes API client
+api_client = client.ApiClient()
+
+# Define the remediation actions here
+# For example, you can delete the Pods that triggered the event
+def remediate_event():
+    v1 = client.CoreV1Api(api_client)
+    namespace = os.getenv("POD_NAMESPACE")
+    pod_name = os.getenv("POD_NAME")
+    v1.delete_namespaced_pod(pod_name, namespace)
+
+# Call the remediation function
+remediate_event()
+```
+
+Note: Make sure to replace the remediation actions with the appropriate actions for your specific use case.
 
  

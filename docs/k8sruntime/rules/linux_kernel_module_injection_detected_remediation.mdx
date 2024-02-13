@@ -3,24 +3,43 @@
 
 #### Meaning
 
-- The Linux Kernel Module Injection Detected event in a Kubernetes cluster indicates that a process attempted to inject a kernel module into the Linux kernel.
-- This event is a potential security threat as it can allow unauthorized access and control over the system.
-- It is important to investigate this event further to identify the source of the injection and take appropriate actions to mitigate the risk, such as removing the injected module and securing the affected system.
+- The Linux Kernel Module Injection Detected event in a Kubernetes cluster indicates that an unauthorized or malicious kernel module has been injected into the system.
+- This event could potentially compromise the security and stability of the cluster, as the injected module can perform unauthorized actions or provide unauthorized access to the system.
+- It is crucial to investigate and remediate this event promptly to ensure the integrity and compliance of the Kubernetes cluster. 
 
-To investigate and mitigate this event in a Kubernetes cluster:
-1. Identify the affected pod or node using the Kubernetes event logs or monitoring tools.
-2. Inspect the pod or node for any suspicious processes or files using the following kubectl command: `kubectl exec <pod-name> -- <command>`, where `<pod-name>` is the name of the affected pod and `<command>` can be tools like `ps`, `lsmod`, or `ls -l` to list processes, loaded modules, or files respectively.
-3. If a suspicious module is found, remove it using the appropriate command, such as `rmmod <module-name>` to remove the module from the kernel.
-
-Note: It is recommended to investigate the root cause of the module injection, such as identifying any vulnerabilities in the system or unauthorized access, and take necessary steps to prevent future occurrences.
+To investigate and remediate this event, you can:
+- Use the `kubectl get pods` command to identify the affected pod(s) and their corresponding nodes.
+- Use the `kubectl describe pod <pod_name>` command to gather more information about the pod, such as the image being used and any suspicious activities.
+- If necessary, delete and recreate the affected pod(s) using the `kubectl delete pod <pod_name>` and `kubectl create -f <pod_manifest.yaml>` commands, respectively.
 
 #### Remediation
 
-1. Identify the affected pod: Use the kubectl command `kubectl get pods` to list all the pods in the cluster. Look for the pod that triggered the Linux Kernel Module Injection Detected event.
+1. Identify the affected pod(s) by checking the `podName` field in the event.
+   - Use the Kubernetes API to get the pod details: `kubectl get pod <podName> -o yaml`
+   - Note down the namespace and labels of the affected pod.
 
-2. Isolate the affected pod: Use the kubectl command `kubectl delete pod <pod-name>` to delete the affected pod. This will prevent any further impact from the injected kernel module.
+2. Create a Kubernetes manifest file to delete the affected pod(s) and prevent further injection:
+   - Create a YAML file (e.g., `remediation.yaml`) with the following content:
+     ```yaml
+     apiVersion: v1
+     kind: Pod
+     metadata:
+       namespace: <namespace>
+       labels:
+         <labels>
+     spec:
+       restartPolicy: Never
+       containers:
+       - name: remediation-container
+         image: alpine:latest
+         command: ["sh", "-c", "sleep 10"]
+     ```
+   - Replace `<namespace>` with the namespace of the affected pod(s).
+   - Replace `<labels>` with the labels of the affected pod(s).
+   - This manifest creates a temporary pod that sleeps for 10 seconds and then terminates. This will effectively delete the affected pod(s) and prevent further injection.
 
-3. Investigate and remediate the underlying issue: Analyze the pod's configuration, including the container images and deployment files, to identify any vulnerabilities or misconfigurations that allowed the kernel module injection. Update the affected pod's configuration to address these issues, such as using trusted container images, applying security patches, or adjusting security policies.
-
-Note: It is important to investigate the root cause of the kernel module injection to prevent similar incidents in the future. This may involve analyzing logs, monitoring system calls, or conducting a security audit of the cluster.
+3. Apply the remediation manifest to the cluster:
+   - Use the Kubernetes API to apply the remediation manifest: `kubectl apply -f remediation.yaml`
+   - Verify that the remediation pod is created and completes successfully: `kubectl get pod -l=app=remediation-container`
+   - Monitor the cluster to ensure that the affected pod(s) are deleted and no new injection occurs: `kubectl get pod -n <namespace>`
 

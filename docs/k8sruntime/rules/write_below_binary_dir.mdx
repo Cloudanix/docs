@@ -5,26 +5,63 @@ title: Write below binary dir
 sidebar_label: Write below binary dir
 ---
                    
+
+
 ### Event Information
 
 #### Meaning
 
 - The "Write below binary dir" event in a Kubernetes cluster indicates that a process running within a container attempted to write or modify files within the binary directory of the container's file system.
 - This event could potentially indicate a malicious activity or a misconfiguration, as modifying files within the binary directory can lead to unauthorized changes to the container's executable files.
-- To investigate this event, you can use the following commands:
-  1. List all running pods in the cluster: `kubectl get pods -A`
-  2. Inspect the logs of the suspicious pod: `kubectl logs <pod_name> -n <namespace>`
-  3. Check the container's file system for any unauthorized modifications: `kubectl exec -it <pod_name> -n <namespace> -- ls -l /path/to/binary/dir`
+- To investigate this event, you can use the following steps:
+  1. Identify the specific container and pod where the event occurred using the metadata provided in the event.
+  2. Inspect the container's file system using the `kubectl exec` command to check for any unauthorized modifications or suspicious files within the binary directory.
+  3. Review the container's configuration and deployment files to ensure that the appropriate security measures are in place, such as read-only file systems or proper file permissions, to prevent unauthorized modifications.
 
 #### Remediation
 
-1. Identify the affected pod: Use the `kubectl get pods` command to list all the pods in the cluster. Look for the pod that triggered the "Write below binary dir" event in the falco alert. Note down the name of the pod.
+1. Create a Kubernetes Deployment manifest file with the necessary specifications for the Python application:
 
-2. Inspect the container: Use the `kubectl exec` command to access the shell of the affected pod. For example, `kubectl exec -it <pod-name> -- /bin/bash`. Once inside the container, navigate to the directory mentioned in the falco alert and check for any unauthorized files or directories.
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+    spec:
+      containers:
+      - name: python-app
+        image: <your-python-image>
+        command: ["python", "/path/to/your/script.py"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /path/to/binary/dir
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+```
 
-3. Update container security policies: Review the security policies for the container image running in the affected pod. Ensure that the container is running with the least privileges necessary and that it does not have write access to critical system directories. Modify the container's security context or apparmor profile to restrict write access to the necessary directories only. Rebuild and redeploy the container with the updated security policies.
+2. Apply the Deployment manifest using the `kubectl apply` command:
 
-Note: It is important to investigate the root cause of the event and ensure that the write access was not intentional or required for the application to function properly.
+```bash
+kubectl apply -f deployment.yaml
+```
 
+3. Verify that the Deployment is running and the Python application is writing to the desired binary directory:
+
+```bash
+kubectl get pods
+kubectl logs <pod-name>
+```
+
+Note: Replace `<your-python-image>` with the appropriate Python image and `/path/to/your/script.py` with the actual path to your Python script.
 
  

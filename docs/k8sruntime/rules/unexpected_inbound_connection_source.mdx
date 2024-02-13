@@ -5,26 +5,51 @@ title: Unexpected inbound connection source
 sidebar_label: Unexpected inbound connection source
 ---
                    
+
+
 ### Event Information
 
 #### Meaning
 
 - The Unexpected inbound connection source event in a Kubernetes cluster indicates that a network connection was established from an unexpected source to a pod or service within the cluster.
-- This event could potentially indicate a security breach or unauthorized access attempt, as it suggests that a connection was made from an external source that is not allowed or expected to communicate with the cluster.
-- To investigate this event, you can use kubectl to check the logs of the affected pod or service, analyze network policies and firewall rules, and review the cluster's network configuration to ensure that only authorized sources are allowed to establish connections.
+- This event could potentially indicate a security breach or unauthorized access attempt, as it suggests that a connection was made from an external source that is not whitelisted or expected.
+- To investigate this event, you can use kubectl commands to check the network policies, pod logs, and cluster firewall rules to identify any potential misconfigurations or security vulnerabilities. For example, you can use "kubectl get networkpolicies" to list the network policies in the cluster and "kubectl logs <pod-name>" to view the logs of the affected pod.
 
 #### Remediation
 
-1. Identify the source of the unexpected inbound connection by checking the source IP address mentioned in the event. You can use the following command to get more details about the source IP:
-   - `kubectl describe event <event_name>`
+1. Identify the affected pod(s) by checking the source IP address mentioned in the event.
+   - Use the following command to filter the pods based on the source IP address:
+     ```
+     kubectl get pods -o json | jq '.items[] | select(.status.podIP == "<source_ip>") | .metadata.name'
+     ```
+   - Replace `<source_ip>` with the actual source IP address mentioned in the event.
 
-2. Once you have identified the source IP, investigate if it is a legitimate connection or a potential security threat. You can use tools like `nslookup` or `whois` to gather more information about the IP address and determine if it belongs to a trusted entity.
+2. Update the affected pod(s) by adding a network policy to block inbound connections from the identified source IP address.
+   - Create a YAML file named `network-policy.yaml` with the following content:
+     ```yaml
+     apiVersion: networking.k8s.io/v1
+     kind: NetworkPolicy
+     metadata:
+       name: block-inbound-connections
+     spec:
+       podSelector:
+         matchLabels:
+           app: <app_label>
+       policyTypes:
+         - Ingress
+       ingress:
+         - from:
+             - ipBlock:
+                 cidr: <source_ip>/32
+     ```
+   - Replace `<app_label>` with the label of the affected application.
+   - Replace `<source_ip>` with the actual source IP address mentioned in the event.
 
-3. Take appropriate actions based on your investigation:
-   - If the connection is legitimate, you may need to update your network policies or firewall rules to allow the inbound connection from the identified source IP.
-   - If the connection is suspicious or malicious, you should block the IP address at the network level using tools like `iptables` or by updating your cloud provider's security group rules.
-
-Remember to follow your organization's security policies and compliance standards while taking these actions.
-
+3. Apply the network policy to the cluster to block inbound connections from the identified source IP address.
+   - Run the following command to apply the network policy:
+     ```
+     kubectl apply -f network-policy.yaml
+     ```
+   - This will enforce the network policy on the cluster and block inbound connections from the specified source IP address to the affected pod(s).
 
  

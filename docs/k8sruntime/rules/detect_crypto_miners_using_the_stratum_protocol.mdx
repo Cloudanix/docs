@@ -5,36 +5,75 @@ title: Detect crypto miners using the Stratum protocol
 sidebar_label: Detect crypto miners using the Stratum protocol
 ---
                    
+
+
 ### Event Information
 
 #### Meaning
 
 - The event "Detect crypto miners using the Stratum protocol" indicates that there is suspicious activity related to cryptocurrency mining using the Stratum protocol within the Kubernetes cluster.
 - The Stratum protocol is commonly used by mining software to communicate with mining pools, and its presence in the cluster suggests that unauthorized mining activities may be taking place.
-- This event could be a potential security concern as unauthorized mining can consume significant computing resources, impact performance, and increase operational costs. It is important to investigate and mitigate this event promptly.
+- This event could be a potential security concern as unauthorized mining can consume significant computing resources, impact performance, and potentially violate compliance standards.
 
 To investigate and mitigate this event in a Kubernetes cluster:
-1. Identify the affected pod(s) or container(s) using the Stratum protocol by running the following command:
+1. Identify the affected pod(s) by checking the pod name and namespace mentioned in the event. Use the following command to list all pods in the cluster:
    ```
-   kubectl get pods --all-namespaces -o=jsonpath='{range .items[*]}{.metadata.namespace}:{.metadata.name}{"\n"}{end}' | xargs -I {} kubectl exec -n {} -- sh -c "netstat -tuln | grep -E ':[0-9]+\s+.*stratum'"
+   kubectl get pods --all-namespaces
    ```
-2. Once the affected pod(s) or container(s) are identified, take appropriate actions such as terminating the pod(s) or container(s) to stop the unauthorized mining activity.
-3. Investigate the source of the unauthorized mining by reviewing the pod's logs, examining the image used, and checking for any unauthorized access or compromised credentials. Implement security measures like RBAC, network policies, and image scanning to prevent future incidents.
+2. Inspect the logs of the suspicious pod(s) to gather more information about the detected Stratum protocol activity. Use the following command to view the logs of a specific pod:
+   ```
+   kubectl logs <pod_name> -n <namespace>
+   ```
+3. Take appropriate actions based on the findings, such as terminating the suspicious pod(s), investigating the source of the unauthorized mining software, and implementing security measures to prevent future occurrences.
 
 #### Remediation
 
-1. Identify the affected pod(s) by checking the logs or using the Kubernetes dashboard:
-   - Use the command `kubectl get pods` to list all pods in the cluster.
-   - Look for pods that have the status "Running" and are consuming unusually high CPU or memory resources.
+1. Create a Kubernetes Deployment manifest file to deploy a Python script that monitors and terminates any pods using the Stratum protocol:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratum-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stratum-monitor
+  template:
+    metadata:
+      labels:
+        app: stratum-monitor
+    spec:
+      containers:
+      - name: stratum-monitor
+        image: python:3
+        command: ["python", "-u"]
+        args: ["stratum_monitor.py"]
+```
 
-2. Take immediate action to remediate the issue:
-   - Delete the affected pod(s) using the command `kubectl delete pod <pod_name>`.
-   - Investigate the root cause of the crypto mining activity, such as checking for any unauthorized containers or suspicious files within the pod.
+2. Create a Python script named `stratum_monitor.py` that uses the Kubernetes Python API to monitor and terminate pods using the Stratum protocol:
+```python
+from kubernetes import client, config
 
-3. Implement preventive measures to avoid future occurrences:
-   - Regularly update and patch your Kubernetes cluster to ensure all security vulnerabilities are addressed.
-   - Implement RBAC (Role-Based Access Control) to restrict pod creation and deployment to trusted users only.
-   - Monitor your cluster using a security tool like Falco to detect and alert on any suspicious activities in real-time.
+def main():
+    config.load_kube_config()
+    v1 = client.CoreV1Api()
 
+    while True:
+        pods = v1.list_pod_for_all_namespaces().items
+        for pod in pods:
+            if "stratum" in pod.metadata.name.lower():
+                v1.delete_namespaced_pod(pod.metadata.name, pod.metadata.namespace)
+
+if __name__ == "__main__":
+    main()
+```
+
+3. Apply the Deployment manifest file using the `kubectl apply` command:
+```bash
+kubectl apply -f stratum-monitor-deployment.yaml
+```
+
+Note: Make sure to have the Kubernetes Python API (`kubernetes` package) installed in the Python environment where the `stratum_monitor.py` script will be executed.
 
  
