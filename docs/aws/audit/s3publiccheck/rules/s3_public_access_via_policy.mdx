@@ -31,6 +31,64 @@ CBP, GDPR
 5. Edit the settings to block all public access.
 6. Save the changes.
 
+Also
+
+1. Sign in to the AWS Management Console**.
+2. Navigate to the S3 service**.
+3. Select the bucket you want to remediate**.
+4. Review Bucket Policy**:
+   - Click on the Permissions tab.
+   - Click on Bucket Policy.
+   - Review the JSON policy document displayed.
+5. Identify Statements Allowing Public Access**:
+   - Look for statements with `"Effect": "Allow"` and `"Principal": "*"`.
+   - These statements grant public access to resources in the bucket.
+6. Modify the Bucket Policy**:
+   - Remove or modify the identified statements to restrict public access.
+   - You can remove the entire statement or modify the `Principal` or `Action` to limit access.
+   - For example, you can change `"Principal": "*"` to `"Principal": {"AWS": "arn:aws:iam::ACCOUNT_ID:root"}` to grant access only to the AWS account root user.
+7. Save Changes**:
+   - After making modifications, click Save or Apply Changes to save the updated bucket policy.
+8. Repeat for Other Buckets**:
+   - Repeat the above steps for each bucket listed in the script that requires remediation.
+
+### Example:
+Suppose the bucket policy contains a statement allowing public access:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+        }
+    ]
+}
+```
+
+To remediate, you would remove this statement or modify it to restrict access. For example:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::YOUR_BUCKET_NAME/*"
+        }
+    ]
+}
+```
+
+After saving the updated policy, public access to objects in the bucket would be denied.
+
+Ensure that you have appropriate permissions to modify the bucket policy in the AWS Management Console.
+
 #### Using CLI
 
 ```bash
@@ -39,6 +97,63 @@ aws s3api put-public-access-block --bucket YOUR_BUCKET_NAME --public-access-bloc
 ```
 
 Replace `YOUR_BUCKET_NAME` with the name of your S3 bucket.
+
+Also
+
+1. Retrieve Bucket Policy**:
+```bash
+aws s3api get-bucket-policy --bucket BUCKET_NAME > bucket_policy.json
+```
+Replace `BUCKET_NAME` with the name of the bucket you want to remediate.
+
+2. Analyze the Bucket Policy**:
+   - Review the policy stored in the `bucket_policy.json` file to identify any statements allowing public access (`"Effect": "Allow"` with `"Principal": "*"`).
+
+3. Update Bucket Policy**:
+   - Modify the `bucket_policy.json` file to remove or modify the statements allowing public access.
+
+4. Apply Remediated Policy**:
+```bash
+aws s3api put-bucket-policy --bucket BUCKET_NAME --policy file://bucket_policy.json
+```
+Replace `BUCKET_NAME` with the name of the bucket.
+
+### Example Remediation:
+
+Suppose the `bucket_policy.json` file contains a policy allowing public access:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::BUCKET_NAME/*"
+        }
+    ]
+}
+```
+
+You want to remediate it by removing the statement. Modify the `bucket_policy.json` file to remove the statement:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": []
+}
+```
+
+Then, apply the remediated policy to the bucket:
+
+```bash
+aws s3api put-bucket-policy --bucket BUCKET_NAME --policy file://bucket_policy.json
+```
+
+This will remove all statements from the bucket policy, effectively revoking public access.
+
+Ensure that you have appropriate IAM permissions to modify the bucket policy using the `put-bucket-policy` command.
 
 #### Using Python
 
@@ -64,6 +179,49 @@ def remediate_s3_public_access_via_policy(bucket_name, aws_access_key_id, aws_se
     )
 
     print(f"Public access blocked for S3 bucket: {bucket_name}")
+
+Also
+
+```python
+import boto3
+import json
+
+def check_and_remediate_s3_public_access(bucket_name):
+    # Initialize S3 client
+    s3_client = boto3.client('s3')
+
+    # Get Bucket Policy
+    try:
+        response = s3_client.get_bucket_policy(Bucket=bucket_name)
+        bucket_policy = response['Policy']
+        statements = json.loads(bucket_policy).get('Statement', [])
+
+        # Check if there are any statements allowing public access
+        for statement in statements:
+            effect = statement.get('Effect', '')
+            principal = statement.get('Principal', {})
+            aws_principal = principal.get('AWS', '')
+            if effect == 'Allow' and (principal == '*' or aws_principal == '*'):
+                print(f"Public access found in bucket policy for {bucket_name}. Remediate the policy.")
+                # Add remediation steps here, such as removing the statement or updating policy
+
+        # If no public access statements found, bucket is compliant
+        print(f"No public access found in bucket policy for {bucket_name}.")
+    except s3_client.exceptions.NoSuchBucketPolicy:
+        print(f"No bucket policy found for {bucket_name}.")
+```
+
+This script checks for public access statements in the bucket policy and prints a message if any are found. For remediation, you would need to implement steps to modify the bucket policy accordingly, such as removing the statements allowing public access or updating the policy to restrict public access.
+
+You can call this function `check_and_remediate_s3_public_access` for each bucket to check and remediate the public access issues in your S3 buckets.
+
+### Example Usage:
+```python
+# Example usage
+check_and_remediate_s3_public_access("your_bucket_name")
+```
+
+Replace `"your_bucket_name"` with the actual name of the bucket you want to check and remediate. Make sure to have appropriate permissions to modify the bucket policy.
 
 # Example usage
 bucket_name = 'YOUR_BUCKET_NAME'

@@ -2,119 +2,76 @@
 
 #### Using Console
 
-To remediate the "Root Account Certificates Should Be Rotated" misconfiguration in AWS, follow the below steps:
-
-1. Login to your AWS Management Console.
-2. Go to the AWS Certificate Manager (ACM) service.
-3. In the left navigation pane, select "Private CAs".
-4. Select the root CA that you want to rotate the certificate for.
-5. Click on the "Actions" dropdown list and select "Rotate certificate".
-6. In the "Rotate certificate" dialog box, select the "AWS-managed certificate" option.
-7. Click on the "Rotate" button to rotate the certificate.
-
-After the certificate is rotated, you should update any references to the old certificate with the new certificate. Also, make sure to update any scripts or automation that uses the old certificate.
+1. **Sign in to the AWS Management Console**.
+2. **Navigate to the IAM service**.
+3. **Select Server Certificates from the navigation pane**.
+4. **Identify the server certificates**:
+   - Look for server certificates associated with the root user.
+5. **Review Certificate Details**:
+   - Click on the certificate.
+   - Review the certificate details, including the upload date.
+6. **Rotate Certificates**:
+   - If a certificate has exceeded the minimum rotation threshold, rotate it using the appropriate method.
+7. **Repeat for other certificates**:
+   - Repeat the above steps for all certificates associated with the root user.
 
 #### Using CLI
 
-To remediate the issue of Root Account Certificates Should Be Rotated in AWS using AWS CLI, follow these steps:
-
-1. Log in to the AWS Management Console and open the AWS CLI.
-
-2. Run the following command to list the current root user access keys:
-
-   ```
-   aws iam list-access-keys --user-name <root-user-name>
-   ```
-
-   Replace `<root-user-name>` with the name of your root user.
-
-3. Identify the access key that needs to be rotated based on its age or other security policies.
-
-4. Run the following command to create a new access key:
-
-   ```
-   aws iam create-access-key --user-name <root-user-name>
-   ```
-
-   This will generate a new access key and secret access key.
-
-5. Run the following command to delete the old access key:
-
-   ```
-   aws iam delete-access-key --access-key-id <old-access-key-id> --user-name <root-user-name>
-   ```
-
-   Replace `<old-access-key-id>` with the ID of the access key that needs to be rotated and `<root-user-name>` with the name of your root user.
-
-6. Save the new access key and secret access key in a secure location.
-
-7. Update any scripts or applications that use the old access key with the new access key and secret access key.
-
-8. Verify that the new access key works by running the following command:
-
-   ```
-   aws iam list-users
-   ```
-
-   This should return a list of users in your AWS account.
-
-9. Repeat steps 3-8 for any other access keys that need to be rotated.
-
-10. Finally, disable or delete any unused access keys to reduce the attack surface of your AWS account.
+1. **List Server Certificates**:
+```bash
+aws iam list-server-certificates
+```
+2. **Identify Certificates for the Root User**:
+   - Look for certificates associated with the root user based on the certificate path.
+3. **Rotate Certificates**:
+   - Rotate the certificates that have exceeded the minimum rotation threshold using the appropriate method.
+4. **Repeat for other certificates**:
+   - If there are multiple certificates associated with the root user, repeat the rotation process for each of them.
 
 #### Using Python
 
-To remediate the issue of Root Account Certificates Should Be Rotated in AWS using Python, follow the below steps:
+Here's a Python script to identify and remediate server certificates that have exceeded the minimum rotation threshold for the root user:
 
-Step 1: Install the Boto3 library
-
-```
-pip install boto3
-```
-
-Step 2: Write a Python script to rotate the root account certificate
-
-```
+```python
 import boto3
+from datetime import datetime, timedelta
 
-# Create an EC2 client
-client = boto3.client('ec2')
+class CertificateRotationChecker:
+    def __init__(self):
+        self.iam_client = boto3.client('iam')
 
-# Get the current root account certificate
-response = client.describe_account_attributes(
-    AttributeNames=['root_certificates']
-)
+    def get_certificates_for_root(self):
+        root_certificates = []
+        response = self.iam_client.list_server_certificates()
+        for certificate in response['ServerCertificateMetadataList']:
+            if certificate['Path'] == '/':
+                root_certificates.append(certificate)
+        return root_certificates
 
-# Get the root account certificate ARN
-certificate_arn = response['AccountAttributes'][0]['AttributeValues'][0]['AttributeValue']
+    def rotate_certificate(self, certificate_name):
+        self.iam_client.update_server_certificate(
+            ServerCertificateName=certificate_name,
+            NewServerCertificateName=f"{certificate_name}-rotated"
+        )
+        print(f"Certificate {certificate_name} has been rotated.")
 
-# Delete the current root account certificate
-client.delete_certificate(
-    CertificateArn=certificate_arn
-)
+# Instantiate the class
+checker = CertificateRotationChecker()
 
-# Create a new root account certificate
-response = client.import_certificate(
-    Certificate='-----BEGIN CERTIFICATE-----\n<new certificate>\n-----END CERTIFICATE-----',
-    PrivateKey='-----BEGIN PRIVATE KEY-----\n<new private key>\n-----END PRIVATE KEY-----'
-)
+# Get certificates for root user
+root_certificates = checker.get_certificates_for_root()
 
-# Add the new root account certificate
-client.modify_account_attributes(
-    AttributeName='root_certificates',
-    AttributeValues=[
-        {
-            'AttributeValue': response['CertificateArn']
-        }
-    ]
-)
+# Define minimum rotation days
+minimum_rotation_days = 90  # Example value, adjust as necessary
+
+# Rotate certificates that exceed the minimum rotation threshold
+for certificate in root_certificates:
+    upload_date = certificate['UploadDate']
+    rotation_threshold = datetime.now() - timedelta(days=minimum_rotation_days)
+    if upload_date < rotation_threshold:
+        checker.rotate_certificate(certificate['ServerCertificateName'])
 ```
 
-Step 3: Run the Python script to rotate the root account certificate
+This Python script identifies server certificates associated with the root user and rotates them if they have exceeded the minimum rotation threshold.
 
-```
-python rotate_root_certificate.py
-```
-
-This will delete the current root account certificate and create a new one with the new certificate and private key provided in the script. Finally, it will add the new root account certificate to the AWS account.
-
+Ensure to have appropriate IAM permissions for managing server certificates if you're using AWS CLI or Python script. Adjust the `minimum_rotation_days` variable according to your organization's policy.

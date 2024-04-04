@@ -22,93 +22,87 @@ HIPAA, NIST, HITRUST, SOC2, GDPR, NISTCSF, PCIDSS, FedRAMP
 
 ### Remediation
 
+To remediate the issue of public EBS snapshots, we can use the following approaches:
+
 #### Using Console
 
-Sure, below are the step by step instructions to remediate this misconfiguration for AWS using the AWS console:
-
-1. Open the AWS Management Console and navigate to the Amazon EC2 service.
-
-2. Click on the "Snapshots" option from the left-hand side menu.
-
-3. Select the snapshot that you want to remediate and click on the "Modify Permissions" option from the "Actions" dropdown menu.
-
-4. In the "Modify Snapshot Permissions" dialog box, uncheck the "Public" checkbox.
-
-5. Click on the "Save" button to save the changes.
-
-6. Repeat the above steps for all the snapshots that are public.
-
-7. You can also ensure that all future snapshots are not public by modifying the default permissions. For this, click on the "Set Permissions" option from the "Actions" dropdown menu.
-
-8. In the "Set Default Permissions" dialog box, uncheck the "Public" checkbox.
-
-9. Click on the "Save" button to save the changes.
-
-That's it! By following the above steps, you have successfully remediated the misconfiguration of public EC2 instance snapshots in AWS.
+1. **Sign in to the AWS Management Console**.
+2. **Navigate to the EC2 service**.
+3. **Select Snapshots from the navigation pane**.
+4. **Identify public snapshots**:
+   - Look for snapshots listed in the console that have permissions set to "all".
+5. **Select the public snapshot**.
+6. **Modify Snapshot Permissions**:
+   - Click on Actions > Modify Snapshot Permissions.
+   - Remove the "all" group permission if it exists.
+   - Add or modify permissions as necessary.
+7. **Repeat for other public snapshots**:
+   - Repeat the above steps for all public snapshots identified.
 
 #### Using CLI
 
-To remediate the misconfiguration "EC2 Instance Snapshots Should Not Be Public" for AWS using AWS CLI, you can follow the below steps:
-
-Step 1: Open the AWS CLI on your local machine.
-
-Step 2: Run the following command to list all the snapshots that are public:
-
+1. **List EBS Snapshots**:
+```bash
+aws ec2 describe-snapshots
 ```
-aws ec2 describe-snapshots --owner-ids self --query "Snapshots[?Public==true].{ID:SnapshotId,Status:State,Encrypted:Encrypted,Volume:VolumeId}"
+2. **Identify public snapshots**:
+   - Look for snapshots where the volume permissions include the "all" group.
+3. **Modify Snapshot Permissions**:
+```bash
+aws ec2 modify-snapshot-attribute --snapshot-id SNAPSHOT_ID --remove-group all
 ```
-
-Step 3: Identify the snapshot ID that is public and needs to be remediated.
-
-Step 4: Run the following command to modify the snapshot attribute and make it private:
-
-```
-aws ec2 modify-snapshot-attribute --snapshot-id <snapshot-id> --attribute createVolumePermission --operation-type remove --user-ids all
-```
-
-Note: Replace `<snapshot-id>` with the actual snapshot ID that needs to be remediated.
-
-Step 5: Verify that the snapshot is no longer public by running the command in step 2 again.
-
-Step 6: Repeat steps 3-5 for all the snapshots that are public and need to be remediated.
-
-By following these steps, you can remediate the misconfiguration "EC2 Instance Snapshots Should Not Be Public" for AWS using AWS CLI.
+Replace `SNAPSHOT_ID` with the identifier of the public snapshot.
+4. **Repeat for other public snapshots**:
+   - Repeat the modification command for all public snapshots identified.
 
 #### Using Python
 
-To remediate the misconfiguration of EC2 Instance Snapshots being public in AWS using python, follow the below steps:
-
-1. Open the AWS Management Console and go to the EC2 dashboard.
-2. Click on the "Snapshots" option on the left-hand side menu.
-3. Select the snapshot that is public and click on the "Modify Permissions" option from the "Actions" dropdown.
-4. In the "Modify Snapshot Permissions" window, uncheck the "Public" option and add the appropriate AWS account IDs or IAM users to whom you want to grant access to the snapshot.
-5. Click on the "Add Permission" button to add the selected AWS account IDs or IAM users.
-6. Click on the "Save" button to save the changes.
-
-To automate this process using python, you can use the AWS SDK for Python (Boto3). Here's the code snippet:
+Here's a Python script to identify and remediate public EBS snapshots:
 
 ```python
 import boto3
 
-# Create an EC2 client
-ec2 = boto3.client('ec2')
+class EBSSnapshotChecker:
+    def __init__(self):
+        self.ec2_client = boto3.client('ec2')
 
-# Specify the snapshot ID
-snapshot_id = 'your-snapshot-id'
+    def get_public_snapshots(self):
+        failures = []
+        response = self.ec2_client.describe_snapshots(OwnerIds=['self'])
+        for snapshot in response['Snapshots']:
+            if self.is_snapshot_public(snapshot):
+                failures.append(snapshot)
+        return failures
 
-# Modify the snapshot permissions
-response = ec2.modify_snapshot_attribute(
-    Attribute='createVolumePermission',
-    SnapshotId=snapshot_id,
-    OperationType='remove',
-    UserIds=['all'],
-    GroupNames=[]
-)
+    def is_snapshot_public(self, snapshot):
+        for permission in snapshot.get("Permissions", []):
+            if permission.get("Group", "") == "all":
+                return True
+        return False
 
-print(response)
+    def remediate_public_snapshot(self, snapshot_id):
+        self.ec2_client.modify_snapshot_attribute(
+            SnapshotId=snapshot_id,
+            Attribute='createVolumePermission',
+            OperationType='remove',
+            GroupNames=['all']
+        )
+        print(f"Snapshot {snapshot_id} has been remediated.")
+
+# Instantiate the class
+checker = EBSSnapshotChecker()
+
+# Get public snapshots
+public_snapshots = checker.get_public_snapshots()
+
+# Remediate public snapshots
+for snapshot in public_snapshots:
+    checker.remediate_public_snapshot(snapshot['SnapshotId'])
 ```
 
-This code removes the "createVolumePermission" attribute for the specified snapshot ID, which effectively makes the snapshot private. You can customize the code as per your requirements.
+This Python script identifies public EBS snapshots by checking if the permissions include the "all" group and then remediates them by removing the permission.
+
+Ensure to have appropriate IAM permissions for modifying EBS snapshots if you're using AWS CLI or Python script.
 
 ### Additional Reading:
 

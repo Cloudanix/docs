@@ -1,114 +1,105 @@
+---
+slug: rds_public_snapshots
+title: RDS Database Snapshots Should Not Be Public
+sidebar_label: RDS Database Snapshots Should Not Be Public
+---
+
+### More Info:
+
+Your AWS Relational Database Service (RDS) database snapshots should not be publicly accessible. This is to avoid exposing your private data.
+
+### Risk Level
+
+Critical
+
+### Address
+
+Security
+
+### Compliance Standards
+
+HIPAA, PCIDSS, NIST, AWSWAF, GDPR
+
 ### Remediation
+
+To remediate the issue of public RDS DB snapshots, we can use the following approach:
 
 #### Using Console
 
-To remediate the misconfiguration "RDS Database Snapshots Should Not Be Public" in AWS using the AWS console, follow the below steps:
-
-1. Log in to the AWS Management Console and navigate to the Amazon RDS console.
-2. Select the RDS instance whose snapshot is public.
-3. In the left navigation pane, select "Snapshots" under the "Backup and Restore" section.
-4. Select the snapshot that is public.
-5. In the snapshot details page, select the "Permissions" tab.
-6. Under the "Public snapshot" section, click on the "Modify" button.
-7. Deselect the "Publicly accessible" checkbox.
-8. Click on the "Save" button to apply the changes.
-
-After following these steps, the RDS database snapshot will no longer be public.
+1. **Sign in to the AWS Management Console**.
+2. **Navigate to the RDS service**.
+3. **Select Snapshots from the navigation pane**.
+4. **Identify public snapshots**:
+   - Look for snapshots listed in the console that you've identified as public.
+   - These snapshots might have the attribute "restore" set to "all".
+5. **Select the public snapshot**.
+6. **Modify Snapshot Attributes**:
+   - Click on Modify Attributes.
+   - Uncheck the option to make the snapshot publicly accessible, if available.
+   - Confirm the changes.
+7. **Repeat for other public snapshots**:
+   - Repeat the above steps for all public snapshots identified.
 
 #### Using CLI
 
-To remediate the misconfiguration "RDS Database Snapshots Should Not Be Public" for AWS using AWS CLI, follow these steps:
-
-1. Open the AWS CLI on your local machine or use AWS CloudShell.
-
-2. Run the following command to list all the RDS database snapshots that are public:
-
+1. **List RDS DB Snapshots**:
+```bash
+aws rds describe-db-snapshots
 ```
-aws rds describe-db-snapshots --query 'DBSnapshots[?PubliclyAccessible==`true`]' --output json
+2. **Identify public snapshots**:
+   - Look for snapshots where the attribute "restore" is set to "all".
+3. **Modify Snapshot Attributes**:
+```bash
+aws rds modify-db-snapshot-attribute --db-snapshot-identifier SNAPSHOT_IDENTIFIER --no-public
 ```
-
-This command will return a JSON object containing information about all the public RDS database snapshots.
-
-3. For each public RDS database snapshot, run the following command to modify the snapshot so that it is no longer publicly accessible:
-
-```
-aws rds modify-db-snapshot-attribute --db-snapshot-identifier <snapshot-id> --attribute-name 'restore' --values-to-add 'all'
-```
-
-Replace `<snapshot-id>` with the ID of the public RDS database snapshot that you want to modify.
-
-4. Verify that the RDS database snapshot is no longer publicly accessible by running the following command:
-
-```
-aws rds describe-db-snapshots --db-snapshot-identifier <snapshot-id>
-```
-
-Replace `<snapshot-id>` with the ID of the RDS database snapshot that you modified.
-
-5. Repeat steps 3 and 4 for each public RDS database snapshot that you want to remediate.
-
-6. Once you have remediated all the public RDS database snapshots, you should also update your organization's policies and procedures to prevent future misconfigurations. This could include implementing automated checks to ensure that RDS database snapshots are never made public, or providing training to your team on AWS security best practices.
+Replace `SNAPSHOT_IDENTIFIER` with the identifier of the public snapshot.
+4. **Repeat for other public snapshots**:
+   - Repeat the modification command for all public snapshots identified.
 
 #### Using Python
 
-To remediate the "RDS Database Snapshots Should Not Be Public" misconfiguration in AWS using Python, please follow the below steps:
+Here's a Python script to identify and remediate public RDS DB snapshots:
 
-1. First, we need to identify the RDS database snapshots that are public. We can use the AWS SDK for Python (Boto3) to retrieve the list of RDS snapshots and check their permissions. Here's an example code snippet to retrieve the list of RDS snapshots:
-
-```
+```python
 import boto3
 
-# Create an RDS client
-rds = boto3.client('rds')
+class RDSSnapshotChecker:
+    def __init__(self):
+        self.rds_client = boto3.client('rds')
 
-# Retrieve the list of RDS snapshots
-snapshots = rds.describe_db_snapshots()
+    def get_public_snapshots(self):
+        failures = []
+        response = self.rds_client.describe_db_snapshots()
+        for snapshot in response['DBSnapshots']:
+            if self.is_snapshot_public(snapshot):
+                failures.append(snapshot)
+        return failures
 
-# Loop through each snapshot and check its permissions
-for snapshot in snapshots['DBSnapshots']:
-    if snapshot['PubliclyAccessible']:
-        print(f"Snapshot {snapshot['DBSnapshotIdentifier']} is public.")
-```
+    def is_snapshot_public(self, snapshot):
+        for attr in snapshot.get("Attributes", []):
+            if attr.get("AttributeName", "") == "restore" and "all" in attr.get("AttributeValues", []):
+                return True
+        return False
 
-2. Once we have identified the public snapshots, we can update their permissions to make them private. We can use the `modify_db_snapshot_attribute` method of the RDS client to update the snapshot's `PubliclyAccessible` attribute to `False`. Here's an example code snippet to update the permissions of a single snapshot:
-
-```
-import boto3
-
-# Create an RDS client
-rds = boto3.client('rds')
-
-# Update the permissions of a snapshot
-rds.modify_db_snapshot_attribute(
-    DBSnapshotIdentifier='my-snapshot',
-    AttributeName='restore',
-    ValuesToAdd=[],
-    ValuesToRemove=['all'],
-    )
-```
-
-3. To update the permissions of all the public snapshots, we can modify the previous code snippet to loop through each public snapshot and update its permissions:
-
-```
-import boto3
-
-# Create an RDS client
-rds = boto3.client('rds')
-
-# Retrieve the list of RDS snapshots
-snapshots = rds.describe_db_snapshots()
-
-# Loop through each snapshot and update its permissions if it's public
-for snapshot in snapshots['DBSnapshots']:
-    if snapshot['PubliclyAccessible']:
-        print(f"Updating permissions for snapshot {snapshot['DBSnapshotIdentifier']}.")
-        rds.modify_db_snapshot_attribute(
-            DBSnapshotIdentifier=snapshot['DBSnapshotIdentifier'],
+    def remediate_public_snapshot(self, snapshot_id):
+        self.rds_client.modify_db_snapshot_attribute(
+            DBSnapshotIdentifier=snapshot_id,
             AttributeName='restore',
-            ValuesToAdd=[],
-            ValuesToRemove=['all'],
+            NoValue=True
         )
+        print(f"Snapshot {snapshot_id} has been remediated.")
+
+# Instantiate the class
+checker = RDSSnapshotChecker()
+
+# Get public snapshots
+public_snapshots = checker.get_public_snapshots()
+
+# Remediate public snapshots
+for snapshot in public_snapshots:
+    checker.remediate_public_snapshot(snapshot['DBSnapshotIdentifier'])
 ```
 
-4. Finally, we can run this Python script periodically to ensure that all RDS database snapshots are private. We can also integrate this script with AWS Lambda to automate the remediation process.
+This Python script identifies public RDS DB snapshots by checking if the "restore" attribute is set to "all" and then remediates them by modifying the attribute to make them non-public.
 
+Make sure to have appropriate IAM permissions for modifying RDS snapshots if you're using AWS CLI or Python script.
