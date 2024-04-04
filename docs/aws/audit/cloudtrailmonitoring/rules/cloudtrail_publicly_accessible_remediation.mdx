@@ -17,16 +17,28 @@
 
 #### Using CLI
 
-1. **List CloudTrail Trails**:
+1. **Identify CloudTrail Trails with Publicly Accessible Buckets**:
 ```bash
-aws cloudtrail describe-trails
+aws cloudtrail describe-trails --query "trailList[?contains(S3BucketName, 'public-accessible-bucket')]" --output json
 ```
-2. **Identify Trails with Publicly Accessible Buckets**:
-   - Look for trails where the S3 bucket ACL or bucket policy grants permissions to "AllUsers" or "AuthenticatedUsers" with "FULL_CONTROL" permission.
-3. **Modify Bucket ACL and Bucket Policy**:
-   - Update the bucket ACL and bucket policy to remove any grants allowing public access.
-4. **Repeat for other trails**:
-   - If there are multiple trails with publicly accessible buckets, repeat the modification steps for each of them.
+Replace `'public-accessible-bucket'` with the name of the bucket you're investigating.
+
+2. **Remove Public Access from S3 Bucket ACL**:
+```bash
+aws s3api put-bucket-acl --bucket BUCKET_NAME --acl private
+```
+Replace `BUCKET_NAME` with the name of the S3 bucket.
+
+3. **Remove Bucket Policy** (if exists):
+```bash
+aws s3api delete-bucket-policy --bucket BUCKET_NAME
+```
+Replace `BUCKET_NAME` with the name of the S3 bucket.
+
+4. **Repeat for Other Trails**:
+   - If there are multiple CloudTrail trails with publicly accessible S3 buckets, repeat the above steps for each of them.
+
+These steps will remove public access from the S3 buckets associated with the CloudTrail trails using the AWS CLI. Ensure that you have appropriate IAM permissions to modify S3 bucket ACLs and policies.
 
 #### Using Python
 
@@ -38,6 +50,7 @@ import boto3
 class CloudTrailChecker:
     def __init__(self):
         self.cloudtrail_client = boto3.client('cloudtrail')
+        self.s3_client = boto3.client('s3')
 
     def get_publicly_accessible_trails(self):
         failures = []
@@ -48,23 +61,39 @@ class CloudTrailChecker:
         return failures
 
     def is_trail_public(self, trail):
-        bucket_acl = trail.get("S3BucketName", "")
-        bucket_policy = trail.get("S3BucketName", "")
+        bucket_name = trail.get("S3BucketName", "")
+        bucket_acl = self.s3_client.get_bucket_acl(Bucket=bucket_name)
+        bucket_policy = self.s3_client.get_bucket_policy(Bucket=bucket_name)
+        
         for grant in bucket_acl.get("Grants", []):
             if grant.get("Grantee", {}).get("URI", "") in [
                 "http://acs.amazonaws.com/groups/global/AllUsers",
                 "http://acs.amazonaws.com/groups/global/AuthenticatedUsers",
             ] and grant.get("Permission", None) == "FULL_CONTROL":
                 return True
+        
         statements = bucket_policy.get("Policy", {}).get("Statement", [])
         for statement in statements:
             if statement.get("Effect", "") == "Allow" and statement.get("Principal", "") == "*":
                 return True
+        
         return False
 
     def remediate_public_trail(self, trail_name):
-        # Implement remediation logic here
-        print(f"Trail {trail_name} has been remediated.")
+        bucket_name = self.cloudtrail_client.describe_trails(trailNameList=[trail_name])['trailList'][0]['S3BucketName']
+        
+        # Remove public access from bucket ACL
+        self.s3_client.put_bucket_acl(
+            Bucket=bucket_name,
+            ACL='private'
+        )
+        
+        # Remove public access from bucket policy
+        self.s3_client.delete_bucket_policy(
+            Bucket=bucket_name
+        )
+        
+        print(f"Public access has been removed from the CloudTrail trail {trail_name}.")
 
 # Instantiate the class
 checker = CloudTrailChecker()

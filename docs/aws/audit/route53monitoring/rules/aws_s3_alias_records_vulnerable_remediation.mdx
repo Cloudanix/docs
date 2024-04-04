@@ -17,17 +17,46 @@
 
 #### Using CLI
 
-1. **List DNS Alias Records**:
-```bash
-aws route53 list-resource-record-sets --hosted-zone-id HOSTED_ZONE_ID
-```
-Replace `HOSTED_ZONE_ID` with the ID of the hosted zone containing the vulnerable records.
-2. **Identify Vulnerable Records**:
-   - Look for Alias records that point to S3 buckets with website hosting enabled.
-3. **Secure the S3 Bucket**:
-   - If the S3 bucket is configured insecurely, modify its permissions to restrict access as necessary.
-4. **Repeat for other vulnerable records**:
-   - If there are multiple vulnerable DNS Alias records, repeat the remediation steps for each of them.
+1. **Identify Vulnerable S3 Alias Records**:
+   - List all Route 53 hosted zones and alias records pointing to S3 buckets.
+   ```bash
+   aws route53 list-hosted-zones
+   ```
+   ```bash
+   aws route53 list-resource-record-sets --hosted-zone-id HOSTED_ZONE_ID
+   ```
+   Replace `HOSTED_ZONE_ID` with the ID of each hosted zone.
+
+2. **Update S3 Bucket Policies**:
+   - For each S3 bucket referenced in the alias record, ensure that the bucket is not publicly accessible or misconfigured. You can update the bucket policy to deny access from all principals using the AWS CLI. Here's an example command:
+   ```bash
+   aws s3api put-bucket-policy --bucket BUCKET_NAME --policy '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:GetObject",
+               "Resource": "arn:aws:s3:::BUCKET_NAME/*"
+           }
+       ]
+   }'
+   ```
+   Replace `BUCKET_NAME` with the name of the S3 bucket.
+
+3. **Verify Remediation**:
+   - After updating the bucket policy, verify that the S3 buckets are not publicly accessible or misconfigured.
+   ```bash
+   aws s3api get-bucket-policy --bucket BUCKET_NAME
+   ```
+   Replace `BUCKET_NAME` with the name of the S3 bucket.
+
+4. **Repeat for Other Vulnerable Records**:
+   - Repeat the above steps for each vulnerable S3 alias record identified.
+
+By updating the bucket policy to deny access from all principals, you effectively remove public access to the S3 bucket. Make sure to review and adjust the bucket policy according to your specific requirements and access control needs. Also, ensure that you have the necessary permissions to update S3 bucket policies.
+
+This remediation assumes that the S3 buckets should not be publicly accessible. If public access is required, ensure that appropriate security measures are in place to protect the data.
 
 #### Using Python
 
