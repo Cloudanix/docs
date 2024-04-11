@@ -2,100 +2,110 @@
 
 #### Using Console
 
-The misconfiguration of "Notebook Direct Internet Access" in AWS means that a SageMaker notebook instance is publicly accessible over the Internet, which poses a security risk. To remediate this, follow these steps:
+To remediate the misconfiguration of Notebook Direct Internet Access for AWS DynamoDB using the AWS console, follow these steps:
 
-1. Go to the AWS Management Console and navigate to the Amazon SageMaker service.
+1. **Access AWS Management Console**: Go to the AWS Management Console at https://aws.amazon.com/ and log in with your credentials.
 
-2. In the left navigation pane, select "Notebook instances".
+2. **Navigate to DynamoDB**: Click on the "Services" dropdown menu at the top of the page and select "DynamoDB" under the "Database" category.
 
-3. Select the notebook instance that has direct internet access.
+3. **Select the DynamoDB Table**: In the DynamoDB dashboard, select the table that you want to remediate the direct internet access for.
 
-4. Click on the "Edit" button in the "Network and security" section.
+4. **Update Table VPC Settings**:
+   - In the table details page, click on the "Overview" tab.
+   - Under the "VPC Settings" section, click on the "Edit" button.
 
-5. In the "Network settings" section, change the "Direct internet access" option to "Disabled".
+5. **Modify VPC Configuration**:
+   - In the VPC configuration window, select the appropriate VPC from the dropdown menu.
+   - Choose the desired security group that allows access to the DynamoDB table.
+   - Ensure that the selected security group allows access only from trusted sources and restricts direct internet access.
 
-6. In the "Security group" section, remove any inbound rules that allow traffic from the Internet.
+6. **Save Changes**: After updating the VPC settings and security group, click on the "Save" button to apply the changes.
 
-7. Click on the "Update" button to save the changes.
+7. **Verify Configuration**:
+   - Once the changes are saved, verify that the DynamoDB table no longer has direct internet access.
+   - Test the access to the DynamoDB table from authorized sources within the VPC.
 
-After completing these steps, the SageMaker notebook instance will no longer be publicly accessible over the Internet, and will only be accessible within the VPC or through a VPN connection.
+By following these steps, you can remediate the misconfiguration of Notebook Direct Internet Access for AWS DynamoDB using the AWS Management Console.
 
 #### Using CLI
 
-The misconfiguration of Notebook Direct Internet Access in AWS can be remediated by following these steps using AWS CLI:
+To remediate the misconfiguration of allowing direct internet access to an AWS DynamoDB table, you can follow these steps using the AWS CLI:
 
-Step 1: Open the AWS CLI and run the following command to get the ID of the Amazon SageMaker notebook instance that has direct internet access enabled:
+1. **Update the VPC Security Group**:
+   - Identify the VPC security group associated with the DynamoDB table.
+   - Modify the inbound and outbound rules of the security group to restrict access only to trusted sources, such as specific IP addresses or other AWS resources within the VPC.
 
-```
-aws sagemaker describe-notebook-instance --notebook-instance-name <instance-name> --query 'DirectInternetAccess'
-```
+2. **Deny Internet Access**:
+   - Update the security group rules to deny inbound traffic from 0.0.0.0/0 (internet) to the DynamoDB table's port (default is 443 for DynamoDB).
+   - Update the outbound rules to deny traffic from the DynamoDB table to the internet.
 
-Step 2: If the output of the above command is "Enabled", then run the following command to disable direct internet access:
+3. **Verify Changes**:
+   - Use the AWS CLI to describe the security group associated with the DynamoDB table to verify that the changes have been applied successfully.
 
-```
-aws sagemaker update-notebook-instance --notebook-instance-name <instance-name> --no-direct-internet-access
-```
+4. **Example AWS CLI Commands**:
+   - To describe the security group: 
+     ```
+     aws ec2 describe-security-groups --group-ids <security-group-id>
+     ```
 
-Step 3: If the output of the above command is "Disabled", then direct internet access is already disabled and no further action is required.
+   - To update the inbound rules to deny internet access:
+     ```
+     aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+     ```
 
-By following these steps, the misconfiguration of Notebook Direct Internet Access in AWS can be remediated using AWS CLI.
+   - To update the outbound rules to deny internet access:
+     ```
+     aws ec2 revoke-security-group-egress --group-id <security-group-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+     ```
+
+5. **Monitor and Test**:
+   - Monitor the DynamoDB table access logs and test the application to ensure that it is functioning correctly after the changes.
+
+By following these steps and using the AWS CLI commands provided, you can remediate the misconfiguration of allowing direct internet access to an AWS DynamoDB table.
 
 #### Using Python
 
-The misconfiguration "Notebook Direct Internet Access" refers to a situation where a notebook instance in Amazon SageMaker is configured to have direct internet access, which can pose a security risk. To remediate this misconfiguration, you can follow these steps using Python:
+To remediate the misconfiguration of allowing direct internet access to an AWS DynamoDB table using Python, you can follow these steps:
 
-1. Create a new Amazon SageMaker notebook instance with the correct network configuration. You can use the following Python code to create a notebook instance:
+Step 1: Update the AWS Security Group associated with the DynamoDB table to restrict access only to specific IP addresses or VPC endpoints.
+
+Step 2: Use the AWS SDK for Python (Boto3) to modify the security group settings. Here's a sample Python code snippet to update the security group:
 
 ```python
 import boto3
 
-client = boto3.client('sagemaker')
+# Initialize the DynamoDB client
+client = boto3.client('dynamodb')
 
-response = client.create_notebook_instance(
-    NotebookInstanceName='my-notebook-instance',
-    InstanceType='ml.t2.medium',
-    RoleArn='arn:aws:iam::123456789012:role/service-role/AmazonSageMaker-ExecutionRole-20220101T000001',
-    SubnetId='subnet-0123456789abcdef0',
-    SecurityGroupIds=['sg-0123456789abcdef0'],
-    DirectInternetAccess='Disabled'
+# Specify the security group ID associated with the DynamoDB table
+security_group_id = 'your_security_group_id'
+
+# Specify the rules to allow access only from specific IP addresses or VPC endpoints
+ip_permissions = [
+    {
+        'IpProtocol': 'tcp',
+        'FromPort': 0,
+        'ToPort': 65535,
+        'IpRanges': [
+            {
+                'CidrIp': 'your_allowed_ip_range'
+            }
+        ]
+    }
+]
+
+# Update the security group with the new rules
+response = client.authorize_security_group_ingress(
+    GroupId=security_group_id,
+    IpPermissions=ip_permissions
 )
 
 print(response)
 ```
 
-In this code, you need to replace the values for `NotebookInstanceName`, `InstanceType`, `RoleArn`, `SubnetId`, and `SecurityGroupIds` with the appropriate values for your environment. The `DirectInternetAccess` parameter is set to `'Disabled'` to ensure that the notebook instance does not have direct internet access.
+Replace `your_security_group_id` with the actual security group ID associated with the DynamoDB table and `your_allowed_ip_range` with the specific IP address range that should have access to the DynamoDB table.
 
-2. Stop the existing notebook instance that has direct internet access. You can use the following Python code to stop a notebook instance:
+Step 3: Run the Python script to update the security group settings and restrict access to the DynamoDB table.
 
-```python
-import boto3
-
-client = boto3.client('sagemaker')
-
-response = client.stop_notebook_instance(
-    NotebookInstanceName='my-notebook-instance'
-)
-
-print(response)
-```
-
-In this code, you need to replace the value for `NotebookInstanceName` with the name of the notebook instance that has direct internet access.
-
-3. Start the new notebook instance that has the correct network configuration. You can use the following Python code to start a notebook instance:
-
-```python
-import boto3
-
-client = boto3.client('sagemaker')
-
-response = client.start_notebook_instance(
-    NotebookInstanceName='my-notebook-instance'
-)
-
-print(response)
-```
-
-In this code, you need to replace the value for `NotebookInstanceName` with the name of the new notebook instance that you created in step 1.
-
-By following these steps, you can remediate the misconfiguration "Notebook Direct Internet Access" in Amazon SageMaker using Python.
+By following these steps and running the Python script, you can remediate the misconfiguration of allowing direct internet access to an AWS DynamoDB table by restricting access to specific IP addresses or VPC endpoints.
 

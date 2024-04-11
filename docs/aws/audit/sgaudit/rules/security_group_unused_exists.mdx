@@ -24,92 +24,108 @@ CBP
 
 #### Using Console
 
-Sure, here are the step-by-step instructions to remediate "Unused Security Groups Should Be Removed" for AWS using AWS console:
+To remediate the issue of unused security groups in AWS, follow these steps using the AWS Management Console:
 
-1. Login to the AWS console.
-2. Go to the EC2 dashboard by clicking on the "Services" dropdown in the top left corner, selecting "EC2" under the "Compute" section.
-3. Click on the "Security Groups" option in the left-hand menu.
-4. Identify the security group(s) that are not being used. You can identify them by checking if any EC2 instances are associated with the security group(s).
-5. Select the unused security group(s) by checking the checkbox next to their name.
-6. Click on the "Actions" dropdown and select "Delete security group".
-7. A confirmation window will appear, click on the "Yes, Delete" button to confirm the deletion of the security group(s).
+1. **Sign in to the AWS Management Console**: Go to https://aws.amazon.com/ and sign in to your AWS account.
 
-Once you have completed these steps, the unused security group(s) will be deleted from your AWS account.
+2. **Navigate to the EC2 Dashboard**: Click on the "Services" dropdown menu at the top of the page, select "EC2" under the Compute section.
+
+3. **View Security Groups**: In the EC2 Dashboard, locate the "Security Groups" option in the navigation pane on the left and click on it.
+
+4. **Identify Unused Security Groups**: Review the list of security groups to identify the ones that are not associated with any running instances or resources. You can check the "Description" tab of each security group to see if it is actively being used.
+
+5. **Check Rules and Dependencies**: Before deleting a security group, ensure that there are no dependencies on it. Check if any other resources are using the security group for inbound/outbound rules.
+
+6. **Delete Unused Security Groups**: To delete a security group, select the checkbox next to the security group(s) you want to remove, click on the "Actions" dropdown menu, and select "Delete security group".
+
+7. **Confirm Deletion**: A confirmation dialog will appear asking you to confirm the deletion. Review the security group details once more and click "Yes, Delete" to confirm.
+
+8. **Verify Deletion**: Once the security group is deleted, verify that it has been removed from the list of security groups. Also, ensure that there are no adverse effects on any resources due to the deletion.
+
+9. **Repeat if Necessary**: Repeat the above steps for any other unused security groups that need to be removed.
+
+By following these steps, you can identify and remove unused security groups in AWS using the AWS Management Console. This helps in maintaining a clean and secure environment by reducing the attack surface and minimizing the risk of misconfigurations.
 
 #### Using CLI
 
 To remediate the issue of unused security groups in AWS using AWS CLI, follow these steps:
 
-1. Open a terminal or command prompt and ensure that AWS CLI is installed and configured.
-
-2. List all the security groups in your AWS account using the following command:
-
-```
-aws ec2 describe-security-groups
+1. List all the security groups that are not associated with any EC2 instances:
+```bash
+aws ec2 describe-security-groups --query "SecurityGroups[?length(Instances) == '0'].{Name:GroupName, ID:GroupId}"
 ```
 
-3. Identify the security group(s) that are not in use by any instances or resources.
+2. Identify the security group that you want to delete from the list obtained in the previous step.
 
-4. Remove the unused security group(s) using the following command:
-
+3. Delete the unused security group using the following command:
+```bash
+aws ec2 delete-security-group --group-id YOUR_SECURITY_GROUP_ID
 ```
-aws ec2 delete-security-group --group-id <security-group-id>
+Make sure to replace `YOUR_SECURITY_GROUP_ID` with the actual ID of the security group you want to delete.
+
+4. Confirm the deletion by listing the security groups again:
+```bash
+aws ec2 describe-security-groups --query "SecurityGroups[?length(Instances) == '0'].{Name:GroupName, ID:GroupId}"
 ```
-
-Note: Replace `<security-group-id>` with the actual ID of the security group that you want to delete.
-
-5. Verify that the security group has been deleted by running the describe-security-groups command again.
 
 By following these steps, you can remediate the issue of unused security groups in AWS using AWS CLI.
 
 #### Using Python
 
-Sure, here are the steps to remediate the misconfiguration "Unused Security Groups Should Be Removed" for AWS using Python:
+To remediate the issue of unused security groups in AWS using Python, you can follow these steps:
 
-1. First, you need to identify the unused security groups in your AWS environment. You can use the `boto3` library in Python to achieve this. Here's a sample code to list all the unused security groups:
+1. Install the Boto3 library:
+```bash
+pip install boto3
+```
+
+2. Use the following Python script to identify and delete unused security groups:
 
 ```python
 import boto3
 
-# Create an EC2 client
-ec2 = boto3.client('ec2')
+def get_unused_security_groups():
+    ec2 = boto3.client('ec2')
+    
+    # Get all security groups
+    response = ec2.describe_security_groups()
+    security_groups = response['SecurityGroups']
+    
+    # Get all instances
+    response = ec2.describe_instances()
+    instances = []
+    for reservation in response['Reservations']:
+        instances.extend(reservation['Instances'])
+    
+    # Get security group IDs attached to instances
+    used_security_groups = set()
+    for instance in instances:
+        for sg in instance.get('SecurityGroups', []):
+            used_security_groups.add(sg['GroupId'])
+    
+    # Identify unused security groups
+    unused_security_groups = [sg for sg in security_groups if sg['GroupId'] not in used_security_groups]
+    
+    return unused_security_groups
 
-# List all the security groups
-security_groups = ec2.describe_security_groups()
+def delete_security_group(group_id):
+    ec2 = boto3.client('ec2')
+    
+    # Delete the security group
+    response = ec2.delete_security_group(GroupId=group_id)
+    print(f"Deleted security group: {group_id}")
 
-# Loop through the security groups and check if they are associated with any instances
-unused_security_groups = []
-for sg in security_groups['SecurityGroups']:
-    if len(sg['IpPermissions']) == 0 and len(sg['IpPermissionsEgress']) == 0:
-        unused_security_groups.append(sg['GroupId'])
-
-print("Unused security groups: ", unused_security_groups)
+if __name__ == '__main__':
+    unused_security_groups = get_unused_security_groups()
+    for sg in unused_security_groups:
+        delete_security_group(sg['GroupId'])
 ```
 
-2. Once you have identified the unused security groups, you can delete them using the `delete_security_group` method of the `boto3` library. Here's a sample code to delete the unused security groups:
+3. Replace the AWS credentials in the AWS CLI configuration file located at `~/.aws/credentials` or use an IAM role that has the necessary permissions to list and delete security groups.
 
-```python
-import boto3
+4. Run the Python script to identify and delete the unused security groups.
 
-# Create an EC2 client
-ec2 = boto3.client('ec2')
-
-# List all the security groups
-security_groups = ec2.describe_security_groups()
-
-# Loop through the security groups and check if they are associated with any instances
-unused_security_groups = []
-for sg in security_groups['SecurityGroups']:
-    if len(sg['IpPermissions']) == 0 and len(sg['IpPermissionsEgress']) == 0:
-        unused_security_groups.append(sg['GroupId'])
-
-# Delete the unused security groups
-for sg_id in unused_security_groups:
-    ec2.delete_security_group(GroupId=sg_id)
-    print("Deleted security group: ", sg_id)
-```
-
-Note: Please make sure to test these scripts in a non-production environment before running them in your production environment.
+Please ensure that you have the necessary permissions to delete security groups before running this script.
 
 ### Additional Reading:
 

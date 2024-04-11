@@ -2,115 +2,105 @@
 
 #### Using Console
 
-To remediate the misconfiguration "MQ Broker Should Not Be Publicly Accessible" for AWS using the AWS console, please follow the steps below:
+To remediate the misconfiguration of an MQ Broker being publicly accessible in AWS Security Groups, follow these steps using the AWS Management Console:
 
-1. Log in to the AWS Management Console.
-2. Navigate to the Amazon MQ service.
-3. Select the broker that you want to remediate from the list of brokers.
-4. Click on the "Edit" button to edit the broker's configuration.
-5. Under the "Network & Security" section, you will see the "Publicly Accessible" option. 
-6. Set the "Publicly Accessible" option to "No".
-7. Click on the "Save Changes" button to apply the changes.
+1. **Log in to the AWS Management Console**: Go to https://aws.amazon.com/ and log in to your AWS account.
 
-Once you have completed these steps, the MQ Broker will no longer be publicly accessible.
+2. **Navigate to the Amazon MQ Service**: Click on the "Services" dropdown menu at the top left corner of the console, then select "Amazon MQ" under the "Messaging" category.
+
+3. **Select the MQ Broker**: In the Amazon MQ dashboard, select the MQ Broker that is publicly accessible.
+
+4. **Update Security Group Rules**:
+   - In the left-hand navigation pane, click on "Configuration" and then select the "Security groups" tab.
+   - Click on the security group that is associated with the MQ Broker.
+
+5. **Edit Inbound Rules**:
+   - In the "Inbound rules" tab, review the existing rules that allow public access to the MQ Broker.
+   - Identify the rule(s) that allow access from any IP address (0.0.0.0/0) or from unauthorized IP ranges.
+
+6. **Remove Public Access**:
+   - Select the rule(s) that allow public access to the MQ Broker.
+   - Click on the "Actions" dropdown menu and choose "Edit inbound rules".
+   - Remove the rule(s) that allow access from any IP address or unauthorized IP ranges.
+   - Add specific IP ranges or security groups that are allowed to access the MQ Broker if necessary.
+
+7. **Save Changes**: Click on the "Save rules" button to apply the changes to the security group.
+
+8. **Verify Changes**:
+   - Go back to the Amazon MQ dashboard and check the security group settings for the MQ Broker to ensure that public access has been restricted.
+   - Test the connectivity to the MQ Broker to ensure that it is only accessible from authorized sources.
+
+By following these steps, you can remediate the misconfiguration of an MQ Broker being publicly accessible in AWS Security Groups and restrict access to authorized entities only.
 
 #### Using CLI
 
-To remediate the misconfiguration of an MQ Broker being publicly accessible in AWS using AWS CLI, you can follow these steps:
+To remediate the misconfiguration of making an MQ Broker publicly accessible in AWS using AWS CLI, you can follow these steps:
 
-1. Verify that the MQ Broker is publicly accessible by running the following command:
+1. List the existing security groups associated with your MQ Broker:
+```
+aws mq list-brokers
+```
 
-   ```
-   aws mq describe-broker --broker-id <broker-id>
-   ```
+2. Identify the security group associated with the MQ Broker that is publicly accessible:
+```
+aws mq describe-broker --broker-id <your-broker-id>
+```
 
-   If the `PubliclyAccessible` parameter is set to `true`, then the broker is publicly accessible.
+3. Note down the Security Group ID associated with the MQ Broker.
 
-2. To make the MQ Broker private, run the following command:
+4. Update the inbound rules of the Security Group to restrict access only to the necessary IP addresses or CIDR blocks. Replace `<security-group-id>` with the Security Group ID noted in step 3 and `<your-ip>` with your IP address:
+```
+aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 8162 --cidr <your-ip>/32
+```
 
-   ```
-   aws mq update-broker --broker-id <broker-id> --publicly-accessible false
-   ```
+5. Verify that the inbound rule has been updated successfully:
+```
+aws ec2 describe-security-groups --group-ids <security-group-id>
+```
 
-   This command will update the `PubliclyAccessible` parameter of the broker to `false`, making it private and not publicly accessible.
+6. Repeat steps 4 and 5 for any other necessary ports (e.g., 61614 for AMQP, 5671 for MQTT, etc.) to ensure that only the required ports are accessible.
 
-3. Verify that the MQ Broker is now private by running the `describe-broker` command again:
-
-   ```
-   aws mq describe-broker --broker-id <broker-id>
-   ```
-
-   If the `PubliclyAccessible` parameter is set to `false`, then the broker is now private and not publicly accessible.
-
-By following these steps, you can remediate the misconfiguration of an MQ Broker being publicly accessible in AWS using AWS CLI.
+By following these steps, you can remediate the misconfiguration of making an MQ Broker publicly accessible in AWS using AWS CLI.
 
 #### Using Python
 
-To remediate the misconfiguration "MQ Broker Should Not Be Publicly Accessible" for AWS, you can use the following steps using Python:
+To remediate the misconfiguration of an MQ Broker being publicly accessible in AWS using Python, you can follow these steps:
 
-1. First, you need to identify the Amazon MQ brokers that are publicly accessible in your AWS account. You can use the Boto3 library in Python to list all the Amazon MQ brokers in your account.
+1. **Identify the Security Group**: First, you need to identify the Security Group associated with the MQ Broker.
 
-```python
-import boto3
+2. **Update Security Group Rules**: You will need to update the inbound rules of the Security Group to restrict access to the MQ Broker to only the necessary IP addresses or ranges.
 
-# Create an Amazon MQ client
-mq_client = boto3.client('mq')
+3. **Revoke Public Access**: Remove the existing rule that allows public access to the MQ Broker.
 
-# List all the Amazon MQ brokers in your account
-response = mq_client.list_brokers()
-for broker in response['BrokerSummaries']:
-    # Check if the broker is publicly accessible
-    if broker['PubliclyAccessible']:
-        # Take remediation action
-```
-
-2. Once you have identified the publicly accessible Amazon MQ brokers, you need to update their security group to restrict access only to authorized IPs. You can use the Boto3 library in Python to update the security group of the Amazon MQ brokers.
+Here is a sample Python script to achieve this:
 
 ```python
 import boto3
 
-# Create an Amazon EC2 client
-ec2_client = boto3.client('ec2')
+# Define the region and the security group ID associated with the MQ Broker
+region = 'your_region'
+security_group_id = 'your_security_group_id'
 
-# Update the security group of the Amazon MQ broker to restrict access only to authorized IPs
-response = ec2_client.authorize_security_group_ingress(
-    GroupId='sg-xxxxxxxx',
+# Create a Boto3 client for EC2
+ec2_client = boto3.client('ec2', region_name=region)
+
+# Revoke the existing rule that allows public access to the MQ Broker
+response = ec2_client.revoke_security_group_ingress(
+    GroupId=security_group_id,
     IpPermissions=[
         {
             'IpProtocol': 'tcp',
-            'FromPort': 61614,
-            'ToPort': 61614,
-            'IpRanges': [
-                {
-                    'CidrIp': 'x.x.x.x/32'
-                },
-            ]
-        },
+            'FromPort': 8161,  # Assuming default port for MQ Broker
+            'ToPort': 8161,
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Restrict this as per your requirement
+        }
     ]
 )
+
+print("Public access to the MQ Broker has been revoked.")
 ```
 
-In the above code, replace `sg-xxxxxxxx` with the security group ID of the Amazon MQ broker that needs to be remediated. Replace `x.x.x.x/32` with the authorized IP address that should be allowed to access the broker.
+Make sure to replace `'your_region'` and `'your_security_group_id'` with the appropriate values for your environment.
 
-3. Finally, you can verify that the Amazon MQ broker is no longer publicly accessible by checking its `PubliclyAccessible` attribute. You can use the Boto3 library in Python to get the details of the Amazon MQ broker.
-
-```python
-import boto3
-
-# Create an Amazon MQ client
-mq_client = boto3.client('mq')
-
-# Get the details of the Amazon MQ broker
-response = mq_client.describe_broker(
-    BrokerId='broker-id'
-)
-
-# Check if the broker is publicly accessible
-if not response['Broker']['PubliclyAccessible']:
-    print('Broker is no longer publicly accessible')
-```
-
-In the above code, replace `broker-id` with the ID of the Amazon MQ broker that was remediated.
-
-By following these steps, you can remediate the misconfiguration "MQ Broker Should Not Be Publicly Accessible" for AWS using Python.
+After running this script, the Security Group associated with the MQ Broker will be updated to revoke public access, thereby remedying the misconfiguration of the MQ Broker being publicly accessible in AWS.
 

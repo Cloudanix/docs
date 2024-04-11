@@ -1,0 +1,117 @@
+### Remediation
+
+#### Using Console
+
+To remediate the misconfiguration of EC2 instances not having a backup plan in AWS, you can set up automated backups using Amazon EBS snapshots. Here's a step-by-step guide on how to do this using the AWS Management Console:
+
+1. **Sign in to the AWS Management Console:**
+   Go to https://aws.amazon.com/ and sign in to the AWS Management Console using your credentials.
+
+2. **Navigate to the EC2 Dashboard:**
+   Click on the "Services" dropdown menu at the top of the page, select "EC2" under the "Compute" section to go to the EC2 Dashboard.
+
+3. **Select the EC2 Instance:**
+   In the EC2 Dashboard, select the EC2 instance for which you want to set up automated backups.
+
+4. **Create an Amazon EBS Snapshot:**
+   - Select the EBS volume attached to the EC2 instance.
+   - Click on the "Actions" dropdown menu, navigate to "Create snapshot" and click on it.
+   - Enter a descriptive name for the snapshot and click on "Create snapshot".
+
+5. **Set up Automated Backups:**
+   - In the EC2 Dashboard, under the "ELASTIC BLOCK STORE" section, click on "Snapshots".
+   - Select the snapshot that you created in the previous step.
+   - Click on the "Actions" dropdown menu and select "Create Lifecycle Policy".
+   - Enter a name for the policy, set the frequency and retention period for backups, and click on "Create policy".
+
+6. **Monitor Backup Status:**
+   - To monitor the backup status, go to the EC2 Dashboard, click on "Instances" in the navigation pane, and select the EC2 instance.
+   - Under the "Description" tab, you can view the details of the automated backups and their status.
+
+By following these steps, you have successfully set up automated backups for your EC2 instance using Amazon EBS snapshots, ensuring that you have a backup plan in place for protection.
+
+#### Using CLI
+
+To remediate the misconfiguration of EC2 instances not having backup plan protection in AWS using AWS CLI, you can follow these steps:
+
+1. **Identify EC2 Instances**: First, you need to identify the EC2 instances that do not have backup plan protection enabled. You can use the following AWS CLI command to list all EC2 instances in your account:
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags[?Key==`Name`].Value]' --output table
+   ```
+
+2. **Enable Backup Plan Protection**: To enable backup plan protection for EC2 instances, you can create a backup plan using AWS Backup service. Here's an example command to create a backup plan:
+   ```
+   aws backup create-backup-plan --backup-plan '{"BackupPlanName": "MyBackupPlan","BackupPlanRule": {"RuleName": "DefaultRule","TargetBackupVaultName": "MyBackupVault","ScheduleExpression": "cron(0 0 ? * SUN *)","StartWindowMinutes": 60,"CompletionWindowMinutes": 10080,"Lifecycle":{"DeleteAfterDays": 30}}}'
+   ```
+
+3. **Assign Backup Plan to EC2 Instances**: Next, you need to assign the backup plan to the EC2 instances. You can use the following AWS CLI command to assign the backup plan to the EC2 instances:
+   ```
+   aws backup start-restore-job --resource-type EC2_INSTANCE --metadata '{"instanceId": "YOUR_INSTANCE_ID"}' --iam-role-arn "YOUR_IAM_ROLE_ARN" --backup-vault-name "YOUR_BACKUP_VAULT_NAME"
+   ```
+
+4. **Verify Backup Plan Protection**: Finally, you should verify that the backup plan protection has been successfully enabled for the EC2 instances. You can check the backup status using the AWS Backup console or the following AWS CLI command:
+   ```
+   aws backup list-recovery-points-by-backup-vault --backup-vault-name "YOUR_BACKUP_VAULT_NAME"
+   ```
+
+By following these steps, you can remediate the misconfiguration of EC2 instances not having backup plan protection enabled in AWS using AWS CLI.
+
+#### Using Python
+
+To remediate the misconfiguration of EC2 instances not having a backup plan protection in AWS using Python, you can follow these steps:
+
+1. **Identify EC2 Instances**: Use the Boto3 library in Python to list all the EC2 instances in your AWS account.
+
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+
+response = ec2.describe_instances()
+instances = [instance['InstanceId'] for reservation in response['Reservations'] for instance in reservation['Instances']]
+```
+
+2. **Create AMI Backups**: For each identified EC2 instance, create an AMI backup. This will serve as a snapshot of the instance that can be used to restore it if needed.
+
+```python
+for instance_id in instances:
+    response = ec2.create_image(InstanceId=instance_id, Name='Backup-{}'.format(instance_id), NoReboot=True)
+    image_id = response['ImageId']
+    print('Created AMI {} for instance {}'.format(image_id, instance_id))
+```
+
+3. **Set Up Lifecycle Policies**: Configure lifecycle policies to manage the retention of your AMIs to avoid unnecessary costs and clutter. You can do this using the `create_lifecycle_policy` method in Boto3.
+
+```python
+lifecycle_policy = {
+    'Description': 'AMI Backup Lifecycle Policy',
+    'State': 'ENABLED',
+    'PolicyDetails': {
+        'ResourceTypes': ['AMI'],
+        'TargetTags': [{'Key': 'Backup', 'Value': 'True'}],
+        'Schedules': [
+            {
+                'Name': 'DailyBackup',
+                'CopyTags': True,
+                'CreateRule': {
+                    'Interval': 1,
+                    'IntervalUnit': 'DAYS',
+                    'Times': ['00:00']
+                },
+                'RetainRule': {
+                    'Count': 7
+                }
+            }
+        ]
+    }
+}
+
+response = ec2.create_lifecycle_policy(LifecyclePolicy=lifecycle_policy)
+policy_id = response['PolicyId']
+print('Created Lifecycle Policy {}'.format(policy_id))
+```
+
+4. **Automate Backup Process**: Set up a cron job or a Lambda function to automate the backup process at regular intervals.
+
+By following these steps, you can ensure that your EC2 instances have a backup plan protection in place in AWS using Python.
+
