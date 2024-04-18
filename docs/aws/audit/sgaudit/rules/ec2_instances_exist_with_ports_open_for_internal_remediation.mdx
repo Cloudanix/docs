@@ -2,108 +2,98 @@
 
 #### Using Console
 
-To remediate the issue of open ports for internal traffic in AWS, you can follow these steps:
+To remediate the issue of ports being open for internal traffic in AWS Security Groups, you can follow these steps using the AWS Management Console:
 
-1. Login to your AWS console.
-2. Navigate to the EC2 dashboard.
-3. Select the security group which has the open ports for internal traffic.
-4. Click on the "Inbound Rules" tab.
-5. Identify the ports that are open for internal traffic.
-6. Select the rule that allows internal traffic on those ports.
-7. Click on the "Edit" button.
-8. From the "Source" dropdown, select "Custom" and enter the IP address range of your VPC.
-9. Click on the "Save" button.
+1. **Sign in to the AWS Management Console**: Go to https://aws.amazon.com/ and sign in to the AWS Management Console.
 
-By doing this, you are restricting the traffic to only the IP address range of your VPC and preventing any unauthorized access to the open ports.
+2. **Navigate to the EC2 Dashboard**: Click on the "Services" dropdown menu at the top of the page, select "EC2" under the Compute section.
+
+3. **Select Security Groups**: In the EC2 Dashboard, on the left-hand side, under "Network & Security", click on "Security Groups".
+
+4. **Identify the Security Group**: Identify the security group that has ports open for internal traffic that you want to remediate.
+
+5. **Edit Inbound Rules**: Select the security group by clicking on the checkbox next to it, then click on the "Inbound Rules" tab at the bottom.
+
+6. **Review Inbound Rules**: Review the existing inbound rules to identify the ports that are open for internal traffic.
+
+7. **Remove Internal Traffic Rules**: To remediate the issue, you need to remove the rules that allow internal traffic. Select the rule that allows internal traffic (usually with a source IP range corresponding to the VPC CIDR block or a specific security group), then click on the "Delete" button.
+
+8. **Add Specific Rules**: If necessary, you can add specific rules to allow traffic only from trusted sources. Click on the "Add Rule" button, select the type of rule (e.g., HTTP, HTTPS, SSH), specify the allowed source (e.g., your IP address, a specific IP range), and click "Save".
+
+9. **Review Changes**: Review the changes you have made to ensure that only necessary ports are open for external traffic.
+
+10. **Save Changes**: Once you are satisfied with the changes, click on the "Save Rules" button to apply the updated security group configuration.
+
+By following these steps, you can remediate the issue of ports being open for internal traffic in AWS Security Groups and ensure that your resources are properly secured.
 
 #### Using CLI
 
-To remediate the port open for internal traffic misconfiguration in AWS using AWS CLI, follow the below steps:
+To remediate the issue of ports being open for internal traffic in AWS Security Groups using AWS CLI, follow these steps:
 
-1. Log in to the AWS Management Console.
+1. Identify the Security Group that has the open ports for internal traffic:
+   Run the following AWS CLI command to list all the Security Groups in your AWS account:
+   ```
+   aws ec2 describe-security-groups
+   ```
 
-2. Open the AWS CLI terminal.
+2. Identify the Security Group ID of the Security Group that has the open ports for internal traffic.
 
-3. Run the following command to list all the security groups in your AWS account:
+3. Update the Security Group to restrict the open ports for internal traffic:
+   Run the following AWS CLI command to revoke the ingress rule that allows internal traffic on the open port (replace `sg-xxxxxxxxxxxx` with the Security Group ID):
+   ```
+   aws ec2 revoke-security-group-ingress --group-id sg-xxxxxxxxxxxx --protocol tcp --port <port_number> --cidr <your_internal_cidr_block>
+   ```
 
-```
-aws ec2 describe-security-groups
-```
+4. Verify the Security Group rules:
+   Run the following AWS CLI command to describe the Security Group rules and verify that the ingress rule allowing internal traffic on the open port has been revoked:
+   ```
+   aws ec2 describe-security-groups --group-ids sg-xxxxxxxxxxxx
+   ```
 
-4. Identify the security group that has the open port for internal traffic misconfiguration.
-
-5. Run the following command to revoke the ingress rule for the open port:
-
-```
-aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol <protocol> --port <port> --cidr <cidr-block>
-```
-
-Replace the following parameters in the above command:
-
-- `<security-group-id>`: The ID of the security group that has the open port for internal traffic misconfiguration.
-- `<protocol>`: The protocol used for the open port, such as TCP or UDP.
-- `<port>`: The number of the open port.
-- `<cidr-block>`: The CIDR block for the internal traffic.
-
-6. Verify that the ingress rule for the open port has been revoked by running the following command:
-
-```
-aws ec2 describe-security-groups --group-ids <security-group-id>
-```
-
-Replace `<security-group-id>` with the ID of the security group that you modified.
-
-7. Repeat these steps for any other security groups that have the open port for internal traffic misconfiguration.
+By following these steps, you can remediate the issue of ports being open for internal traffic in AWS Security Groups using AWS CLI.
 
 #### Using Python
 
-To remediate this misconfiguration in AWS using Python, you can follow these steps:
+To remediate the issue of ports being open for internal traffic in AWS Security Groups using Python, you can follow these steps:
 
-1. Identify the security group(s) that have open ports for internal traffic. You can use the AWS boto3 library to get a list of all security groups in your AWS account and then loop through them to identify the ones with open ports for internal traffic.
+Step 1: Install the necessary Python libraries
+Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip:
+```bash
+pip install boto3
+```
+
+Step 2: Write a Python script to identify and close the open ports
+Create a Python script that will identify the security groups with open ports for internal traffic and revoke the ingress rules. Here's an example script to get you started:
 
 ```python
 import boto3
 
-# Initialize the EC2 client
+# Initialize the Boto3 client
 ec2 = boto3.client('ec2')
 
-# Get a list of all security groups in your AWS account
+# Get a list of all security groups
 response = ec2.describe_security_groups()
 
-# Loop through the security groups to identify the ones with open ports for internal traffic
-for sg in response['SecurityGroups']:
-    for rule in sg['IpPermissions']:
-        if rule['IpProtocol'] == 'tcp' and rule['FromPort'] == 0 and rule['ToPort'] == 65535:
-            for cidr in rule['IpRanges']:
-                if cidr['CidrIp'] == '0.0.0.0/0':
-                    print(f"Security group {sg['GroupId']} has open ports for internal traffic.")
+for group in response['SecurityGroups']:
+    for perm in group['IpPermissions']:
+        # Check if the port is open for internal traffic
+        if 'GroupId' in group and perm['IpProtocol'] == '-1' and 'UserIdGroupPairs' in perm:
+            # Revoke the ingress rule
+            ec2.revoke_security_group_ingress(
+                GroupId=group['GroupId'],
+                IpPermissions=[perm]
+            )
+            print(f"Revoked ingress rule for {group['GroupId']}")
+
+print("Security groups remediated successfully.")
 ```
 
-2. Once you have identified the security group(s) with open ports for internal traffic, you can modify the security group(s) to remove the open ports. You can use the AWS boto3 library to modify the security group(s) and revoke the ingress rules that allow internal traffic.
+Step 3: Run the Python script
+Save the script to a file (e.g., `remediate_security_groups.py`) and run it using Python. Make sure you have the necessary AWS credentials configured for the Boto3 client.
 
-```python
-import boto3
-
-# Initialize the EC2 client
-ec2 = boto3.client('ec2')
-
-# Modify the security group(s) to remove the open ports for internal traffic
-response = ec2.revoke_security_group_ingress(
-    GroupId='SECURITY_GROUP_ID',
-    IpPermissions=[
-        {
-            'IpProtocol': 'tcp',
-            'FromPort': 0,
-            'ToPort': 65535,
-            'IpRanges': [
-                {
-                    'CidrIp': '0.0.0.0/0'
-                }
-            ]
-        }
-    ]
-)
+```bash
+python remediate_security_groups.py
 ```
 
-Note: Replace `SECURITY_GROUP_ID` with the ID of the security group that you want to modify. You can also modify the `IpPermissions` list to match the ingress rules that you want to revoke.
+This script will iterate through all security groups in your AWS account, identify any open ports for internal traffic, and revoke the ingress rules for those ports. Make sure to review the script and customize it according to your specific requirements before running it in your AWS environment.
 

@@ -2,91 +2,113 @@
 
 #### Using Console
 
-Sure, here are the step-by-step instructions to remediate the "EC2 instances should not be publicly accessible" misconfiguration for AWS using the AWS console:
+To remediate the misconfiguration of EC2 instances being publicly accessible in AWS Security Groups, follow these steps using the AWS Management Console:
 
-1. Log in to your AWS Management Console.
-2. Navigate to the EC2 service.
-3. Click on the "Instances" option from the left-hand menu.
-4. Select the instance that you want to remediate.
-5. In the bottom panel, click on the "Description" tab.
-6. Look for the "Security groups" section and click on the security group associated with the instance.
-7. In the "Inbound rules" tab, identify the rule that allows public access to the instance. This could be either an SSH or RDP rule that allows traffic from 0.0.0.0/0 or a rule that allows HTTP/HTTPS traffic from anywhere.
-8. Click on the "Edit" button to modify the inbound rule.
-9. Change the source IP address or IP range to a specific IP address or IP range that you trust. Alternatively, you can remove the rule altogether if it's not needed.
-10. Click on the "Save" button to apply the changes.
+1. **Login to AWS Console**: Go to the AWS Management Console (https://aws.amazon.com/console/) and log in to your account.
 
-After following these steps, your instance will no longer be publicly accessible. It's important to regularly review your security groups to ensure that only necessary traffic is allowed to your instances.
+2. **Navigate to EC2 Dashboard**: Go to the EC2 Dashboard by clicking on the "Services" dropdown menu at the top left corner, selecting "EC2" under the Compute section.
+
+3. **Identify the EC2 Instance**: Identify the EC2 instance(s) that are publicly accessible. You can do this by checking the "Instance State" and "Instance Type" columns in the EC2 Dashboard.
+
+4. **Identify Security Group**: Click on the EC2 instance that you want to remediate and scroll down to the "Description" tab. Under the Security group section, you will see the security group associated with the EC2 instance.
+
+5. **Edit Security Group Rules**: Click on the security group associated with the EC2 instance. This will take you to the "Inbound" tab of the security group.
+
+6. **Remove Public Access**: Identify the rule that allows public access (e.g., SSH port 22 or HTTP port 80) and click on the "Edit" button.
+
+7. **Modify Rule**: In the Edit inbound rules window, select the rule that allows public access and click on the "Delete" button to remove it.
+
+8. **Save Changes**: Click on the "Save rules" button to apply the changes to the security group.
+
+9. **Verify Changes**: Go back to the EC2 Dashboard, select the EC2 instance, and verify that it is no longer publicly accessible by checking the public IP address field.
+
+10. **Repeat for Other Instances**: Repeat the above steps for any other EC2 instances that are publicly accessible.
+
+By following these steps, you have successfully remediated the misconfiguration of EC2 instances being publicly accessible in AWS Security Groups.
 
 #### Using CLI
 
-To remediate the misconfiguration of EC2 instances being publicly accessible in AWS using AWS CLI, follow the below steps:
+To remediate the issue of EC2 instances being publicly accessible in AWS using the AWS CLI, follow these steps:
 
-Step 1: Open the AWS CLI on your local machine.
+1. Identify the security group associated with the EC2 instance that is publicly accessible. You can do this by describing the instance and noting the security group ID.
 
-Step 2: Run the following command to get a list of all the EC2 instances in your AWS account:
-
-```
-aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,PublicIpAddress,State.Name]' --output text
+```bash
+aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].SecurityGroups[*].GroupId' --output text
 ```
 
-This will give you a list of all the EC2 instances in your account along with their instance ID, public IP address, and current state.
+2. Describe the inbound rules of the identified security group to check if there are any rules allowing public access.
 
-Step 3: Identify the instances that are publicly accessible by looking at their public IP addresses.
-
-Step 4: To remediate this, you need to remove the public IP address from the instance. To do this, you can modify the security group associated with the instance and remove the inbound rule that allows traffic from any IP address. 
-
-You can use the following command to modify the security group:
-
-```
-aws ec2 modify-instance-attribute --instance-id <instance_id> --no-source-dest-check
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id>
 ```
 
-Replace `<instance_id>` with the ID of the instance you want to modify.
+3. Remove the inbound rule that allows public access (usually with `0.0.0.0/0` as the source) using the revoke-security-group-ingress command.
 
-This command will remove the source/destination check for the instance, which means that the instance will no longer have a public IP address and will not be publicly accessible.
+```bash
+aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr 0.0.0.0/0
+```
 
-Step 5: Verify that the instance is no longer publicly accessible by running the `describe-instances` command again and checking the public IP address of the instance.
+Replace `<security-group-id>` with the actual security group ID, `<port-number>` with the specific port number (e.g., 22 for SSH, 80 for HTTP, 443 for HTTPS), and `0.0.0.0/0` with the appropriate source IP range if needed.
 
-That's it! You have successfully remediated the misconfiguration of EC2 instances being publicly accessible in AWS using AWS CLI.
+4. Verify that the inbound rule has been successfully removed by describing the security group again.
+
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id>
+```
+
+By following these steps, you can remediate the issue of EC2 instances being publicly accessible in AWS by updating the security group rules to restrict access as needed.
 
 #### Using Python
 
-To remediate the misconfiguration of EC2 instances being publicly accessible in AWS using Python, follow these steps:
+To remediate the misconfiguration of EC2 instances being publicly accessible in AWS using Python, you can create a script that will update the security group rules to restrict access only to specific IP addresses or ranges. Here are the steps to remediate this issue:
 
-1. Identify the publicly accessible EC2 instances using the AWS SDK for Python (Boto3) by checking the value of the "PublicIpAddress" attribute of each instance.
+1. Install the Boto3 library:
+   - Make sure you have the Boto3 library installed in your Python environment. You can install it using pip:
+     ```
+     pip install boto3
+     ```
 
-2. For each instance that has a public IP address, modify its security group to remove the inbound rule that allows public access.
+2. Write a Python script to update the security group rules:
+   - Use the following Python script as a template to update the security group rules for your EC2 instances:
 
-3. To remove the inbound rule using Python, use the following code snippet:
+     ```python
+     import boto3
 
-```
-import boto3
+     # Initialize the EC2 client
+     ec2 = boto3.client('ec2')
 
-# Create EC2 client
-ec2 = boto3.client('ec2')
+     # Define the security group ID of the EC2 instance
+     security_group_id = 'your_security_group_id'
 
-# Specify the security group ID and the IP protocol (TCP or UDP)
-security_group_id = 'YOUR_SECURITY_GROUP_ID'
-ip_protocol = 'tcp'
+     # Define the IP ranges that should have access to the EC2 instance
+     ip_ranges = [{'CidrIp': 'x.x.x.x/32'}, {'CidrIp': 'y.y.y.y/32'}]  # Add your desired IP ranges
 
-# Specify the port range to be removed from the inbound rule
-from_port = 0
-to_port = 65535
+     # Update the security group rules
+     response = ec2.authorize_security_group_ingress(
+         GroupId=security_group_id,
+         IpPermissions=[
+             {
+                 'IpProtocol': '-1',
+                 'IpRanges': ip_ranges
+             }
+         ]
+     )
 
-# Specify the CIDR range of the inbound rule to be removed
-cidr_ip = '0.0.0.0/0'
+     print('Security group rules updated successfully.')
+     ```
 
-# Remove the inbound rule from the security group
-response = ec2.revoke_security_group_ingress(
-    GroupId=security_group_id,
-    IpProtocol=ip_protocol,
-    FromPort=from_port,
-    ToPort=to_port,
-    CidrIp=cidr_ip
-)
-```
+3. Replace 'your_security_group_id' with the actual security group ID of your EC2 instance.
+   
+4. Define the IP ranges that should have access to the EC2 instance in the `ip_ranges` variable.
 
-4. Repeat the above steps for all the publicly accessible EC2 instances in your AWS account.
+5. Run the Python script:
+   - Save the Python script in a file, for example, `update_security_group.py`, and run it using the Python interpreter:
+     ```
+     python update_security_group.py
+     ```
 
-5. To prevent future EC2 instances from being publicly accessible, you can create a custom AWS Config rule that checks for the "PublicIpAddress" attribute of all EC2 instances and flags any that have a public IP address. You can then use AWS Lambda to automatically modify the security group of any flagged instances to remove the inbound rule that allows public access.
+6. Verify the changes:
+   - After running the script, verify that the security group rules have been updated to restrict access to the specified IP ranges only.
+
+By following these steps and customizing the script with your specific security group ID and IP ranges, you can remediate the misconfiguration of EC2 instances being publicly accessible in AWS.
 

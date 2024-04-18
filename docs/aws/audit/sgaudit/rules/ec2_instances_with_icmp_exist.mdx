@@ -24,123 +24,95 @@ NIST
 
 #### Using Console
 
-To remediate the misconfiguration of an EC2 Instance having open ICMP ports in AWS, follow the below steps:
+To remediate the misconfiguration of an EC2 instance having open ICMP ports in AWS Security Groups, follow these steps using the AWS Management Console:
 
-1. Log in to the AWS Management Console.
+1. Sign in to the AWS Management Console.
 2. Navigate to the EC2 dashboard.
-3. Select the EC2 instance that has open ICMP ports.
-4. Click on the "Security" tab.
-5. Scroll down to the "Security Groups" section.
-6. Click on the Security Group that is associated with the instance.
-7. Click on the "Inbound Rules" tab.
-8. Locate the rule that allows ICMP traffic.
-9. Click on the "Actions" button and select "Edit inbound rules".
-10. Select the rule that allows ICMP traffic.
-11. Click on the "Remove" button.
-12. Click on the "Save rules" button.
+3. In the navigation pane, choose "Security Groups."
+4. Select the security group associated with the EC2 instance that has open ICMP ports.
+5. In the "Inbound rules" tab, locate the rule that allows ICMP traffic (Protocol: ICMP) with any source (0.0.0.0/0 or ::/0).
+6. Select the rule by checking the box next to it.
+7. Click on the "Actions" dropdown menu and choose "Edit inbound rules."
+8. In the Edit inbound rules dialog box, locate the ICMP rule and click on the "X" icon to remove it.
+9. Click the "Save rules" button to apply the changes.
 
-After completing these steps, the security group associated with the EC2 instance will no longer allow ICMP traffic.
+By following these steps, you have remediated the misconfiguration of the EC2 instance having open ICMP ports in the AWS Security Group. Now, the instance will no longer allow ICMP traffic from any source.
 
 #### Using CLI
 
-To remediate the misconfiguration of an EC2 instance having open ICMP ports in AWS using AWS CLI, follow these steps:
+To remediate the open ICMP ports on an EC2 instance in AWS using AWS CLI, you can follow these steps:
 
-1. Login to your AWS account and open the AWS CLI console.
-2. Run the following command to get the security group ID of the EC2 instance:
+1. Identify the Security Group associated with the EC2 instance that has the open ICMP ports:
+   
+   Run the following AWS CLI command to describe the security groups associated with the EC2 instance:
+   ```
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].SecurityGroups[*].[GroupId]' --output text
+   ```
+   Replace `<instance-id>` with the actual ID of the EC2 instance.
 
-```
-aws ec2 describe-instances --query 'Reservations[*].Instances[*].SecurityGroups[*].[GroupId]' --output text
-```
+2. Identify the inbound rules in the Security Group that allow ICMP traffic:
+   
+   Run the following AWS CLI command to describe the inbound rules of the Security Group:
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[]'
+   ```
+   Replace `<security-group-id>` with the Security Group ID obtained in the previous step.
 
-3. Run the following command to revoke the inbound rule for ICMP traffic:
+3. Revoke the inbound rule that allows ICMP traffic:
+   
+   Run the following AWS CLI command to revoke the inbound rule that allows ICMP traffic (replace the actual values for Protocol, Port Range, and CIDR IP based on the output from the previous step):
+   ```
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol icmp --port <port-range> --cidr <cidr-ip>
+   ```
 
-```
-aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol icmp --port all --cidr 0.0.0.0/0
-```
+4. Verify that the inbound rule allowing ICMP traffic has been revoked:
+   
+   Run the following AWS CLI command to describe the inbound rules of the Security Group again and verify that the rule allowing ICMP traffic is no longer present:
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[]'
+   ```
 
-Note: Replace `<security-group-id>` with the actual security group ID obtained in step 2.
-
-4. Verify that the inbound rule for ICMP traffic has been revoked by running the following command:
-
-```
-aws ec2 describe-security-groups --group-ids <security-group-id>
-```
-
-Note: Replace `<security-group-id>` with the actual security group ID obtained in step 2.
-
-5. The output of the above command should not contain any inbound rule for ICMP traffic.
-
-By following these steps, you have successfully remediated the misconfiguration of an EC2 instance having open ICMP ports in AWS using AWS CLI.
+By following these steps, you can successfully remediate the open ICMP ports on an EC2 instance in AWS by using AWS CLI.
 
 #### Using Python
 
-To remediate the issue of EC2 instance having open ICMP ports in AWS using python, we can use the boto3 library which is the AWS SDK for Python. Here are the steps to remediate the issue:
+To remediate the misconfiguration of an EC2 instance having open ICMP ports in AWS Security Groups using Python, you can follow these steps:
 
-1. Import the boto3 library and create an EC2 client object:
-
+1. Install the Boto3 library using pip if you haven't already:
+```bash
+pip install boto3
 ```
+
+2. Use the following Python script to identify and revoke the ingress rule that allows ICMP traffic in the specified security group:
+
+```python
 import boto3
+
+# Initialize the EC2 client
 ec2 = boto3.client('ec2')
+
+# Specify the security group ID that needs to be remediated
+security_group_id = 'YOUR_SECURITY_GROUP_ID'
+
+# Describe the security group to get the current ingress rules
+response = ec2.describe_security_groups(GroupIds=[security_group_id])
+ingress_rules = response['SecurityGroups'][0]['IpPermissions']
+
+# Revoke any ingress rule that allows ICMP traffic
+for rule in ingress_rules:
+    if 'IpProtocol' in rule and rule['IpProtocol'] == 'icmp':
+        ec2.revoke_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[rule]
+        )
+        print(f"Revoked ICMP rule in security group: {security_group_id}")
 ```
 
-2. Get a list of all the security groups associated with the EC2 instance:
+3. Replace `'YOUR_SECURITY_GROUP_ID'` with the actual ID of the security group that needs to be remediated.
 
-```
-response = ec2.describe_instances(
-    Filters=[
-        {
-            'Name': 'instance-id',
-            'Values': [
-                'your-instance-id',
-            ]
-        },
-    ]
-)
+4. Run the Python script, and it will revoke any ingress rule that allows ICMP traffic in the specified security group.
 
-security_groups = response['Reservations'][0]['Instances'][0]['SecurityGroups']
-```
-
-Note: Replace 'your-instance-id' with the actual ID of the EC2 instance that has the open ICMP ports.
-
-3. For each security group, check if it has any inbound rules allowing ICMP traffic:
-
-```
-for sg in security_groups:
-    response = ec2.describe_security_groups(
-        GroupIds=[
-            sg['GroupId'],
-        ]
-    )
-
-    ip_permissions = response['SecurityGroups'][0]['IpPermissions']
-
-    for permission in ip_permissions:
-        if permission['IpProtocol'] == 'icmp':
-            ec2.revoke_security_group_ingress(
-                GroupId=sg['GroupId'],
-                IpPermissions=[
-                    {
-                        'IpProtocol': 'icmp',
-                        'IpRanges': [
-                            {
-                                'CidrIp': '0.0.0.0/0'
-                            },
-                        ],
-                        'Ipv6Ranges': [
-                            {
-                                'CidrIpv6': '::/0'
-                            },
-                        ],
-                    },
-                ]
-            )
-```
-
-Note: This code will revoke all inbound ICMP rules for all IP ranges and IPv6 ranges. If you want to keep some of the rules, you can modify the code accordingly.
-
-4. Run the script and verify that the open ICMP ports have been closed for the EC2 instance.
-
-Note: Make sure that you have the necessary permissions to modify the security groups.
+By following these steps, you can remediate the misconfiguration of an EC2 instance having open ICMP ports in AWS Security Groups using Python.
 
 ### Additional Reading:
 

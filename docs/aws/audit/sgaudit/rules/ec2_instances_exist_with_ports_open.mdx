@@ -24,129 +24,104 @@ NIST
 
 #### Using Console
 
-To remediate the issue of having ports open for external traffic in AWS, follow these steps:
+To remediate the issue of ports being open for external traffic in AWS Security Groups, follow these steps using the AWS Management Console:
 
-1. Log in to the AWS Management Console.
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard.
+3. In the navigation pane, under the 'Network & Security' section, click on 'Security Groups'.
+4. Select the security group that has the open ports for external traffic that you want to remediate.
+5. Click on the 'Inbound rules' tab.
+6. Identify the rule that allows external traffic (0.0.0.0/0) to access the specific port(s).
+7. Click on the 'Edit inbound rules' button.
+8. Select the rule that allows the unwanted external traffic and click on the 'Delete' button to remove it.
+9. Click on the 'Save rules' button to apply the changes.
+10. Verify that the rule allowing external traffic to the specific port(s) has been removed successfully.
 
-2. Navigate to the EC2 Dashboard.
-
-3. Select the EC2 instance for which you want to close the open ports.
-
-4. Click on the Security Groups option in the left-hand menu.
-
-5. Select the security group that is associated with the EC2 instance.
-
-6. Click on the Inbound Rules tab.
-
-7. Locate the rule that is allowing external traffic to access the port(s) that you want to close.
-
-8. Click on the "X" button next to the rule to delete it.
-
-9. Click on the Save button to apply the changes.
-
-This will close the open ports for external traffic and prevent any unauthorized access to your EC2 instance.
+By following these steps, you have successfully remediated the issue of ports being open for external traffic in the AWS Security Group.
 
 #### Using CLI
 
-Step-by-Step instructions to remediate the issue "Ports Should Not Be Open for External Traffic" in AWS using AWS CLI:
+To remediate the issue of ports being open for external traffic in AWS Security Groups using AWS CLI, follow these steps:
 
-1. Login to your AWS account using AWS CLI.
-2. Identify the Security Group that has the open port(s) for external traffic.
-3. Get the Security Group ID.
-4. Run the following command to revoke the ingress rule that allows external traffic for the identified Security Group:
-
+1. Identify the security group that has the open port for external traffic. You can use the following AWS CLI command to list all security groups in your AWS account:
 ```
-aws ec2 revoke-security-group-ingress --group-id <Security-Group-ID> --protocol tcp --port <Port-Number> --cidr <IP-Address>/<CIDR-Block>
+aws ec2 describe-security-groups
 ```
 
-Note: Replace `<Security-Group-ID>` with the actual Security Group ID, `<Port-Number>` with the actual port number that is open for external traffic, and `<IP-Address>/<CIDR-Block>` with the actual IP address range that is allowed to access the port.
+2. Once you have identified the security group that needs to be remediated, note down the Group ID of the security group.
 
-5. Verify that the ingress rule has been revoked by running the following command:
-
+3. Use the following AWS CLI command to revoke the ingress rule that allows external traffic to the port in the security group. Replace `<group-id>` and `<ip-permission-id>` with the actual values:
 ```
-aws ec2 describe-security-groups --group-ids <Security-Group-ID>
+aws ec2 revoke-security-group-ingress --group-id <group-id> --ip-permissions '[{"IpProtocol": "tcp", "FromPort": <port-number>, "ToPort": <port-number>, "IpRanges": [{"CidrIp": "0.0.0.0/0"}], "IpPermissionId": "<ip-permission-id>"}]'
 ```
 
-Note: Replace `<Security-Group-ID>` with the actual Security Group ID.
+4. Verify that the ingress rule has been revoked successfully by describing the security group again:
+```
+aws ec2 describe-security-groups --group-ids <group-id>
+```
 
-6. Repeat steps 4 and 5 for all the open ports that are accessible to external traffic.
+5. Repeat the above steps for any other security groups that have open ports for external traffic.
 
-By following these steps, you can remediate the issue "Ports Should Not Be Open for External Traffic" in AWS using AWS CLI.
+By following the above steps, you can successfully remediate the issue of ports being open for external traffic in AWS Security Groups using AWS CLI.
 
 #### Using Python
 
-To remediate the misconfiguration of ports being open for external traffic in AWS using Python, you can use the Boto3 library which is the official AWS SDK for Python. Here are the steps to remediate the misconfiguration:
+To remediate the issue of ports being open for external traffic in AWS Security Groups using Python, you can use the AWS SDK for Python (Boto3) to update the security group rules. Here are the step-by-step instructions to remediate this issue:
 
-1. First, you need to identify the security groups that have open ports for external traffic. You can use the following code to list all the security groups in your AWS account:
+1. Install the Boto3 library if you haven't already:
+
+```bash
+pip install boto3
+```
+
+2. Use the following Python script to identify and close the open ports in the security groups:
 
 ```python
 import boto3
 
-client = boto3.client('ec2')
+# Initialize the EC2 client
+ec2 = boto3.client('ec2')
 
-response = client.describe_security_groups()
+# Define the security group ID that you want to remediate
+security_group_id = 'YOUR_SECURITY_GROUP_ID'
 
-for sg in response['SecurityGroups']:
-    print(sg['GroupId'], sg['GroupName'])
+# Describe the current inbound rules of the security group
+response = ec2.describe_security_groups(GroupIds=[security_group_id])
+
+# Iterate over each inbound rule and revoke the open ports
+for rule in response['SecurityGroups'][0]['IpPermissions']:
+    if 'FromPort' in rule and 'ToPort' in rule:
+        from_port = rule['FromPort']
+        to_port = rule['ToPort']
+        if from_port != to_port:
+            ec2.revoke_security_group_ingress(
+                GroupId=security_group_id,
+                IpPermissions=[{
+                    'FromPort': from_port,
+                    'ToPort': to_port,
+                    'IpProtocol': rule['IpProtocol'],
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                }]
+            )
+        else:
+            ec2.revoke_security_group_ingress(
+                GroupId=security_group_id,
+                IpPermissions=[{
+                    'FromPort': from_port,
+                    'ToPort': to_port,
+                    'IpProtocol': rule['IpProtocol'],
+                    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                }]
+            )
+
+print("Security group remediated successfully.")
 ```
 
-2. Once you have identified the security groups, you can use the following code to revoke the ingress rules that allow external traffic to access the open ports:
+3. Replace `'YOUR_SECURITY_GROUP_ID'` with the actual ID of the security group that you want to remediate.
 
-```python
-import boto3
+4. Run the Python script. It will iterate over each inbound rule in the specified security group and revoke the open ports for external traffic.
 
-client = boto3.client('ec2')
-
-# Replace the security group id and port number with your own values
-response = client.revoke_security_group_ingress(
-    GroupId='sg-xxxxxxxx',
-    IpPermissions=[
-        {
-            'IpProtocol': 'tcp',
-            'FromPort': 80,
-            'ToPort': 80,
-            'IpRanges': [
-                {
-                    'CidrIp': '0.0.0.0/0'
-                },
-            ],
-        },
-    ]
-)
-
-print(response)
-```
-
-In the above code, you need to replace the `GroupId` with the ID of the security group that has open ports for external traffic. You also need to specify the port number and IP protocol that you want to revoke access to.
-
-3. You can also use the following code to revoke all ingress rules that allow external traffic to access the open ports:
-
-```python
-import boto3
-
-client = boto3.client('ec2')
-
-# Replace the security group id with your own value
-response = client.revoke_security_group_egress(
-    GroupId='sg-xxxxxxxx',
-    IpPermissions=[
-        {
-            'IpProtocol': '-1',
-            'IpRanges': [
-                {
-                    'CidrIp': '0.0.0.0/0'
-                },
-            ],
-        },
-    ]
-)
-
-print(response)
-```
-
-In the above code, you need to replace the `GroupId` with the ID of the security group that has open ports for external traffic. The `IpProtocol` is set to `-1` which means all protocols are included. The `IpRanges` are set to `0.0.0.0/0` which means all IP addresses are included.
-
-Note: These codes are just examples and you need to modify them according to your specific use case. Also, make sure to test the remediation before applying it to production environments.
+By following these steps, you can remediate the issue of open ports for external traffic in AWS Security Groups using Python and the Boto3 library.
 
 ### Additional Reading:
 

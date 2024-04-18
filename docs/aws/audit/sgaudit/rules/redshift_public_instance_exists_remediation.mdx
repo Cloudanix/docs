@@ -2,103 +2,126 @@
 
 #### Using Console
 
-To remediate the misconfiguration "Redshift Should Not Be Publicly Accessible" in AWS, you can follow the below steps:
+To remediate the issue of Redshift being publicly accessible in AWS, you can follow these steps using the AWS Management Console:
 
-1. Login to the AWS Management Console.
-2. Navigate to the Amazon Redshift Dashboard.
-3. Select the Redshift cluster that you want to remediate.
-4. Click on the "Properties" tab in the cluster details page.
-5. In the "Network and security" section, you will see the "Publicly Accessible" option.
-6. If the "Publicly Accessible" option is set to "Yes", click on the "Modify" button.
-7. In the "Modify Cluster" page, scroll down to the "Network and security" section.
-8. Set the "Publicly Accessible" option to "No".
-9. Click on the "Modify" button to save the changes.
+1. **Navigate to the AWS Redshift Console:**
+   - Go to the AWS Management Console and navigate to the Amazon Redshift dashboard.
 
-After following the above steps, the Redshift cluster will no longer be publicly accessible.
+2. **Identify the Cluster:**
+   - Identify the Redshift cluster that is publicly accessible and note down the Security Group associated with it.
+
+3. **Navigate to the EC2 Dashboard:**
+   - Go to the EC2 dashboard by clicking on 'Services' in the top left corner, then selecting 'EC2' under the 'Compute' section.
+
+4. **Select Security Groups:**
+   - In the EC2 dashboard, click on 'Security Groups' in the left-hand menu to view all the security groups.
+
+5. **Identify the Security Group:**
+   - Find the Security Group that is associated with the Redshift cluster identified earlier.
+
+6. **Edit Security Group Inbound Rules:**
+   - Select the Security Group, and click on the 'Inbound Rules' tab at the bottom.
+
+7. **Remove Public Access:**
+   - Look for the rule that allows public access to the Redshift cluster (usually port 5439 for Redshift) and delete it.
+   - If there is a rule with a source of 0.0.0.0/0 or ::/0, remove it to restrict access.
+
+8. **Apply Changes:**
+   - Click on the 'Save rules' button to apply the changes to the Security Group.
+
+9. **Verify Changes:**
+   - Go back to the Redshift dashboard and ensure that the cluster is no longer publicly accessible.
+
+By following these steps, you have successfully remediated the issue of Redshift being publicly accessible in AWS by updating the Security Group rules to restrict access only to authorized sources.
 
 #### Using CLI
 
-To remediate the misconfiguration "Redshift Should Not Be Publicly Accessible" for AWS, you can follow these steps using AWS CLI:
+To remediate the misconfiguration of Redshift being publicly accessible in AWS using AWS CLI, follow these steps:
 
-1. Open the AWS CLI and run the following command to get the current status of the Redshift cluster:
+1. Identify the Security Group associated with your Redshift cluster:
+```bash
+aws redshift describe-clusters --cluster-identifier YourRedshiftClusterName
+```
 
-   ```
-   aws redshift describe-clusters --cluster-identifier <cluster-identifier>
-   ```
+2. Note down the Security Group ID associated with your Redshift cluster.
 
-   Note: Replace `<cluster-identifier>` with the identifier of the Redshift cluster.
+3. Update the inbound rules of the Security Group to restrict access to only specific IP addresses or ranges. Replace `YourSecurityGroupId` and `YourCIDRRange` with the actual values:
+```bash
+aws ec2 authorize-security-group-ingress --group-id YourSecurityGroupId --protocol tcp --port 5439 --cidr YourCIDRRange
+```
 
-2. Check the value of the `PubliclyAccessible` parameter in the output of the above command. If the value is `true`, it means that the Redshift cluster is publicly accessible.
+4. Verify the inbound rules have been updated successfully:
+```bash
+aws ec2 describe-security-groups --group-ids YourSecurityGroupId
+```
 
-3. To remediate this misconfiguration, run the following command to modify the Redshift cluster and set the `PubliclyAccessible` parameter to `false`:
+5. Test the connectivity to your Redshift cluster to ensure that only the allowed IP addresses can access it.
 
-   ```
-   aws redshift modify-cluster --cluster-identifier <cluster-identifier> --no-publicly-accessible
-   ```
-
-   Note: Replace `<cluster-identifier>` with the identifier of the Redshift cluster.
-
-4. After running the above command, the Redshift cluster will no longer be publicly accessible.
-
-5. Finally, run the following command to verify that the `PubliclyAccessible` parameter has been set to `false`:
-
-   ```
-   aws redshift describe-clusters --cluster-identifier <cluster-identifier>
-   ```
-
-   Note: Replace `<cluster-identifier>` with the identifier of the Redshift cluster.
+By following these steps, you have successfully remediated the misconfiguration of Redshift being publicly accessible in AWS using AWS CLI.
 
 #### Using Python
 
-To remediate the misconfiguration "Redshift Should Not Be Publicly Accessible" for AWS using python, you can follow the below steps:
+To remediate the misconfiguration of Redshift being publicly accessible in AWS using Python, you can update the associated security group to restrict access to the necessary IP addresses or CIDR blocks. Here are the step-by-step instructions to achieve this:
 
-1. First, you need to check if the Redshift cluster is publicly accessible or not. You can use the AWS SDK for Python (Boto3) to get the details of the cluster.
+1. Install the Boto3 library if you haven't already. Boto3 is the AWS SDK for Python. You can install it using pip:
+   
+```bash
+pip install boto3
+```
+
+2. Use the following Python script to update the inbound rules of the security group associated with the Redshift cluster to restrict access:
 
 ```python
 import boto3
 
-redshift = boto3.client('redshift')
-cluster_identifier = 'your_cluster_identifier'
+def update_redshift_security_group(region_name, redshift_cluster_id, security_group_id):
+    # Create a Redshift client
+    redshift_client = boto3.client('redshift', region_name=region_name)
+    
+    # Describe the cluster to get the security group
+    response = redshift_client.describe_clusters(ClusterIdentifier=redshift_cluster_id)
+    security_group_name = response['Clusters'][0]['VpcSecurityGroups'][0]['VpcSecurityGroupId']
+    
+    # Create an EC2 client
+    ec2_client = boto3.client('ec2', region_name=region_name)
+    
+    # Revoke the existing inbound rule that allows all traffic
+    ec2_client.revoke_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': '-1',
+                'FromPort': -1,
+                'ToPort': -1,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            }
+        ]
+    )
+    
+    # Add a new inbound rule to allow access from specific IP addresses or CIDR blocks
+    ec2_client.authorize_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': 5439,  # Redshift port
+                'ToPort': 5439,
+                'IpRanges': [{'CidrIp': 'YOUR_IP_ADDRESS_OR_CIDR_BLOCK'}]
+            }
+        ]
+    )
 
-response = redshift.describe_clusters(ClusterIdentifier=cluster_identifier)
-cluster = response['Clusters'][0]
+# Specify the AWS region, Redshift cluster ID, and Security Group ID
+region_name = 'YOUR_AWS_REGION'
+redshift_cluster_id = 'YOUR_REDSHIFT_CLUSTER_ID'
+security_group_id = 'YOUR_SECURITY_GROUP_ID'
 
-if cluster['PubliclyAccessible']:
-    # Redshift cluster is publicly accessible
-else:
-    # Redshift cluster is not publicly accessible
+update_redshift_security_group(region_name, redshift_cluster_id, security_group_id)
 ```
 
-2. If the Redshift cluster is publicly accessible, you can update the cluster's security group to remove the public access. You can use the `revoke_security_group_ingress` method of the `ec2` client to remove the inbound rule that allows public access.
+3. Replace the placeholders `YOUR_AWS_REGION`, `YOUR_REDSHIFT_CLUSTER_ID`, `YOUR_SECURITY_GROUP_ID`, and `YOUR_IP_ADDRESS_OR_CIDR_BLOCK` with your actual AWS region, Redshift cluster ID, security group ID, and the desired IP address or CIDR block to allow access.
 
-```python
-ec2 = boto3.client('ec2')
-security_group_id = cluster['VpcSecurityGroups'][0]['VpcSecurityGroupId']
-ip_protocol = 'tcp'
-from_port = 0
-to_port = 65535
-cidr_ip = '0.0.0.0/0'
+4. Run the Python script to update the security group associated with the Redshift cluster and restrict access to the specified IP addresses or CIDR blocks.
 
-response = ec2.revoke_security_group_ingress(
-    GroupId=security_group_id,
-    IpProtocol=ip_protocol,
-    FromPort=from_port,
-    ToPort=to_port,
-    CidrIp=cidr_ip
-)
-```
-
-3. After removing the public access, you can verify if the Redshift cluster is no longer publicly accessible.
-
-```python
-response = redshift.describe_clusters(ClusterIdentifier=cluster_identifier)
-cluster = response['Clusters'][0]
-
-if cluster['PubliclyAccessible']:
-    # Redshift cluster is still publicly accessible
-else:
-    # Redshift cluster is not publicly accessible
-```
-
-By following the above steps, you can remediate the misconfiguration "Redshift Should Not Be Publicly Accessible" for AWS using python.
+By following these steps, you can remediate the misconfiguration of Redshift being publicly accessible in AWS by updating the associated security group using Python.
 

@@ -2,101 +2,91 @@
 
 #### Using Console
 
-Sure, here are the step by step instructions to remediate this misconfiguration in AWS:
+To remediate the misconfiguration of RDS instances being publicly accessible in AWS, you can follow these steps using the AWS Management Console:
 
-1. Log in to the AWS Management Console.
-2. Go to the Amazon RDS console.
-3. Choose the RDS instance that you want to remediate.
-4. Click on the "Modify" button in the "Instance actions" dropdown menu.
-5. Scroll down to the "Network & Security" section.
-6. Under "Additional connectivity configuration", select "No" for the "Publicly accessible" option.
-7. Scroll down to the bottom of the page and click on the "Modify DB instance" button to save your changes.
-8. Wait for the RDS instance to finish modifying. This process may take a few minutes.
-9. Once the modification is complete, verify that the RDS instance is no longer publicly accessible by attempting to connect to it from a public IP address.
+1. **Log in to the AWS Management Console**: Go to https://aws.amazon.com/ and log in to your AWS account.
 
-By following these steps, you have successfully remediated the misconfiguration of having RDS instances publicly accessible in AWS.
+2. **Navigate to the RDS Dashboard**: Click on the "Services" dropdown menu at the top of the page, select "RDS" under the Database section.
+
+3. **Select the RDS Instance**: From the list of RDS instances, select the instance that you want to modify the security group for by clicking on its identifier.
+
+4. **Modify the Security Group**: In the RDS instance details page, scroll down to the "Security group rules" section. Click on the security group name listed there.
+
+5. **Edit Inbound Rules**: In the security group's "Inbound rules" tab, you will see the current rules allowing inbound traffic to the RDS instance. To make the RDS instance not publicly accessible, you need to remove the rule that allows inbound traffic from any source (0.0.0.0/0).
+
+6. **Delete the Public Access Rule**: Find the rule that allows inbound traffic from 0.0.0.0/0 (or any IP address range), select it, and click on the "Delete" or "Remove" button to remove this rule.
+
+7. **Add Specific IP Addresses (Optional)**: If you still need to access the RDS instance from specific IP addresses or ranges, you can add new inbound rules to allow traffic only from those specific sources.
+
+8. **Save Changes**: After removing the public access rule and adding specific IP addresses if necessary, click on the "Save rules" or "Apply changes" button to apply the new security group rules.
+
+By following these steps, you have successfully remediated the misconfiguration of making RDS instances publicly accessible in AWS by updating the security group rules to restrict access to specific IP addresses or ranges.
 
 #### Using CLI
 
-To remediate the misconfiguration "RDS Instances Should Not Be Publicly Accessible" for AWS using AWS CLI, follow the below steps:
+To remediate the issue of RDS instances being publicly accessible in AWS using AWS CLI, follow these steps:
 
-Step 1: Open the AWS CLI and run the following command to list all the RDS instances in your AWS account:
+1. Identify the security group associated with the RDS instance:
+   Run the following AWS CLI command to get the details of the security group associated with the RDS instance:
+   ```
+   aws rds describe-db-instances --db-instance-identifier <your-db-instance-id>
+   ```
+   Note down the Security Group ID associated with the RDS instance.
 
-```
-aws rds describe-db-instances
-```
+2. Update the inbound rules of the security group to restrict access:
+   Run the following AWS CLI command to revoke the ingress rule that allows public access to the RDS instance. Replace `<your-security-group-id>` and `<your-ip-cidr>` with the actual values.
+   ```
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 3306 --cidr <your-ip-cidr>
+   ```
+   This command will remove the ingress rule that allows access to port 3306 (MySQL) from the specified IP CIDR range.
 
-Step 2: Identify the RDS instance which is publicly accessible.
+3. Verify the changes:
+   Run the following AWS CLI command to describe the inbound rules of the security group and confirm that the public access rule has been revoked:
+   ```
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   ```
 
-Step 3: Run the following command to modify the RDS instance to remove the public accessibility:
-
-```
-aws rds modify-db-instance --db-instance-identifier <instance_name> --no-publicly-accessible
-```
-
-Replace `<instance_name>` with the name of the RDS instance that you identified in Step 2.
-
-Step 4: Verify that the public accessibility has been removed by running the following command:
-
-```
-aws rds describe-db-instances --db-instance-identifier <instance_name> | grep PubliclyAccessible
-```
-
-This command should return "PubliclyAccessible: false" which confirms that the RDS instance is no longer publicly accessible.
-
-By following these steps, you can remediate the misconfiguration "RDS Instances Should Not Be Publicly Accessible" for AWS using AWS CLI.
+By following these steps, you can remediate the misconfiguration of RDS instances being publicly accessible in AWS by updating the security group's inbound rules using AWS CLI.
 
 #### Using Python
 
-To remediate the misconfiguration of RDS Instances being publicly accessible in AWS using Python, you can follow these steps:
+To remediate the misconfiguration of RDS instances being publicly accessible in AWS using Python, you can follow these steps:
 
 1. Import the necessary libraries:
-
 ```python
 import boto3
 ```
 
-2. Create an AWS client for RDS:
-
+2. Initialize the AWS client for RDS:
 ```python
-rds = boto3.client('rds')
+rds_client = boto3.client('rds')
 ```
 
 3. Get a list of all RDS instances:
-
 ```python
-response = rds.describe_db_instances()
+response = rds_client.describe_db_instances()
 ```
 
-4. Loop through the instances and check if they are publicly accessible:
-
+4. Iterate through each RDS instance and check if it is publicly accessible. If it is, modify the security group to remove public access:
 ```python
 for db_instance in response['DBInstances']:
-    db_instance_id = db_instance['DBInstanceIdentifier']
-    is_public = db_instance['PubliclyAccessible']
-    if is_public:
-        print(f"{db_instance_id} is publicly accessible.")
+    db_instance_identifier = db_instance['DBInstanceIdentifier']
+    db_instance_publicly_accessible = db_instance['PubliclyAccessible']
+    
+    if db_instance_publicly_accessible:
+        response_sg = rds_client.describe_db_security_groups(DBInstanceIdentifier=db_instance_identifier)
+        security_group_id = response_sg['DBSecurityGroups'][0]['DBSecurityGroupId']
+        
+        # Revoke the ingress rule that allows public access
+        rds_client.revoke_db_security_group_ingress(
+            DBSecurityGroupName=security_group_id,
+            CIDRIP='0.0.0.0/0'
+        )
+        
+        print(f"Public access revoked for RDS instance: {db_instance_identifier}")
 ```
 
-5. If an instance is publicly accessible, modify its settings to disable public accessibility:
+5. Run the script to remediate the misconfiguration.
 
-```python
-rds.modify_db_instance(
-    DBInstanceIdentifier=db_instance_id,
-    PubliclyAccessible=False
-)
-```
-
-6. Verify that the instance is no longer publicly accessible:
-
-```python
-response = rds.describe_db_instances(DBInstanceIdentifier=db_instance_id)
-is_public = response['DBInstances'][0]['PubliclyAccessible']
-if not is_public:
-    print(f"{db_instance_id} is no longer publicly accessible.")
-```
-
-7. Repeat steps 4-6 for all instances that are publicly accessible.
-
-Note: Before making any changes to your RDS instances, it is recommended to take a backup and test the changes in a non-production environment.
+Please ensure that you have the necessary permissions to modify RDS instances and security groups in your AWS account before running this script.
 

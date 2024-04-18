@@ -24,111 +24,107 @@ NIST
 
 #### Using Console
 
-Sure, here are the step-by-step instructions to remediate the "Default Security Group Should Not Be Publicly Accessible" misconfiguration for AWS using the AWS console:
+To remediate the misconfiguration of the default security group being publicly accessible in AWS, follow these steps using the AWS Management Console:
 
-1. Log in to your AWS console and go to the EC2 dashboard.
+1. **Sign in to the AWS Management Console**: Go to https://aws.amazon.com/ and sign in to your AWS account.
 
-2. From the left-hand menu, click on "Security Groups".
+2. **Navigate to the EC2 Dashboard**: Click on the "Services" dropdown menu at the top left corner of the console, select "EC2" under the Compute section.
 
-3. In the Security Groups page, locate the "default" security group and select it.
+3. **Access the Security Groups**: In the EC2 Dashboard, locate and click on the "Security Groups" option in the left-hand navigation pane.
 
-4. In the "Inbound Rules" tab, remove any rules that allow traffic from any IP address (0.0.0.0/0) or from any source.
+4. **Identify the Default Security Group**: Look for the default security group in the list of security groups. The default security group has the name "default" and is associated with all new instances that are launched in the VPC.
 
-5. If you need to allow traffic to specific ports, add new inbound rules that allow traffic only from specific IP addresses or CIDR blocks.
+5. **Edit Inbound Rules**: Click on the default security group to select it, and then navigate to the "Inbound Rules" tab at the bottom of the console.
 
-6. In the "Outbound Rules" tab, remove any rules that allow traffic to any IP address (0.0.0.0/0) or to any destination.
+6. **Remove Publicly Accessible Rules**: Identify any inbound rules that allow unrestricted access from the internet (0.0.0.0/0 or ::/0) and remove them. This includes rules allowing SSH (port 22), RDP (port 3389), HTTP (port 80), HTTPS (port 443), etc.
 
-7. If you need to allow outbound traffic to specific destinations, add new outbound rules that allow traffic only to specific IP addresses or CIDR blocks.
+7. **Add Necessary Rules**: Add specific inbound rules that allow access only from trusted sources, such as your organization's IP addresses or specific security groups within your VPC.
 
-8. Once you have made the necessary changes, click on the "Save" button to save the updated security group configuration.
+8. **Save the Changes**: After making the necessary changes to the inbound rules, click on the "Save rules" button to apply the changes to the default security group.
 
-9. Verify that the "default" security group is no longer publicly accessible by checking that there are no inbound or outbound rules that allow traffic from any IP address or to any destination.
+9. **Verify Changes**: Double-check the inbound rules to ensure that only necessary and restricted access is allowed to the default security group.
 
-By following these steps, you have successfully remediated the "Default Security Group Should Not Be Publicly Accessible" misconfiguration for AWS using the AWS console.
+By following these steps, you can remediate the misconfiguration of the default security group being publicly accessible in AWS and enhance the security of your cloud environment.
 
 #### Using CLI
 
-To remediate the misconfiguration of the default security group being publicly accessible in AWS, you can follow the below steps using AWS CLI:
+To remediate the misconfiguration of the default security group being publicly accessible in AWS, you can follow these steps using the AWS CLI:
 
-1. Open the AWS CLI on your local machine.
+1. List all the security groups in your AWS account to identify the default security group:
+```
+aws ec2 describe-security-groups --query "SecurityGroups[?GroupName=='default']"
+```
 
-2. Run the following command to get the ID of the default security group:
+2. Get the Group ID of the default security group from the output of the above command.
 
-   ```
-   aws ec2 describe-security-groups --filters Name=group-name,Values=default --query "SecurityGroups[*].GroupId" --output text
-   ```
+3. Update the inbound rules of the default security group to restrict access. You can remove the existing rules or update them to allow access only from specific IP ranges or security groups. For example, to remove all inbound rules from the default security group:
+```
+aws ec2 revoke-security-group-ingress --group-id <YOUR_DEFAULT_SECURITY_GROUP_ID> --protocol -1 --source-group all
+```
 
-3. Run the following command to revoke the ingress rule that allows all traffic from all sources:
+4. Verify that the inbound rules have been updated successfully by describing the security group:
+```
+aws ec2 describe-security-groups --group-ids <YOUR_DEFAULT_SECURITY_GROUP_ID>
+```
 
-   ```
-   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol all --port all --cidr 0.0.0.0/0
-   ```
-
-   Replace `<security-group-id>` with the ID of the default security group that you obtained in step 2.
-
-4. Run the following command to revoke the ingress rule that allows all traffic from all IPv6 sources:
-
-   ```
-   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol all --port all --cidr ::/0
-   ```
-
-   Replace `<security-group-id>` with the ID of the default security group that you obtained in step 2.
-
-5. Verify that the ingress rules have been revoked by running the following command:
-
-   ```
-   aws ec2 describe-security-groups --group-ids <security-group-id>
-   ```
-
-   Replace `<security-group-id>` with the ID of the default security group that you obtained in step 2.
-
-6. Once you have verified that the ingress rules have been revoked, you have successfully remediated the misconfiguration of the default security group being publicly accessible.
+By following these steps, you can ensure that the default security group in your AWS account is no longer publicly accessible.
 
 #### Using Python
 
-To remediate the misconfiguration "Default Security Group Should Not Be Publicly Accessible" for AWS using Python, you can follow the below steps:
+To remediate the misconfiguration of the default security group being publicly accessible in AWS using Python, you can follow these steps:
 
-1. First, you need to identify the default security group in your AWS account. You can use the boto3 library in Python to achieve this. Here's the code snippet to get the default security group:
+1. Use the AWS SDK for Python (Boto3) to programmatically update the inbound rules of the default security group to restrict access.
 
-```
+2. Here's a sample Python script that demonstrates how to update the default security group to allow only specific IP ranges or ports:
+
+```python
 import boto3
 
+# Initialize the EC2 client
 ec2 = boto3.client('ec2')
-response = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['default']}])
-sg_id = response['SecurityGroups'][0]['GroupId']
-```
 
-2. Once you have the default security group ID, you can update its inbound rules to ensure that it is not publicly accessible. Here's the code snippet to update the security group:
+# Get the default security group ID
+response = ec2.describe_security_groups(GroupNames=['default'])
+default_security_group_id = response['SecurityGroups'][0]['GroupId']
 
-```
-ec2 = boto3.resource('ec2')
-security_group = ec2.SecurityGroup(sg_id)
-
-# Revoke all inbound rules
-security_group.revoke_ingress(
-    IpPermissions=security_group.ip_permissions
-)
-
-# Allow traffic from within the VPC
-security_group.authorize_ingress(
+# Revoke existing inbound rules that allow all traffic
+ec2.revoke_security_group_ingress(
+    GroupId=default_security_group_id,
     IpPermissions=[
         {
             'IpProtocol': '-1',
-            'UserIdGroupPairs': [
-                {
-                    'GroupId': sg_id
-                }
-            ]
+            'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
         }
     ]
 )
+
+# Add new inbound rules to allow specific IP ranges or ports
+ec2.authorize_security_group_ingress(
+    GroupId=default_security_group_id,
+    IpPermissions=[
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 22,
+            'ToPort': 22,
+            'IpRanges': [{'CidrIp': 'YOUR_IP_RANGE'}]
+        },
+        {
+            'IpProtocol': 'tcp',
+            'FromPort': 80,
+            'ToPort': 80,
+            'IpRanges': [{'CidrIp': 'YOUR_IP_RANGE'}]
+        }
+    ]
+)
+
+print('Default security group remediated successfully.')
 ```
 
-3. The above code snippet revokes all the inbound rules of the default security group and allows traffic only from within the VPC. This ensures that the default security group is not publicly accessible.
+3. Replace `'YOUR_IP_RANGE'` with the specific IP range or port that you want to allow access to. You can add multiple rules as needed.
 
-4. You can run this Python script periodically to ensure that the default security group remains secure and not publicly accessible.
+4. Run this Python script in your AWS environment with the necessary IAM permissions to update security groups.
 
-Note: Before running the above script, make sure that you have the necessary permissions to modify the security group. Also, make sure that you test this script in a non-production environment before running it in production.
+By following these steps, you can remediate the misconfiguration of the default security group being publicly accessible in AWS using Python.
 
 ### Additional Reading:
 
