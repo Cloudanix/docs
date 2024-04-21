@@ -24,101 +24,68 @@ SOC2, HIPAA, ISO27001, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF, PCIDSS
 
 #### Using Console
 
-The IAM Policy Changes Alarm is triggered when there is a change in the IAM policies that are attached to an IAM user, group or role. This alarm is important to monitor as it can help detect unauthorized changes to your IAM policies that could potentially lead to security breaches. Here are the steps to remediate this issue:
+1. **Configure CloudTrail to Deliver Logs to CloudWatch Logs**:
+   - Go to the AWS Management Console.
+   - Open the CloudTrail service.
+   - Select your trail.
+   - Click on "Edit".
+   - In the "CloudWatch Logs" section, select an existing log group or create a new one.
+   - Click "Save changes".
 
-1. Log in to your AWS console and navigate to the CloudWatch dashboard.
-
-2. Click on the Alarms tab and locate the IAM Policy Changes Alarm.
-
-3. Click on the IAM Policy Changes Alarm to view the details of the alarm.
-
-4. Click on the Actions dropdown and select Edit.
-
-5. In the Edit Alarm screen, you can modify the alarm settings to suit your needs. For example, you can adjust the threshold for when the alarm is triggered, or you can modify the notification settings to receive alerts via email or SMS.
-
-6. Once you have made the necessary changes, click on the Update Alarm button to save your changes.
-
-7. To further remediate this issue, you should also review your IAM policies to ensure that they are up-to-date and that only authorized users have access to them. You can do this by navigating to the IAM dashboard and reviewing the policies attached to each user, group or role.
-
-8. Remove any policies that are no longer needed or that grant excessive permissions.
-
-9. Regularly review your IAM policies to ensure that they remain secure and up-to-date.
-
-By following these steps, you can remediate the IAM Policy Changes Alarm issue and ensure that your AWS environment remains secure.
+2. **Create Metric Filter and Alarm**:
+   - Go to the CloudWatch service in the AWS Management Console.
+   - In the left-hand navigation pane, choose "Logs" and then select the log group you configured in CloudTrail.
+   - Click on "Create metric filter".
+   - Define a filter pattern that matches IAM policy changes. For example, you might use a pattern like `{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }`.
+   - Click "Assign metric".
+   - Give your metric a name like `IAMPolicyChangesEventCount`.
+   - Click "Create filter".
+   - Once your filter is created, you can set up an alarm based on this metric.
 
 #### Using CLI
 
-The IAM Policy Changes Alarm is triggered when there are changes made to IAM policies in your AWS account. To remediate this, you can follow these steps using the AWS CLI:
+1. **Create Metric Filter**:
+   ```bash
+   aws logs put-metric-filter \
+     --log-group-name "YOUR_LOG_GROUP_NAME" \
+     --filter-name "IAMPolicyChangesFilter" \
+     --filter-pattern '{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }' \
+     --metric-transformations "metricName=IAMPolicyChangesEventCount,metricNamespace=CloudTrailMetrics,metricValue=1"
+   ```
+   Replace `"YOUR_LOG_GROUP_NAME"` with the name of your CloudTrail log group.
 
-1. Review the IAM policy changes that were made by checking the CloudTrail logs. You can use the following command to list the CloudTrail events related to IAM policy changes:
-
-```
-aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=PutGroupPolicy
-```
-
-This command will list all the events related to the "PutGroupPolicy" action, which is used to add or modify an IAM policy attached to a group.
-
-2. Identify the user or role that made the policy changes. You can do this by checking the "userIdentity" field in the CloudTrail event logs.
-
-3. Review the policy changes made by the user or role. You can use the following command to retrieve the policy document:
-
-```
-aws iam get-group-policy --group-name <group-name> --policy-name <policy-name>
-```
-
-Replace `<group-name>` and `<policy-name>` with the actual names of the group and policy that were modified.
-
-4. If the policy changes were unauthorized or unintended, you should revoke the user or role's permissions to modify IAM policies. You can do this by removing the "iam:PutGroupPolicy" permission from the user or role's IAM policy.
-
-5. To remove the "iam:PutGroupPolicy" permission from an IAM policy, you can use the following command:
-
-```
-aws iam update-assume-role-policy --role-name <role-name> --policy-document file://policy.json
-```
-
-Replace `<role-name>` with the actual name of the role that needs to be updated, and `policy.json` with a file containing the updated policy document that removes the "iam:PutGroupPolicy" permission.
-
-6. After making the necessary changes, monitor the CloudTrail logs to ensure that no further unauthorized or unintended changes are made to IAM policies.
+2. **Create CloudWatch Alarm** (optional):
+   Use the `put-metric-alarm` command to create an alarm based on the metric you created.
 
 #### Using Python
-
-The IAM Policy Changes Alarm is triggered when a change is made to an AWS Identity and Access Management (IAM) policy. This can be a security risk if the policy is changed in a way that grants excessive permissions to users or roles. Here are the steps to remediate this issue using Python:
-
-1. Identify the root cause of the policy change. This could be a user or a role that made the change.
-
-2. Review the IAM policy change and determine if it was authorized or unauthorized.
-
-3. If the policy change was unauthorized, revoke the IAM permissions of the user or role that made the change.
-
-4. If the policy change was authorized, review the change to ensure that it does not grant excessive permissions.
-
-5. If the change does grant excessive permissions, modify the policy to remove the excessive permissions.
-
-6. Monitor the IAM policy changes using AWS CloudTrail to ensure that there are no further unauthorized changes.
-
-Here's an example Python script to revoke IAM permissions for a user:
 
 ```python
 import boto3
 
-# Replace with your AWS access key ID and secret access key
-ACCESS_KEY_ID = 'YOUR_ACCESS_KEY_ID'
-SECRET_ACCESS_KEY = 'YOUR_SECRET_ACCESS_KEY'
+cloudwatch_logs = boto3.client('logs')
+cloudwatch = boto3.client('cloudwatch')
 
-# Replace with the name of the user whose permissions you want to revoke
-USERNAME = 'USERNAME'
+# Create Metric Filter
+response = cloudwatch_logs.put_metric_filter(
+    logGroupName='YOUR_LOG_GROUP_NAME',
+    filterName='IAMPolicyChangesFilter',
+    filterPattern='{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }',
+    metricTransformations=[
+        {
+            'metricName': 'IAMPolicyChangesEventCount',
+            'metricNamespace': 'CloudTrailMetrics',
+            'metricValue': 1
+        }
+    ]
+)
 
-# Create an IAM client
-iam = boto3.client('iam',
-                   aws_access_key_id=ACCESS_KEY_ID,
-                   aws_secret_access_key=SECRET_ACCESS_KEY)
-
-# Revoke all permissions for the user
-policy_arn = iam.list_attached_user_policies(UserName=USERNAME)['AttachedPolicies'][0]['PolicyArn']
-iam.detach_user_policy(UserName=USERNAME, PolicyArn=policy_arn)
+# Create CloudWatch Alarm (optional)
+# You can use cloudwatch.put_metric_alarm() to create an alarm based on the metric
 ```
 
-Note: This is just an example and may need to be modified based on your specific use case. It's important to thoroughly test any changes before implementing them in a production environment.
+Replace `"YOUR_LOG_GROUP_NAME"` with the name of your CloudTrail log group.
+
+These steps should help you set up the `IAMPolicyChangesEventCount` metric in CloudWatch using the AWS Console, AWS CLI, or Python script. Remember to adjust the configuration according to your specific use case and environment.
 
 ### Additional Reading:
 
