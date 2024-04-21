@@ -24,71 +24,68 @@ SOC2, HIPAA, ISO27001, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF, PCIDSS
 
 #### Using Console
 
-1. **Sign in to the AWS Management Console**: Go to the AWS Management Console at https://console.aws.amazon.com/.
+1. **Configure CloudTrail to Deliver Logs to CloudWatch Logs**:
+   - Go to the AWS Management Console.
+   - Open the CloudTrail service.
+   - Select your trail.
+   - Click on "Edit".
+   - In the "CloudWatch Logs" section, select an existing log group or create a new one.
+   - Click "Save changes".
 
-2. **Open CloudWatch Console**: Navigate to the CloudWatch service by either searching for it in the AWS services search bar or finding it under "Management & Governance."
-
-3. **Navigate to Metrics**: In the CloudWatch console, click on "Metrics" in the left-hand navigation pane.
-
-4. **Select the Appropriate Namespace**: Find and select the namespace under which the metric `IAMPolicyChangesEventCount` should be located. This could be "AWS/CloudTrail" or a custom namespace if the metric is custom.
-
-5. **Check for Metric**: Look for the metric named `IAMPolicyChangesEventCount`. If it exists, you'll see data points plotted on the graph.
+2. **Create Metric Filter and Alarm**:
+   - Go to the CloudWatch service in the AWS Management Console.
+   - In the left-hand navigation pane, choose "Logs" and then select the log group you configured in CloudTrail.
+   - Click on "Create metric filter".
+   - Define a filter pattern that matches IAM policy changes. For example, you might use a pattern like `{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }`.
+   - Click "Assign metric".
+   - Give your metric a name like `IAMPolicyChangesEventCount`.
+   - Click "Create filter".
+   - Once your filter is created, you can set up an alarm based on this metric.
 
 #### Using CLI
 
-To set a CloudWatch metric using the AWS CLI, you typically don't "set" metrics directly like you would with CloudWatch Alarms or Dashboards. Instead, you typically publish custom metrics to CloudWatch. Here's how you can publish a custom metric using the AWS CLI:
+1. **Create Metric Filter**:
+   ```bash
+   aws logs put-metric-filter \
+     --log-group-name "YOUR_LOG_GROUP_NAME" \
+     --filter-name "IAMPolicyChangesFilter" \
+     --filter-pattern '{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }' \
+     --metric-transformations "metricName=IAMPolicyChangesEventCount,metricNamespace=CloudTrailMetrics,metricValue=1"
+   ```
+   Replace `"YOUR_LOG_GROUP_NAME"` with the name of your CloudTrail log group.
 
-1. **Install and Configure AWS CLI**: Make sure you have the AWS CLI installed and configured with the necessary permissions to publish custom metrics to CloudWatch.
-
-2. **Prepare Metric Data**: Prepare the data you want to publish as a custom metric. The data should include the metric name, value, timestamp, and any other relevant dimensions or metadata.
-
-3. **Publish Metric Data**: Use the `put-metric-data` command to publish the metric data to CloudWatch.
-
-Here's a general example of how you can use the AWS CLI to publish custom metric data:
-
-```bash
-aws cloudwatch put-metric-data --namespace "MyNamespace" --metric-name "MyMetric" --value 1 --timestamp "$(date -u +'%Y-%m-%dT%H:%M:%S')" --region "us-east-1"
-```
-
-In this example:
-- `MyNamespace` is the namespace for the metric.
-- `MyMetric` is the name of the metric.
-- `1` is the value of the metric.
-- `$(date -u +'%Y-%m-%dT%H:%M:%S')` is the timestamp in ISO 8601 format.
-- `us-east-1` is the AWS region.
-
-Replace these values with your actual metric data. Also, ensure that the AWS CLI is configured with the correct AWS region where your CloudWatch metrics are located.
-
-Remember that you can't directly create metrics in CloudWatch through the AWS CLI. You can only publish data points to existing custom metrics or predefined AWS service metrics. If you're working with custom metrics, make sure you have set up the metric namespace and dimensions beforehand.
+2. **Create CloudWatch Alarm** (optional):
+   Use the `put-metric-alarm` command to create an alarm based on the metric you created.
 
 #### Using Python
-
-Here's how you can check for the existence of the metric `IAMPolicyChangesEventCount` using Python with the boto3 library:
 
 ```python
 import boto3
 
+cloudwatch_logs = boto3.client('logs')
 cloudwatch = boto3.client('cloudwatch')
 
-# List metrics
-response = cloudwatch.list_metrics(
-    Namespace='AWS/CloudTrail'
+# Create Metric Filter
+response = cloudwatch_logs.put_metric_filter(
+    logGroupName='YOUR_LOG_GROUP_NAME',
+    filterName='IAMPolicyChangesFilter',
+    filterPattern='{ $.eventSource = "iam.amazonaws.com" && $.eventName = "AttachRolePolicy" }',
+    metricTransformations=[
+        {
+            'metricName': 'IAMPolicyChangesEventCount',
+            'metricNamespace': 'CloudTrailMetrics',
+            'metricValue': 1
+        }
+    ]
 )
 
-# Check if IAMPolicyChangesEventCount exists
-found = False
-for metric in response['Metrics']:
-    if metric['MetricName'] == 'IAMPolicyChangesEventCount':
-        found = True
-        break
-
-if found:
-    print("IAMPolicyChangesEventCount metric exists.")
-else:
-    print("IAMPolicyChangesEventCount metric does not exist.")
+# Create CloudWatch Alarm (optional)
+# You can use cloudwatch.put_metric_alarm() to create an alarm based on the metric
 ```
 
-This script will check if the metric `IAMPolicyChangesEventCount` exists under the `AWS/CloudTrail` namespace in CloudWatch. Adjust the namespace accordingly if the metric is located in a different namespace.
+Replace `"YOUR_LOG_GROUP_NAME"` with the name of your CloudTrail log group.
+
+These steps should help you set up the `IAMPolicyChangesEventCount` metric in CloudWatch using the AWS Console, AWS CLI, or Python script. Remember to adjust the configuration according to your specific use case and environment.
 
 ### Additional Reading:
 
