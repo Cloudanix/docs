@@ -1,0 +1,63 @@
+
+### Event Information
+
+#### Meaning
+
+- This event indicates a potential unauthorized outbound connection from a pod in the Kubernetes cluster to a Command and Control (C2) server, which could be a sign of a security breach.
+- To investigate further, you can use the following kubectl command to list all the pods in the cluster: 
+  ```
+  kubectl get pods --all-namespaces
+  ```
+- You can then inspect the logs of the suspicious pod using the following kubectl command:
+  ```
+  kubectl logs <pod_name> -n <namespace>
+  ```
+
+#### Remediation
+
+- Create a Kubernetes Deployment manifest file to deploy a Python script that uses the Kubernetes API to monitor and block outbound connections to C2 servers:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: c2-connection-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: c2-connection-monitor
+  template:
+    metadata:
+      labels:
+        app: c2-connection-monitor
+    spec:
+      containers:
+      - name: c2-connection-monitor
+        image: python:3
+        command: ["python", "-c", "import kubernetes; # Add your Python script here to monitor and block outbound connections to C2 servers"]
+```
+
+- Create a Kubernetes NetworkPolicy manifest file to restrict egress traffic from the deployment to C2 servers:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-c2-egress
+spec:
+  podSelector:
+    matchLabels:
+      app: c2-connection-monitor
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: C2_SERVER_IP/CIDR
+```
+
+- Apply the Deployment and NetworkPolicy manifest files to the Kubernetes cluster to remediate the outbound connection to C2 servers event:
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f networkpolicy.yaml
+```
+

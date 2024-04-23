@@ -1,0 +1,101 @@
+--- 
+slug: Potential Local Privilege Escalation via Environment Variables Misuse
+rule: Potential Local Privilege Escalation via Environment Variables Misuse
+title: Potential Local Privilege Escalation via Environment Variables Misuse
+sidebar_label: Potential Local Privilege Escalation via Environment Variables Misuse
+---
+
+
+### Event Information
+
+#### Meaning
+
+- This event indicates a potential security issue where an attacker may exploit environment variables to escalate their privileges within the Kubernetes cluster.
+- It is crucial to investigate the source of the environment variables and ensure that sensitive information or privileged access is not being misused.
+- To further investigate, you can list all pods in the cluster to identify the pod associated with the event using the following command: `kubectl get pods`.
+
+
+
+#### Remediation
+
+- Create a Kubernetes Pod Security Policy to restrict the usage of environment variables in Pods:
+```yaml
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: restrict-env-vars
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - '*'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  fsGroup:
+    rule: RunAsAny
+  readOnlyRootFilesystem: false
+  defaultAllowPrivilegeEscalation: false
+  allowedHostPaths:
+    - pathPrefix: "/etc"
+      readOnly: false
+  allowedFlexVolumes: []
+  allowedUnsafeSysctls: []
+  forbiddenSysctls:
+    - '*'
+  allowedProcMountTypes:
+    - "Default"
+  runAsGroup:
+    rule: MustRunAs
+    ranges:
+      - min: 1
+        max: 65535
+  allowedCapabilities: []
+  allowedProcMountTypes:
+    - "Default"
+  allowedUnsafeSysctls: []
+  forbiddenSysctls:
+    - "*"
+```
+
+- Update the Pod definition to adhere to the Pod Security Policy created:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: restricted-pod
+spec:
+  securityContext:
+    seLinuxOptions:
+      level: "s0:c123,c456"
+  containers:
+  - name: container
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      capabilities:
+        drop:
+          - ALL
+    env:
+      - name: ALLOWED_ENV_VAR
+        value: "allowed"
+  restartPolicy: Never
+```
+
+- Apply the Pod Security Policy and update the Pod:
+```bash
+kubectl apply -f pod-security-policy.yaml
+kubectl apply -f restricted-pod.yaml
+```
+
