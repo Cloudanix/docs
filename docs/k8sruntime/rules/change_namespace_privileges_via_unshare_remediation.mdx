@@ -1,0 +1,51 @@
+
+### Event Information
+
+#### Meaning
+
+- This event indicates that a process attempted to change its namespace privileges using the unshare system call in the Kubernetes cluster.
+- It could potentially be a security concern as it may allow a process to gain elevated privileges or escape from container isolation.
+- To investigate further, you can list all the processes running in the cluster namespace using the following kubectl command: 
+  ```kubectl get pods --all-namespaces```
+
+#### Remediation
+
+- Create a new ServiceAccount with restricted permissions in the target namespace:
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restricted-sa
+  namespace: <target_namespace>
+```
+
+- Bind the ServiceAccount to a Role with limited privileges:
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restricted-role
+  namespace: <target_namespace>
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+```
+
+- Finally, bind the Role to the ServiceAccount:
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restricted-rolebinding
+  namespace: <target_namespace>
+subjects:
+- kind: ServiceAccount
+  name: restricted-sa
+  namespace: <target_namespace>
+roleRef:
+  kind: Role
+  name: restricted-role
+  apiGroup: rbac.authorization.k8s.io
+```
+

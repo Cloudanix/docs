@@ -1,0 +1,48 @@
+
+### Event Information
+
+#### Meaning
+
+- This event indicates that someone has added an SSH key to the authorized_keys file, potentially granting them access to the system.
+- It is important to investigate this event promptly to ensure that only authorized users have access to the cluster.
+- To further investigate, you can check the authorized_keys file in the user's home directory using the following command: `kubectl exec <pod_name> -- cat ~/.ssh/authorized_keys`
+
+#### Remediation
+
+- Create a Kubernetes ConfigMap containing the authorized_keys data:
+  ```
+  kubectl create configmap ssh-keys --from-file=authorized_keys=authorized_keys_file
+  ```
+
+- Create a Kubernetes Pod manifest file to run a Python script using the Kubernetes API to add the SSH keys to authorized_keys:
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: ssh-keys-remediation
+  spec:
+    containers:
+    - name: ssh-keys-remediation
+      image: python:3
+      command: ["python"]
+      args: ["add_ssh_keys.py"]
+      volumeMounts:
+      - name: ssh-keys-volume
+        mountPath: /keys
+    volumes:
+    - name: ssh-keys-volume
+      configMap:
+        name: ssh-keys
+  ```
+
+- Create a Python script (add_ssh_keys.py) to read the authorized_keys from the ConfigMap and add them to the appropriate authorized_keys file:
+  ```python
+  import os
+
+  with open('/keys/authorized_keys', 'r') as f:
+      authorized_keys = f.read()
+
+  with open('/root/.ssh/authorized_keys', 'a') as f:
+      f.write(authorized_keys)
+  ```
+
