@@ -20,6 +20,78 @@ Security
 
 NIST
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all the security groups associated with your account. Click on the security group that you want to inspect.
+4. In the details pane at the bottom, click on the "Inbound" tab. This will show you all the inbound rules associated with the selected security group. If there are ports open to the 0.0.0.0/0 CIDR block (which represents all IPv4 addresses), then those ports are open for internal traffic.
+
+#### Using CLI
+
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List All Security Groups**: The first step to detect if ports are open for internal traffic is to list all the security groups. You can do this by running the following command: `aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId]" --output text`. This command will return a list of all security group IDs.
+
+3. **Check Security Group Rules**: For each security group, you need to check the inbound and outbound rules. You can do this by running the following command for each security group ID: `aws ec2 describe-security-groups --group-ids <security-group-id>`. This command will return a JSON object that contains the details of the security group, including its inbound and outbound rules.
+
+4. **Analyze the Rules**: The final step is to analyze the rules to see if any ports are open for internal traffic. You need to look at the 'IpPermissions' field in the returned JSON object. If the 'FromPort' and 'ToPort' fields are set to 0, and the 'IpRanges' field contains an IP range that includes internal IP addresses, then the port is open for internal traffic.
+
+#### Using Python
+
+1. **Import necessary libraries and establish a session**: To start with, you need to import the necessary libraries in your Python script. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. Here is how you can do it:
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # or any other region
+)
+```
+
+2. **Create an EC2 resource and get the security groups**: Now, you need to create an EC2 resource object using the session you just created and get all the security groups.
+
+```python
+ec2_resource = session.resource('ec2')
+
+# Get all the security groups
+security_groups = ec2_resource.security_groups.all()
+```
+
+3. **Check for open ports for internal traffic**: Now, iterate over all the security groups and their rules. If a rule allows traffic from '0.0.0.0/0' (which means all IP addresses), then the port is open for internal traffic.
+
+```python
+for sg in security_groups:
+    for rule in sg.ip_permissions:
+        for ip_range in rule['IpRanges']:
+            if ip_range['CidrIp'] == '0.0.0.0/0':
+                print(f"Security Group {sg.id} has an open port for internal traffic.")
+```
+
+4. **Handle exceptions**: It's a good practice to handle exceptions in your script. You can catch `BotoCoreError` and `ClientError` exceptions and print the error message.
+
+```python
+try:
+    # Your code here
+except (BotoCoreError, ClientError) as error:
+    print(error)
+```
+
+This script will print the IDs of all security groups that have open ports for internal traffic.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -123,3 +195,6 @@ This script will iterate through all security groups in your AWS account, identi
 
 - [https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/authorizing-access-to-an-instance.html](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/authorizing-access-to-an-instance.html) 
 
+
+</Tab>
+</Tabs>

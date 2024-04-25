@@ -20,6 +20,104 @@ Security
 
 SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under NETWORK & SECURITY, click on "Security Groups".
+3. In the Security Groups page, select the security group associated with your PostgreSQL database.
+4. In the lower part of the page, select the "Inbound" tab to view the inbound rules. Check if there are any rules that allow unrestricted access (0.0.0.0/0 or ::/0) to the PostgreSQL default port (5432). If such rules exist, it indicates that unrestricted PostgreSQL access is allowed.
+
+#### Using CLI
+
+1. First, you need to list all the security groups in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+   ```
+
+2. Once you have the list of all security groups, you need to check the inbound rules for each security group. You can do this by using the following AWS CLI command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]' --output json
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group you want to check.
+
+3. In the output of the above command, look for any rules that allow unrestricted access (0.0.0.0/0) to PostgreSQL (port 5432). If such a rule exists, it means that unrestricted PostgreSQL access is allowed.
+
+4. To automate the above steps, you can write a Python script using the boto3 library. The script would iterate over all security groups and their inbound rules, and print out the IDs of the security groups that allow unrestricted PostgreSQL access. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for group in response['SecurityGroups']:
+       for permission in group['IpPermissions']:
+           if 'FromPort' in permission and permission['FromPort'] == 5432 and 'IpRanges' in permission:
+               for range in permission['IpRanges']:
+                   if range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Unrestricted PostgreSQL access allowed in security group: {group['GroupId']}")
+   ```
+   
+   Run the script using the command: `python3 script_name.py`
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) and psycopg2-binary, which is a PostgreSQL database adapter for Python. You can install these libraries using pip:
+
+```python
+pip install boto3 psycopg2-binary
+```
+
+2. Connect to AWS: Use Boto3 to connect to AWS. You'll need your access key, secret access key, and the region you're working in. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. List all EC2 instances: Use the Boto3 EC2 resource object to list all your EC2 instances. Then, for each instance, get the security group IDs.
+
+```python
+ec2_resource = session.resource('ec2')
+
+for instance in ec2_resource.instances.all():
+    for sg in instance.security_groups:
+        print(sg['GroupId'])
+```
+
+4. Check PostgreSQL access: For each security group, check the inbound rules. If a rule allows access to port 5432 (the default PostgreSQL port) from '0.0.0.0/0' (which means any IP address), then unrestricted PostgreSQL access is allowed.
+
+```python
+ec2_client = session.client('ec2')
+
+for instance in ec2_resource.instances.all():
+    for sg in instance.security_groups:
+        response = ec2_client.describe_security_groups(GroupIds=[sg['GroupId']])
+        for rule in response['SecurityGroups'][0]['IpPermissions']:
+            if rule['FromPort'] == 5432 and '0.0.0.0/0' in [ip['CidrIp'] for ip in rule['IpRanges']]:
+                print(f"Unrestricted PostgreSQL access allowed in security group {sg['GroupId']}")
+```
+
+This script will print the IDs of the security groups that allow unrestricted PostgreSQL access.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -152,3 +250,6 @@ This code will print the security group rules associated with each security grou
 
 - [https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules) 
 
+
+</Tab>
+</Tabs>

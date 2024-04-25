@@ -20,6 +20,105 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the Simple Notification Service (SNS) dashboard by choosing "Services" from the top menu and then selecting "Simple Notification Service" under the "Application Integration" category.
+3. In the SNS dashboard, select "Topics" from the left-hand navigation pane. This will display a list of all the SNS topics available within your current AWS region.
+4. For each topic listed, click on the ARN link to open the topic's configuration page. Under the "Subscriptions" section, check the "Owner" column. If there are any accounts listed that are not your own, this indicates that the SNS topic has cross-account access.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the SNS topics.
+
+2. Once the AWS CLI is set up, you can list all the SNS topics in your account using the following command:
+
+   ```
+   aws sns list-topics
+   ```
+   This command will return a list of all SNS topics in your account.
+
+3. For each SNS topic, you can get the topic attributes which include the policy using the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN>
+   ```
+   Replace `<TopicARN>` with the ARN of the topic you want to check. This command will return the attributes of the specified SNS topic.
+
+4. Now, you need to check the policy of each SNS topic. The policy is returned in the JSON format. You need to look for the `"AWS": "*"` in the `"Principal"` field of the policy. If this is present, it means that the SNS topic is accessible by all AWS accounts. You can use a JSON parser or a script to automate this process. Here is a simple Python script that can do this:
+
+   ```python
+   import json
+   import subprocess
+
+   # List all SNS topics
+   result = subprocess.check_output(['aws', 'sns', 'list-topics'])
+   topics = json.loads(result)['Topics']
+
+   for topic in topics:
+       # Get topic attributes
+       result = subprocess.check_output(['aws', 'sns', 'get-topic-attributes', '--topic-arn', topic['TopicArn']])
+       attributes = json.loads(result)['Attributes']
+
+       # Parse policy
+       policy = json.loads(attributes['Policy'])
+
+       # Check for cross account access
+       for statement in policy['Statement']:
+           if 'Principal' in statement and statement['Principal'] == '*':
+               print(f"SNS topic {topic['TopicArn']} has cross account access")
+   ```
+   This script will print the ARNs of all SNS topics that have cross account access.
+
+#### Using Python
+
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, create a client for SNS and get the list of all SNS topics:
+
+```python
+sns = session.client('sns')
+response = sns.list_topics()
+```
+
+4. For each topic, get the topic attributes and check if the `Policy` attribute allows cross-account access. If it does, print a warning message:
+
+```python
+for topic in response['Topics']:
+    attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+    policy = json.loads(attributes['Attributes']['Policy'])
+    for statement in policy['Statement']:
+        if statement['Principal'] == '*':
+            print(f"Warning: The SNS topic {topic['TopicArn']} allows cross-account access.")
+```
+
+This script will print a warning for each SNS topic that allows cross-account access. Note that this is a simple check and might not cover all possible misconfigurations. For a more thorough check, you might need to parse the policy in more detail.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -126,3 +225,6 @@ Note: This code will revoke cross-account access for all SNS Topics that have a 
 
 - [https://docs.aws.amazon.com/sns/latest/dg/sns-configuring.html](https://docs.aws.amazon.com/sns/latest/dg/sns-configuring.html) 
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,86 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard. 
+3. In the navigation pane, choose "Domains".
+4. For each domain listed, click on the domain name to access its configuration settings. Under the "Access Policy" section, check if the policy allows access from IP addresses other than the whitelisted ones. If it does, then the Elasticsearch domain is misconfigured and is accessible from non-whitelisted IP addresses.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI. Make sure you have the necessary permissions to access the Elasticsearch domains.
+
+2. List all the Elasticsearch domains using the following AWS CLI command:
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domain names.
+
+3. For each domain, retrieve the access policy using the following command:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name <your-domain-name>
+   ```
+   Replace `<your-domain-name>` with the name of your domain. This command will return the configuration information of the specified Elasticsearch domain.
+
+4. Check the access policy in the output. If the access policy allows access from IP addresses that are not in the whitelist, then the Elasticsearch domain is misconfigured. The access policy is located in the `AccessPolicies` field in the output. It is a JSON string that you need to parse to check the IP addresses. You can use a tool like `jq` to parse the JSON string. For example:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name <your-domain-name> | jq -r '.DomainConfig.AccessPolicies.Options'
+   ```
+   This command will return the access policy as a JSON object. Check the `aws:SourceIp` field in the `Statement` array in the JSON object. If it contains IP addresses that are not in the whitelist, then the Elasticsearch domain is misconfigured.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) using pip. This SDK allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+pip install boto3
+```
+
+2. Establish a session: You need to establish a session using your AWS credentials. 
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Connect to the Elasticsearch service: Use the session to connect to the Elasticsearch service.
+
+```python
+es_client = session.client('es')
+```
+
+4. Check the access policy: Now, you can use the `describe_elasticsearch_domain` method to get the details of the Elasticsearch domain. The `AccessPolicies` attribute in the response contains the access policy for the domain in JSON format. You can parse this JSON to check if the IP addresses are whitelisted.
+
+```python
+response = es_client.describe_elasticsearch_domain(DomainName='your-domain-name')
+
+import json
+access_policy = json.loads(response['DomainStatus']['AccessPolicies'])
+
+for statement in access_policy['Statement']:
+    if statement['Effect'] == 'Allow' and 'aws:SourceIp' in statement['Condition']:
+        print('Whitelisted IP addresses:', statement['Condition']['aws:SourceIp'])
+    else:
+        print('No IP addresses are whitelisted.')
+```
+
+This script will print the whitelisted IP addresses for the Elasticsearch domain. If no IP addresses are whitelisted, it will print a message saying so.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -165,3 +248,6 @@ To remediate this misconfiguration for AWS Elasticsearch domains, you can use th
 
 That's it! The Elasticsearch domain is now accessible only from the whitelisted IP addresses.
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,91 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Lambda service by typing 'Lambda' into the search bar and selecting 'Lambda' from the dropdown menu.
+3. Once in the Lambda service, you will see a list of all your Lambda functions. Select the function you want to check for cross-account access.
+4. In the function's configuration page, navigate to the 'Permissions' tab. Here, you can see the resource-based policy of the Lambda function. This policy defines who or what can invoke your function. If there are any statements in the policy that allow access from a different AWS account (the 'Principal' field contains an AWS account ID that is not your own), then the function allows cross-account access.
+
+#### Using CLI
+
+1. First, you need to list all your Lambda functions. You can do this by using the AWS CLI command:
+
+```bash
+aws lambda list-functions --region your-region
+```
+
+This command will return a list of all your Lambda functions in the specified region.
+
+2. For each Lambda function, you need to get the resource policy. You can do this by using the AWS CLI command:
+
+```bash
+aws lambda get-policy --function-name your-function-name --region your-region
+```
+
+This command will return the resource policy of the specified Lambda function.
+
+3. You need to parse the output of the previous command to get the policy. The policy is a JSON object that describes who has what permissions to the function. You can use a tool like `jq` to parse the JSON output.
+
+```bash
+aws lambda get-policy --function-name your-function-name --region your-region | jq '.Policy'
+```
+
+4. Finally, you need to check if the policy allows cross-account access. You can do this by looking for statements in the policy where the `Principal` field is not the same as your account ID. If such statements exist, then the function allows cross-account access. You can use a tool like `jq` to filter the statements.
+
+```bash
+aws lambda get-policy --function-name your-function-name --region your-region | jq '.Policy.Statement[] | select(.Principal.AWS != "your-account-id")'
+```
+
+This command will return the statements in the policy that allow cross-account access. If no such statements exist, then the function does not allow cross-account access.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules in your Python script. You will need the 'boto3' module to interact with AWS services and the 'json' module to parse the AWS IAM policy documents.
+
+```python
+import boto3
+import json
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'aws_session_token' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a client for AWS Lambda service and list all the Lambda functions in your account.
+
+```python
+lambda_client = session.client('lambda')
+functions = lambda_client.list_functions()
+```
+
+4. Iterate over each Lambda function and check its resource-based policy. If the policy allows access from another AWS account, print a warning message.
+
+```python
+for function in functions['Functions']:
+    policy = lambda_client.get_policy(FunctionName=function['FunctionName'])
+    policy_doc = json.loads(policy['Policy'])
+    for statement in policy_doc['Statement']:
+        if statement['Principal'] == '*':
+            print(f"Warning: The Lambda function {function['FunctionName']} allows cross-account access.")
+        elif 'AWS' in statement['Principal'] and statement['Principal']['AWS'] != 'arn:aws:iam::' + session.client('sts').get_caller_identity().get('Account') + ':root':
+            print(f"Warning: The Lambda function {function['FunctionName']} allows cross-account access.")
+```
+
+This script will print a warning for each Lambda function that allows cross-account access. Please note that this script only checks for explicit cross-account access and does not consider potential access through roles or other indirect methods.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -102,3 +190,6 @@ Replace `<region>`, `<account-id>`, and `<function-name>` with the appropriate v
 
 This policy will deny access to the Lambda function from any AWS account except for the specified service, and only if the request originates from the specified log group.
 
+
+</Tab>
+</Tabs>

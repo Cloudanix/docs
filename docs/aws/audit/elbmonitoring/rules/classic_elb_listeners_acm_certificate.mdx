@@ -20,6 +20,95 @@ Security
 
 CBP,RBI_UCB,RBI_MD_ITF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the Classic Load Balancer you want to inspect.
+
+4. In the bottom panel, select the "Listeners" tab. This tab displays the protocols and ports configured for your load balancer, as well as any assigned SSL certificates.
+
+5. Check if there is at least one ACM (AWS Certificate Manager) certificate associated with the listener. If there is no ACM certificate, or if the certificate is not from ACM, then the Classic ELB is misconfigured.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Elastic Load Balancer (ELB) resources.
+
+2. Once the AWS CLI is set up, you can list all the Classic Load Balancers in your account using the following command:
+
+   ```
+   aws elb describe-load-balancers
+   ```
+
+   This command will return a JSON output with details of all the Classic Load Balancers.
+
+3. To check the listeners for each Load Balancer, you can use the following command:
+
+   ```
+   aws elb describe-load-balancer-policies --load-balancer-name <your-load-balancer-name>
+   ```
+
+   Replace `<your-load-balancer-name>` with the name of your Load Balancer. This command will return a JSON output with details of all the policies attached to the Load Balancer.
+
+4. To check if there is at least one ACM certificate attached to the listeners, you need to parse the JSON output from the previous command. Look for the "PolicyDescriptions" field in the output. If there is an ACM certificate attached, it will be listed under the "PolicyAttributeDescriptions" field with the attribute name as "SSLCertificateId" and the value as the ARN of the ACM certificate. If there is no such field, it means there is no ACM certificate attached to the listeners.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Import necessary libraries and establish a client connection:
+   In your Python script, you need to import the Boto3 library and establish a client connection to AWS. Here is an example:
+
+   ```python
+   import boto3
+
+   # Create a low-level service client by name using the default session.
+   elb = boto3.client('elbv2')
+   acm = boto3.client('acm')
+   ```
+
+3. Retrieve all the load balancers and their listeners:
+   You can use the `describe_load_balancers` and `describe_listeners` methods to retrieve all the load balancers and their listeners. Here is an example:
+
+   ```python
+   # Retrieve all the load balancers
+   load_balancers = elb.describe_load_balancers()
+
+   for load_balancer in load_balancers['LoadBalancers']:
+       # Retrieve the listeners for each load balancer
+       listeners = elb.describe_listeners(LoadBalancerArn=load_balancer['LoadBalancerArn'])
+   ```
+
+4. Check if the listeners have at least one ACM certificate:
+   You can use the `describe_certificate` method to check if the listeners have at least one ACM certificate. Here is an example:
+
+   ```python
+   for listener in listeners['Listeners']:
+       if 'Certificates' in listener:
+           for certificate in listener['Certificates']:
+               if certificate['IsDefault'] == True:
+                   acm_certificate = acm.describe_certificate(CertificateArn=certificate['CertificateArn'])
+                   if 'Certificate' in acm_certificate:
+                       print(f"Listener {listener['ListenerArn']} has an ACM certificate.")
+                   else:
+                       print(f"Listener {listener['ListenerArn']} does not have an ACM certificate.")
+       else:
+           print(f"Listener {listener['ListenerArn']} does not have any certificates.")
+   ```
+   This script will print out whether each listener has an ACM certificate or not.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -132,3 +221,6 @@ To remediate the misconfiguration of having at least one ACM certificate for Cla
    Once the script has run successfully, verify that each listener on the Classic ELB now has an ACM certificate attached.
 
 By following these steps, you can remediate the misconfiguration of having at least one ACM certificate for Classic ELB listeners in AWS using Python.
+
+</Tab>
+</Tabs>

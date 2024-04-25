@@ -20,6 +20,85 @@ Security
 
 SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under NETWORK & SECURITY, click Security Groups.
+3. In the Security Groups page, select the security group that you want to examine.
+4. In the lower panel, select the Inbound tab to view the inbound rules. Look for rules that allow traffic (0.0.0.0/0 or ::/0 in the Source column) to port 3306 (the default port for MySQL).
+5. If such rules exist, it means that unrestricted MySQL access is allowed.
+
+#### Using CLI
+
+1. First, you need to list all the security groups in your AWS environment. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+```
+
+2. Once you have the list of all security groups, you need to check the inbound rules for each security group. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]' --output json
+```
+Replace `<security-group-id>` with the ID of the security group you want to check.
+
+3. In the output of the above command, look for any rules that allow inbound traffic to port 3306 (the default port for MySQL) from any IP address (0.0.0.0/0 or ::/0). 
+
+4. If you find any such rules, it means that unrestricted MySQL access is allowed in that security group.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Get a list of all EC2 instances:
+   Use the `describe_instances()` function to get a list of all EC2 instances. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_instances()
+
+   for reservation in response["Reservations"]:
+       for instance in reservation["Instances"]:
+           # This sample print will output entire Dictionary object
+           print(instance)
+           # This will print will output the value of the Dictionary key 'InstanceId'
+           print(instance["InstanceId"])
+   ```
+
+3. Check the security groups of each instance:
+   For each instance, get the security groups it belongs to and check the inbound rules. If a rule allows unrestricted access (0.0.0.0/0) to port 3306 (MySQL), then it is a misconfiguration. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for security_group in response['SecurityGroups']:
+       for rule in security_group['IpPermissions']:
+           for ip_range in rule['IpRanges']:
+               if 'FromPort' in rule and 'ToPort' in rule and rule['FromPort'] <= 3306 <= rule['ToPort'] and ip_range['CidrIp'] == '0.0.0.0/0':
+                   print(f"Security group {security_group['GroupName']} ({security_group['GroupId']}) allows unrestricted MySQL access.")
+   ```
+
+4. Run the script:
+   Save the script to a file, for example, `check_mysql_access.py`, and then run it with the command `python check_mysql_access.py`. If there are any instances with misconfigurations, their IDs will be printed to the console.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -122,3 +201,6 @@ This code will loop through each RDS instance and its associated security groups
 
 - [https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules) 
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,114 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms" and then "Create Alarm".
+
+3. In the "Create Alarm" wizard, select "Select metric". Under the "AWS Namespaces" section, select "CloudTrail" and then "Event count". 
+
+4. Configure the alarm properties. Under "Conditions", set the "Threshold type" to "Static". For "Whenever: CloudTrail Event count", set "is" to "Greater/Equal" and ": than" to "1". Under "Additional configuration", set "Datapoints to alarm" to "1 out of 1". This will trigger the alarm if any single data point is above the threshold. 
+
+Note: This alarm will only trigger if AWS CloudTrail is configured to log console sign-in events and if these events are integrated with CloudWatch. If not, you will need to set up these configurations first.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. Use the following AWS CLI command to list all the users in your AWS account:
+
+   ```
+   aws iam list-users --query 'Users[*].UserName'
+   ```
+
+   This command will return a list of all the user names in your AWS account.
+
+3. For each user, you can check if they have MFA enabled by using the following AWS CLI command:
+
+   ```
+   aws iam list-mfa-devices --user-name <username>
+   ```
+
+   Replace `<username>` with the name of the user you want to check. This command will return a list of all the MFA devices associated with the specified user. If the list is empty, it means that the user does not have MFA enabled.
+
+4. To monitor AWS Console Sign In Without MFA, you can use AWS CloudWatch. You can create a CloudWatch alarm that triggers whenever a user signs in to the AWS Console without MFA. Use the following AWS CLI command to create a CloudWatch alarm:
+
+   ```
+   aws cloudwatch put-metric-alarm --alarm-name "SignInWithoutMFA" --metric-name "ConsoleSignInWithoutMFA" --namespace "AWS/SignIn" --statistic "SampleCount" --period 300 --threshold 1 --comparison-operator "GreaterThanOrEqualToThreshold" --evaluation-periods 1 --alarm-actions <arn_of_sns_topic>
+   ```
+
+   Replace `<arn_of_sns_topic>` with the ARN of the SNS topic where you want to receive the alarm notifications. This command will create a CloudWatch alarm that triggers whenever a user signs in to the AWS Console without MFA.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your local environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it. You can use the AWS CLI to configure Boto3:
+   ```
+   aws configure
+   ```
+   You will be asked to provide your AWS Access Key ID and Secret Access Key, which you can get from your AWS Management Console.
+
+2. Use Boto3 to interact with AWS CloudWatch:
+   You can use Boto3 to interact with AWS CloudWatch and get the login events. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_login_events():
+       client = boto3.client('cloudwatch')
+       response = client.get_metric_statistics(
+           Namespace='AWS/Logs',
+           MetricName='IncomingLogEvents',
+           Dimensions=[
+               {
+                   'Name': 'LogGroupName',
+                   'Value': '/aws/lambda/my-log-group'
+               },
+           ],
+           StartTime='2021-01-01T00:00:00Z',
+           EndTime='2021-12-31T23:59:59Z',
+           Period=3600,
+           Statistics=[
+               'SampleCount',
+           ],
+           Unit='Count'
+       )
+       return response
+
+   print(get_login_events())
+   ```
+   This script will print the login events from the specified log group.
+
+3. Parse the login events to find sign-ins without MFA:
+   You can parse the login events to find sign-ins without MFA. Here is a sample script:
+   ```python
+   import json
+
+   def parse_login_events(events):
+       for event in events['Datapoints']:
+           event_data = json.loads(event['SampleCount'])
+           if 'userIdentity' in event_data and 'sessionContext' in event_data['userIdentity']:
+               if 'attributes' in event_data['userIdentity']['sessionContext'] and 'mfaAuthenticated' in event_data['userIdentity']['sessionContext']['attributes']:
+                   if event_data['userIdentity']['sessionContext']['attributes']['mfaAuthenticated'] == 'false':
+                       print('Sign-in without MFA detected: ', event_data)
+
+   parse_login_events(get_login_events())
+   ```
+   This script will print the details of the sign-ins without MFA.
+
+4. Schedule the script to run periodically:
+   You can schedule the script to run periodically to monitor the sign-ins without MFA. You can use cron jobs in Unix-based systems or Task Scheduler in Windows to schedule the script.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -148,3 +259,6 @@ def lambda_handler(event, context):
 
 By following these steps, you can remediate the issue of AWS Console Sign In Without MFA Should Be Monitored using Python.
 
+
+</Tab>
+</Tabs>

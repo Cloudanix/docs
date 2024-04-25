@@ -21,6 +21,90 @@ Reliability
 NIST, NISTCSF
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+3. Select the load balancer you want to inspect.
+4. In the bottom panel, select the "Description" tab. Under "Attributes", check the "Connection Draining" field. If it is disabled, then the ELB does not have connection draining enabled.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Load Balancers: Use the following command to list all the load balancers in your AWS account.
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with details about all your load balancers.
+
+3. Extract Load Balancer ARNs: From the JSON object returned in the previous step, extract the ARN of each load balancer. You can do this manually or by using a tool like `jq`. Here's an example of how to do it with `jq`:
+
+   ```
+   aws elbv2 describe-load-balancers | jq -r '.LoadBalancers[].LoadBalancerArn'
+   ```
+
+4. Check Connection Draining: For each Load Balancer ARN, use the following command to check if connection draining is enabled:
+
+   ```
+   aws elbv2 describe-load-balancer-attributes --load-balancer-arn <LoadBalancerArn>
+   ```
+
+   Replace `<LoadBalancerArn>` with the ARN of your load balancer. This command will return a JSON object with the attributes of the load balancer. If connection draining is enabled, the `ConnectionDraining.Enabled` attribute will be `true`. If it's not, then connection draining is not enabled for that load balancer.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install the AWS SDK for Python (Boto3) in your environment, which allows Python developer to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials to enable Boto3 to communicate with AWS services. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. Import necessary libraries and create a session:
+   Import the necessary Boto3 library and create a session using your AWS credentials.
+   ```python
+   import boto3
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Create an ELB client and retrieve all load balancers:
+   Use the session to create an ELB client. Then, use the describe_load_balancers() method to retrieve all load balancers.
+   ```python
+   elb = session.client('elbv2')
+   load_balancers = elb.describe_load_balancers()
+   ```
+
+4. Check if Connection Draining is enabled:
+   Iterate over all load balancers and check if Connection Draining is enabled. If the 'ConnectionDraining' attribute is not present or if it's set to False, then Connection Draining is not enabled.
+   ```python
+   for lb in load_balancers['LoadBalancers']:
+       attributes = elb.describe_load_balancer_attributes(LoadBalancerArn=lb['LoadBalancerArn'])
+       connection_draining = next((attr for attr in attributes['Attributes'] if attr['Key'] == 'connectionDraining.enabled'), None)
+       if connection_draining is None or connection_draining['Value'] == 'false':
+           print(f"Connection Draining is not enabled for Load Balancer: {lb['LoadBalancerName']}")
+   ```
+   This script will print the names of all load balancers where Connection Draining is not enabled.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -138,3 +222,6 @@ With these steps, you can remediate the "ELBs Should Have Connection Draining En
 
 - [https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/config-conn-drain.html](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/config-conn-drain.html) 
 
+
+</Tab>
+</Tabs>

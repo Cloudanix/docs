@@ -20,6 +20,84 @@ Security
 
 HIPAA, PCIDSS, NIST, SOC2, HITRUST, AWSWAF, NISTCSF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the AWS Lambda console at https://console.aws.amazon.com/lambda/.
+
+2. In the navigation pane, choose "Functions". This will display a list of all your Lambda functions.
+
+3. Select the function you want to check. In the function's detail page, scroll down to the "Designer" section.
+
+4. In the "Designer" section, look for the "Resource-based policy" under the "Function policy" section. If the "Principal" in the policy is set to "*" (which means everyone) and the "Action" is set to "lambda:InvokeFunction", it means the Lambda function is publicly accessible.
+
+#### Using CLI
+
+1. First, you need to list all your Lambda functions. Open your terminal and run the following AWS CLI command:
+
+```bash
+aws lambda list-functions --region your-region
+```
+Replace "your-region" with your actual AWS region. This command will return a list of all your Lambda functions in the specified region.
+
+2. For each function in the list, you need to get its resource policy. Run the following command:
+
+```bash
+aws lambda get-policy --function-name your-function-name --region your-region
+```
+Replace "your-function-name" with the actual name of your Lambda function and "your-region" with your actual AWS region. This command will return the resource policy of the specified Lambda function.
+
+3. In the returned policy, look for the "Statement" array. Each item in this array represents a permission that has been granted to a principal. Check the "Effect" and "Principal" fields of each item. If the "Effect" field is "Allow" and the "Principal" field is "*", this means the Lambda function is publicly accessible.
+
+4. Repeat steps 2 and 3 for each Lambda function in your list. If you find any function that is publicly accessible, you have detected a misconfiguration.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules in your Python script. You will need the 'boto3' module to interact with AWS services and the 'json' module to parse the AWS service responses.
+
+```python
+import boto3
+import json
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'region_name' with your actual AWS credentials and the region where your Lambda functions are deployed.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a client for AWS Lambda service using the session created in the previous step.
+
+```python
+lambda_client = session.client('lambda')
+```
+
+4. List all the Lambda functions in your account and check their resource-based policies. If a policy allows the 'lambda:InvokeFunction' action for a principal that is not the account owner, then the Lambda function is publicly accessible.
+
+```python
+response = lambda_client.list_functions()
+for function in response['Functions']:
+    policy = lambda_client.get_policy(FunctionName=function['FunctionName'])
+    policy_doc = json.loads(policy['Policy'])
+    for statement in policy_doc['Statement']:
+        if statement['Action'] == 'lambda:InvokeFunction' and statement['Principal'] != 'ACCOUNT_OWNER':
+            print(f"Lambda function {function['FunctionName']} is publicly accessible.")
+```
+
+This script will print the names of all Lambda functions that are publicly accessible. Replace 'ACCOUNT_OWNER' with the AWS account ID or IAM user/role ARN that should be the only principal allowed to invoke the Lambda functions.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +208,6 @@ Note: Make sure that you have the necessary permissions to modify the Lambda fun
 
 - [https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-fsbp-controls.html](https://docs.aws.amazon.com/securityhub/latest/userguide/securityhub-standards-fsbp-controls.html) 
 
+
+</Tab>
+</Tabs>

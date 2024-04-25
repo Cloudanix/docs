@@ -20,6 +20,98 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand side menu.
+3. Select the domain name you want to inspect. This will open a list of all the record sets associated with the domain.
+4. Look for any Elastic Beanstalk alias records (these will have the type "A - IPv4 address" and the alias target will be an Elastic Beanstalk environment URL). Check if these records are pointing to resources that are publicly accessible or have weak security configurations. This could make them vulnerable to attacks.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you start, make sure you have AWS CLI installed and configured with the necessary permissions. You can install it using pip (Python package installer). The command is `pip install awscli`. After installation, you can configure it using `aws configure` command.
+
+2. List Hosted Zones: Use the following command to list all the hosted zones in your AWS account.
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+   This command will return a list of all the hosted zones along with their IDs.
+
+3. List Resource Record Sets: For each hosted zone, list all the resource record sets using the following command.
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+   ```
+
+   Replace `<hosted-zone-id>` with the ID of your hosted zone. This command will return a list of all the resource record sets in the specified hosted zone.
+
+4. Check for Elastic Beanstalk Alias Records: In the output of the previous command, look for resource record sets where the `Type` is `A` (which stands for Alias) and the `AliasTarget` is an Elastic Beanstalk environment. If such a record is found, it means that the Elastic Beanstalk environment is exposed to the internet, which could be a potential misconfiguration.
+
+#### Using Python
+
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Once Boto3 is installed, you can use it to interact with AWS services. To check for vulnerable alias records in Route53, you would first need to list all the hosted zones:
+
+```python
+import boto3
+
+def list_hosted_zones():
+    client = boto3.client('route53')
+    response = client.list_hosted_zones()
+    return response['HostedZones']
+
+hosted_zones = list_hosted_zones()
+```
+
+3. For each hosted zone, you can then list all the record sets:
+
+```python
+def list_record_sets(hosted_zone_id):
+    client = boto3.client('route53')
+    response = client.list_resource_record_sets(HostedZoneId=hosted_zone_id)
+    return response['ResourceRecordSets']
+
+for zone in hosted_zones:
+    record_sets = list_record_sets(zone['Id'])
+```
+
+4. Finally, you can check each record set to see if it's an alias record and if it's pointing to an Elastic Beanstalk environment. If it is, you can check if the environment is vulnerable:
+
+```python
+def is_vulnerable(record_set):
+    if record_set['Type'] == 'A' and 'AliasTarget' in record_set:
+        alias_target = record_set['AliasTarget']
+        if 'elasticbeanstalk' in alias_target['DNSName']:
+            # Check if the environment is vulnerable
+            # This will depend on what you consider to be a vulnerability
+            return True
+    return False
+
+for zone in hosted_zones:
+    record_sets = list_record_sets(zone['Id'])
+    for record_set in record_sets:
+        if is_vulnerable(record_set):
+            print(f"Vulnerable record found: {record_set['Name']}")
+```
+
+This script will print the names of all vulnerable alias records. Note that you'll need to replace the `# Check if the environment is vulnerable` comment with your own logic to determine if an environment is vulnerable.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -136,3 +228,6 @@ To remediate the vulnerability of AWS Elastic Beanstalk Alias Records in AWS Rou
 Note: Make sure you have appropriate AWS credentials configured in your environment to access the AWS Route53 service.
 
 
+
+</Tab>
+</Tabs>

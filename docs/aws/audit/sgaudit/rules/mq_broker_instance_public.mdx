@@ -20,6 +20,79 @@ Observability
 
 HITRUST,CISEKS,SOC2,NISTCSF,PCIDSS,SEBI
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Amazon MQ dashboard.
+2. In the navigation pane, select "Brokers". This will display a list of all your Amazon MQ brokers.
+3. Select the broker that you want to check. This will open the broker's details page.
+4. In the broker's details page, check the "Public accessibility" setting. If it is set to "Yes", then the broker instance is public.
+
+#### Using CLI
+
+1. First, you need to list all the Amazon MQ brokers in your account. Use the following AWS CLI command:
+
+```bash
+aws mq list-brokers --region <region-name>
+```
+Replace `<region-name>` with the name of the AWS region where your Amazon MQ brokers are located.
+
+2. The output of the above command will provide you with a list of broker ARNs. You can then describe each broker to get its details, including the security groups associated with it. Use the following command:
+
+```bash
+aws mq describe-broker --broker-id <broker-id> --region <region-name>
+```
+Replace `<broker-id>` with the ID of the broker you want to inspect.
+
+3. The output of the above command will include a list of security group IDs. You can then describe each security group to get its details, including the inbound rules. Use the following command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id> --region <region-name>
+```
+Replace `<security-group-id>` with the ID of the security group you want to inspect.
+
+4. Check the inbound rules of the security group. If there is an inbound rule that allows traffic from 0.0.0.0/0 (the entire internet), then the Amazon MQ broker instance is public.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a client for Amazon MQ:
+
+```python
+import boto3
+mq = boto3.client('mq')
+```
+
+2. Retrieve a list of all brokers in your AWS account:
+
+```python
+brokers = mq.list_brokers()
+```
+
+3. For each broker, retrieve its associated security groups and check if they allow public access. You can do this by using the `describe_broker` method to get the broker's details, and then using the `describe_security_groups` method from the EC2 client to check the inbound rules:
+
+```python
+ec2 = boto3.client('ec2')
+
+for broker in brokers['BrokerSummaries']:
+    broker_details = mq.describe_broker(BrokerId=broker['BrokerId'])
+    for sg_id in broker_details['SecurityGroups']:
+        sg = ec2.describe_security_groups(GroupIds=[sg_id])
+        for rule in sg['SecurityGroups'][0]['IpPermissions']:
+            for ip_range in rule['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Broker {broker['BrokerId']} is publicly accessible.")
+```
+
+4. This script will print out the IDs of any brokers that are publicly accessible. If no such brokers exist, it will not print anything. This script assumes that you have the necessary permissions to list and describe brokers and security groups in your AWS account. If you do not, you may need to modify the script to handle permission errors or use an account with the necessary permissions.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -119,3 +192,6 @@ Replace `YOUR_SECURITY_GROUP_ID_HERE` with the actual Security Group ID of the M
 
 After running this script, the Security Group associated with the MQ Broker Instance will be updated to allow access only from the specified IP range, thereby remedying the misconfiguration of the MQ Broker Instance being public.
 
+
+</Tab>
+</Tabs>

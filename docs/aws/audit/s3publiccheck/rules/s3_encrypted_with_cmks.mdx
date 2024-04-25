@@ -20,6 +20,92 @@ Security
 
 NIST, AWSWAF, HITRUST, SOC2, NISTCSF, PCIDSS
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the S3 service by typing 'S3' in the search bar and selecting 'S3' from the dropdown menu.
+3. In the S3 dashboard, you will see a list of all your S3 buckets. Click on the name of the bucket you want to check.
+4. Once inside the bucket, click on the 'Properties' tab. Under the 'Properties' tab, look for the 'Default encryption' section. If the bucket is encrypted with a customer-provided CMK, it will be indicated here.
+
+#### Using CLI
+
+1. First, you need to list all the S3 buckets in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws s3api list-buckets --query 'Buckets[].Name'
+   ```
+
+2. Once you have the list of all S3 buckets, you need to check the encryption configuration for each bucket. You can do this by using the following AWS CLI command:
+
+   ```
+   aws s3api get-bucket-encryption --bucket <bucket-name>
+   ```
+
+   Replace `<bucket-name>` with the name of your S3 bucket.
+
+3. The above command will return the encryption configuration for the specified S3 bucket. You need to check if the `SSEAlgorithm` is set to `aws:kms` and `KMSMasterKeyID` is not `aws/s3`. If it is, then the bucket is encrypted with a customer-provided CMK.
+
+4. Repeat the above steps for each S3 bucket in your AWS account. If any bucket is not encrypted with a customer-provided CMK, then it is a misconfiguration.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it with your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+2. Import the necessary modules and create a session using your credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create a S3 client and get the list of all S3 buckets:
+
+```python
+s3 = session.client('s3')
+response = s3.list_buckets()
+```
+
+4. Check each bucket for encryption configuration and specifically for customer-provided CMKs:
+
+```python
+for bucket in response['Buckets']:
+    try:
+        enc = s3.get_bucket_encryption(Bucket=bucket['Name'])
+        rules = enc['ServerSideEncryptionConfiguration']['Rules']
+        for rule in rules:
+            if 'SSEKMS' in rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm']:
+                print(f"Bucket {bucket['Name']} is encrypted with customer-provided CMKs")
+            else:
+                print(f"Bucket {bucket['Name']} is not encrypted with customer-provided CMKs")
+    except Exception as e:
+        print(f"Bucket {bucket['Name']} does not have an encryption policy")
+```
+
+This script will print out the names of all S3 buckets and whether they are encrypted with customer-provided CMKs or not. If a bucket does not have an encryption policy, it will also be printed out.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -192,3 +278,6 @@ Repeat these steps for all the S3 buckets that are not encrypted with customer-p
 
 - [https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingKMSEncryption.html) 
 
+
+</Tab>
+</Tabs>

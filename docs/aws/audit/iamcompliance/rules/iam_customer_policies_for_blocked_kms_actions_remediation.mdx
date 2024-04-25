@@ -1,3 +1,94 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+   
+2. In the navigation pane, choose "Policies" to open the Policies dashboard.
+
+3. In the Policies dashboard, you can search for the specific IAM policy by typing its name in the search box. Click on the policy name to open its details page.
+
+4. In the policy details page, check the policy document for any blocked KMS actions. If the "Effect" parameter is set to "Deny" for any KMS actions, it means those actions are blocked in the IAM policy.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access IAM policies.
+
+2. Once AWS CLI is set up, you can list all the IAM policies using the following command:
+   ```
+   aws iam list-policies --scope Local
+   ```
+   This command will return a list of all IAM policies in your AWS account.
+
+3. To check the details of each policy, you can use the following command:
+   ```
+   aws iam get-policy-version --policy-arn <Policy_ARN> --version-id <Policy_Version_ID>
+   ```
+   Replace `<Policy_ARN>` and `<Policy_Version_ID>` with the ARN and version ID of the policy you want to check. This command will return the details of the specified policy version.
+
+4. Now, you need to manually inspect the policy details to check if there are any blocked KMS actions. Look for the "Effect": "Deny" statement in the policy. If there are any KMS actions listed under this statement, it means those actions are blocked.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need 'boto3' for AWS, 'azure-identity' and 'azure-mgmt-resource' for Azure, and 'google-cloud-resource-manager' and 'google-auth' for GCP. You can install these libraries using pip:
+
+   ```python
+   pip install boto3 azure-identity azure-mgmt-resource azure-mgmt-keyvault google-cloud-resource-manager google-auth google-auth-httplib2 google-auth-oauthlib google-auth-httplib2 google-api-python-client
+   ```
+
+2. AWS: Use the AWS SDK 'boto3' to list all IAM policies and check if any policy allows all KMS actions ('kms:*') without explicitly denying any:
+
+   ```python
+   import boto3
+
+   client = boto3.client('iam')
+   response = client.list_policies(Scope='All')
+
+   for policy in response['Policies']:
+       policy_version = client.get_policy_version(PolicyArn=policy['Arn'], VersionId=policy['DefaultVersionId'])
+       for statement in policy_version['PolicyVersion']['Document']['Statement']:
+           if 'kms:*' in statement['Action'] and 'Effect' not in statement or statement['Effect'] != 'Deny':
+               print(f"Policy {policy['PolicyName']} allows all KMS actions without explicit deny.")
+   ```
+
+3. Azure: Use the Azure SDK to list all Key Vault access policies and check if any policy allows all Key Vault actions without explicitly denying any:
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.keyvault import KeyVaultManagementClient
+
+   credential = DefaultAzureCredential()
+   kv_client = KeyVaultManagementClient(credential, "<subscription_id>")
+
+   for vault in kv_client.vaults.list():
+       for policy in vault.properties.access_policies:
+           if 'all' in policy.permissions.keys and 'deny' not in policy.permissions.keys:
+               print(f"Vault {vault.name} allows all Key Vault actions without explicit deny.")
+   ```
+
+4. GCP: Use the GCP SDK to list all IAM policies and check if any policy allows all KMS actions ('cloudkms.*') without explicitly denying any:
+
+   ```python
+   from google.oauth2 import service_account
+   from googleapiclient import discovery
+
+   credentials = service_account.Credentials.from_service_account_file('<path_to_service_account_file>')
+   service = discovery.build('cloudresourcemanager', 'v1', credentials=credentials)
+
+   request = service.projects().getIamPolicy(resource='<project_id>')
+   response = request.execute()
+
+   for binding in response['bindings']:
+       if 'cloudkms.*' in binding['role'] and 'members' in binding and 'allUsers' in binding['members']:
+           print(f"Policy {binding['role']} allows all KMS actions for all users.")
+   ```
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -142,3 +233,6 @@ for policy in response['Policies']:
 
 Please ensure that you have the necessary permissions to modify IAM policies before running this script. Also, customize the script as per your specific requirements and policies in your AWS account.
 
+
+</Tab>
+</Tabs>

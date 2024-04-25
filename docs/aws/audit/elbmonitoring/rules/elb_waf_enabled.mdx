@@ -21,6 +21,105 @@ Security
 SOC2, HITRUST, NISTCSF, PCIDSS
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the load balancer that you want to check.
+
+4. In the bottom panel, select the "Listeners" tab.
+
+5. Check if there is a column named "WAF WebACL". If the column is not present, it means that the WAF is not enabled for the selected load balancer. If the column is present and it shows a name of a WebACL, it means that the WAF is enabled for the selected load balancer.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Elastic Load Balancer (ELB) and Web Application Firewall (WAF) services.
+
+2. Once the AWS CLI is set up, you can list all your load balancers using the following command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with details about all your load balancers.
+
+3. To check if a load balancer has WAF enabled, you need to list the WAF web ACLs associated with the load balancer. You can do this using the following command:
+
+   ```
+   aws wafv2 list-web-acls
+   ```
+
+   This command will return a JSON object with details about all your web ACLs. 
+
+4. Now, you need to check if the ARN of your load balancer is present in the list of resources for any of the web ACLs. You can do this by parsing the JSON output using a tool like jq or a scripting language like Python. If the ARN of your load balancer is not present in the list of resources for any web ACL, then the load balancer does not have WAF enabled.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The AWS SDK for Python (Boto3) allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Import the necessary libraries and set up AWS credentials: You need to import the Boto3 library and set up your AWS credentials (Access key ID and Secret access key). You can set up your credentials in the AWS credentials file located by default at `~/.aws/credentials`.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Create a function to check if WAF is enabled: Now, you can create a function that will check if WAF is enabled for each ELB. You can use the `describe_web_acls` method from the `WAFV2` client to get information about the WebACLs for a resource.
+
+   ```python
+   def check_waf_enabled():
+       client = session.client('wafv2')
+       elbv2 = session.client('elbv2')
+
+       # Get all load balancers
+       load_balancers = elbv2.describe_load_balancers()['LoadBalancers']
+
+       for lb in load_balancers:
+           response = client.describe_web_acls(
+               Scope='REGIONAL',
+               Filters=[
+                   {
+                       'Name': 'ASSOCIATED_RESOURCE',
+                       'Values': [
+                           lb['LoadBalancerArn'],
+                       ]
+                   },
+               ]
+           )
+
+           # If the WebACLs list is empty, WAF is not enabled
+           if not response['WebACLs']:
+               print(f"WAF is not enabled for ELB: {lb['LoadBalancerName']}")
+   ```
+
+4. Call the function: Finally, you can call the function to check if WAF is enabled for all ELBs.
+
+   ```python
+   check_waf_enabled()
+   ```
+
+This script will print the names of all ELBs that do not have WAF enabled.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -225,3 +324,6 @@ Note: This code is just an example. You may need to modify it according to your 
 
 - [https://aws.amazon.com/blogs/aws/aws-web-application-firewall-waf-for-application-load-balancers/](https://aws.amazon.com/blogs/aws/aws-web-application-firewall-waf-for-application-load-balancers/) 
 
+
+</Tab>
+</Tabs>

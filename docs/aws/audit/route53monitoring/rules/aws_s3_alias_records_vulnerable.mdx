@@ -20,6 +20,70 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, select "Hosted zones". Here, you will see a list of all your hosted zones.
+3. Click on the hosted zone that you want to check. This will open a list of all the record sets associated with that hosted zone.
+4. Look for any S3 Alias Records. These will be records of type "A" where the Alias option is set to "Yes". Check the value in the "Alias Target" field. If it points to an S3 bucket, then it might be vulnerable. You need to ensure that the S3 bucket has proper access controls in place to prevent unauthorized access.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install AWS CLI on your local machine. You can do this by running the command `pip install awscli`. After installation, you need to configure it with your AWS credentials. You can do this by running `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all hosted zones: The first step to detect misconfigurations is to list all the hosted zones in your AWS account. You can do this by running the command `aws route53 list-hosted-zones`. This will return a list of all the hosted zones along with their IDs.
+
+3. List all resource record sets: For each hosted zone, you need to list all the resource record sets. You can do this by running the command `aws route53 list-resource-record-sets --hosted-zone-id <HostedZoneId>`. Replace `<HostedZoneId>` with the ID of the hosted zone. This will return a list of all the resource record sets in the hosted zone.
+
+4. Check for vulnerable alias records: For each resource record set, you need to check if it is an alias record and if it is vulnerable. An alias record is vulnerable if it points to an S3 bucket that is not configured to accept traffic for the domain. You can check this by looking at the `AliasTarget` field in the output of the previous command. If the `AliasTarget` field is an S3 bucket and the `EvaluateTargetHealth` field is false, then the alias record is vulnerable.
+
+#### Using Python
+
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the AWS SDK for Python (Boto3). You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to list all the hosted zones and their record sets in Route53. Here is a sample script:
+
+   ```python
+   import boto3
+
+   def list_route53_records():
+       client = boto3.client('route53')
+       paginator = client.get_paginator('list_hosted_zones')
+       for response in paginator.paginate():
+           for hosted_zone in response['HostedZones']:
+               print('Hosted zone:', hosted_zone['Name'])
+               record_paginator = client.get_paginator('list_resource_record_sets')
+               for record_set_response in record_paginator.paginate(HostedZoneId=hosted_zone['Id']):
+                   for record_set in record_set_response['ResourceRecordSets']:
+                       print('Record set:', record_set)
+
+   if __name__ == '__main__':
+       list_route53_records()
+   ```
+
+4. Analyze the output: The script will print out all the hosted zones and their record sets. You need to manually check if any of the record sets are of type 'A' (alias) and if they point to an S3 bucket. If they do, check if the S3 bucket has public read access. If it does, then the alias record is vulnerable.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -127,3 +191,6 @@ for record in vulnerable_records:
 This Python script identifies DNS Alias records vulnerable to S3 buckets and provides a placeholder for the remediation logic. You would need to implement the logic to secure the referenced S3 buckets.
 
 Make sure to have appropriate IAM permissions for managing Route 53 hosted zones and S3 buckets if you're using AWS CLI or Python script.
+
+</Tab>
+</Tabs>

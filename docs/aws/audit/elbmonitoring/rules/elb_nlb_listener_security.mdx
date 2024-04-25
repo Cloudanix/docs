@@ -20,6 +20,96 @@ Security
 
 AWSWAF, HIPAA, NIST, GDPR
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then choosing "EC2" under the "Compute" category.
+3. In the EC2 dashboard, under the "Load Balancing" section in the left-hand navigation pane, click on "Load Balancers".
+4. In the "Load Balancers" page, you will see a list of all your load balancers. Click on the load balancer you want to check.
+5. In the "Description" tab below, check the "Attributes" section. Here, you can see the configurations of the selected load balancer. Look for any insecure configurations such as deletion protection disabled, access logs disabled, or cross-zone load balancing disabled.
+
+#### Using CLI
+
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). Use the following command to install AWS CLI:
+
+   ```
+   pip install awscli
+   ```
+
+   After installation, configure it using the following command and provide your AWS credentials (Access Key ID and Secret Access Key):
+
+   ```
+   aws configure
+   ```
+
+2. **List all Network Load Balancers (NLBs)**: Use the following AWS CLI command to list all the NLBs in your account:
+
+   ```
+   aws elbv2 describe-load-balancers --query 'LoadBalancers[?Type==`network`].{Name:Name, ARN:LoadBalancerArn}' --output table
+   ```
+
+   This command will list all the NLBs along with their names and ARNs.
+
+3. **Describe Load Balancer Attributes**: For each NLB, use the following command to describe its attributes:
+
+   ```
+   aws elbv2 describe-load-balancer-attributes --load-balancer-arn <LoadBalancerArn>
+   ```
+
+   Replace `<LoadBalancerArn>` with the ARN of the NLB. This command will list all the attributes of the NLB.
+
+4. **Check for Insecure Configurations**: Look for the `access_logs.s3.enabled` and `access_logs.s3.bucket` attributes in the output. If `access_logs.s3.enabled` is set to `false` or `access_logs.s3.bucket` is not set, it means that the NLB has insecure configurations as it is not logging access logs to an S3 bucket.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials (Access Key ID and Secret Access Key) to allow your script to access AWS services. You can do this by running `aws configure` in your terminal and following the prompts.
+
+3. Write a Python script to list all Network Load Balancers (NLBs) and check their configurations:
+
+   ```python
+   import boto3
+
+   def check_nlb_insecure_config():
+       elbv2 = boto3.client('elbv2')
+       nlbs = elbv2.describe_load_balancers(LoadBalancerType='network')
+       for nlb in nlbs['LoadBalancers']:
+           if nlb['Scheme'] == 'internet-facing':
+               print(f"NLB {nlb['LoadBalancerName']} has insecure configuration: It is internet-facing.")
+           if nlb['State']['Code'] != 'active':
+               print(f"NLB {nlb['LoadBalancerName']} has insecure configuration: It is not active.")
+           if not nlb['IpAddressType'] == 'dualstack':
+               print(f"NLB {nlb['LoadBalancerName']} has insecure configuration: It does not support both IPv4 and IPv6.")
+           # Add more checks as needed
+
+   if __name__ == "__main__":
+       check_nlb_insecure_config()
+   ```
+
+   This script lists all NLBs and checks if they are internet-facing, not active, or do not support both IPv4 and IPv6. You can add more checks as needed.
+
+4. Run the script: You can run the script using Python from your terminal:
+
+   ```
+   python check_nlb_insecure_config.py
+   ```
+
+   The script will print out the names of NLBs that have insecure configurations.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +220,6 @@ Note: Make sure that you have the necessary permissions to update the security g
 
 - [https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html) 
 
+
+</Tab>
+</Tabs>

@@ -20,6 +20,96 @@ Security
 
 HIPAA, PCIDSS, SOC2, AWSWAF, HITRUST, NISTCSF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the Elastic Container Registry (ECR) service.
+3. In the navigation pane, choose "Repositories".
+4. For each repository listed, select the repository and then choose "Permissions". If the repository has any permissions that allow public or cross-account access, then the ECR repository is not private.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List ECR repositories: Use the `describe-repositories` command to list all the ECR repositories in your AWS account. The command is as follows:
+
+   ```
+   aws ecr describe-repositories
+   ```
+
+   This command will return a JSON object with details about all your ECR repositories.
+
+3. Check repository policy: For each repository, you need to check the repository policy to see if it's private. You can do this using the `get-repository-policy` command. Replace `repository_name` with the name of your repository:
+
+   ```
+   aws ecr get-repository-policy --repository-name repository_name
+   ```
+
+   This command will return the repository policy in JSON format.
+
+4. Analyze the policy: Now, you need to analyze the policy to see if it's private. If the policy has a statement with `"Effect": "Allow"` and `"Principal": "*"`, it means the repository is public. If there's no such statement, the repository is private. You can use a tool like `jq` to parse the JSON and check the policy:
+
+   ```
+   aws ecr get-repository-policy --repository-name repository_name | jq '.policyText.Statement[] | select(.Effect=="Allow" and .Principal=="*")'
+   ```
+
+   If this command returns any output, it means the repository is public. If it doesn't return anything, the repository is private.
+
+#### Using Python
+
+To check if ECR repositories are private in Kubernetes using Python scripts, you can follow these steps:
+
+1. **Install Boto3:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:**
+   Before you can begin using Boto3, you should set up authentication credentials for your AWS account using either the AWS CLI or by creating the credentials file yourself. The credentials file should be located at `~/.aws/credentials`. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the `default` profile, you can use the following format:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. **Python Script to Check ECR Repositories:**
+   You can use the following Python script to check if ECR repositories are private:
+   ```python
+   import boto3
+
+   def check_ecr_repositories():
+       client = boto3.client('ecr')
+       response = client.describe_repositories()
+       for repo in response['repositories']:
+           if 'repositoryPolicyText' in repo:
+               policy = json.loads(repo['repositoryPolicyText'])
+               for statement in policy['Statement']:
+                   if statement['Effect'] == 'Allow' and 'Principal' in statement and statement['Principal'] == '*':
+                       print(f"ECR repository {repo['repositoryName']} is public")
+           else:
+               print(f"ECR repository {repo['repositoryName']} is private")
+
+   check_ecr_repositories()
+   ```
+   This script lists all ECR repositories and checks their policies. If a policy allows access to all principals (`'Principal': '*'`), the repository is public. If a repository doesn't have a policy or the policy doesn't allow access to all principals, the repository is private.
+
+4. **Run the Python Script:**
+   Save the Python script in a file, for example `check_ecr.py`, and run it using Python:
+   ```
+   python check_ecr.py
+   ```
+   The script will print the names of all ECR repositories and whether they are public or private.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -157,3 +247,6 @@ This code will remediate the misconfiguration "ECR Repositories Should Be Privat
 
 - [https://docs.aws.amazon.com/AmazonECR/latest/userguide/RepositoryPolicyExamples.html](https://docs.aws.amazon.com/AmazonECR/latest/userguide/RepositoryPolicyExamples.html) 
 
+
+</Tab>
+</Tabs>

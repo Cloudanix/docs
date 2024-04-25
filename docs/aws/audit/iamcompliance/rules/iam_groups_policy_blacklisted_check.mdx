@@ -20,6 +20,98 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+   
+2. In the navigation pane, choose "Policies". This will display a list of all the IAM policies that are currently configured in your AWS environment.
+
+3. Select the policy you want to check for blocked KMS actions. This will open the policy details page.
+
+4. In the policy details page, check the policy document for any "Deny" statements that are applied to KMS actions. If there are any "Deny" statements, it means that certain KMS actions are blocked in the inline policy.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to execute IAM related commands.
+
+2. Once the AWS CLI is set up, you can list all the IAM policies using the following command:
+   ```
+   aws iam list-policies --scope Local
+   ```
+   This command will return a list of all the IAM policies that are created within your AWS account.
+
+3. For each policy, you can get the policy details including the policy document which contains the permissions. Use the following command to get the policy details:
+   ```
+   aws iam get-policy-version --policy-arn <Policy_ARN> --version-id <Policy_Version_ID>
+   ```
+   Replace `<Policy_ARN>` with the ARN of the policy and `<Policy_Version_ID>` with the version ID of the policy. This command will return the policy document in a JSON format.
+
+4. Now, you need to check the policy document for any blocked KMS actions. You can do this manually by looking at the "Action" field in the policy document. If there are any KMS actions that are explicitly denied, then those are the blocked KMS actions. You can also write a script to automate this process. Here is a simple Python script that uses the `json` module to parse the policy document and check for blocked KMS actions:
+   ```python
+   import json
+
+   # Load the policy document
+   with open('policy_document.json') as f:
+       policy = json.load(f)
+
+   # Check for blocked KMS actions
+   for statement in policy['Statement']:
+       if statement['Effect'] == 'Deny' and 'kms' in statement['Action']:
+           print('Blocked KMS action found:', statement['Action'])
+   ```
+   Replace `'policy_document.json'` with the path to the JSON file containing the policy document. This script will print out all the blocked KMS actions found in the policy document.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) in your environment. This can be done using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Import the necessary libraries and establish a session: In your Python script, you need to import the Boto3 library and establish a session with AWS. You also need to import the IAM client from Boto3.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   iam = session.client('iam')
+   ```
+
+3. Retrieve and analyze IAM policies: Now, you can use the IAM client to retrieve all IAM policies and analyze them. You need to check if any inline policy allows all KMS actions (`"kms:*"`) but blocks some specific actions. Here is a sample code snippet:
+
+   ```python
+   policies = iam.list_policies(Scope='Local')['Policies']
+
+   for policy in policies:
+       policy_version = iam.get_policy_version(
+           PolicyArn=policy['Arn'],
+           VersionId=policy['DefaultVersionId']
+       )['PolicyVersion']
+
+       for statement in policy_version['Document']['Statement']:
+           if (statement['Effect'] == 'Allow' and 'kms:*' in statement['Action'] and
+               'Condition' in statement and 'StringNotEquals' in statement['Condition'] and
+               'kms:ViaService' in statement['Condition']['StringNotEquals']):
+               print(f"Policy {policy['PolicyName']} allows all KMS actions but blocks some specific actions.")
+   ```
+
+4. Run the script: Finally, you can run the script to detect any misconfigurations. If any misconfigurations are detected, the script will print the names of the policies that have them.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -143,3 +235,6 @@ Replace `'YOUR_USER_NAME'` and `'YOUR_POLICY_NAME'` with the actual IAM user or 
 Run this Python script to update the inline policy and allow the necessary KMS actions.
 
 
+
+</Tab>
+</Tabs>

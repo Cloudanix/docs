@@ -20,6 +20,102 @@ Security
 
 PCIDSS, NIST
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+
+2. In the navigation pane, choose "Databases" to open the list of RDS instances.
+
+3. Select the RDS instance that you want to examine. In the details section, click on the "Connectivity & security" tab.
+
+4. Under the "Security" section, check the "VPC security groups" field. Click on the security group to open its details. In the "Inbound rules" and "Outbound rules" sections, check if the source is set to "0.0.0.0/0" or "::/0" (for IPv6), which means it allows unrestricted inbound/outbound access. If it is, then the RDS instance is misconfigured.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all DB Security Groups: Use the following command to list all DB security groups in your AWS account:
+
+   ```
+   aws rds describe-db-security-groups --query 'DBSecurityGroups[*].[DBSecurityGroupName]'
+   ```
+
+   This command will return a list of all DB security groups.
+
+3. Check the Inbound and Outbound rules: For each DB security group, check the Inbound and Outbound rules. You can do this using the following command:
+
+   ```
+   aws rds describe-db-security-groups --db-security-group-name <DBSecurityGroupName> --query 'DBSecurityGroups[*].EC2SecurityGroups[*].[EC2SecurityGroupId,Status]'
+   ```
+
+   Replace `<DBSecurityGroupName>` with the name of the DB security group you want to check. This command will return a list of all EC2 security groups associated with the DB security group, along with their status.
+
+4. Check for unrestricted access: If any of the EC2 security groups have a status of 'authorized', this means they have unrestricted In/Outbound access. If any of the EC2 security groups have a status of 'revoking', this means they are in the process of having their unrestricted In/Outbound access revoked.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. You can configure your credentials in the AWS credentials file. The default location for the file is `~/.aws/credentials`.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create an RDS client and retrieve all DB instances:
+
+```python
+rds = session.client('rds')
+try:
+    response = rds.describe_db_instances()
+except BotoCoreError as e:
+    print(e)
+```
+
+4. Check the security groups associated with each DB instance. If a security group allows unrestricted In/Outbound access, print a warning message:
+
+```python
+for instance in response['DBInstances']:
+    instance_id = instance['DBInstanceIdentifier']
+    security_groups = instance['VpcSecurityGroups']
+    for sg in security_groups:
+        sg_id = sg['VpcSecurityGroupId']
+        ec2 = session.client('ec2')
+        try:
+            sg_response = ec2.describe_security_groups(GroupIds=[sg_id])
+        except BotoCoreError as e:
+            print(e)
+        for sg in sg_response['SecurityGroups']:
+            for permission in sg['IpPermissions']:
+                for range in permission['IpRanges']:
+                    if range['CidrIp'] == '0.0.0.0/0':
+                        print(f"Warning: DB instance {instance_id} allows unrestricted Inbound access.")
+            for permission in sg['IpPermissionsEgress']:
+                for range in permission['IpRanges']:
+                    if range['CidrIp'] == '0.0.0.0/0':
+                        print(f"Warning: DB instance {instance_id} allows unrestricted Outbound access.")
+```
+
+This script will print a warning for each RDS instance that allows unrestricted In/Outbound access. Please replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, and `'SESSION_TOKEN'` with your actual AWS credentials.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -121,3 +217,6 @@ By following these steps, you can remediate the misconfiguration of allowing unr
 
 - [https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.html](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.html) 
 
+
+</Tab>
+</Tabs>

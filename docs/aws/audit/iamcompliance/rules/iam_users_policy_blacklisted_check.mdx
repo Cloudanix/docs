@@ -20,6 +20,109 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the IAM dashboard by selecting "Services" from the top menu, then choosing "IAM" under the "Security, Identity, & Compliance" category.
+3. In the IAM dashboard, select "Policies" from the left-hand side menu.
+4. Here, you can see all the policies. You need to check each policy one by one. Click on the policy name to open it.
+5. In the policy details page, check the policy document. If the policy document has "kms:Create*" or "kms:Describe*" or "kms:Enable*" or "kms:List*" or "kms:Put*" or "kms:Update*" or "kms:Revoke*" or "kms:Disable*" or "kms:Get*" or "kms:Delete*" or "kms:TagResource" or "kms:UntagResource" or "kms:ScheduleKeyDeletion" or "kms:CancelKeyDeletion" actions as blocked, then the policy is misconfigured.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to execute IAM related commands.
+
+2. Once the AWS CLI is set up, you can list all the IAM policies using the following command:
+   ```
+   aws iam list-policies --scope Local
+   ```
+   This command will return a list of all the IAM policies that are created within your AWS account.
+
+3. For each policy, you can get the policy details including the policy document by using the following command:
+   ```
+   aws iam get-policy-version --policy-arn <Policy_ARN> --version-id <Policy_Version_ID>
+   ```
+   Replace `<Policy_ARN>` with the ARN of the policy and `<Policy_Version_ID>` with the version ID of the policy. This command will return the policy document which includes the permissions set by the policy.
+
+4. Now, you need to check the policy document for any blocked KMS actions. You can do this by looking for "kms:Deny" statements in the policy document. If such statements are found, it means that some KMS actions are blocked in the inline policy. You can use a script to automate this process. Here is a simple Python script that uses the `boto3` AWS SDK to do this:
+   ```python
+   import boto3
+
+   client = boto3.client('iam')
+
+   response = client.list_policies(Scope='Local')
+
+   for policy in response['Policies']:
+       policy_version = client.get_policy_version(
+           PolicyArn=policy['Arn'],
+           VersionId=policy['DefaultVersionId']
+       )
+       for statement in policy_version['PolicyVersion']['Document']['Statement']:
+           if statement['Effect'] == 'Deny' and 'kms' in statement['Action']:
+               print(f"Policy {policy['PolicyName']} blocks some KMS actions")
+   ```
+   This script lists all the local IAM policies, gets the default version of each policy, and checks if there are any "Deny" statements for KMS actions. If such statements are found, the script prints the name of the policy.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, ensure that you have the necessary Python libraries installed. You will need 'boto3' for AWS, 'azure-identity' and 'azure-mgmt-resource' for Azure, and 'google-cloud-resource-manager' and 'google-auth' for GCP. You can install these using pip:
+
+   ```bash
+   pip install boto3 azure-identity azure-mgmt-resource google-cloud-resource-manager google-auth
+   ```
+
+2. AWS: Use the AWS SDK 'boto3' to list all IAM policies and check if any inline policy allows blocked KMS actions. Here is a sample script:
+
+   ```python
+   import boto3
+
+   client = boto3.client('iam')
+   response = client.list_policies(Scope='Local')
+
+   for policy in response['Policies']:
+       policy_version = client.get_policy_version(PolicyArn=policy['Arn'], VersionId=policy['DefaultVersionId'])
+       for statement in policy_version['PolicyVersion']['Document']['Statement']:
+           if 'kms:' in statement['Action'] and statement['Effect'] == 'Deny':
+               print(f"Policy {policy['PolicyName']} has blocked KMS actions")
+   ```
+
+3. Azure: Use the Azure SDK to list all role definitions and check if any role allows blocked KMS actions. Here is a sample script:
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.resource import ResourceManagementClient
+
+   credential = DefaultAzureCredential()
+   client = ResourceManagementClient(credential, "<subscription_id>")
+
+   for role_definition in client.role_definitions.list():
+       if 'Microsoft.KeyVault/vaults/keys/*' in role_definition.permissions and role_definition.permissions['Microsoft.KeyVault/vaults/keys/*'].actions == 'Deny':
+           print(f"Role {role_definition.name} has blocked KMS actions")
+   ```
+
+4. GCP: Use the GCP SDK to list all IAM policies and check if any policy allows blocked KMS actions. Here is a sample script:
+
+   ```python
+   from google.cloud import resource_manager
+   from google.auth import default
+
+   credentials, project = default()
+   client = resource_manager.Client(credentials=credentials)
+
+   for policy in client.list_policies():
+       if 'cloudkms.cryptoKeyVersions.useTo*' in policy.bindings and policy.bindings['cloudkms.cryptoKeyVersions.useTo*'].role == 'roles/denied':
+           print(f"Policy {policy.name} has blocked KMS actions")
+   ```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -140,3 +243,6 @@ Make sure to replace `'YOUR_USER_OR_ROLE_NAME'` with the actual IAM user or role
 By running this Python script, you will be able to remediate the issue of blocked KMS actions in inline policies for the specified IAM user or role in AWS IAM.
 
 
+
+</Tab>
+</Tabs>

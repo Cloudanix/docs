@@ -21,6 +21,117 @@ Cost Optimisation
 CBP
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon Redshift console at https://console.aws.amazon.com/redshift/.
+
+2. In the navigation pane, choose "Clusters". This will display a list of all your Redshift clusters.
+
+3. Select the cluster that you want to check for underutilization. This will open the cluster details page.
+
+4. In the cluster details page, check the "Performance" tab. Here, you can see the CPU utilization, database connections, and query performance. If the CPU utilization and database connections are consistently low over a long period of time, it indicates that the cluster is underutilized.
+
+#### Using CLI
+
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured with the necessary permissions. You can install it using pip:
+   ```
+   pip install awscli
+   ```
+   Then configure it using:
+   ```
+   aws configure
+   ```
+   You'll be asked to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. **List all Redshift Clusters**: Use the following command to list all the Redshift clusters:
+   ```
+   aws redshift describe-clusters
+   ```
+   This command will return a JSON output with details of all the Redshift clusters.
+
+3. **Check CPU Utilization**: For each cluster, check the CPU utilization. You can use the following command to get the CPU utilization:
+   ```
+   aws cloudwatch get-metric-statistics --namespace "AWS/Redshift" --metric-name "CPUUtilization" --dimensions Name=ClusterIdentifier,Value=<your-cluster-identifier> --start-time <start-time> --end-time <end-time> --period 3600 --statistics "Average" --unit "Percent"
+   ```
+   Replace `<your-cluster-identifier>` with your cluster's identifier, and `<start-time>` and `<end-time>` with the time period you want to check. This command will return the average CPU utilization for the specified period.
+
+4. **Analyze the Output**: If the CPU utilization is consistently low (for example, less than 20%), the Redshift cluster may be underutilized. You may need to consider resizing the cluster or optimizing your queries to make better use of the resources.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) on your local system. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Use the `describe_clusters` method from the Redshift client to get the details of all the Redshift clusters. 
+
+```python
+redshift_client = session.client('redshift')
+clusters = redshift_client.describe_clusters()
+```
+
+4. For each cluster, check the `NumberOfNodes` and `NodeType` attributes to determine the capacity of the cluster. Then, use the `get_cluster_credentials` method to get the database credentials and use them to connect to the database. Run a query to determine the utilization of the cluster. If the utilization is consistently low, the cluster is underutilized.
+
+```python
+import psycopg2
+
+for cluster in clusters['Clusters']:
+    cluster_identifier = cluster['ClusterIdentifier']
+    node_type = cluster['NodeType']
+    number_of_nodes = cluster['NumberOfNodes']
+
+    # Get database credentials
+    creds = redshift_client.get_cluster_credentials(
+        DbUser='YOUR_DB_USER',
+        DbName='YOUR_DB_NAME',
+        ClusterIdentifier=cluster_identifier,
+        AutoCreate=False
+    )
+
+    # Connect to the database
+    conn = psycopg2.connect(
+        dbname='YOUR_DB_NAME',
+        user=creds['DbUser'],
+        password=creds['DbPassword'],
+        port='5439',
+        host=cluster['Endpoint']['Address']
+    )
+
+    # Run a query to determine utilization
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM stv_sessions WHERE user_name = 'YOUR_DB_USER';")
+    utilization = cur.fetchone()[0]
+
+    # Check if the cluster is underutilized
+    if utilization < number_of_nodes * 0.5:  # This is just an example, adjust the threshold as needed
+        print(f"Cluster {cluster_identifier} is underutilized.")
+```
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', 'YOUR_REGION', 'YOUR_DB_USER', and 'YOUR_DB_NAME' with your actual AWS access key, secret key, region, database user, and database name respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -107,3 +218,6 @@ By following these steps and automating the remediation process using Python and
 
 - [https://docs.aws.amazon.com/redshift/latest/dg/advisor-recommendations.html](https://docs.aws.amazon.com/redshift/latest/dg/advisor-recommendations.html) 
 
+
+</Tab>
+</Tabs>

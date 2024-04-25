@@ -20,6 +20,100 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon SES console at https://console.aws.amazon.com/ses/.
+
+2. In the navigation pane, choose "Email Addresses" under "Identity Management". This will display a list of all the email addresses that are verified for sending email through Amazon SES.
+
+3. Check the list of verified email addresses. If any of the email addresses are not supposed to be exposed or used for sending emails, it indicates a misconfiguration.
+
+4. For further investigation, you can select a specific email address. In the details pane, you can see more information about the email address, such as the verification status and the DKIM status. If the verification status is "verified" and the email address is not supposed to be exposed, it is a misconfiguration.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all SES identities: Once your AWS CLI is set up, you can list all the SES identities in your account by running the following command:
+   ```
+   aws ses list-identities
+   ```
+   This command will return a list of all identities (email addresses and domains) that are associated with your AWS account.
+
+3. Check the policy of each identity: For each identity returned in the previous step, you can check its policy by running the following command:
+   ```
+   aws ses get-identity-policies --identity "IdentityName"
+   ```
+   Replace "IdentityName" with the actual identity name. This command will return the policy of the specified identity.
+
+4. Analyze the policy: The last step is to analyze the returned policy. If the policy allows actions to be performed by any AWS user (i.e., if it includes a statement with "Effect": "Allow" and "Principal": "*"), then the SES identity is exposed.
+
+#### Using Python
+
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can do this by running the command `pip install boto3` in your terminal.
+
+2. Import the necessary modules and create a session using your AWS credentials. Here's a sample script:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, create a client for the 'ses' service and call the `list_identities()` method to get a list of all identities. Here's how you can do it:
+
+```python
+ses_client = session.client('ses')
+
+response = ses_client.list_identities(
+    IdentityType='Domain',
+    MaxItems=123
+)
+
+identities = response['Identities']
+```
+
+4. Finally, iterate over the identities and check if they are exposed. You can do this by calling the `get_identity_policies()` method for each identity and checking if the policy allows public access. Here's a sample script:
+
+```python
+for identity in identities:
+    policy = ses_client.get_identity_policies(
+        Identity=identity,
+        PolicyNames=[
+            'MyPolicy',
+        ]
+    )
+    if 'Statement' in policy['Policies']['MyPolicy']:
+        for statement in policy['Policies']['MyPolicy']['Statement']:
+            if statement['Effect'] == 'Allow' and 'Principal' in statement and statement['Principal'] == '*':
+                print(f'Identity {identity} is exposed.')
+```
+
+This script will print out all identities that are exposed. Please replace 'MyPolicy' with the actual policy name you want to check.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +224,6 @@ By following these steps and using the provided Python script as a reference, yo
 
 - [https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html](https://docs.aws.amazon.com/ses/latest/dg/creating-identities.html) 
 
+
+</Tab>
+</Tabs>

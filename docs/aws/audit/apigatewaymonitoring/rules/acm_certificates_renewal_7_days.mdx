@@ -20,6 +20,81 @@ Security
 
 NIST
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the API Gateway service.
+2. In the API Gateway dashboard, select the APIs that you want to examine.
+3. In the API details page, select the "Stages" option from the left-hand side menu.
+4. In the Stages section, check the "Client Certificate for Endpoint Verification" field. If the certificate is set to expire in less than 7 days, it indicates a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the ACM and API Gateway services.
+
+2. Once the AWS CLI is set up, you can list all the ACM Certificates using the following command:
+   ```
+   aws acm list-certificates --region your-region
+   ```
+   Replace 'your-region' with the region where your ACM Certificates are located. This command will return a list of Certificate ARNs.
+
+3. For each Certificate ARN, you can describe the certificate to get its details, including the renewal status. Use the following command:
+   ```
+   aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region
+   ```
+   Replace 'your-certificate-arn' with the ARN of the certificate you want to check, and 'your-region' with the region where the certificate is located. This command will return the certificate details in JSON format.
+
+4. From the returned JSON, you can check the 'RenewalSummary' field to see the renewal status of the certificate. If the 'RenewalStatus' is 'PENDING_VALIDATION' and the 'UpdatedAt' field is less than 7 days from the current date, then the certificate is due for renewal. You can use a Python script to parse the JSON and check these fields.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Make sure you have the necessary permissions to access the ACM and API Gateway services.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary libraries and initialize the ACM and API Gateway clients.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+acm = boto3.client('acm')
+apigateway = boto3.client('apigateway')
+```
+
+3. Fetch all the API Gateways and their associated ACM Certificates. Then, check the expiry date of each certificate. If the certificate is due to expire in less than 7 days, print the details.
+
+```python
+# Get all Rest APIs
+apis = apigateway.get_rest_apis()['items']
+
+for api in apis:
+    # Get the domain name associated with the API
+    domain_name = apigateway.get_domain_name(domainName=api['name'])
+    
+    # Get the ACM Certificate ARN
+    certificate_arn = domain_name['certificateArn']
+    
+    # Get the certificate details
+    certificate = acm.describe_certificate(CertificateArn=certificate_arn)['Certificate']
+    
+    # Check if the certificate is due to expire in less than 7 days
+    if certificate['NotAfter'] <= datetime.now() + timedelta(days=7):
+        print(f"API Gateway {api['name']} has a certificate due to expire in less than 7 days.")
+```
+
+4. Run the script regularly (for example, as a daily cron job) to monitor your ACM Certificates. You can also modify the script to send notifications (for example, by email or SMS) when it detects a certificate that is due to expire soon.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -137,3 +212,6 @@ Note: Make sure to set up AWS credentials in the environment where you are runni
 
 - [https://docs.aws.amazon.com/acm/latest/userguide/managed-renewal.html](https://docs.aws.amazon.com/acm/latest/userguide/managed-renewal.html) 
 
+
+</Tab>
+</Tabs>

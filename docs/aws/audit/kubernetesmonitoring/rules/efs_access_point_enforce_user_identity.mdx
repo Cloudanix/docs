@@ -20,6 +20,87 @@ Security
 
 CBP,RBI_MD_ITF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EFS service.
+2. In the EFS dashboard, select the file system that you want to check.
+3. In the file system details page, click on the "Access points" tab.
+4. Check the "User" column in the access points list. If the "User" field is set to "root" (UID: 0, GID: 0), then the EFS access points user identity is not enforced in Kubernetes.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EFS resources.
+
+2. Once the AWS CLI is set up, you can list all the EFS file systems in your account using the following command:
+   ```
+   aws efs describe-file-systems --query 'FileSystems[*].[FileSystemId]' --output text
+   ```
+   This command will return a list of FileSystemId values, which are the IDs of your EFS file systems.
+
+3. For each FileSystemId, you can list all the access points using the following command:
+   ```
+   aws efs describe-access-points --file-system-id <FileSystemId> --query 'AccessPoints[*].[AccessPointId]' --output text
+   ```
+   Replace `<FileSystemId>` with the ID of your EFS file system. This command will return a list of AccessPointId values, which are the IDs of the access points for the specified EFS file system.
+
+4. For each AccessPointId, you can get the details of the access point, including the user identity, using the following command:
+   ```
+   aws efs describe-access-points --access-point-id <AccessPointId> --query 'AccessPoints[*].[PosixUser]' --output text
+   ```
+   Replace `<AccessPointId>` with the ID of your access point. This command will return the PosixUser value, which is the user identity for the specified access point. If the PosixUser value is not enforced, then there is a misconfiguration.
+
+#### Using Python
+
+1. **Import Required Libraries**: The first step is to import the required libraries in your Python script. You will need the `boto3` library to interact with AWS services. If it's not installed, you can install it using pip: `pip install boto3`. Here is how you import it:
+
+```python
+import boto3
+```
+
+2. **Create AWS Session**: The next step is to create an AWS session using your credentials. Replace `'my_access_key'`, `'my_secret_key'`, and `'my_region'` with your actual AWS credentials and region.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='my_access_key',
+    aws_secret_access_key='my_secret_key',
+    region_name='my_region'
+)
+```
+
+3. **Connect to EFS**: Now, you can connect to the EFS service using the session you created. 
+
+```python
+efs = session.client('efs')
+```
+
+4. **Check User Identity for EFS Access Points**: Finally, you can list all the access points for your EFS and check if the user identity is enforced. 
+
+```python
+def check_user_identity():
+    response = efs.describe_access_points()
+    for access_point in response['AccessPoints']:
+        if 'PosixUser' in access_point['AccessPointConfiguration']:
+            user_id = access_point['AccessPointConfiguration']['PosixUser']['Uid']
+            group_id = access_point['AccessPointConfiguration']['PosixUser']['Gid']
+            if user_id == '1000' and group_id == '1000':
+                print(f"User identity is enforced for access point: {access_point['AccessPointId']}")
+            else:
+                print(f"User identity is not enforced for access point: {access_point['AccessPointId']}")
+
+check_user_identity()
+```
+
+This script will print out whether the user identity is enforced for each access point. If the user ID and group ID are both '1000', it means the user identity is enforced. Otherwise, it's not enforced.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -109,3 +190,6 @@ To remediate the misconfiguration of EFS Access Points user identity not being e
 
 By following these steps, you can remediate the misconfiguration of EFS Access Points user identity not being enforced in AWS Kubernetes using Python.
 
+
+</Tab>
+</Tabs>

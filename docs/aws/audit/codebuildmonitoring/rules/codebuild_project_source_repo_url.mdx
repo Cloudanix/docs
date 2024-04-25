@@ -20,6 +20,100 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the CodeBuild service.
+
+2. In the CodeBuild dashboard, select the "Build projects" option from the left-hand side menu. This will display a list of all the build projects that have been created within your AWS account.
+
+3. Select the build project that you want to check for misconfigurations. This will open the project details page.
+
+4. In the project details page, navigate to the "Source" section. Here, check the "Repository URL" field. If the URL contains any sign-in credentials (username and password), then it is a misconfiguration. The URL should only contain the repository's address without any credentials.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the required resources.
+
+2. Once the AWS CLI is set up, you can list all your CodeBuild projects using the following command:
+
+   ```
+   aws codebuild list-projects
+   ```
+
+   This command will return a list of all your CodeBuild project names.
+
+3. Now, for each project, you can get the project details using the following command:
+
+   ```
+   aws codebuild batch-get-projects --names project-name
+   ```
+
+   Replace 'project-name' with the name of your project. This command will return the details of the specified project.
+
+4. In the project details, look for the 'source' attribute. This attribute contains the information about the source repository. Check the 'location' field under the 'source' attribute. If the location field contains a URL with credentials (username and password), then it is a misconfiguration. The URL should not contain any credentials. 
+
+   Note: The 'location' field will contain the URL of the Bitbucket repository if Bitbucket is used as the source repository.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) and GitPython. You can install these libraries using pip:
+
+   ```python
+   pip install boto3
+   pip install GitPython
+   ```
+
+2. Connect to AWS CodeBuild: Use the Boto3 library to connect to AWS CodeBuild. You will need your AWS access key ID, secret access key, and the region where your CodeBuild project is located.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   codebuild = session.client('codebuild')
+   ```
+
+3. Retrieve and analyze CodeBuild project information: Use the `list_projects` method to retrieve a list of all CodeBuild projects, then use the `batch_get_projects` method to retrieve detailed information about each project. Analyze the `source` field of each project to check if it contains Bitbucket credentials.
+
+   ```python
+   projects = codebuild.list_projects()['projects']
+   project_details = codebuild.batch_get_projects(names=projects)['projects']
+
+   for project in project_details:
+       source = project['source']
+       if source['type'] == 'BITBUCKET' and '@' in source['location']:
+           print(f"Project {project['name']} has credentials in Bitbucket URL")
+   ```
+
+4. Use GitPython to check the repository: If you have access to the Bitbucket repository, you can use GitPython to clone the repository and check if it contains any AWS credentials. This step is optional and depends on your access to the repository.
+
+   ```python
+   from git import Repo
+
+   repo = Repo.clone_from(source['location'], 'temp_dir')
+   files = repo.git.ls_files().split('\n')
+
+   for file in files:
+       content = repo.git.show(f'HEAD:{file}')
+       if 'aws_access_key_id' in content or 'aws_secret_access_key' in content:
+           print(f"File {file} in project {project['name']} contains AWS credentials")
+   ```
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS credentials and region. Also, please note that this script only checks for credentials in the Bitbucket URL and AWS credentials in the repository files. It may not detect other types of sensitive information.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +224,6 @@ response = client.update_project(
 5. **Monitor and Rotate Credentials**: Regularly monitor and rotate your credentials stored in AWS Secrets Manager or IAM roles to enhance security and compliance.
 
 By following these steps and best practices, you can remediate the issue of sign-in credentials being in the Bitbucket source repository URL in AWS CodeBuild securely and effectively.
+
+</Tab>
+</Tabs>

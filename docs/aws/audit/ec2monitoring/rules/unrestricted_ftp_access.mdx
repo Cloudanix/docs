@@ -20,6 +20,75 @@ Security
 
 HITRUST, AWSWAF, GDPR, SOC2, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select 'Security Groups' under the 'Network & Security' section.
+3. In the 'Security Groups' page, you will see a list of all security groups associated with your EC2 instances. Select the security group you want to inspect.
+4. In the 'Inbound rules' tab, check for any rules that allow unrestricted FTP access (port 20 or 21) from any source (0.0.0.0/0 or ::/0). If such a rule exists, it indicates that unrestricted FTP access is allowed.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all security groups: The first step to detect unrestricted FTP access is to list all the security groups in your AWS account. You can do this by running the following command: `aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId]" --output text`
+
+3. Check security group rules: For each security group, you need to check the inbound rules to see if any of them allow unrestricted FTP access. FTP uses port 21, so you need to look for rules that allow traffic on this port. You can do this by running the following command for each security group: `aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}" --output text`
+
+4. Analyze the output: If the output of the above command includes a rule that allows traffic from 0.0.0.0/0 (which means all IP addresses) on port 21, then unrestricted FTP access is allowed. If not, then unrestricted FTP access is not allowed.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your Python environment. You can do this using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+2. Use Boto3 to list all security groups and their rules:
+   You can use the `describe_security_groups` function to get a list of all security groups and their rules. Here is a sample script:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for group in response['SecurityGroups']:
+       for permission in group['IpPermissions']:
+           if permission['IpProtocol'] == 'tcp' and 'FromPort' in permission and 'ToPort' in permission:
+               if permission['FromPort'] <= 20 and permission['ToPort'] >= 21:
+                   for range in permission['IpRanges']:
+                       if range['CidrIp'] == '0.0.0.0/0':
+                           print(f"Security Group {group['GroupId']} allows unrestricted FTP access")
+   ```
+   This script will print the ID of any security group that allows unrestricted FTP access.
+
+3. Interpret the results:
+   If the script prints any security group IDs, those security groups allow unrestricted FTP access. If the script does not print anything, no security groups allow unrestricted FTP access.
+
+4. Regularly run the script:
+   Misconfigurations can happen at any time, so it's important to regularly check for them. You could run this script as a cron job, or use AWS Lambda to run it on a schedule.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +199,6 @@ This code will verify that FTP access is restricted by attempting to connect to 
 
 - [https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules) 
 
+
+</Tab>
+</Tabs>

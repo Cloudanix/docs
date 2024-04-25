@@ -1,3 +1,104 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the API Gateway service.
+2. In the API Gateway dashboard, select the APIs section on the left-hand side.
+3. For each API, select the "Stages" option. Here, you can see the details of each stage of your API.
+4. In the stage editor panel, under the "Settings" tab, check the "Client Certificate for Endpoint Verification" section. If the certificate is due to expire in less than 30 days, it will be indicated here.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install AWS CLI on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all the API Gateways: Use the following command to list all the API Gateways in your AWS account:
+
+   ```
+   aws apigateway get-rest-apis
+   ```
+
+   This command will return a list of all the REST APIs in your account. Note down the "id" of the API Gateway you want to check.
+
+3. Get the details of the API Gateway: Use the following command to get the details of the API Gateway:
+
+   ```
+   aws apigateway get-rest-api --rest-api-id <API_ID>
+   ```
+
+   Replace `<API_ID>` with the id of the API Gateway you noted down in the previous step. This command will return the details of the API Gateway including the id of the ACM certificate associated with it.
+
+4. Check the ACM certificate: Use the following command to check the ACM certificate:
+
+   ```
+   aws acm describe-certificate --certificate-arn <CERTIFICATE_ARN>
+   ```
+
+   Replace `<CERTIFICATE_ARN>` with the ARN of the ACM certificate associated with the API Gateway. This command will return the details of the ACM certificate including its expiration date. If the expiration date is less than 30 days from the current date, then the ACM certificate is due for renewal.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) on your local machine. This will allow you to interact with AWS services using Python. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a client for the 'apigateway' service and list all the Rest APIs:
+
+```python
+client = session.client('apigateway')
+response = client.get_rest_apis()
+
+apis = response['items']
+```
+
+4. Iterate over the APIs and check the expiration date of the associated ACM certificate. If the certificate is set to expire in less than 30 days, print a warning message:
+
+```python
+import datetime
+
+for api in apis:
+    try:
+        certificate_arn = api['clientCertificateId']
+        acm_client = session.client('acm')
+        certificate = acm_client.describe_certificate(
+            CertificateArn=certificate_arn
+        )
+        expiration_date = certificate['Certificate']['NotAfter']
+        if (expiration_date - datetime.datetime.now()).days < 30:
+            print(f"Warning: Certificate for API {api['name']} is set to expire in less than 30 days.")
+    except (BotoCoreError, ClientError) as error:
+        print(f"Error checking certificate for API {api['name']}: {error}")
+```
+
+This script will check all the APIs in the specified region and print a warning for each one that has a certificate set to expire in less than 30 days.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -117,3 +218,6 @@ for cert in certificates['CertificateSummaryList']:
 
 This Python code will check for all ACM certificates in your AWS account and renew any certificates that expire in less than 30 days. You can run this code on a regular basis (e.g., using a cron job) to ensure that your certificates are always up to date.
 
+
+</Tab>
+</Tabs>

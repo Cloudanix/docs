@@ -1,3 +1,96 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the CloudFormation service.
+2. In the CloudFormation console, select the "Stacks" option from the left-hand side menu.
+3. Select the stack you want to inspect. In the stack details pane, click on the "Stack Policy" tab.
+4. Review the stack policy. If the policy does not include a fail-safe mechanism, such as a "Deny" statement that prevents updates to all resources by default, then the stack policy is misconfigured.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the CloudFormation stacks.
+
+2. Once the AWS CLI is set up, you can list all the CloudFormation stacks in your account using the following command:
+   ```
+   aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE
+   ```
+   This command will return a list of all the CloudFormation stacks that are in a completed state.
+
+3. For each stack in the list, you can get the stack policy using the following command:
+   ```
+   aws cloudformation get-stack-policy --stack-name <StackName>
+   ```
+   Replace `<StackName>` with the name of your stack. This command will return the stack policy in JSON format.
+
+4. Finally, you need to check the returned policy for a fail-safe mechanism. A fail-safe mechanism in a CloudFormation stack policy is a statement that denies all actions on all resources. It should look something like this:
+   ```
+   {
+     "Statement" : [
+       {
+         "Effect" : "Deny",
+         "Action" : "*",
+         "Resource" : "*"
+       }
+     ]
+   }
+   ```
+   If the policy does not contain a statement like this, it means that the CloudFormation stack policy does not use a fail-safe mechanism.
+
+#### Using Python
+
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the AWS SDK for Python (Boto3). You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then, input your access key, secret access key, and default region when prompted.
+
+3. Create a Python script to check the CloudFormation Stack Policy: The script will use Boto3 to interact with AWS CloudFormation service, get all the stacks, and check their policies. If a stack policy doesn't have a fail-safe mechanism, it will print the stack name.
+
+   ```python
+   import boto3
+
+   # Create a CloudFormation client
+   cf = boto3.client('cloudformation')
+
+   # Get all stacks
+   stacks = cf.describe_stacks()
+
+   for stack in stacks['Stacks']:
+       # Get stack policy
+       try:
+           policy = cf.get_stack_policy(StackName=stack['StackName'])
+       except Exception as e:
+           print(f"Error getting policy for stack {stack['StackName']}: {e}")
+           continue
+
+       # Check if policy has a fail-safe mechanism
+       if 'Statement' not in policy or not any(statement['Effect'] == 'Deny' for statement in policy['Statement']):
+           print(f"Stack {stack['StackName']} doesn't have a fail-safe mechanism in its policy")
+   ```
+
+4. Run the Python script: You can run the script using the Python interpreter. It will print the names of all stacks that don't have a fail-safe mechanism in their policies.
+
+   ```bash
+   python check_stack_policy.py
+   ```
+   
+Please note that this script assumes that a fail-safe mechanism in a stack policy is represented by at least one statement with "Effect": "Deny". You might need to adjust this according to your specific requirements.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -92,3 +185,6 @@ Replace `STACK_NAME` with the name of the stack for which you want to remediate 
 
 This code will retrieve the stack policy for the specified stack, check if it contains a fail-safe mechanism (a deny statement with action "*"), and remove it if found. Finally, it will update the stack policy with the new policy that includes the fail-safe mechanism.
 
+
+</Tab>
+</Tabs>

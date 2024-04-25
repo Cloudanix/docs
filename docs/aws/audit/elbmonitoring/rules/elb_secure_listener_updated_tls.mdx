@@ -21,6 +21,98 @@ Security
 SOC2, AWSWAF
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 Dashboard by selecting "EC2" under the "Services" dropdown menu.
+3. In the EC2 Dashboard, under the "Load Balancing" section in the left navigation pane, click on "Load Balancers".
+4. In the Load Balancers page, select the load balancer you want to check. In the bottom panel, click on the "Listeners" tab. Here, you can see the protocols used by the load balancer. If it's using HTTP or TCP, it means it's not using secure listeners.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Elastic Load Balancer (ELB) resources.
+
+2. Once the AWS CLI is set up, you can list all the load balancers in your account using the following command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON output with details about all the load balancers in your account.
+
+3. To check if the ELBs are using secure listeners, you need to describe the listeners for each load balancer. You can do this using the following command:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Replace `<load-balancer-arn>` with the ARN of the load balancer you want to check. This command will return a JSON output with details about the listeners for the specified load balancer.
+
+4. In the JSON output, look for the "Protocol" field under each listener. If the protocol is "HTTPS" or "TLS", then the listener is secure. If the protocol is "HTTP", then the listener is not secure. You can use a tool like `jq` to parse the JSON output and filter for insecure listeners. For example:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn> | jq '.Listeners[] | select(.Protocol=="HTTP")'
+   ```
+
+   This command will return details about any insecure listeners for the specified load balancer. If the command returns no output, then all the listeners for the load balancer are secure.
+
+#### Using Python
+
+To check if Elastic Load Balancers (ELBs) are using secure listeners only, you can use the Boto3 library in Python, which allows you to write scripts to automate AWS services. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION_NAME'
+)
+```
+
+2. **Create an ELB client:**
+
+```python
+# Create an ELB client
+elb = session.client('elbv2')
+```
+
+3. **Retrieve all the load balancers and check their listeners:**
+
+```python
+# Get all load balancers
+load_balancers = elb.describe_load_balancers()
+
+# Iterate over each load balancer
+for lb in load_balancers['LoadBalancers']:
+    # Get the listeners for the load balancer
+    listeners = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])
+
+    # Iterate over each listener
+    for listener in listeners['Listeners']:
+        # Check if the listener is using HTTP (port 80)
+        if listener['Port'] == 80:
+            print(f"Load balancer {lb['LoadBalancerName']} is using insecure listener (HTTP).")
+```
+
+4. **Interpret the results:**
+
+The script will print out the names of the load balancers that are using insecure listeners (HTTP). If no such message is printed, it means all your ELBs are using secure listeners only.
+
+Please replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, and `'YOUR_REGION_NAME'` with your actual AWS credentials and the region you want to check.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -110,3 +202,6 @@ This script will iterate through all the load balancers in your AWS account and 
 
 - [https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html) 
 
+
+</Tab>
+</Tabs>

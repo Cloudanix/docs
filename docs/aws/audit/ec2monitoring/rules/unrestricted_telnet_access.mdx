@@ -20,6 +20,89 @@ Security
 
 PCIDSS, SOC2, GDPR, HITRUST, AWSWAF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, select "Security Groups" under the "Network & Security" section.
+3. In the main pane, you will see a list of all your security groups. Select the security group you want to inspect for unrestricted Telnet access.
+4. Once you've selected a security group, navigate to the "Inbound rules" tab at the bottom of the page. Here, you can see all the inbound rules associated with the selected security group.
+5. Check for any rules where the "Type" is "Custom TCP" and the "Port Range" is 23 (the port used by Telnet). If the "Source" for this rule is set to "Anywhere" (0.0.0.0/0 for IPv4 or ::/0 for IPv6), then unrestricted Telnet access is allowed, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all security groups: Once your AWS CLI is set up, you can list all the security groups in your AWS account by running the following command:
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check for unrestricted Telnet access: Telnet uses TCP port 23. So, to check if any security group allows unrestricted Telnet access, you need to look for rules that allow inbound traffic on TCP port 23 from any source (0.0.0.0/0 or ::/0). You can do this by running the following command for each security group:
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}"
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
+
+4. Analyze the output: If the output of the above command includes a rule that allows traffic on TCP port 23 from any source (0.0.0.0/0 or ::/0), then the security group allows unrestricted Telnet access. If no such rule is found, then the security group does not allow unrestricted Telnet access.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can set up your AWS credentials in several ways, but the simplest is to use the AWS CLI's configure command:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to check for unrestricted Telnet access: The script will use Boto3 to interact with the AWS EC2 service, fetch all security groups, and check if they have inbound rules that allow unrestricted (0.0.0.0/0) Telnet (port 23) access.
+
+```python
+import boto3
+
+def check_telnet_access():
+    ec2 = boto3.resource('ec2')
+    for security_group in ec2.security_groups.all():
+        for permission in security_group.ip_permissions:
+            for ip_range in permission['IpRanges']:
+                if '0.0.0.0/0' in ip_range['CidrIp'] and permission['FromPort'] == 23:
+                    print(f"Security Group {security_group.id} allows unrestricted Telnet access")
+
+check_telnet_access()
+```
+
+4. Run the script: You can run the script using any Python interpreter. If the script prints any security group IDs, those groups allow unrestricted Telnet access and should be reviewed.
+
+```bash
+python check_telnet_access.py
+```
+
+This script only checks for IPv4 addresses. If your security groups also use IPv6, you should also check the 'Ipv6Ranges' field in the same way.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -115,3 +198,6 @@ By following the above steps, you can remediate the unrestricted Telnet access m
 
 - [https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#AddRemoveRules) 
 
+
+</Tab>
+</Tabs>

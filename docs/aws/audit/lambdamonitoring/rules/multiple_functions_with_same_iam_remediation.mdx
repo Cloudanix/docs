@@ -1,3 +1,84 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the IAM dashboard at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Roles". This will display a list of all the IAM roles that are currently available in your AWS account.
+
+3. Click on each role to view its details. Under the "Permissions" tab, you can see the policies attached to the role. If the role is used by multiple Lambda functions, it will have multiple policies attached to it.
+
+4. Navigate to the AWS Lambda console at https://console.aws.amazon.com/lambda/. Here, you can see a list of all your Lambda functions. Click on each function to view its details. Under the "Configuration" tab, you can see the role that is associated with the function. If multiple functions are associated with the same role, then it is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to list all the Lambda functions in your AWS account. You can do this by using the AWS CLI command `aws lambda list-functions`. This command will return a JSON object with all your Lambda functions.
+
+    ```
+    aws lambda list-functions --region your-region
+    ```
+
+2. Next, you need to get the IAM role for each Lambda function. You can do this by parsing the JSON object returned by the `list-functions` command. Each function's details will include a `Role` field that contains the ARN of the IAM role associated with the function.
+
+    ```
+    aws lambda get-function-configuration --function-name your-function-name --query 'Role' --region your-region
+    ```
+
+3. Repeat the above step for all the Lambda functions in your AWS account. You can do this by writing a script that loops through all the function names returned by the `list-functions` command and runs the `get-function-configuration` command for each one.
+
+4. Finally, check if any IAM roles are associated with more than one Lambda function. You can do this by comparing the ARNs of the IAM roles returned by the `get-function-configuration` command. If any ARNs are repeated, it means that multiple functions are using the same IAM role.
+
+#### Using Python
+
+1. Import the necessary libraries and establish a session with AWS using Boto3. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from collections import defaultdict
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION_NAME'
+)
+```
+
+2. Create a client for AWS Lambda and get a list of all the functions. For each function, get the IAM role associated with it.
+
+```python
+# Create a client for the AWS Lambda service
+lambda_client = session.client('lambda')
+
+# Get a list of all functions
+functions = lambda_client.list_functions()
+
+# Create a dictionary to store the IAM roles and the functions that use them
+iam_roles = defaultdict(list)
+
+# For each function, get the IAM role and add it to the dictionary
+for function in functions['Functions']:
+    role = function['Role']
+    iam_roles[role].append(function['FunctionName'])
+```
+
+3. Now, you have a dictionary where the keys are the IAM roles and the values are lists of functions that use each role. You can now check for any IAM roles that are used by more than one function.
+
+```python
+# Check for IAM roles that are used by more than one function
+for role, functions in iam_roles.items():
+    if len(functions) > 1:
+        print(f"The IAM role {role} is used by the following functions: {', '.join(functions)}")
+```
+
+4. If the script prints out any IAM roles, it means those roles are used by multiple functions, which is a misconfiguration. You should ensure that each function has its own unique IAM role for better security and access control.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -129,3 +210,6 @@ for function in response['Functions']:
 
 This script will loop through all the functions in your account and check if they are sharing their IAM role with any other function. If a function is sharing its IAM role, the script will create a new IAM role for the function, attach the necessary policies to the new role, and update the function to use the new IAM role.
 
+
+</Tab>
+</Tabs>

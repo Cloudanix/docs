@@ -1,3 +1,108 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand side menu.
+3. Choose the domain name for which you want to check the CloudFront distribution alias record.
+4. In the records set section, look for the Alias records. If an Alias record is pointing to a CloudFront distribution, the value field will contain a string that looks like "dxxxxxxxxxxxxx.cloudfront.net".
+5. To check if the CloudFront distribution has an S3 origin, navigate to the CloudFront dashboard from the AWS Management Console.
+6. In the CloudFront dashboard, select the distribution that matches the Alias record you found in Route 53.
+7. In the distribution settings, select the "Origins and Origin Groups" tab. Here, you can see the origin of the distribution. If it's an S3 bucket, the origin will be the S3 bucket URL. If there is no S3 origin, then the CloudFront distribution Alias record has no S3 origin in Route 53.
+
+#### Using CLI
+
+1. First, you need to list all the hosted zones in your AWS account. You can do this by using the following AWS CLI command:
+
+```bash
+aws route53 list-hosted-zones
+```
+
+This command will return a list of all the hosted zones along with their IDs.
+
+2. Next, you need to list all the record sets in a specific hosted zone. You can do this by using the following AWS CLI command:
+
+```bash
+aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+```
+
+Replace `<hosted-zone-id>` with the ID of the hosted zone you want to check. This command will return a list of all the record sets in the specified hosted zone.
+
+3. Now, you need to check if any of the record sets are of type 'A' (Alias) and if they are associated with a CloudFront distribution. You can do this by checking the 'AliasTarget' and 'Type' fields in the output of the previous command. If the 'Type' field is 'A' and the 'AliasTarget' field contains a CloudFront distribution ID, then the record set is an alias for a CloudFront distribution.
+
+4. Finally, you need to check if the CloudFront distribution associated with the alias record set has an S3 origin. You can do this by using the following AWS CLI command:
+
+```bash
+aws cloudfront get-distribution --id <distribution-id>
+```
+
+Replace `<distribution-id>` with the ID of the CloudFront distribution you want to check. This command will return the configuration of the specified CloudFront distribution. If the 'Origins' field in the output does not contain an S3 bucket, then the CloudFront distribution does not have an S3 origin.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: You need to configure your AWS credentials. You can configure credentials by using the AWS CLI or by directly placing them in your script. However, it's not a good practice to hard code credentials into your script.
+
+   ```python
+   aws configure
+   ```
+
+3. Write a Python script to list all CloudFront distributions and check if any of them have an S3 origin:
+
+   ```python
+   import boto3
+
+   # Create a CloudFront client
+   cf = boto3.client('cloudfront')
+
+   # List all distributions
+   distributions = cf.list_distributions()
+
+   for distribution in distributions['DistributionList']['Items']:
+       for origin in distribution['Origins']['Items']:
+           if 'S3' in origin['DomainName']:
+               print(f"Distribution {distribution['Id']} has an S3 origin")
+   ```
+
+4. Write a Python script to list all Route53 alias records and check if any of them point to a CloudFront distribution that has an S3 origin:
+
+   ```python
+   import boto3
+
+   # Create a Route53 client
+   r53 = boto3.client('route53')
+
+   # List all hosted zones
+   hosted_zones = r53.list_hosted_zones()
+
+   for zone in hosted_zones['HostedZones']:
+       # List all records in the hosted zone
+       records = r53.list_resource_record_sets(HostedZoneId=zone['Id'])
+
+       for record in records['ResourceRecordSets']:
+           if record['Type'] == 'A' and 'AliasTarget' in record:
+               # Check if the alias target is a CloudFront distribution with an S3 origin
+               distribution_id = record['AliasTarget']['DNSName'].split('.')[0]
+               distribution = cf.get_distribution(Id=distribution_id)
+
+               for origin in distribution['Distribution']['DistributionConfig']['Origins']['Items']:
+                   if 'S3' in origin['DomainName']:
+                       print(f"Alias record {record['Name']} in hosted zone {zone['Name']} points to a CloudFront distribution with an S3 origin")
+   ```
+
+These scripts will print out the IDs of any CloudFront distributions that have an S3 origin, and the names of any Route53 alias records that point to a CloudFront distribution with an S3 origin.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -143,3 +248,6 @@ if record_to_update:
 
 That's it! The CloudFront distribution alias record without an S3 origin will now be updated with the correct S3 origin configuration.
 
+
+</Tab>
+</Tabs>

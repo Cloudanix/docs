@@ -1,3 +1,96 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the AWS Key Management Service (KMS) console at https://console.aws.amazon.com/kms.
+
+2. To use the AWS KMS console, you must sign in as an IAM user, assume an IAM role, or sign in as the root user (not recommended) in your AWS account.
+
+3. In the navigation pane, choose "Customer managed keys".
+
+4. Choose the alias or key ID of the KMS key to review.
+
+5. Under Key policy, review the policy. Look for the "Sid": "Allow access for Key Administrators" section. This section contains the IAM users and roles that have administrative permissions for the KMS key. If the number of IAM entities (users/roles) listed here is more than necessary, it indicates a misconfiguration. 
+
+Remember, the principle of least privilege should be applied, and only the necessary IAM entities should have administrative access to the KMS key.
+
+#### Using CLI
+
+1. First, you need to list all the keys in your AWS account. You can do this by using the AWS CLI command `list-keys`. The command is as follows:
+
+   ```
+   aws kms list-keys --region your-region-name
+   ```
+   Replace 'your-region-name' with the name of your AWS region. This command will return a list of all the KMS keys in your account.
+
+2. Once you have the list of keys, you can describe the key policy for each key. The command to do this is `get-key-policy`. The command is as follows:
+
+   ```
+   aws kms get-key-policy --key-id your-key-id --policy-name default
+   ```
+   Replace 'your-key-id' with the ID of the key you want to check. This command will return the policy of the key.
+
+3. Now, you need to parse the output of the `get-key-policy` command to check the number of KMS admins. You can do this by using a Python script. The script will read the output of the `get-key-policy` command, convert it to a Python dictionary, and then count the number of KMS admins. Here is a sample script:
+
+   ```python
+   import json
+
+   # Replace this with the output of the 'get-key-policy' command
+   policy_output = ''
+
+   policy = json.loads(policy_output)
+   admins = [statement for statement in policy['Statement'] if 'kms:Create*' in statement['Action']]
+
+   print('Number of KMS admins:', len(admins))
+   ```
+
+4. Repeat steps 2 and 3 for each key in your account. If any key has more than the desired number of KMS admins, it is a misconfiguration.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a new KMS client:
+
+```python
+import boto3
+kms_client = boto3.client('kms')
+```
+
+2. Retrieve all the KMS keys in your AWS account:
+
+```python
+response = kms_client.list_keys()
+kms_keys = response['Keys']
+```
+
+3. For each KMS key, retrieve the key policy and parse it to find the number of admins:
+
+```python
+for key in kms_keys:
+    key_id = key['KeyId']
+    policy = kms_client.get_key_policy(KeyId=key_id, PolicyName='default')
+```
+
+4. Parse the policy JSON and count the number of admins. If the number of admins is more than a certain threshold (e.g., 2), print a warning message:
+
+```python
+import json
+policy_document = json.loads(policy['Policy'])
+admin_count = 0
+for statement in policy_document['Statement']:
+    if 'kms:Create*' in statement['Action'] or 'kms:Describe*' in statement['Action']:
+        admin_count += 1
+if admin_count > 2:
+    print(f"Warning: KMS key {key_id} has too many admins ({admin_count})")
+```
+
+This script will print a warning for each KMS key that has more than 2 admins. You can adjust the threshold as per your organization's requirements.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -174,3 +267,6 @@ In the above code, you need to replace the `KeyId` with the ID of the KMS key th
 
 By following these steps, you can remediate the misconfiguration of KMS key policies being designed to limit the number of KMS admins in AWS using Python.
 
+
+</Tab>
+</Tabs>

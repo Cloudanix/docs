@@ -1,3 +1,88 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the IAM dashboard by selecting "Services" from the top menu, then choosing "IAM" under the "Security, Identity, & Compliance" category.
+3. In the IAM dashboard, select "Policies" from the left-hand side menu. This will display a list of all the IAM policies in your AWS account.
+4. For each policy, click on the policy name to open its details page. Here, you can review the policy document under the "Permissions" tab. Look for any KMS actions (like "kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", etc.) that are explicitly denied. If you find any such actions, it means that the Blocked KMS Actions In Inline Policies are set.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to execute IAM related commands.
+
+2. Once AWS CLI is set up, you can list all the IAM policies using the following command:
+   ```
+   aws iam list-policies --scope Local
+   ```
+   This command will list all the policies that are created within your AWS account (Local scope). The output will be in JSON format which includes the policy names and their respective ARNs (Amazon Resource Names).
+
+3. Now, for each policy, you can get the policy details including the policy document which contains the permissions. Use the following command to get the policy details:
+   ```
+   aws iam get-policy-version --policy-arn <Policy_ARN> --version-id <Policy_Version_ID>
+   ```
+   Replace `<Policy_ARN>` with the ARN of the policy and `<Policy_Version_ID>` with the version of the policy you want to check. The policy version ID can be obtained from the output of the previous command. The output of this command will also be in JSON format.
+
+4. Now, you need to check the policy document for any blocked KMS actions. You can do this manually by looking at the "Statement" section of the policy document. If there are any KMS actions in the "NotAction" element, those are the blocked KMS actions. Alternatively, you can use a tool like `jq` to parse the JSON output and filter for the blocked KMS actions. Here is an example command:
+   ```
+   aws iam get-policy-version --policy-arn <Policy_ARN> --version-id <Policy_Version_ID> | jq -r '.PolicyVersion.Document.Statement[] | select(.NotAction[] | startswith("kms:"))'
+   ```
+   This command will list all the statements in the policy that have blocked KMS actions.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. This will allow you to interact with AWS services including IAM.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Use the IAM client from Boto3 to retrieve all the IAM policies in your account.
+
+```python
+iam_client = session.client('iam')
+
+response = iam_client.list_policies(
+    Scope='Local',
+    OnlyAttached=True
+)
+```
+
+4. Iterate over the policies and check for any inline policies that have blocked KMS actions. You can do this by checking if the policy document contains "kms:Decrypt", "kms:Encrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey".
+
+```python
+for policy in response['Policies']:
+    policy_version = iam_client.get_policy_version(
+        PolicyArn=policy['Arn'],
+        VersionId=policy['DefaultVersionId']
+    )
+    statements = policy_version['PolicyVersion']['Document']['Statement']
+    for statement in statements:
+        if 'kms:Decrypt' in statement['Action'] or 'kms:Encrypt' in statement['Action'] or 'kms:ReEncrypt*' in statement['Action'] or 'kms:GenerateDataKey*' in statement['Action'] or 'kms:DescribeKey' in statement['Action']:
+            if statement['Effect'] == 'Deny':
+                print(f"Blocked KMS action found in policy: {policy['PolicyName']}")
+```
+
+This script will print the names of the policies that have blocked KMS actions. You can modify it to suit your needs, for example, by raising an exception or sending a notification when a blocked KMS action is found.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -113,3 +198,6 @@ Make sure to replace `'your-entity-name'` and `'your-inline-policy-name'` with t
 
 By running this script, you can programmatically update the inline policy to allow all KMS actions and remediate the misconfiguration of blocked KMS actions in AWS IAM.
 
+
+</Tab>
+</Tabs>

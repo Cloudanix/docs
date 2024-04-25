@@ -19,6 +19,102 @@ Monitoring
 
 GDPR,HIPAA,ISO27001
 
+
+
+<Tabs><Tab title='Cause'>
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. Select the database instance that you want to check.
+
+4. In the "Details" section, look for the "Backup" section. Here, you can see the "Backup Retention Period" and "Backup Window" settings. If the "Backup Retention Period" is set to 0 days, it means that automated backups are disabled for the DB instance.
+
+5. Also, check the "Maintenance & backups" section. Here, you can see the "Logging" setting. If it's disabled, it means that logging is not enabled for the DB instance. 
+
+Remember, for a DMS Replication Task, the source DB should have logging enabled. If it's not, it's a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the DMS tasks using the following command:
+
+   ```
+   aws dms describe-replication-tasks
+   ```
+
+   This command will return a JSON output with details of all the DMS replication tasks.
+
+3. Now, you need to extract the source endpoint ARN from the above JSON output. You can do this manually or by using a tool like 'jq'. The ARN will be under the 'SourceEndpointArn' key.
+
+4. Finally, you can check if the source DB has logging enabled or not using the following command:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <source-endpoint-arn>
+   ```
+
+   In the returned JSON output, look for the 'EnabledCloudwatchLogsExports' key. If it is present and the value is not empty, then logging is enabled. If it is not present or the value is empty, then logging is not enabled.
+
+#### Using Python
+
+To check if the DMS Replication Task Source DB has logging enabled in RDS using Python scripts, you can use the boto3 library, which allows you to directly interact with AWS services, including RDS. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+    ```python
+    import boto3
+    session = boto3.Session(
+        aws_access_key_id='YOUR_ACCESS_KEY',
+        aws_secret_access_key='YOUR_SECRET_KEY',
+        region_name='us-west-2'
+    )
+    ```
+
+2. **Create a client for RDS:**
+
+    ```python
+    rds = session.client('rds')
+    ```
+
+3. **Get a list of all DB instances:**
+
+    ```python
+    dbs = rds.describe_db_instances()
+    ```
+
+4. **Check if logging is enabled for each DB instance:**
+
+    ```python
+    for db in dbs['DBInstances']:
+        if 'EnabledCloudwatchLogsExports' in db:
+            if 'postgresql' in db['Engine']:
+                if 'postgresql' not in db['EnabledCloudwatchLogsExports']:
+                    print(f"Logging is not enabled for DB instance {db['DBInstanceIdentifier']}")
+            elif 'mysql' in db['Engine']:
+                if 'audit' not in db['EnabledCloudwatchLogsExports']:
+                    print(f"Logging is not enabled for DB instance {db['DBInstanceIdentifier']}")
+            elif 'mariadb' in db['Engine']:
+                if 'audit' not in db['EnabledCloudwatchLogsExports']:
+                    print(f"Logging is not enabled for DB instance {db['DBInstanceIdentifier']}")
+            else:
+                print(f"Logging is not enabled for DB instance {db['DBInstanceIdentifier']}")
+        else:
+            print(f"Logging is not enabled for DB instance {db['DBInstanceIdentifier']}")
+    ```
+
+This script will print out the identifiers of all DB instances that do not have logging enabled. Note that you need to replace `'YOUR_ACCESS_KEY'` and `'YOUR_SECRET_KEY'` with your actual AWS access key and secret key. Also, the region name should be replaced with the region you are working in.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -125,3 +221,8 @@ else:
 By following these steps, you can use Python and the Boto3 library to remediate the misconfiguration of the DMS Replication Task Source DB not having logging enabled for an AWS RDS instance.
 
 
+
+</Tab>
+</Tabs>
+</Tab>
+</Tabs>

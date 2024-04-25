@@ -1,3 +1,93 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand menu. This will display a list of all the domains that you have registered with Route 53.
+3. Click on the domain name that you want to check. This will open a list of all the record sets associated with that domain.
+4. Look for a CNAME record that points to a CloudFront distribution. If the CNAME record's value is a CloudFront URL (e.g., d12345abcdefg.cloudfront.net), then it is pointing to a CloudFront distribution. To check if this distribution has an S3 origin, you need to go to the CloudFront dashboard.
+5. In the CloudFront dashboard, click on the ID of the distribution that matches the CNAME record's value. This will open the distribution's settings.
+6. In the distribution's settings, click on the "Origins and Origin Groups" tab. This will display a list of all the origins associated with the distribution.
+7. If there is no S3 bucket listed as an origin, then the CloudFront distribution CNAME record has no S3 origin in Route 53.
+
+#### Using CLI
+
+1. First, you need to list all the CloudFront distributions using the AWS CLI. You can do this by running the following command:
+
+   ```
+   aws cloudfront list-distributions --query 'DistributionList.Items[*].[Id,Origins.Items[*].DomainName]' --output text
+   ```
+   This command will return a list of all CloudFront distributions and their origin domain names.
+
+2. Next, you need to list all the Route53 hosted zones using the AWS CLI. You can do this by running the following command:
+
+   ```
+   aws route53 list-hosted-zones --query 'HostedZones[*].Id' --output text
+   ```
+   This command will return a list of all hosted zone IDs.
+
+3. For each hosted zone ID, you need to list all the record sets. You can do this by running the following command:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id> --query 'ResourceRecordSets[*].[Name,Type,ResourceRecords[*].Value]' --output text
+   ```
+   Replace `<hosted-zone-id>` with the ID of the hosted zone. This command will return a list of all record sets in the hosted zone.
+
+4. Finally, you need to compare the CNAME records in Route53 with the origin domain names in CloudFront. If a CNAME record in Route53 does not have a corresponding S3 origin in CloudFront, then it is a misconfiguration. This comparison can be done manually or by using a script.
+
+#### Using Python
+
+1. First, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # or your preferred region
+)
+```
+
+3. Now, create a client for Route53 and CloudFront:
+
+```python
+route53 = session.client('route53')
+cloudfront = session.client('cloudfront')
+```
+
+4. Now, you can list all the hosted zones in Route53 and for each hosted zone, list all the record sets. For each record set, if the type is 'CNAME', check if the corresponding CloudFront distribution has an S3 origin:
+
+```python
+hosted_zones = route53.list_hosted_zones()
+
+for zone in hosted_zones['HostedZones']:
+    record_sets = route53.list_resource_record_sets(HostedZoneId=zone['Id'])
+    
+    for record_set in record_sets['ResourceRecordSets']:
+        if record_set['Type'] == 'CNAME':
+            distribution_id = record_set['ResourceRecords'][0]['Value'].split('.')[0]
+            distribution_config = cloudfront.get_distribution_config(Id=distribution_id)
+            
+            for origin in distribution_config['DistributionConfig']['Origins']['Items']:
+                if 's3' not in origin['DomainName']:
+                    print(f"CloudFront distribution {distribution_id} with CNAME record in Route53 has no S3 origin.")
+```
+
+This script will print out the IDs of all CloudFront distributions that have a CNAME record in Route53 but do not have an S3 origin.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -158,3 +248,6 @@ Make sure to replace `'yourdomain.com'` with your actual domain name and `'your-
 
 By following these steps, you can remediate the misconfiguration of an AWS CloudFront distribution CNAME record having no S3 origin using Python and AWS Route53.
 
+
+</Tab>
+</Tabs>

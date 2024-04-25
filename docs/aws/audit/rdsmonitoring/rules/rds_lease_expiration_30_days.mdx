@@ -20,6 +20,93 @@ Cost Optimisation
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the RDS dashboard. 
+
+2. In the navigation pane, click on 'Reserved Instances'. This will display a list of all your reserved instances.
+
+3. For each reserved instance, check the 'State' and 'End date'. If the state is 'active' and the end date is within the next 30 days, then the reserved instance is due for renewal.
+
+4. You can also use the 'Filter' option to filter out the instances that are due for renewal. Enter the end date range as the next 30 days to get a list of all instances that need to be renewed.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all RDS Reserved Instances: Use the `describe-reserved-db-instances` command to list all your RDS Reserved Instances. This command returns a JSON object that contains all your reserved instances.
+
+   ```
+   aws rds describe-reserved-db-instances
+   ```
+
+3. Parse the output: The output from the previous command includes a lot of information. You need to parse this output to get the details of each reserved instance. You can use the `jq` command-line JSON processor for this. The following command will return the reserved instance ID, offering type, state, and the number of days until the reserved instance expires.
+
+   ```
+   aws rds describe-reserved-db-instances | jq -r '.ReservedDBInstances[] | {ReservedDBInstanceId: .ReservedDBInstanceId, OfferingType: .OfferingType, State: .State, Duration: .Duration}'
+   ```
+
+4. Check for expiration: Now that you have the details of each reserved instance, you can check if any of them are about to expire. The `Duration` field in the output from the previous command gives the duration of the reserved instance in seconds. You can convert this to days and check if it is less than 30. If it is, then the reserved instance is about to expire.
+
+   ```
+   aws rds describe-reserved-db-instances | jq -r '.ReservedDBInstances[] | select(.Duration / 86400 < 30) | .ReservedDBInstanceId'
+   ```
+
+   This command will return the IDs of all reserved instances that are about to expire in less than 30 days.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can set up your AWS credentials in several ways, but the simplest is to use the AWS CLI tool to configure them:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to list all RDS Reserved Instances and their expiration dates:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create a client
+client = boto3.client('rds')
+
+# Get all RDS Reserved Instances
+response = client.describe_reserved_db_instances()
+
+# Check each RDS Reserved Instance
+for instance in response['ReservedDBInstances']:
+    # Get the expiration date
+    expiration_date = instance['ReservedDBInstancesOfferingType']
+    # Check if the expiration date is within the next 30 days
+    if expiration_date <= datetime.now() + timedelta(days=30):
+        print(f"RDS Reserved Instance {instance['ReservedDBInstanceId']} will expire soon.")
+```
+
+4. Run the script: You can run the script using any Python interpreter. This script will print out the IDs of all RDS Reserved Instances that will expire within the next 30 days. If no instances are printed, then there are no instances that will expire soon.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -122,3 +209,6 @@ By following these steps, you can automatically renew RDS Reserved Instances bef
 
 - [https://aws.amazon.com/rds/reserved-instances/](https://aws.amazon.com/rds/reserved-instances/) 
 
+
+</Tab>
+</Tabs>

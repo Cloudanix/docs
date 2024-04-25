@@ -1,3 +1,101 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the load balancer you want to inspect.
+
+4. In the bottom panel, select the "Listeners" tab. Here you can see the protocols and ports configured for your load balancer. If the protocol is HTTP or TCP, it means the listener is not secure. Secure listeners should be using HTTPS or SSL protocols.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Elastic Load Balancer (ELB) resources.
+
+2. Once the AWS CLI is set up, you can list all the load balancers in your account using the following command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+   This command will return a JSON output with details of all the load balancers.
+
+3. To check the listeners for a specific load balancer, you need the ARN of the load balancer. You can get this from the output of the previous command. Once you have the ARN, use the following command to describe the listeners:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn>
+   ```
+   Replace `<load-balancer-arn>` with the ARN of your load balancer. This command will return a JSON output with details of all the listeners associated with the specified load balancer.
+
+4. To check if the listeners are secure, you need to look for the `Protocol` field in the output of the previous command. If the protocol is `HTTPS` or `TLS`, then the listener is secure. If the protocol is `HTTP`, then the listener is not secure. You can use a Python script to parse the JSON output and check the protocol of each listener. Here is a simple script:
+
+   ```python
+   import json
+   import subprocess
+
+   def check_secure_listeners(load_balancer_arn):
+       command = ['aws', 'elbv2', 'describe-listeners', '--load-balancer-arn', load_balancer_arn]
+       output = subprocess.check_output(command)
+       data = json.loads(output)
+       for listener in data['Listeners']:
+           if listener['Protocol'] in ['HTTPS', 'TLS']:
+               print(f"Listener {listener['ListenerArn']} is secure.")
+           else:
+               print(f"Listener {listener['ListenerArn']} is not secure.")
+
+   check_secure_listeners('<load-balancer-arn>')
+   ```
+   Replace `<load-balancer-arn>` with the ARN of your load balancer. This script will print whether each listener is secure or not.
+
+#### Using Python
+
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check for secure listeners in ELBs:
+
+   ```python
+   import boto3
+
+   def check_elb_secure_listeners():
+       elb = boto3.client('elbv2')
+       elbs = elb.describe_load_balancers()
+       for elb in elbs['LoadBalancers']:
+           listeners = elb.describe_listeners(LoadBalancerArn=elb['LoadBalancerArn'])
+           for listener in listeners['Listeners']:
+               if listener['Protocol'] != 'HTTPS':
+                   print(f"ELB {elb['LoadBalancerName']} has insecure listener on port {listener['Port']}")
+
+   if __name__ == "__main__":
+       check_elb_secure_listeners()
+   ```
+
+4. Run the script: You can run the script using the Python interpreter. The script will print out the names of any ELBs that have insecure listeners.
+
+   ```
+   python check_elb_secure_listeners.py
+   ```
+
+This script checks all the ELBs in the default region. If you want to check ELBs in other regions, you need to specify the region when creating the Boto3 client.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -104,3 +202,6 @@ for elb in elbs:
 
 Note: You will need to replace the `ssl_cert_arn` value with the ARN of a valid SSL certificate in your AWS account. Also, make sure to update the region and AWS account ID in the ARN.
 
+
+</Tab>
+</Tabs>

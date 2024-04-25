@@ -20,6 +20,109 @@ Security
 
 AWSWAF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the Application Load Balancer (ALB) that you want to inspect.
+
+4. In the bottom panel, select the "Listeners" tab. Here you can see the protocols and ports configured for your ALB. If the protocol is HTTP (not HTTPS) on port 80, it means the ALB is using an insecure configuration.
+
+5. Next, select the "Attributes" tab. Check the "Deletion Protection" attribute. If it's disabled, it's a misconfiguration as it allows the ALB to be deleted accidentally.
+
+6. Also, in the "Attributes" tab, check the "Access logs" attribute. If it's disabled, it's a misconfiguration as it prevents the logging of requests made to the ALB.
+
+7. Lastly, in the "Security" tab, check the security policies. If the security policy is not set to the latest policy, it's a misconfiguration as it may allow weak ciphers and protocols.
+
+#### Using CLI
+
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). The command is `pip install awscli`. After installation, you can configure it using `aws configure` command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. **List all the Load Balancers**: Use the following AWS CLI command to list all the Application Load Balancers (ALBs) in your account:
+
+    ```
+    aws elbv2 describe-load-balancers
+    ```
+
+    This command will return a JSON output with details of all the ALBs.
+
+3. **Check the ALB Configurations**: For each ALB, check the attributes related to security like deletion protection, access logs, and idle timeout. Use the following command:
+
+    ```
+    aws elbv2 describe-load-balancer-attributes --load-balancer-arn {Load_Balancer_Arn}
+    ```
+
+    Replace `{Load_Balancer_Arn}` with the ARN of your ALB. This command will return a JSON output with the attributes of the specified ALB.
+
+4. **Check the Listener Configurations**: For each ALB, also check the listener configurations, especially the protocol and cipher settings. Use the following command:
+
+    ```
+    aws elbv2 describe-listeners --load-balancer-arn {Load_Balancer_Arn}
+    ```
+
+    Replace `{Load_Balancer_Arn}` with the ARN of your ALB. This command will return a JSON output with the listeners of the specified ALB. Look for listeners that are using insecure protocols or ciphers.
+
+Remember, you need to parse the JSON output of these commands to check for insecure configurations. You can use tools like `jq` or write a script in Python or any other language to automate this process.
+
+#### Using Python
+
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then, input your access key, secret access key, and your preferred AWS region.
+
+3. Write a Python script to check ALB configurations: The following script lists all the ALBs and checks if they have insecure configurations such as HTTP listener or deletion protection disabled.
+
+   ```python
+   import boto3
+
+   def check_alb_config():
+       client = boto3.client('elbv2')
+       balancers = client.describe_load_balancers()
+       for balancer in balancers['LoadBalancers']:
+           attrs = client.describe_load_balancer_attributes(LoadBalancerArn=balancer['LoadBalancerArn'])
+           for attr in attrs['Attributes']:
+               if attr['Key'] == 'deletion_protection.enabled' and attr['Value'] == 'false':
+                   print(f"ALB {balancer['LoadBalancerName']} has deletion protection disabled")
+               if attr['Key'] == 'access_logs.s3.enabled' and attr['Value'] == 'false':
+                   print(f"ALB {balancer['LoadBalancerName']} has access logs disabled")
+           listeners = client.describe_listeners(LoadBalancerArn=balancer['LoadBalancerArn'])
+           for listener in listeners['Listeners']:
+               if listener['Protocol'] == 'HTTP':
+                   print(f"ALB {balancer['LoadBalancerName']} has an HTTP listener")
+
+   if __name__ == "__main__":
+       check_alb_config()
+   ```
+
+4. Run the script: You can run the script using the Python interpreter. The script will print the names of the ALBs that have insecure configurations.
+
+   ```bash
+   python check_alb_config.py
+   ```
+
+This script checks for some common misconfigurations, but there might be other insecure settings depending on your specific use case. You can modify the script to check for other attributes as needed.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -151,3 +254,6 @@ Note: This is just an example of how to remediate insecure configurations of ALB
 
 - [https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-alb.html](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/environments-cfg-alb.html) 
 
+
+</Tab>
+</Tabs>

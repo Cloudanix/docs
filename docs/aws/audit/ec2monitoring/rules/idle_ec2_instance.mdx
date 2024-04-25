@@ -20,6 +20,106 @@ Cost optimization
 
 AWSWAF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, select "Instances" to view all the EC2 instances.
+3. For each instance, check the "Monitoring" tab. This tab provides metrics such as CPU utilization, Disk reads and writes, Network packets, etc.
+4. If the CPU utilization is consistently low (close to 0%) over a long period of time, the instance might be idle. Similarly, if there are no disk reads/writes or network packets, the instance is likely not being used.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all EC2 instances: Use the following command to list all your EC2 instances. This will return a JSON object with all your instances.
+
+   ```
+   aws ec2 describe-instances
+   ```
+
+3. Check instance status: For each instance, check the 'State' field. If the 'State' is 'running', the instance is not idle. If the 'State' is 'stopped', the instance is idle. You can use the following command to filter out the instances that are running:
+
+   ```
+   aws ec2 describe-instances --filters "Name=instance-state-name,Values=stopped"
+   ```
+
+4. Check instance usage: For each running instance, you can check the CPU utilization to determine if it's idle or not. You can use the CloudWatch `get-metric-statistics` command to get the CPU utilization for a specific instance:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUUtilization --dimensions Name=InstanceId,Value=instance_id --start-time 2021-01-01T00:00:00Z --end-time 2021-01-02T00:00:00Z --period 3600 --statistics Maximum
+   ```
+
+   Replace 'instance_id' with the ID of your instance. This command will return the maximum CPU utilization for each hour in the specified time range. If the CPU utilization is consistently low (e.g., less than 10%), the instance might be idle.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) in your environment. This can be done using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+
+   ~/.aws/credentials:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+   ~/.aws/config:
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+3. Write a Python script to detect idle EC2 instances: The following script uses Boto3 to get a list of all EC2 instances, then checks the CPU utilization for each instance over the past 24 hours. If the maximum CPU utilization is less than a certain threshold (e.g., 10%), the instance is considered idle.
+
+   ```python
+   import boto3
+
+   def is_idle(instance_id, threshold=10):
+       cloudwatch = boto3.client('cloudwatch')
+       response = cloudwatch.get_metric_statistics(
+           Namespace='AWS/EC2',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'InstanceId',
+                   'Value': instance_id
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(days=1),
+           EndTime=datetime.datetime.utcnow(),
+           Period=3600,
+           Statistics=['Maximum']
+       )
+       return all([datapoint['Maximum'] < threshold for datapoint in response['Datapoints']])
+
+   ec2 = boto3.resource('ec2')
+   for instance in ec2.instances.all():
+       if is_idle(instance.id):
+           print(f"Instance {instance.id} is idle.")
+   ```
+
+4. Run the script: You can run the script using Python. It will print out the IDs of all idle EC2 instances:
+
+   ```
+   python detect_idle_ec2.py
+   ```
+
+This script only checks CPU utilization, which may not be the only indicator of an idle instance. Depending on your use case, you might want to check other metrics as well, such as network traffic or disk I/O.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -134,3 +234,6 @@ Note: This is just a sample code and you may need to modify it according to your
 
 - [https://aws.amazon.com/about-aws/whats-new/2013/01/08/use-amazon-cloudwatch-to-detect-and-shut-down-unused-amazon-ec2-instances/](https://aws.amazon.com/about-aws/whats-new/2013/01/08/use-amazon-cloudwatch-to-detect-and-shut-down-unused-amazon-ec2-instances/) 
 
+
+</Tab>
+</Tabs>

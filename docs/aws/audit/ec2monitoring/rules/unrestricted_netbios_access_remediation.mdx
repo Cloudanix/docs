@@ -1,3 +1,77 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all the security groups associated with your EC2 instances. Click on the security group that you want to check.
+4. In the details pane at the bottom, click on the "Inbound" tab. This will show you all the inbound rules associated with the selected security group.
+5. Check if there are any rules that allow unrestricted access (0.0.0.0/0) to the NetBIOS ports (TCP/UDP 137-139, TCP 445). If such rules exist, then NetBIOS access is not properly restricted.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all security groups: Use the following command to list all the security groups in your AWS account. This will return a JSON object with details about each security group.
+
+   ```
+   aws ec2 describe-security-groups
+   ```
+
+3. Filter for rules allowing unrestricted NetBIOS access: NetBIOS uses TCP/UDP ports 137, 138, and 139. So, you need to check if any security group has rules that allow inbound traffic on these ports from any source (0.0.0.0/0 or ::/0). You can do this by parsing the output of the previous command with a tool like `jq`:
+
+   ```
+   aws ec2 describe-security-groups | jq '.SecurityGroups[] | select(.IpPermissions[] | select((.FromPort==137 and .ToPort==139) and (.IpRanges[].CidrIp=="0.0.0.0/0" or .Ipv6Ranges[].CidrIpv6=="::/0")))'
+   ```
+
+4. Review the output: If the previous command returns any security groups, those are misconfigured to allow unrestricted NetBIOS access. The output will include the security group ID, name, and other details. If the command doesn't return anything, then there are no security groups allowing unrestricted NetBIOS access.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the Boto3 library in Python which is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python.
+
+```python
+pip install boto3
+```
+
+2. Configure your AWS credentials: You need to configure your AWS credentials. You can do this by using the AWS CLI and configuring it with your Access Key ID and Secret Access Key.
+
+```bash
+aws configure
+```
+
+3. Create a Python script to check for unrestricted NetBIOS access: The following Python script uses Boto3 to interact with the AWS EC2 service. It retrieves all security groups and checks if they have unrestricted access (0.0.0.0/0) to NetBIOS (ports 137-139 and 445).
+
+```python
+import boto3
+
+def check_unrestricted_netbios_access():
+    ec2 = boto3.resource('ec2')
+    security_groups = ec2.security_groups.all()
+
+    for group in security_groups:
+        for permission in group.ip_permissions:
+            for range in permission['IpRanges']:
+                if range['CidrIp'] == '0.0.0.0/0' and permission['FromPort'] in [137, 138, 139, 445] and permission['ToPort'] in [137, 138, 139, 445]:
+                    print(f"Security Group {group.id} has unrestricted NetBIOS access.")
+
+check_unrestricted_netbios_access()
+```
+
+4. Run the Python script: You can run the Python script using any Python environment. If the script prints any security group IDs, those groups have unrestricted NetBIOS access.
+
+```bash
+python check_netbios.py
+```
+
+This script will print out the IDs of any security groups that have unrestricted NetBIOS access. If no output is produced, then no such security groups were found.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -114,3 +188,6 @@ except ClientError as e:
 
 Note: Make sure you have the necessary permissions to modify security groups in your AWS account.
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,85 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, under the "Network & Security" section, select "Security Groups".
+3. In the Security Groups page, you will see a list of all security groups associated with your EC2 instances. Select the security group you want to inspect for unrestricted MsSQL access.
+4. In the selected security group, navigate to the "Inbound rules" tab. Here, check for any rules that allow unrestricted access (0.0.0.0/0 or ::/0 in the source) to the port that your MsSQL server is running on (default is 1433). If such a rule exists, it means that unrestricted MsSQL access is allowed.
+
+#### Using CLI
+
+1. First, you need to list all the security groups in your AWS environment. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+```
+
+2. Once you have the list of all security groups, you need to check the inbound rules for each security group. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]' --output json
+```
+Replace `<security-group-id>` with the ID of the security group you want to check.
+
+3. Now, you need to check if any of these inbound rules allow unrestricted access to MsSQL (port 1433). You can do this by looking for rules where the `FromPort` is 1433, the `ToPort` is 1433, and the `IpRanges` includes '0.0.0.0/0' (which represents all IP addresses).
+
+4. If you find any such rules, it means that unrestricted MsSQL access is allowed in that security group. You should note down the ID of the security group for further investigation.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances:
+   Use the `describe_instances()` function to get a list of all your EC2 instances. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for instance in ec2.instances.all():
+       print(instance.id, instance.state)
+   ```
+
+3. Check security groups for each instance:
+   For each instance, you need to check its security groups. You can do this by using the `describe_security_groups()` function. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   print('Security Groups:', response['SecurityGroups'])
+   ```
+
+4. Check if MsSQL access is unrestricted:
+   For each security group, you need to check if it allows unrestricted access to MsSQL (port 1433). You can do this by checking if the security group has a rule that allows inbound traffic from 0.0.0.0/0 to port 1433. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for group in response['SecurityGroups']:
+       for permission in group['IpPermissions']:
+           for range in permission['IpRanges']:
+               if 'FromPort' in permission and 'ToPort' in permission and permission['FromPort'] <= 1433 <= permission['ToPort'] and range['CidrIp'] == '0.0.0.0/0':
+                   print('Unrestricted MsSQL access detected in security group:', group['GroupId'])
+   ```
+   This script will print the ID of any security group that allows unrestricted access to MsSQL.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -115,3 +197,6 @@ response = ec2.revoke_security_group_ingress(
 
 Note: Replace the `region_name`, `security_group_name`, and `client_ip_address` variables with the appropriate values for your environment.
 
+
+</Tab>
+</Tabs>

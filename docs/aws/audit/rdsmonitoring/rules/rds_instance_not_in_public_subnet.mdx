@@ -20,6 +20,79 @@ Security
 
 SOC2, HITRUST, GDPR, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+
+2. In the navigation pane, choose "Databases" to access the list of your RDS DB instances.
+
+3. Select the RDS DB instance that you want to examine, then choose the "Connectivity & security" tab from the dashboard bottom panel.
+
+4. In the VPC security groups section, check the associated security group(s). If the security group is associated with a public subnet (i.e., the subnet's route table has a route to an Internet Gateway), then the RDS DB instance is provisioned in a VPC public subnet.
+
+#### Using CLI
+
+1. First, you need to list all the DB instances in your AWS account. You can do this by using the AWS CLI command `aws rds describe-db-instances`. This command will return a JSON output with all the DB instances.
+
+2. Next, you need to list all the subnets in your VPC. You can do this by using the AWS CLI command `aws ec2 describe-subnets`. This command will return a JSON output with all the subnets in your VPC.
+
+3. Now, you need to check if any of the DB instances are in a public subnet. You can do this by checking the 'VpcSecurityGroups' field in the output of the `describe-db-instances` command. If the 'VpcSecurityGroups' field contains a security group that is associated with a public subnet, then the DB instance is in a public subnet.
+
+4. Finally, you can use the AWS CLI command `aws ec2 describe-security-groups --group-ids <security-group-id>` to get more information about the security group. If the 'IpPermissions' field in the output contains an entry with 'FromPort' and 'ToPort' set to 0 and 65535 respectively, and 'IpRanges' set to '0.0.0.0/0', then the security group allows all inbound traffic, which means the subnet is public.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError
+```
+
+2. Create a session using your AWS credentials. You can also use the AWS CLI's default session.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create an RDS client and retrieve all DB instances.
+
+```python
+rds = session.client('rds')
+try:
+    response = rds.describe_db_instances()
+except NoCredentialsError:
+    print("No AWS credentials found.")
+    exit()
+```
+
+4. Iterate over the DB instances and check if they are in a VPC and if the VPC is public. If the subnet is public, print a warning message.
+
+```python
+for instance in response['DBInstances']:
+    vpc_id = instance['DBSubnetGroup']['VpcId']
+    ec2 = session.client('ec2')
+    vpc = ec2.describe_vpcs(VpcIds=[vpc_id])
+    is_public = vpc['Vpcs'][0]['IsDefault']
+    if is_public:
+        print(f"Warning: RDS DB instance {instance['DBInstanceIdentifier']} is in a public VPC.")
+```
+
+This script will print a warning for each RDS DB instance that is in a public VPC. Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'SESSION_TOKEN' with your actual AWS credentials.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -141,3 +214,6 @@ By following these steps and running the Python script, you can remediate the mi
 
 - [https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html) 
 
+
+</Tab>
+</Tabs>

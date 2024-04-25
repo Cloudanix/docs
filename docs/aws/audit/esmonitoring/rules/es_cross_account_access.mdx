@@ -20,6 +20,90 @@ Security
 
 AWSWAF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard by selecting "Services" from the top menu, then typing "Elasticsearch Service" into the search bar and selecting it.
+3. In the Amazon Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains. Click on the domain name that you want to check.
+4. In the domain overview page, click on the "Access Policy" tab. Here, you can see the access policy for the domain. If the policy allows access from AWS accounts other than your own, then it is misconfigured to allow cross-account access.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account details. You can do this by following the instructions provided in the AWS CLI User Guide.
+
+2. List all Elasticsearch domains: Use the following AWS CLI command to list all the Elasticsearch domains in your AWS account:
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domains in your AWS account.
+
+3. Describe Elasticsearch domain access policy: For each domain returned by the previous command, use the following AWS CLI command to describe its access policy:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name <your-domain-name>
+   ```
+   Replace `<your-domain-name>` with the name of your Elasticsearch domain. This command will return the configuration details of the specified Elasticsearch domain, including its access policy.
+
+4. Check access policy for cross-account access: The access policy of an Elasticsearch domain is returned by the previous command in the `AccessPolicies` field. This field contains a JSON string that specifies who has access to the domain and what actions they can perform. You need to check this JSON string to see if it allows cross-account access. If the `Principal` field in the JSON string contains an AWS account ID other than your own, or if it contains `'*'` (which means all AWS accounts), then the domain allows cross-account access.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError
+```
+
+2. Create a session using your AWS credentials. You can configure credentials by using AWS CLI or manually through your script.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-1' # your preferred region
+)
+```
+
+3. Create an Elasticsearch client:
+
+```python
+es_client = session.client('es')
+```
+
+4. Now, iterate over all Elasticsearch domains and check if any of them have cross-account access. If the `AccessPolicies` attribute contains a Principal that has an AWS account ID other than the current account or 'AWS' keyword, then cross-account access is allowed.
+
+```python
+def check_cross_account_access():
+    try:
+        domains = es_client.list_domain_names()
+        for domain in domains['DomainNames']:
+            domain_name = domain['DomainName']
+            domain_info = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+            access_policies = json.loads(domain_info['DomainStatus']['AccessPolicies'])
+            for statement in access_policies['Statement']:
+                if 'AWS' in statement['Principal']:
+                    principal = statement['Principal']['AWS']
+                    if principal != 'self' and principal != '*':
+                        print(f"Cross-account access is allowed in Elasticsearch domain: {domain_name}")
+    except BotoCoreError as e:
+        print(f"Error in checking cross-account access: {str(e)}")
+
+check_cross_account_access()
+```
+
+This script will print the names of all Elasticsearch domains that allow cross-account access.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -199,3 +283,6 @@ Note: Replace the `DomainName` and `Resource` ARNs in the policy with your own E
 
 - [https://aws.amazon.com/blogs/security/how-to-control-access-to-your-amazon-elasticsearch-service-domain/](https://aws.amazon.com/blogs/security/how-to-control-access-to-your-amazon-elasticsearch-service-domain/) 
 
+
+</Tab>
+</Tabs>

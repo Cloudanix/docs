@@ -20,6 +20,78 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand menu.
+3. Select the domain name you want to check for misconfigurations.
+4. In the records set section, look for any CNAME records. Check if the CNAME record is pointing to an S3 bucket. If the S3 bucket is not owned by you or it doesn't exist, then it's a misconfiguration. This is because anyone can create an S3 bucket with the name specified in the CNAME record and serve malicious content.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access Route53 and S3 services.
+
+2. Once AWS CLI is installed and configured, you can list all the hosted zones in your AWS account using the following command:
+   ```
+   aws route53 list-hosted-zones
+   ```
+   This command will return a list of all the hosted zones along with their details.
+
+3. Now, for each hosted zone, you can list all the record sets using the following command:
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <HostedZoneId>
+   ```
+   Replace `<HostedZoneId>` with the ID of the hosted zone you are interested in. This command will return a list of all the record sets in the specified hosted zone.
+
+4. Now, you need to check if any of these record sets are CNAME records pointing to an S3 bucket. You can do this by checking the `Type` and `ResourceRecords` fields in the output of the previous command. If the `Type` field is `CNAME` and the `ResourceRecords` field contains a value that ends with `.s3.amazonaws.com`, then the CNAME record is pointing to an S3 bucket. This could potentially be a misconfiguration if the S3 bucket is not intended to be publicly accessible.
+
+#### Using Python
+
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary libraries and initialize the client for Route53. You will need to provide your AWS credentials (Access key ID and Secret access key) which you can get from your AWS console.
+```python
+import boto3
+
+# Initialize the Route53 client
+route53 = boto3.client('route53', 
+    aws_access_key_id='YOUR_ACCESS_KEY', 
+    aws_secret_access_key='YOUR_SECRET_KEY', 
+    region_name='us-west-2' # or your preferred region
+)
+```
+
+3. Fetch all the hosted zones and iterate over them to get all the record sets. Check if the record type is 'CNAME' and if the value of the record points to an S3 bucket.
+```python
+# Get all hosted zones
+hosted_zones = route53.list_hosted_zones()
+
+for zone in hosted_zones['HostedZones']:
+    # Get all record sets for the hosted zone
+    record_sets = route53.list_resource_record_sets(HostedZoneId=zone['Id'])
+
+    for record_set in record_sets['ResourceRecordSets']:
+        # Check if the record type is 'CNAME'
+        if record_set['Type'] == 'CNAME':
+            # Check if the value of the record points to an S3 bucket
+            if 's3.amazonaws.com' in record_set['ResourceRecords'][0]['Value']:
+                print(f"Vulnerable CNAME record found: {record_set['Name']}")
+```
+
+4. The script will print out the names of all CNAME records that point to an S3 bucket. These are potentially vulnerable as they can be used to hijack the S3 bucket if it is not properly configured. You should review these records and ensure that the S3 buckets they point to are secure.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -167,3 +239,6 @@ To remediate the vulnerability of AWS S3 CNAME Records in AWS Route53 using Pyth
 By following these steps, you can check for vulnerable CNAME records and fix them in AWS Route53 using Python.
 
 
+
+</Tab>
+</Tabs>

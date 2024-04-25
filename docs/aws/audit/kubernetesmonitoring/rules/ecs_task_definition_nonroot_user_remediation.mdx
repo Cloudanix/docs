@@ -1,3 +1,79 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes services are running.
+
+3. Select the service you want to inspect and click on the "Task Definitions" tab.
+
+4. In the Task Definitions section, select the task definition you want to inspect. In the "Container Definitions" section, check the "User" field. If it is set to "root", then the ECS task is running as root.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the running ECS tasks in your AWS account using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs for the tasks running in the specified cluster.
+
+3. For each task ARN returned by the previous command, you can describe the task to get more details about it. Use the following command to do this:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task you want to describe. This command will return a JSON object containing details about the specified task.
+
+4. In the output of the previous command, look for the "user" field under the "containerDefinitions" section. If the value of this field is "root", then the task is running as the root user, which is a misconfiguration. If the "user" field is not present or its value is not "root", then the task is not running as the root user.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the Kubernetes Python client to interact with the Kubernetes API. You can install it using pip:
+
+```python
+pip install kubernetes
+```
+Then, import the client in your script:
+
+```python
+from kubernetes import client, config
+```
+
+2. Load the Kubernetes configuration: If you're running the script from within a Pod in the cluster, you can use the in-cluster configuration. If you're running it from your local machine, you need to load your kubeconfig file:
+
+```python
+config.load_kube_config()
+```
+
+3. Get the list of Pods: You can use the CoreV1Api to get a list of all Pods in the cluster:
+
+```python
+v1 = client.CoreV1Api()
+pods = v1.list_pod_for_all_namespaces(watch=False)
+```
+
+4. Check the user of each Pod: For each Pod, you can check the security context to see if it's running as root. If the `runAsUser` field is 0, it means the Pod is running as root:
+
+```python
+for i in pods.items:
+    if i.spec.security_context and i.spec.security_context.run_as_user == 0:
+        print("Pod %s is running as root" % i.metadata.name)
+```
+
+This script will print the names of all Pods that are running as root. If no Pods are running as root, it won't print anything.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -132,3 +208,6 @@ for task_arn in response['taskArns']:
 
 Please replace `your_cluster_name` and `your_service_name` with your actual ECS cluster and service names. Also, ensure that you have the necessary IAM permissions to perform these actions.
 
+
+</Tab>
+</Tabs>

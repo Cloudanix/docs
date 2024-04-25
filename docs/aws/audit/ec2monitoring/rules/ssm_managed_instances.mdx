@@ -20,6 +20,104 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, select "Instances" to view all the EC2 instances.
+3. For each instance, check the "Tags" section. If the instance is managed by SSM, it should have a tag with the key "SSM-Managed" and the value "True". If such a tag is not present, the instance is not managed by SSM.
+4. Alternatively, you can navigate to the Systems Manager dashboard and select "Managed Instances" in the navigation pane. If an EC2 instance is managed by SSM, it will be listed here.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EC2 instances and SSM.
+
+2. Once the AWS CLI is installed and configured, you can list all the EC2 instances using the following command:
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+
+   This command will return a list of all EC2 instance IDs.
+
+3. Now, for each EC2 instance, you need to check if it is managed by SSM. You can do this by using the following command:
+
+   ```
+   aws ssm describe-instance-information --filters "Key=InstanceIds,Values=<instance-id>"
+   ```
+
+   Replace `<instance-id>` with the ID of the EC2 instance you want to check. If the instance is managed by SSM, this command will return information about the instance. If the instance is not managed by SSM, this command will return an empty result.
+
+4. To automate the process, you can write a script that loops through all EC2 instances and checks if they are managed by SSM. Here is a simple example in bash:
+
+   ```
+   #!/bin/bash
+
+   instances=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text)
+
+   for instance in $instances
+   do
+     result=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$instance")
+
+     if [ -z "$result" ]
+     then
+       echo "Instance $instance is not managed by SSM"
+     else
+       echo "Instance $instance is managed by SSM"
+     fi
+   done
+   ```
+
+   This script will print a message for each EC2 instance indicating whether it is managed by SSM or not.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Boto3 allows you to directly create, update, and delete AWS resources from your Python scripts.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Use the `describe_instances()` function to get a list of all EC2 instances. Then, use the `list_associations()` function from the SSM client to get a list of all instances managed by SSM.
+
+```python
+ec2 = session.resource('ec2')
+ssm = session.client('ssm')
+
+instances = ec2.instances.all()
+ssm_associations = ssm.list_associations()['Associations']
+```
+
+4. Compare the two lists to find any EC2 instances that are not managed by SSM. If an instance is not in the list of SSM associations, it is not managed by SSM.
+
+```python
+for instance in instances:
+    if not any(association['InstanceId'] == instance.id for association in ssm_associations):
+        print(f'Instance {instance.id} is not managed by SSM')
+```
+
+This script will print out the IDs of any EC2 instances that are not managed by SSM.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -158,3 +256,6 @@ This command will install the Amazon CloudWatch agent on the EC2 instance and co
 
 - [https://docs.aws.amazon.com/systems-manager/latest/userguide/managed_instances.html](https://docs.aws.amazon.com/systems-manager/latest/userguide/managed_instances.html) 
 
+
+</Tab>
+</Tabs>

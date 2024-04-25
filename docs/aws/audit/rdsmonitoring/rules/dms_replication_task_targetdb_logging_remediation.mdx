@@ -1,3 +1,100 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+2. In the navigation pane, choose "Databases" to display a list of your DB instances.
+3. Choose the name of the DB instance that you want to check for logging.
+4. In the "Details" section, look for the "Parameter Groups" field. This field should display the name of the parameter group currently associated with the DB instance.
+5. Click on the parameter group name to open the "DB Parameter Groups" page. Here, look for the "logging_enabled" parameter. If the value of this parameter is set to '0', then logging is not enabled for the target DB of the DMS Replication Task.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS instances.
+
+2. Once the AWS CLI is set up, you can list all the DMS replication tasks using the following command:
+
+   ```
+   aws dms describe-replication-tasks
+   ```
+
+   This command will return a JSON output with details of all the DMS replication tasks.
+
+3. From the output, identify the replication task for which you want to check the target DB logging status. Note down the 'TargetEndpointArn' of the replication task.
+
+4. Now, use the 'TargetEndpointArn' to describe the target endpoint and check if logging is enabled. Use the following command:
+
+   ```
+   aws dms describe-endpoints --filters Name=endpoint-arn,Values=<TargetEndpointArn>
+   ```
+
+   Replace '<TargetEndpointArn>' with the actual ARN of the target endpoint.
+
+4. In the output, look for the 'ExtraConnectionAttributes' field. If logging is enabled, you should see an entry like 'general_log=1;slow_query_log=1'. If these entries are not present or set to 0, then logging is not enabled for the target DB.
+
+#### Using Python
+
+To check if the DMS Replication Task Target DB has logging enabled in RDS using Python scripts, you can use the boto3 library, which allows you to write software that makes use of services like Amazon S3, Amazon EC2, and others. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+2. **Create a client for RDS and DMS:**
+
+```python
+rds = session.client('rds')
+dms = session.client('dms')
+```
+
+3. **Get the list of all DMS tasks and their target endpoints:**
+
+```python
+try:
+    response = dms.describe_replication_tasks()
+except ClientError as e:
+    print(f"Error retrieving DMS tasks: {e}")
+else:
+    tasks = response['ReplicationTasks']
+    target_endpoints = [task['TargetEndpointArn'] for task in tasks]
+```
+
+4. **Check if logging is enabled for each target endpoint:**
+
+```python
+for endpoint_arn in target_endpoints:
+    try:
+        response = rds.describe_db_instances(DBInstanceIdentifier=endpoint_arn)
+    except ClientError as e:
+        print(f"Error retrieving DB instance: {e}")
+    else:
+        db_instance = response['DBInstances'][0]
+        if db_instance['Engine'] == 'mysql':
+            if 'LogExports' in db_instance and 'general' in db_instance['LogExports']:
+                print(f"Logging is enabled for {endpoint_arn}")
+            else:
+                print(f"Logging is NOT enabled for {endpoint_arn}")
+```
+
+This script will print out whether logging is enabled for each DMS target endpoint. If logging is not enabled, it will print a message indicating so. 
+
+Please replace `'YOUR_ACCESS_KEY'` and `'YOUR_SECRET_KEY'` with your actual AWS access key and secret key. Also, replace `'us-west-2'` with the actual region you are working in.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -107,3 +204,8 @@ To remediate the misconfiguration of enabling logging for the target DB of a DMS
 
 By following these steps and running the provided Python script, you should be able to remediate the misconfiguration of enabling logging for the target DB of a DMS replication task in AWS RDS.
 
+
+</Tab>
+</Tabs>
+</Tab>
+</Tabs>

@@ -1,3 +1,85 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under LOAD BALANCING, click on Load Balancers.
+3. Select the load balancer you want to inspect. In the bottom panel, click on the "Listeners" tab.
+4. Check the SSL certificate column. If the SSL certificate is not listed, it means that the load balancer is not configured to use SSL/TLS for its connections.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Load Balancers: Use the following command to list all the load balancers in your account.
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with details about all your load balancers.
+
+3. Describe Load Balancer Attributes: For each load balancer, you need to describe its attributes to check the SSL policies. Use the following command:
+
+   ```
+   aws elbv2 describe-load-balancer-attributes --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Replace `<load-balancer-arn>` with the ARN of your load balancer. This command will return a JSON object with the attributes of the specified load balancer.
+
+4. Check SSL Negotiation Policies: In the returned JSON object, look for the `Policies` attribute. Under this attribute, look for `SslNegotiationPolicy` and check its value. If the value is not set to the latest AWS security policy, then the SSL negotiations are not using the latest AWS security policy.
+
+#### Using Python
+
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. Import the necessary modules and establish a session with AWS using your credentials. You can do this in your Python script as follows:
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ```
+
+3. Now, create an ELB client using the session. This client will allow you to interact with your Elastic Load Balancers.
+   ```python
+   elb = session.client('elbv2')
+   ```
+
+4. Now, you can use the `describe_load_balancer_attributes` function to get the attributes of your load balancer. You can then check the `SslPolicy` attribute to see if it is set to a secure policy. Here is an example of how you can do this:
+   ```python
+   def check_ssl_policy(load_balancer_arn):
+       response = elb.describe_load_balancer_attributes(LoadBalancerArn=load_balancer_arn)
+       for attribute in response['Attributes']:
+           if attribute['Key'] == 'SslPolicy':
+               if attribute['Value'] != 'ELBSecurityPolicy-TLS-1-2-2017-01':
+                   print(f"Load balancer {load_balancer_arn} is using an insecure SSL policy.")
+               else:
+                   print(f"Load balancer {load_balancer_arn} is using a secure SSL policy.")
+   ```
+   In this function, replace `'ELBSecurityPolicy-TLS-1-2-2017-01'` with the name of the SSL policy that you want to check for. This function will print a message indicating whether each load balancer is using a secure SSL policy.
+
+5. Finally, you can use the `describe_load_balancers` function to get a list of all your load balancers, and then call `check_ssl_policy` for each one. Here is an example of how you can do this:
+   ```python
+   def check_all_load_balancers():
+       response = elb.describe_load_balancers()
+       for load_balancer in response['LoadBalancers']:
+           check_ssl_policy(load_balancer['LoadBalancerArn'])
+   ```
+   This function will check all your load balancers and print a message for each one indicating whether it is using a secure SSL policy.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -94,3 +176,6 @@ elb_client.modify_load_balancer_attributes(
 
 7. Finally, you can add this code to a script and run it periodically to ensure that all web-tier ELBs are using the latest AWS security policy for SSL negotiations.
 
+
+</Tab>
+</Tabs>

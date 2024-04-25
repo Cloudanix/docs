@@ -20,6 +20,86 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes is running.
+
+3. Select the task definition that you want to check. In the task definition, you will see a list of containers that are running.
+
+4. For each container, check the permissions that are assigned to it. If the container has write access to any resources, then it is a misconfiguration. The container should only have read-only access.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS task definitions using the following command:
+
+   ```
+   aws ecs list-task-definitions --region your-region-name
+   ```
+
+   Replace "your-region-name" with the name of your AWS region.
+
+3. For each task definition, you can describe it to get more details. Use the following command:
+
+   ```
+   aws ecs describe-task-definition --task-definition task-definition-arn --region your-region-name
+   ```
+
+   Replace "task-definition-arn" with the ARN of your task definition and "your-region-name" with the name of your AWS region.
+
+4. In the output of the above command, look for the "readonlyRootFilesystem" parameter in the "containerDefinitions" section. If the value of "readonlyRootFilesystem" is false, it means that the ECS does not have readonly access for containers.
+
+#### Using Python
+
+1. **Import Required Libraries**: The first step is to import the required libraries. We will need the `boto3` library to interact with AWS services and `json` to parse the JSON responses.
+
+    ```python
+    import boto3
+    import json
+    ```
+
+2. **Create AWS Session**: The next step is to create an AWS session using your credentials. Replace `'my_region'`, `'my_access_key'`, `'my_secret_key'` with your AWS credentials.
+
+    ```python
+    session = boto3.Session(
+        region_name='my_region',
+        aws_access_key_id='my_access_key',
+        aws_secret_access_key='my_secret_key'
+    )
+    ```
+
+3. **Get List of ECS Clusters**: Now, we will get the list of all ECS clusters in your AWS account. We will use the `list_clusters` method of the `ecs` client.
+
+    ```python
+    ecs = session.client('ecs')
+    clusters = ecs.list_clusters()
+    ```
+
+4. **Check Readonly Access For Containers**: For each cluster, we will get the task definitions and check if the containers have readonly access. If the `readonlyRootFilesystem` is not `True`, then it is a misconfiguration.
+
+    ```python
+    for cluster in clusters['clusterArns']:
+        tasks = ecs.list_tasks(cluster=cluster)
+        for task in tasks['taskArns']:
+            task_definition = ecs.describe_task_definition(taskDefinition=task)
+            for container in task_definition['taskDefinition']['containerDefinitions']:
+                if 'readonlyRootFilesystem' not in container or not container['readonlyRootFilesystem']:
+                    print(f"Misconfiguration Detected: Container {container['name']} in task {task} in cluster {cluster} does not have readonly access.")
+    ```
+This script will print out all the containers that do not have readonly access, indicating a misconfiguration.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -154,3 +234,6 @@ for policy in response['AttachedPolicies']:
 
 By following these steps, you can remediate the misconfiguration of ECS not having readonly access for containers in AWS Kubernetes using Python.
 
+
+</Tab>
+</Tabs>

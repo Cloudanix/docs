@@ -21,6 +21,104 @@ Reliability, Security
 CBP
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+2. In the navigation pane, under "Instances", click on "Instances".
+3. In the "Instances" page, you will see a list of all your instances. Check the "Running Time" column for each instance. If this column is not visible, you can add it by clicking on the gear icon at the top right of the table, and then checking the box next to "Running Time".
+4. If an instance has been running for a long time (the exact duration can vary depending on your organization's policies or the specific requirements of the instance), it may need to be re-launched.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start detecting misconfigurations, you need to have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). Once installed, you can configure it using the command `aws configure` and then enter your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the following command to list all your EC2 instances. This will give you a JSON output with all the details of your instances.
+
+   ```
+   aws ec2 describe-instances
+   ```
+
+3. Filter long running instances: To find long running instances, you need to check the 'LaunchTime' attribute of each instance. You can do this using the 'jq' command-line JSON processor. The following command will give you the instance IDs and launch times of all instances:
+
+   ```
+   aws ec2 describe-instances | jq -r '.Reservations[].Instances[] | {InstanceId: .InstanceId, LaunchTime: .LaunchTime}'
+   ```
+
+4. Check if instances should be re-launched: Now, you need to write a script that checks if the 'LaunchTime' of each instance is more than a certain threshold (e.g., 30 days). If it is, then the instance is considered a long running instance and should be re-launched. Here is a simple Python script that does this:
+
+   ```python
+   import json
+   import datetime
+
+   # Load the JSON output from the previous command
+   with open('instances.json', 'r') as f:
+       instances = json.load(f)
+
+   # Check each instance
+   for instance in instances:
+       # Parse the launch time
+       launch_time = datetime.datetime.strptime(instance['LaunchTime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+
+       # Check if the instance has been running for more than 30 days
+       if (datetime.datetime.now() - launch_time).days > 30:
+           print('Instance {} has been running for more than 30 days'.format(instance['InstanceId']))
+   ```
+
+   This script assumes that you have saved the output of the previous command in a file named 'instances.json'. It checks each instance and prints a message if the instance has been running for more than 30 days.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3): To interact with AWS services, you need to install and configure Boto3. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials to allow Boto3 to interact with AWS services on your behalf. You can do this by setting the following environment variables:
+
+   ```
+   AWS_ACCESS_KEY_ID='your_access_key'
+   AWS_SECRET_ACCESS_KEY='your_secret_key'
+   ```
+
+2. Import necessary libraries and establish a session: In your Python script, you need to import the Boto3 library and establish a session with AWS. Here's how you can do it:
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ec2 = session.resource('ec2')
+   ```
+
+3. Fetch and filter instances: Now, you can fetch all the instances and filter out the ones that have been running for a long time. Here's a simple way to do it:
+
+   ```python
+   import datetime
+
+   def get_running_time(instance):
+       launch_time = instance.launch_time
+       running_time = datetime.datetime.now(launch_time.tzinfo) - launch_time
+       return running_time.total_seconds() / 3600
+
+   for instance in ec2.instances.all():
+       if get_running_time(instance) > 24:  # Change this to your desired threshold
+           print(f"Instance {instance.id} has been running for a long time")
+   ```
+
+4. Run the script: Finally, you can run the script to detect long-running instances. If there are any, their IDs will be printed to the console. You can then decide what to do with these instances based on your specific requirements.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -180,3 +278,6 @@ instances = ec2.describe_instances(
 
 - [https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html) 
 
+
+</Tab>
+</Tabs>

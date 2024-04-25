@@ -20,6 +20,109 @@ Security
 
 HIPAA, CISAWS, CBP, GDPR, NIST, SOC2, PCIDSS, ISO27001, AWSWAF, HITRUST, NISTCSF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+   
+2. In the Bucket name list, choose the name of the bucket that you want to check for a secure transport policy.
+
+3. Choose the Permissions tab, and then choose Bucket Policy. 
+
+4. In the Bucket policy editor, look for a statement with "Condition": {"Bool": {"aws:SecureTransport": "false"}}. If this statement is present, it means that the bucket has a secure transport policy. If it's not present, the bucket does not have a secure transport policy.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all S3 buckets: Use the following command to list all the S3 buckets in your AWS account.
+
+   ```
+   aws s3api list-buckets --query 'Buckets[].Name'
+   ```
+
+3. Get the bucket policy: For each bucket, you can get the bucket policy using the following command. Replace 'bucket-name' with the name of your bucket.
+
+   ```
+   aws s3api get-bucket-policy --bucket bucket-name
+   ```
+
+4. Check for secure transport policy: The output of the above command will be a JSON object representing the bucket policy. You need to check if this policy includes a statement that enforces secure transport (HTTPS). The statement should look something like this:
+
+   ```
+   {
+       "Sid": "ForceHttps",
+       "Effect": "Deny",
+       "Principal": "*",
+       "Action": "s3:*",
+       "Resource": "arn:aws:s3:::bucket-name/*",
+       "Condition": {
+           "Bool": {
+               "aws:SecureTransport": "false"
+           }
+       }
+   }
+   ```
+
+   If such a statement is not present in the bucket policy, then the bucket does not have a secure transport policy.
+
+#### Using Python
+
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check the S3 bucket policy:
+
+   ```python
+   import boto3
+   import json
+
+   s3 = boto3.client('s3')
+
+   def check_secure_transport_policy(bucket_name):
+       try:
+           result = s3.get_bucket_policy(Bucket=bucket_name)
+           policy = json.loads(result['Policy'])
+           for statement in policy['Statement']:
+               if (statement['Effect'] == 'Deny' and
+                   'aws:SecureTransport' in statement['Condition']['Bool'] and
+                   statement['Condition']['Bool']['aws:SecureTransport'] == 'false'):
+                   return True
+           return False
+       except Exception as e:
+           print(f"Error checking bucket {bucket_name}: {e}")
+           return False
+
+   for bucket in s3.list_buckets()['Buckets']:
+       if not check_secure_transport_policy(bucket['Name']):
+           print(f"Bucket {bucket['Name']} does not have a secure transport policy")
+   ```
+
+4. Run the script: You can run the script using the Python interpreter. The script will print the names of all S3 buckets that do not have a secure transport policy.
+
+   ```
+   python check_s3_policy.py
+   ```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -227,3 +330,6 @@ Note: Ensure that you have the necessary permissions to make these changes, and 
 
 - [https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html) 
 
+
+</Tab>
+</Tabs>

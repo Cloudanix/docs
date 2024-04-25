@@ -1,3 +1,113 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Roles". This will display a list of all the IAM roles that are currently configured within your AWS environment.
+
+3. For each role, click on the role name to open its summary page. Here, you can see the "Last activity" section which shows when the role was last used to make an AWS request.
+
+4. If the "Last activity" shows "None", it means the role has not been used to make an AWS request in the tracked time period. This could indicate that the role is inactive and may need to be reviewed or removed.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to execute IAM related commands.
+
+2. Once the AWS CLI is set up, you can list all the IAM roles in your AWS account by running the following command:
+   ```
+   aws iam list-roles
+   ```
+   This command will return a JSON object containing all the IAM roles in your account.
+
+3. To check the last activity of each role, you can use the following command:
+   ```
+   aws iam get-role --role-name {role-name}
+   ```
+   Replace `{role-name}` with the name of the role you want to check. This command will return a JSON object containing information about the specified role, including the `RoleLastUsed` field which indicates the last time the role was used.
+
+4. You can then write a script to iterate over all the roles and check the `RoleLastUsed` field. If the role hasn't been used for a long time (for example, 90 days), it can be considered as inactive. Here is a simple Python script that does this:
+   ```python
+   import json
+   import subprocess
+   import datetime
+
+   # Get the list of all roles
+   roles = json.loads(subprocess.getoutput('aws iam list-roles'))
+
+   for role in roles['Roles']:
+       # Get the details of each role
+       role_details = json.loads(subprocess.getoutput(f'aws iam get-role --role-name {role["RoleName"]}'))
+
+       # Check the last used date
+       last_used_date = role_details['Role']['RoleLastUsed'].get('LastUsedDate')
+       if last_used_date:
+           last_used_date = datetime.datetime.strptime(last_used_date, '%Y-%m-%d %H:%M:%S+00:00')
+           # If the role hasn't been used for 90 days, print it
+           if (datetime.datetime.now() - last_used_date).days > 90:
+               print(f'The role {role["RoleName"]} is inactive.')
+   ```
+   This script uses the `subprocess` module to execute AWS CLI commands and the `json` module to parse the returned JSON objects. It also uses the `datetime` module to calculate the number of days since the last use of each role.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. For AWS, you will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials to interact with AWS services. You can set them up in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+3. Write the Python script: The script will use the IAM client from boto3 to list all the roles and then check the last used timestamp for each role. If a role hasn't been used for a certain period of time, it will be considered inactive.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create IAM client
+iam = boto3.client('iam')
+
+# Get the current time
+now = datetime.now()
+
+# Define the period of inactivity (e.g., 90 days)
+inactive_period = timedelta(days=90)
+
+# List all roles
+roles = iam.list_roles()['Roles']
+
+# Check each role
+for role in roles:
+    # Get the role name
+    role_name = role['RoleName']
+
+    # Get the last used timestamp
+    last_used = role.get('RoleLastUsed', {}).get('LastUsedDate')
+
+    # If the role hasn't been used for the defined period, it's inactive
+    if last_used is None or now - last_used > inactive_period:
+        print(f"The role {role_name} is inactive.")
+```
+
+4. Run the script: Finally, you can run the script using Python:
+
+```bash
+python check_inactive_roles.py
+```
+
+This script will print the names of all inactive roles. You can modify it to suit your needs, for example, by sending an alert or report instead of just printing the names.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -85,3 +195,6 @@ for role in roles:
 
 Note: Before running the above code, make sure you have the necessary IAM permissions to delete roles.
 
+
+</Tab>
+</Tabs>

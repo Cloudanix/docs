@@ -1,3 +1,89 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+2. In the navigation pane, choose "Databases" to open the list of your RDS instances.
+3. Select the RDS instance that you want to examine, then choose the "Configuration" tab to view the details of the selected instance.
+4. In the "Details" section, look for the "KMS key ID" attribute. If the attribute value is set to "aws/rds" (the default AWS managed key), the selected RDS instance is not using a customer-managed KMS key, indicating a potential misconfiguration.
+
+#### Using CLI
+
+1. First, you need to list all the RDS instances in your AWS account. You can do this by using the AWS CLI command:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]' --output text
+   ```
+   This command will return a list of all RDS instance identifiers.
+
+2. Next, for each RDS instance, you need to check if it's encrypted with a KMS key. You can do this by using the following AWS CLI command:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <DBInstanceIdentifier> --query 'DBInstances[*].[KmsKeyId]' --output text
+   ```
+   Replace `<DBInstanceIdentifier>` with the identifier of the RDS instance you want to check. This command will return the KMS key ID used to encrypt the RDS instance. If the output is empty, it means the RDS instance is not encrypted with a KMS key.
+
+3. To check if the KMS key is in use, you can use the following AWS CLI command:
+
+   ```
+   aws kms describe-key --key-id <KmsKeyId> --query 'KeyMetadata.[KeyState]' --output text
+   ```
+   Replace `<KmsKeyId>` with the KMS key ID you got from the previous step. This command will return the state of the KMS key. If the state is 'Enabled', it means the KMS key is in use.
+
+4. Repeat steps 2 and 3 for each RDS instance in your AWS account. If any RDS instance is not encrypted with a KMS key, or if the KMS key is not in use, it means there is a misconfiguration.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can set them in your environment variables:
+
+   ```bash
+   export AWS_ACCESS_KEY_ID='your_access_key'
+   export AWS_SECRET_ACCESS_KEY='your_secret_key'
+   ```
+
+3. Write a Python script to list all KMS keys and check if they are in use:
+
+   ```python
+   import boto3
+
+   def check_kms_keys_in_use():
+       client = boto3.client('kms')
+       response = client.list_keys()
+
+       for key in response['Keys']:
+           key_id = key['KeyId']
+           key_metadata = client.describe_key(KeyId=key_id)
+           if key_metadata['KeyMetadata']['KeyState'] != 'Enabled':
+               print(f"KMS key {key_id} is not in use")
+
+   if __name__ == "__main__":
+       check_kms_keys_in_use()
+   ```
+   
+   This script lists all KMS keys and checks if their state is 'Enabled'. If not, it prints the key ID.
+
+4. Run the Python script: You can run the script using the Python interpreter:
+
+   ```bash
+   python check_kms_keys.py
+   ```
+
+   This will print the IDs of all KMS keys that are not in use.
+
+Please note that this script only checks if the KMS keys are enabled or not. It does not check if they are actually used by any AWS service. To do that, you would need to check each AWS service individually, which would require a more complex script.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -80,3 +166,6 @@ Replace "your_kms_key_id_here" with the ID of the KMS key that you want to use f
 
 This code will loop through all RDS instances and modify any instances that are not using a KMS key for encryption to use the specified KMS key.
 
+
+</Tab>
+</Tabs>

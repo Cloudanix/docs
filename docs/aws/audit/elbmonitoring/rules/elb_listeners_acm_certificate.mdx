@@ -20,6 +20,83 @@ Security
 
 CBP,RBI_UCB,RBI_MD_ITF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the load balancer you want to inspect.
+
+4. In the bottom panel, select the "Listeners" tab. Here you can see the protocols and ports configured for your load balancer, and the SSL certificate (if any) associated with each listener.
+
+5. If there is no ACM (AWS Certificate Manager) certificate associated with the HTTPS listeners, or if there is no HTTPS listener at all, then it is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to list all the load balancers in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+   This command will return a JSON output with details of all the load balancers.
+
+2. Next, for each load balancer, you need to describe the listeners. You can do this by using the following AWS CLI command:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn>
+   ```
+   Replace `<load-balancer-arn>` with the ARN of the load balancer you are checking. This command will return a JSON output with details of all the listeners for the specified load balancer.
+
+3. Now, for each listener, you need to check if it has an ACM certificate. You can do this by looking at the 'Certificates' field in the JSON output from the previous step. If the 'Certificates' field is empty or does not contain an ACM certificate, then the listener does not have an ACM certificate.
+
+4. Finally, you need to repeat steps 2 and 3 for each load balancer in your AWS account. If any listener does not have an ACM certificate, then you have detected a misconfiguration.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a client for Elastic Load Balancing (ELB):
+
+```python
+import boto3
+elb = boto3.client('elbv2')
+```
+
+2. Retrieve all the load balancers and iterate over them:
+
+```python
+load_balancers = elb.describe_load_balancers()
+for lb in load_balancers['LoadBalancers']:
+```
+
+3. For each load balancer, retrieve its listeners:
+
+```python
+listeners = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])
+for listener in listeners['Listeners']:
+```
+
+4. Check if the listener has an ACM certificate:
+
+```python
+if 'Certificates' in listener:
+    for certificate in listener['Certificates']:
+        if 'IsDefault' in certificate and certificate['IsDefault']:
+            print(f"Load balancer {lb['LoadBalancerName']} has an ACM certificate.")
+else:
+    print(f"Load balancer {lb['LoadBalancerName']} does not have an ACM certificate.")
+```
+
+This script will print the names of the load balancers that do not have an ACM certificate. If a load balancer has an ACM certificate, it will print that it does.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -127,3 +204,6 @@ for listener in response['Listeners']:
 4. Run the Python script to check and attach the ACM certificate to the ELB listener.
 
 By following these steps, you can remediate the misconfiguration of ELB Listeners not having at least one ACM certificate in AWS using Python.
+
+</Tab>
+</Tabs>

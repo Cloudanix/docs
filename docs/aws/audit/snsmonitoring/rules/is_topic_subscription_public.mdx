@@ -20,6 +20,85 @@ Security
 
 HITRUST, AWSWAF, SOC2, NISTCSF, PCIDSS
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console and open the Amazon SNS console at https://console.aws.amazon.com/sns/v3/home.
+
+2. In the navigation pane, choose 'Topics'. This will display a list of all the SNS topics in your account.
+
+3. Select the SNS topic you want to check. In the 'Details' section, look for the 'Access policy' field. This field contains the JSON policy document that determines who can access the SNS topic.
+
+4. In the policy document, look for a statement with "Effect": "Allow" and "Principal": "*". If such a statement exists and the 'Action' field is either "SNS:Subscribe" or "SNS:*", then the SNS topic allows global subscribe, which is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the SNS topics.
+
+2. Once the AWS CLI is installed and configured, you can list all the SNS topics in your account using the following command:
+
+   ```
+   aws sns list-topics
+   ```
+   This command will return a list of all the SNS topics in your account.
+
+3. For each SNS topic, you can get the topic attributes using the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN>
+   ```
+   Replace `<TopicARN>` with the ARN of the SNS topic. This command will return the attributes of the specified SNS topic.
+
+4. Check the `Policy` attribute of each SNS topic. If the `Policy` attribute contains a statement with `"Effect": "Allow"` and `"Principal": "*"`, then the SNS topic allows global subscribe. This is a misconfiguration because it allows any AWS account to subscribe to this SNS topic.
+
+#### Using Python
+
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION_NAME'
+)
+```
+
+3. Now, create a client for SNS and get the list of all SNS topics:
+
+```python
+sns = session.client('sns')
+response = sns.list_topics()
+```
+
+4. For each topic, get the topic attributes and check if the policy allows global (Everyone) subscription. If it does, print the topic ARN:
+
+```python
+for topic in response['Topics']:
+    attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+    policy = json.loads(attributes['Attributes']['Policy'])
+    for statement in policy['Statement']:
+        if 'Condition' not in statement and statement['Principal'] == {'AWS': '*'} and statement['Effect'] == 'Allow':
+            print(f"Global subscription allowed for topic: {topic['TopicArn']}")
+```
+
+This script will print the ARNs of all SNS topics that allow global subscription.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -121,3 +200,6 @@ By following these steps, you can remediate the misconfiguration "SNS Topics Sho
 
 - [https://docs.aws.amazon.com/sns/latest/dg/AccessPolicyLanguage.html](https://docs.aws.amazon.com/sns/latest/dg/AccessPolicyLanguage.html) 
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,83 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand side menu.
+3. Select the domain name for which you want to check the S3 bucket configuration.
+4. In the "Records" section, look for the record that should be pointing to your S3 bucket. The value of this record should be the endpoint of your S3 bucket.
+5. If the record is not present or not pointing to the correct S3 bucket, then it is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to list all the S3 buckets in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+
+2. Next, you need to list all the hosted zones in your Route53. You can do this by using the following AWS CLI command:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+3. Now, for each hosted zone, list all the record sets. You can do this by using the following AWS CLI command:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+   ```
+   Replace `<hosted-zone-id>` with the ID of each hosted zone you got from the previous step.
+
+4. Finally, check if any of the record sets have the same value as any of your S3 bucket names. If they do, then the S3 bucket is configured in Route53. If they don't, then the S3 bucket is not configured in Route53. This can be done by comparing the output of the third step with the output of the first step.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules. Boto3 allows you to create, configure, and manage AWS services using Python. For this task, you will need the Route53 and S3 modules.
+
+```python
+import boto3
+
+route53 = boto3.client('route53')
+s3 = boto3.client('s3')
+```
+
+2. Retrieve all the hosted zones from Route53 and all the S3 buckets. 
+
+```python
+hosted_zones = route53.list_hosted_zones()
+s3_buckets = s3.list_buckets()
+```
+
+3. Iterate over each hosted zone and check if there is any record set that is an alias to an S3 bucket. 
+
+```python
+for zone in hosted_zones['HostedZones']:
+    record_sets = route53.list_resource_record_sets(HostedZoneId=zone['Id'])
+    for record_set in record_sets['ResourceRecordSets']:
+        if record_set['Type'] == 'A' and 'AliasTarget' in record_set:
+            if record_set['AliasTarget']['DNSName'].endswith('.s3.amazonaws.com.'):
+                print(f"Bucket {record_set['AliasTarget']['DNSName']} is configured in Route53")
+```
+
+4. Compare the list of S3 buckets with the list of buckets configured in Route53. If there is a bucket that is not configured in Route53, print a message.
+
+```python
+configured_buckets = [record_set['AliasTarget']['DNSName'] for record_set in record_sets['ResourceRecordSets'] if record_set['Type'] == 'A' and 'AliasTarget' in record_set and record_set['AliasTarget']['DNSName'].endswith('.s3.amazonaws.com.')]
+
+for bucket in s3_buckets['Buckets']:
+    if f"{bucket['Name']}.s3.amazonaws.com." not in configured_buckets:
+        print(f"Bucket {bucket['Name']} is not configured in Route53")
+```
+
+This script will print the names of all S3 buckets that are not configured in Route53.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -87,3 +167,6 @@ response = config.put_delivery_channel(
 
 With these steps, you have successfully remediated the misconfiguration of AWS Config not having S3 bucket configured.
 
+
+</Tab>
+</Tabs>

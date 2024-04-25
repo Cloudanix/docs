@@ -20,6 +20,95 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your tasks are running. This will bring up a list of all the tasks running in that cluster.
+
+3. Click on the task you want to inspect. This will bring up the task details page. Here, you can see the network mode of the task under the "Network Mode" section. If the network mode is set to "host", this could be a potential misconfiguration.
+
+4. Next, check the permissions of the task. This can be done by looking at the IAM role associated with the task. You can find this information under the "Task Execution IAM Role" section. If the IAM role has more permissions than necessary, this could be a potential misconfiguration.
+
+#### Using CLI
+
+1. **Identify the ECS tasks with network mode host**: The first step is to identify the ECS tasks that are running with network mode set to host. You can do this by using the AWS CLI command `describe-task-definition`. Here is an example:
+
+   ```
+   aws ecs describe-task-definition --task-definition <task-definition-name>
+   ```
+   Replace `<task-definition-name>` with the name of your task definition. This command will return a JSON output with the details of the task definition.
+
+2. **Parse the JSON output**: The next step is to parse the JSON output to find the network mode of the task. You can do this by using a tool like `jq`. Here is an example:
+
+   ```
+   aws ecs describe-task-definition --task-definition <task-definition-name> | jq -r '.taskDefinition.networkMode'
+   ```
+   This command will return the network mode of the task. If it returns `host`, then the task is running with network mode set to host.
+
+3. **Check the permissions of the task**: Now that you have identified the tasks running with network mode host, the next step is to check their permissions. You can do this by using the AWS CLI command `describe-task-definition` again, but this time you need to parse the JSON output to find the task role. Here is an example:
+
+   ```
+   aws ecs describe-task-definition --task-definition <task-definition-name> | jq -r '.taskDefinition.taskRoleArn'
+   ```
+   This command will return the ARN of the task role.
+
+4. **Inspect the task role**: The final step is to inspect the task role to see what permissions it has. You can do this by using the AWS CLI command `get-role-policy`. Here is an example:
+
+   ```
+   aws iam get-role-policy --role-name <role-name> --policy-name <policy-name>
+   ```
+   Replace `<role-name>` with the name of your role and `<policy-name>` with the name of your policy. This command will return a JSON output with the details of the policy. You can then inspect this output to see what permissions the task has.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the boto3 library for interacting with AWS services, and the kubernetes library for interacting with Kubernetes.
+
+```python
+import boto3
+import kubernetes
+```
+
+2. Connect to the ECS service: Use the boto3 library to connect to the ECS service and retrieve a list of all running tasks.
+
+```python
+ecs = boto3.client('ecs')
+response = ecs.list_tasks()
+```
+
+3. Check the network mode of each task: For each task in the list, retrieve its task definition and check the network mode. If the network mode is 'host', then the task is running with host networking.
+
+```python
+for task_arn in response['taskArns']:
+    task_definition = ecs.describe_task_definition(taskDefinition=task_arn)
+    if task_definition['taskDefinition']['networkMode'] == 'host':
+        print(f"Task {task_arn} is running with host networking.")
+```
+
+4. Check the permissions of each task: For each task running with host networking, retrieve its IAM role and check the permissions. If the permissions are not limited, then the task is misconfigured.
+
+```python
+for task_arn in response['taskArns']:
+    task_definition = ecs.describe_task_definition(taskDefinition=task_arn)
+    if task_definition['taskDefinition']['networkMode'] == 'host':
+        role_arn = task_definition['taskDefinition']['taskRoleArn']
+        iam = boto3.client('iam')
+        role_policy = iam.get_role_policy(RoleName=role_arn)
+        if 'LimitedPermissions' not in role_policy['PolicyDocument']['Statement'][0]['Action']:
+            print(f"Task {task_arn} does not have limited permissions.")
+```
+
+This script will print out the ARNs of any tasks that are running with host networking and do not have limited permissions.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -130,3 +219,6 @@ To remediate the misconfiguration of ECS tasks with network mode host having lim
 
 By following these steps, you can remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS Kubernetes using Python.
 
+
+</Tab>
+</Tabs>

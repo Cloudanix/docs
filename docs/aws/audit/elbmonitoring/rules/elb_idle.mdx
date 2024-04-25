@@ -21,6 +21,82 @@ Cost Optimisation
 CBP
 
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. The console displays a list of your load balancers. If a load balancer does not have any instances registered to it or if the instances are not passing health checks, it is considered idle.
+
+4. To check the health of the instances registered to a load balancer, select the load balancer and then choose the Instances tab. The Status column shows the status of each instance. If the status is OutOfService, the instance is not passing health checks.
+
+#### Using CLI
+
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all ELBs: Use the following command to list all the Elastic Load Balancers (ELBs) in your AWS account:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with information about all your ELBs.
+
+3. Check for idle ELBs: An ELB is considered idle if it has no registered instances or if the instances are not passing health checks. You can check this by running the following command for each ELB:
+
+   ```
+   aws elbv2 describe-target-health --target-group-arn <TargetGroupArn>
+   ```
+
+   Replace `<TargetGroupArn>` with the ARN of the target group associated with the ELB. This command will return a JSON object with information about the health of the targets. If the `TargetHealthDescriptions` array is empty or all the targets have `State` as `unhealthy`, the ELB is idle.
+
+4. Automate the process: You can automate the process of checking for idle ELBs by writing a Python script that uses the boto3 library to interact with the AWS API. The script would list all ELBs, check the target health for each one, and print out the ARNs of the idle ELBs.
+
+#### Using Python
+
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and establish a session with AWS using your credentials. You can do this by setting up your credentials file at ~/.aws/credentials. After that, you can establish a session using the following script:
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 'elbv2' which stands for Elastic Load Balancer V2. Then, use the 'describe_load_balancers' function to get a list of all the load balancers. 
+```python
+elb = session.client('elbv2')
+response = elb.describe_load_balancers()
+```
+
+4. Iterate over the list of load balancers and for each load balancer, use the 'describe_target_health' function to get the health of the targets. If the 'TargetHealthDescriptions' field is empty for a load balancer, it means that the load balancer is idle. Here is the script to do this:
+```python
+for lb in response['LoadBalancers']:
+    target_health = elb.describe_target_health(
+        TargetGroupArn=lb['TargetGroupsArn']
+    )
+    if not target_health['TargetHealthDescriptions']:
+        print(f"Idle Load Balancer: {lb['LoadBalancerArn']}")
+```
+This script will print the ARN of all the idle load balancers.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -120,3 +196,6 @@ That's it! This script will remediate the "No Idle ELBs Should Be Present" misco
 
 - [https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/elb-cloudwatch-metrics.html) 
 
+
+</Tab>
+</Tabs>

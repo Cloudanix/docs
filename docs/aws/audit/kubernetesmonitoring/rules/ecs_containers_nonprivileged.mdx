@@ -20,6 +20,91 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes tasks are running. 
+
+3. Once you've selected the cluster, navigate to the "Tasks" tab. Here, you'll see a list of all the tasks running in your cluster.
+
+4. For each task, click on the task to view its details. In the task details, look for the "Task Definition" section. Here, you should see a "Container Definitions" section. Click on the container name to view its details. In the container details, look for the "Security" section. If the "Privileged" option is set to "true", then the task is running as privileged, which is a misconfiguration. It should be set to "false" for the task to run as non-privileged.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will need to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the running ECS tasks in your AWS account using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs for the tasks running in the specified cluster.
+
+3. To get detailed information about a specific task, use the following command:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task you want to inspect. This command will return a JSON object containing detailed information about the specified task.
+
+4. To check if the task is running as non-privileged, you need to inspect the "privileged" field in the "containerDefinitions" section of the task definition. If the "privileged" field is set to true, then the task is running as privileged. If the "privileged" field is not present or set to false, then the task is running as non-privileged. You can use the following command to check the "privileged" field:
+
+   ```
+   aws ecs describe-task-definition --task-definition <task-definition-arn> --query "taskDefinition.containerDefinitions[].privileged"
+   ```
+
+   Replace `<task-definition-arn>` with the ARN of the task definition you want to inspect. This command will return a list of boolean values indicating whether each container in the task definition is running as privileged.
+
+#### Using Python
+
+1. Import the necessary libraries in Python. You will need the Kubernetes client library to interact with the Kubernetes API.
+
+```python
+from kubernetes import client, config
+```
+
+2. Load the Kubernetes configuration. This can be done in two ways: either from a kubeconfig file or from within a Pod. The following code will try to load the configuration from inside a Pod first, and if it fails, it will load it from a kubeconfig file.
+
+```python
+try:
+    config.load_incluster_config()
+except:
+    config.load_kube_config()
+```
+
+3. Instantiate the API class. You will use the AppsV1Api class, which provides methods to interact with the Kubernetes API.
+
+```python
+v1 = client.AppsV1Api()
+```
+
+4. Iterate over all the Pods in all the namespaces and check if any of them are running as privileged. If a Pod is running as privileged, it means that it has more permissions than it should, which is a misconfiguration.
+
+```python
+def check_privileged_pods():
+    ret = v1.list_pod_for_all_namespaces(watch=False)
+    for i in ret.items:
+        for container in i.spec.containers:
+            if container.security_context and container.security_context.privileged:
+                print(f"Pod {i.metadata.name} in namespace {i.metadata.namespace} is running as privileged")
+
+check_privileged_pods()
+```
+
+This script will print the names and namespaces of all the Pods that are running as privileged. If no Pods are running as privileged, it will not print anything.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -135,3 +220,6 @@ print("Task Definition updated successfully to run as non-privileged.")
 
 By following these steps and running the Python script, you can remediate the misconfiguration of ECS tasks running as privileged in AWS and update them to run as non-privileged.
 
+
+</Tab>
+</Tabs>

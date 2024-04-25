@@ -20,6 +20,80 @@ Security
 
 ISO27001, HIPAA
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the AWS Management Console.
+2. Navigate to the API Gateway console. You can do this by typing "API Gateway" in the search bar and selecting it from the dropdown menu.
+3. In the API Gateway console, select the API you want to check.
+4. In the API details page, select the "Stages" option from the left-hand side menu. Here, you can see all the stages of your API. Select the stage you want to check.
+5. In the stage editor, select the "Logs/Tracing" tab. Here, you can see the "CloudWatch Settings". If the "Enable CloudWatch Logs" option is not selected, it means that AWS KMS Customer Master Keys for EFS Encryption is not enabled in API Gateway.
+
+#### Using CLI
+
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the API Gateways using the following command:
+   ```
+   aws apigateway get-rest-apis
+   ```
+   This command will return a list of all the Rest APIs in your AWS account.
+
+3. Now, for each API Gateway, you need to check if the EFS encryption is enabled. You can do this by using the following command:
+   ```
+   aws apigateway get-rest-api --rest-api-id {rest-api-id}
+   ```
+   Replace `{rest-api-id}` with the ID of the API Gateway you want to check. This command will return the details of the specified API Gateway.
+
+4. In the output of the above command, look for the `encryptionEnabled` field under the `efsConfig` section. If the value of `encryptionEnabled` is `false`, then EFS encryption is not enabled for that API Gateway. If the `efsConfig` section or the `encryptionEnabled` field is not present in the output, then EFS encryption is not enabled for that API Gateway.
+
+#### Using Python
+
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services including AWS KMS and EFS.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Create a Python script that uses Boto3 to list all the API Gateways in your AWS account.
+
+```python
+import boto3
+
+def list_api_gateways():
+    client = boto3.client('apigateway')
+    response = client.get_rest_apis()
+    return response['items']
+
+api_gateways = list_api_gateways()
+```
+
+3. For each API Gateway, check if it uses an AWS KMS Customer Master Key (CMK) for EFS encryption. You can do this by calling the `get_rest_api` method and checking the `apiKeySource` attribute.
+
+```python
+def check_kms_cmk_for_efs_encryption(api_gateway):
+    client = boto3.client('apigateway')
+    response = client.get_rest_api(restApiId=api_gateway['id'])
+    return 'X-Api-Key' in response['apiKeySource']
+
+for api_gateway in api_gateways:
+    if not check_kms_cmk_for_efs_encryption(api_gateway):
+        print(f"API Gateway {api_gateway['name']} does not use a KMS CMK for EFS encryption.")
+```
+
+4. If the `apiKeySource` attribute is not 'X-Api-Key', then the API Gateway is not using a KMS CMK for EFS encryption. This is a misconfiguration that should be corrected.
+
+Please note that this script only checks for the use of a KMS CMK for EFS encryption in API Gateways. Other AWS services and resources may also require similar checks.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -126,3 +200,6 @@ By following these steps, you can remediate the misconfiguration of using AWS KM
 
 - [https://docs.aws.amazon.com/efs/latest/ug/encryption-at-rest.html](https://docs.aws.amazon.com/efs/latest/ug/encryption-at-rest.html) 
 
+
+</Tab>
+</Tabs>
