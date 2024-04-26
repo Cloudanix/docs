@@ -19,6 +19,77 @@ Security
 ### Compliance Standards
 
 PCIDSS, HITRUST, GDPR, SOC2, NISTCSF, FedRAMP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Navigate to the Azure portal by entering "https://portal.azure.com" in your web browser. Enter your login credentials to access your Azure account.
+
+2. Navigate to Network Security Groups: From the left-hand side menu, select "All services". In the "All services" box, type "Network Security Groups". Select it from the dropdown list.
+
+3. Check for Telnet Access: Once you are in the Network Security Groups, select the specific group you want to check. In the settings pane, select "Inbound security rules". Look for any rules that have "Destination Port Ranges" set to 23, which is the port for Telnet. 
+
+4. Verify the Source: Check the "Source" column for the rule. If it is set to "Any", "Internet", "0.0.0.0", or "::/0", it means that Telnet access is unrestricted, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can run any Azure CLI commands, you need to install the Azure CLI on your local machine. You can download it from the official Microsoft Azure website. Once installed, open your command prompt or terminal and type `az login` to log in to your Azure account.
+
+2. List Network Security Groups: The first step to check for unrestricted Telnet access is to list all the Network Security Groups (NSGs) in your Azure account. You can do this by running the following command: `az network nsg list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table`. This command will display a table with the names of all NSGs and their respective resource groups.
+
+3. Check Security Rules: For each NSG, you need to check the security rules to see if any allow unrestricted Telnet access. You can do this by running the following command for each NSG: `az network nsg rule list --nsg-name <NSG Name> --resource-group <Resource Group Name> --query "[?protocol=='Tcp' && direction=='Inbound' && access=='Allow' && destinationPortRange=='23']" -o table`. Replace `<NSG Name>` and `<Resource Group Name>` with the name of the NSG and its resource group respectively. This command will display a table with the details of any rules that allow unrestricted Telnet access.
+
+4. Analyze the Output: If the output from the previous command is empty, then there are no rules allowing unrestricted Telnet access. However, if the output contains any rules, then unrestricted Telnet access is allowed. The details of the rules will help you identify where the misconfiguration is.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the 'boto3' library for AWS, 'azure-mgmt-network' for Azure, and 'google-cloud-securitycenter' for GCP. These libraries allow you to interact with the respective cloud services using Python.
+
+```python
+import boto3
+from azure.mgmt.network import NetworkManagementClient
+from google.cloud import securitycenter_v1
+```
+
+2. AWS: Use the 'boto3' library to create a client for the 'ec2' service. Then, use the 'describe_security_groups' method to get a list of all security groups. Iterate over the list and check the 'IpPermissions' for each security group. If 'ToPort' is 23 (the port for Telnet) and 'CidrIp' is '0.0.0.0/0' (which means all IP addresses), then Telnet access is unrestricted.
+
+```python
+ec2 = boto3.client('ec2')
+response = ec2.describe_security_groups()
+for group in response['SecurityGroups']:
+    for permission in group['IpPermissions']:
+        if permission['ToPort'] == 23 and '0.0.0.0/0' in [ip_range['CidrIp'] for ip_range in permission['IpRanges']]:
+            print(f"Unrestricted Telnet access detected in security group {group['GroupId']}")
+```
+
+3. Azure: Use the 'NetworkManagementClient' to get a list of all network security groups. Iterate over the list and check the 'security_rules' for each group. If 'destination_port_range' is 23 and 'source_address_prefix' is '*', then Telnet access is unrestricted.
+
+```python
+network_client = NetworkManagementClient(credentials, subscription_id)
+for group in network_client.network_security_groups.list_all():
+    for rule in group.security_rules:
+        if rule.destination_port_range == '23' and rule.source_address_prefix == '*':
+            print(f"Unrestricted Telnet access detected in network security group {group.name}")
+```
+
+4. GCP: Use the 'SecurityCenterClient' to get a list of all findings. Iterate over the list and check the 'category' of each finding. If the category is 'OPEN_FIREWALL_PORT' and the 'port' is 23, then Telnet access is unrestricted.
+
+```python
+client = securitycenter_v1.SecurityCenterClient()
+for finding in client.list_findings(request={"parent": "organizations/{org_id}/sources/{source_id}"}):
+    if finding.category == 'OPEN_FIREWALL_PORT' and finding.port == 23:
+        print(f"Unrestricted Telnet access detected in finding {finding.name}")
+```
+
+Please replace `{org_id}` and `{source_id}` with your organization ID and source ID respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -149,3 +220,6 @@ This will remove the inbound rule for telnet in the specified network security g
 
 
 
+
+</Tab>
+</Tabs>

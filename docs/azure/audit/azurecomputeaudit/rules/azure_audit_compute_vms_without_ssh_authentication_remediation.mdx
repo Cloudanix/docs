@@ -1,3 +1,105 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Open your web browser, navigate to the Azure portal (https://portal.azure.com/), and sign in with your Azure account credentials.
+
+2. Navigate to Virtual Machines: From the left-hand menu, click on "Virtual Machines" to view the list of all your existing virtual machines.
+
+3. Check VM's SSH configuration: Click on the name of the VM you want to check. In the VM's page, click on "Networking" in the left-hand menu. Then, under "Inbound port rules", look for rules that allow SSH connections (port 22). 
+
+4. Verify SSH-based authentication: To verify that only SSH-based authentication is allowed, you need to check the VM's SSH configuration file. This can be done by connecting to the VM via SSH and checking the "/etc/ssh/sshd_config" file. Look for the "PasswordAuthentication" directive. If it's set to "no", then password-based authentication is disabled, and only SSH-based authentication is allowed. If you can't connect to the VM via SSH or don't have access to the VM's file system, you may need to contact the VM's administrator or check the VM's documentation or configuration scripts.
+
+#### Using CLI
+
+1. Install and configure Azure CLI: Before you can run any Azure CLI commands, you need to install Azure CLI on your local machine and sign in to your Azure account. You can install Azure CLI by following the instructions on the official Azure CLI documentation. Once installed, you can sign in to your Azure account using the following command:
+
+   ```
+   az login
+   ```
+
+2. List all the virtual machines: The next step is to list all the virtual machines in your Azure account. You can do this using the following command:
+
+   ```
+   az vm list --query "[].{name:name, resourceGroup:resourceGroup}" -o table
+   ```
+
+   This command will list all the virtual machines along with their names and resource groups.
+
+3. Check the SSH configuration: Now, for each virtual machine, you need to check the SSH configuration. You can do this using the following command:
+
+   ```
+   az vm show --resource-group <ResourceGroupName> --name <VMName> --query osProfile.linuxConfiguration
+   ```
+
+   Replace `<ResourceGroupName>` and `<VMName>` with the actual resource group name and virtual machine name. This command will show the SSH configuration of the specified virtual machine.
+
+4. Check the disablePasswordAuthentication property: In the output of the previous command, look for the `disablePasswordAuthentication` property. If its value is `false`, it means that the virtual machine allows password-based SSH authentication. If its value is `true`, it means that the virtual machine only allows SSH key-based authentication.
+
+#### Using Python
+
+Detecting whether Virtual Machines only allow SSH-based authentication can be done using Python scripts. Here's how you can do it:
+
+1. **Install Necessary Libraries**: First, you need to install necessary libraries. For AWS, you need boto3, for Azure, you need azure-mgmt-compute and azure-identity, and for GCP, you need google-cloud-compute. You can install these libraries using pip.
+
+    ```python
+    pip install boto3 azure-mgmt-compute azure-identity google-cloud-compute
+    ```
+
+2. **Create a Python Script to Check AWS EC2 Instances**: For AWS, you can use boto3 to list all EC2 instances and check their security group rules. If port 22 (SSH) is open and is not restricted to specific IPs, then it's a misconfiguration.
+
+    ```python
+    import boto3
+
+    ec2 = boto3.resource('ec2')
+
+    for instance in ec2.instances.all():
+        for security_group in instance.security_groups:
+            group = ec2.SecurityGroup(security_group['GroupId'])
+            for permission in group.ip_permissions:
+                if permission['FromPort'] == 22 and permission['ToPort'] == 22:
+                    for ip_range in permission['IpRanges']:
+                        if ip_range['CidrIp'] == '0.0.0.0/0':
+                            print(f"Instance {instance.id} allows SSH from anywhere")
+    ```
+
+3. **Create a Python Script to Check Azure VMs**: For Azure, you can use azure-mgmt-compute and azure-identity to list all VMs and check their network security group rules. If port 22 (SSH) is open and is not restricted to specific IPs, then it's a misconfiguration.
+
+    ```python
+    from azure.identity import DefaultAzureCredential
+    from azure.mgmt.compute import ComputeManagementClient
+
+    credential = DefaultAzureCredential()
+    subscription_id = 'your-subscription-id'
+    compute_client = ComputeManagementClient(credential, subscription_id)
+
+    for vm in compute_client.virtual_machines.list_all():
+        # Similar to AWS, check the network security group rules of the VM
+        # If port 22 is open and is not restricted to specific IPs, print a message
+    ```
+
+4. **Create a Python Script to Check GCP Compute Engine Instances**: For GCP, you can use google-cloud-compute to list all Compute Engine instances and check their firewall rules. If port 22 (SSH) is open and is not restricted to specific IPs, then it's a misconfiguration.
+
+    ```python
+    from google.cloud import compute_v1
+
+    client = compute_v1.FirewallsClient()
+
+    for firewall in client.list(project='your-project-id'):
+        if firewall.allowed[0].IPProtocol == 'tcp' and firewall.allowed[0].ports[0] == '22':
+            for source_range in firewall.source_ranges:
+                if source_range == '0.0.0.0/0':
+                    print(f"Firewall {firewall.name} allows SSH from anywhere")
+    ```
+
+Please replace 'your-subscription-id' and 'your-project-id' with your actual Azure subscription ID and GCP project ID.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -100,3 +202,6 @@ This code creates a new NSG rule that only allows inbound TCP traffic on port 22
 
 Note that this code assumes that the virtual machine is already configured to use SSH-based authentication. If not, you will need to configure SSH-based authentication on the virtual machine before updating the NSG rules.
 
+
+</Tab>
+</Tabs>

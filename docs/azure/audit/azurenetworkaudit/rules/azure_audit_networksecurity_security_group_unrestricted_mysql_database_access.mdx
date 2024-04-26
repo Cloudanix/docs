@@ -19,6 +19,105 @@ Security
 ### Compliance Standards
 
 SOC2, GDPR, ISO27001, HIPAA, NISTCSF, PCIDSS, FedRAMP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Login to Azure Portal: Sign in to your Azure portal using your credentials.
+
+2. Navigate to MySQL Databases: From the left-hand menu, select "All services". In the "All services" box, search for "MySQL databases". Click on the MySQL databases to view all the MySQL instances in your Azure environment.
+
+3. Check Network Settings: Click on the MySQL database instance for which you want to check the network access. In the instance dashboard, navigate to the "Connection security" under the "Settings" section. Here, you can see all the IP rules that are set up for your MySQL database.
+
+4. Check for Unrestricted Access: In the "IP ALLOW LIST" section, if you see an IP range that is set as "0.0.0.0" to "255.255.255.255", it means that the MySQL database is accessible from any IP address, indicating unrestricted MySQL database access in the network.
+
+#### Using CLI
+
+1. Install and configure Azure CLI: Before you can run any Azure CLI commands, you need to install Azure CLI on your local machine and sign in to your Azure account. You can install Azure CLI by following the instructions provided by Microsoft. Once installed, you can sign in to your Azure account using the following command:
+
+   ```
+   az login
+   ```
+
+2. List all the network security groups: The next step is to list all the network security groups in your Azure account. You can do this using the following command:
+
+   ```
+   az network nsg list --output table
+   ```
+
+   This command will display a table that includes the names of all your network security groups.
+
+3. Check the security rules for each network security group: For each network security group, you need to check the security rules to see if any of them allow unrestricted access to MySQL databases. You can do this using the following command:
+
+   ```
+   az network nsg rule list --nsg-name <nsg-name> --resource-group <resource-group-name> --output table
+   ```
+
+   Replace `<nsg-name>` with the name of your network security group and `<resource-group-name>` with the name of your resource group. This command will display a table that includes the details of all the security rules for the specified network security group.
+
+4. Look for rules that allow unrestricted access to MySQL: In the table displayed by the previous command, look for any rules that have 'MYSQL' as the destination port range and '*' (which means all) as the source address prefix. Such rules indicate that the MySQL database is accessible from any IP address, which is a misconfiguration.
+
+#### Using Python
+
+1. AWS:
+   - Use the boto3 library in Python to interact with AWS services. 
+   - To check for unrestricted MySQL database access, you can use the EC2 and RDS clients to fetch all security groups and check their ingress rules.
+   - Here is a sample script:
+   
+```python
+import boto3
+
+ec2 = boto3.client('ec2')
+response = ec2.describe_security_groups()
+
+for security_group in response['SecurityGroups']:
+    for rule in security_group['IpPermissions']:
+        if rule['FromPort'] == 3306 and '0.0.0.0/0' in [ip['CidrIp'] for ip in rule['IpRanges']]:
+            print(f"Unrestricted MySQL access detected in security group: {security_group['GroupId']}")
+```
+
+2. Azure:
+   - Use the azure-mgmt-network library in Python to interact with Azure Network Watcher.
+   - To check for unrestricted MySQL database access, you can fetch all network security groups and check their security rules.
+   - Here is a sample script:
+
+```python
+from azure.mgmt.network import NetworkManagementClient
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+subscription_id = 'your-subscription-id'
+network_client = NetworkManagementClient(credential, subscription_id)
+
+for nsg in network_client.network_security_groups.list_all():
+    for rule in nsg.security_rules:
+        if rule.destination_port_range == '3306' and rule.source_address_prefix == '*':
+            print(f"Unrestricted MySQL access detected in network security group: {nsg.id}")
+```
+
+3. GCP:
+   - Use the google-cloud-compute library in Python to interact with GCP Compute Engine.
+   - To check for unrestricted MySQL database access, you can fetch all firewall rules and check their allowed configurations.
+   - Here is a sample script:
+
+```python
+from google.cloud import compute_v1
+
+client = compute_v1.FirewallsClient()
+
+for firewall in client.list(project='your-project-id'):
+    for allowed in firewall.allowed:
+        if allowed.IPProtocol == 'tcp' and '3306' in allowed.ports and firewall.source_ranges == ['0.0.0.0/0']:
+            print(f"Unrestricted MySQL access detected in firewall: {firewall.name}")
+```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -138,3 +237,6 @@ Note: This Python script will remove all the firewall rules that allow unrestric
 
 
 
+
+</Tab>
+</Tabs>

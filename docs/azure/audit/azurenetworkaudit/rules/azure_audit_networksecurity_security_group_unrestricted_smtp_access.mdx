@@ -19,6 +19,99 @@ Security
 ### Compliance Standards
 
 HITRUST, GDPR, SOC2, NISTCSF, PCIDSS, FedRAMP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Navigate to the Azure portal by entering "https://portal.azure.com" in your web browser. Enter your login credentials to access your Azure account.
+
+2. Navigate to Network Watcher: On the left-hand side of the Azure portal, click on "All services". In the "Monitoring + Management" section, click on "Network Watcher".
+
+3. Check for Security Group View: In the Network Watcher blade, under the "Security" section, click on "Security Group View". This will display all the Network Security Groups (NSGs) associated with your Azure subscription.
+
+4. Inspect Inbound Security Rules: For each NSG, click on it to view its details. In the NSG blade, click on "Inbound security rules". Look for any rules that allow inbound traffic to port 25 (SMTP). If such a rule exists and its source is set to "Any", "0.0.0.0", or "::/0", then unrestricted SMTP access is allowed, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can run any Azure CLI commands, you need to install the Azure CLI on your local machine. You can download it from the official Microsoft Azure website. Once installed, open your command prompt or terminal and type `az login` to log in to your Azure account.
+
+2. List Network Security Groups: The first step to check for unrestricted SMTP access is to list all the network security groups in your Azure account. You can do this by running the following command: `az network nsg list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table`. This command will display a table with the names of all your network security groups and their respective resource groups.
+
+3. Show Network Security Group Rules: Once you have the name of the network security group you want to check, you can display its rules by running the following command: `az network nsg rule list --nsg-name [NSG_NAME] --resource-group [RESOURCE_GROUP] --query "[].{Name:name, Protocol:protocol, Direction:direction, Access:access, Priority:priority, SourcePortRange:sourcePortRange, DestinationPortRange:destinationPortRange}" -o table`. Replace `[NSG_NAME]` and `[RESOURCE_GROUP]` with the name of your network security group and its resource group respectively. This command will display a table with the details of all the rules in your network security group.
+
+4. Check for Unrestricted SMTP Access: Now, you need to check if any of the rules in your network security group allow unrestricted SMTP access. SMTP uses port 25, so you need to look for rules that have '25' in the 'SourcePortRange' or 'DestinationPortRange' columns and 'Allow' in the 'Access' column. If such a rule exists, then your network security group has unrestricted SMTP access.
+
+#### Using Python
+
+1. AWS:
+
+You can use the AWS SDK for Python (Boto3) to check for unrestricted SMTP access in your security groups. Here is a sample script:
+
+```python
+import boto3
+
+ec2 = boto3.resource('ec2')
+
+def check_smtp_access():
+    for security_group in ec2.security_groups.all():
+        for permission in security_group.ip_permissions:
+            if permission['FromPort'] == 25 and permission['ToPort'] == 25:
+                for ip_range in permission['IpRanges']:
+                    if ip_range['CidrIp'] == '0.0.0.0/0':
+                        print(f"Unrestricted SMTP access detected in security group: {security_group.id}")
+
+check_smtp_access()
+```
+
+2. Azure:
+
+You can use the Azure SDK for Python to check for unrestricted SMTP access in your network security groups. Here is a sample script:
+
+```python
+from azure.mgmt.network import NetworkManagementClient
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+subscription_id = 'your-subscription-id'
+network_client = NetworkManagementClient(credential, subscription_id)
+
+def check_smtp_access():
+    for security_group in network_client.network_security_groups.list_all():
+        for rule in security_group.security_rules:
+            if rule.destination_port_range == '25' and rule.source_address_prefix == '*':
+                print(f"Unrestricted SMTP access detected in security group: {security_group.name}")
+
+check_smtp_access()
+```
+
+3. GCP:
+
+You can use the Google Cloud SDK for Python to check for unrestricted SMTP access in your firewall rules. Here is a sample script:
+
+```python
+from google.cloud import compute_v1
+
+def check_smtp_access():
+    client = compute_v1.FirewallsClient()
+    for firewall in client.list(project='your-project-id'):
+        for allowed in firewall.allowed:
+            if allowed.IPProtocol == 'tcp' and '25' in allowed.ports:
+                for source_range in firewall.source_ranges:
+                    if source_range == '0.0.0.0/0':
+                        print(f"Unrestricted SMTP access detected in firewall: {firewall.name}")
+
+check_smtp_access()
+```
+
+Please replace 'your-subscription-id' and 'your-project-id' with your actual Azure subscription ID and GCP project ID respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -134,3 +227,6 @@ Note: Replace `<your-subscription-id>` and `<your-resource-group>` with your act
 
 
 
+
+</Tab>
+</Tabs>

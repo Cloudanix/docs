@@ -20,6 +20,96 @@ Reliability, Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Open your web browser, visit the Azure portal and sign in with your Azure account credentials.
+
+2. Navigate to Virtual Machines: From the left-hand side menu, click on "Virtual Machines" to view the list of all the virtual machines currently deployed within your Azure account.
+
+3. Check VM Backup Policy: For each virtual machine, click on the VM name to open its dashboard. From the VM dashboard, navigate to the "Operations" section and click on "Backup". Here, you can see the backup policy details including the retention period.
+
+4. Verify Retention Period: Check the "Retention of instant restore snapshots" field. If the retention period is less than the recommended period (for example, less than 2 days), then the virtual machine does not have a sufficient instant restore retention period. Repeat this process for each virtual machine in your Azure account.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can run any Azure CLI commands, you need to install the Azure CLI on your local machine. You can download it from the official Microsoft Azure website. Once installed, open your command line interface and run the following command to login to your Azure account:
+
+   ```
+   az login
+   ```
+   Follow the prompts in your command line interface to complete the login process.
+
+2. List all the VMs: Once you are logged in, you can list all the virtual machines in your subscription by running the following command:
+
+   ```
+   az vm list --query "[].{name:name}" -o table
+   ```
+   This command will return a table that lists the names of all the virtual machines in your subscription.
+
+3. Check the Instant Restore Retention Period: For each VM, you can check the Instant Restore Retention Period by running the following command:
+
+   ```
+   az backup policy list --resource-group <ResourceGroupName> --vault-name <VaultName> --query "[].{name:name, retentionDuration:properties.instantRpRetentionRangeInDays}" -o table
+   ```
+   Replace `<ResourceGroupName>` and `<VaultName>` with the name of your resource group and the name of your vault respectively. This command will return a table that lists the names of all the backup policies and their Instant Restore Retention Period.
+
+4. Analyze the output: The output of the previous command will show you the Instant Restore Retention Period for each VM. If the retention period is less than the recommended value, then it is a misconfiguration.
+
+#### Using Python
+
+To check if Virtual Machines have sufficient Instant Restore Retention Period in Compute using Python scripts, you can follow these steps:
+
+1. **Setup Azure SDK for Python:**
+   First, you need to install the Azure SDK for Python. You can do this using pip:
+   ```
+   pip install azure-mgmt-compute
+   ```
+   This SDK allows you to interact with Azure's compute management client, which is necessary to retrieve information about the VMs.
+
+2. **Authenticate with Azure:**
+   Before you can interact with Azure's resources, you need to authenticate. You can do this using Azure's DefaultAzureCredential class. Here's an example:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.compute import ComputeManagementClient
+
+   credential = DefaultAzureCredential()
+   subscription_id = 'your-subscription-id'
+   compute_client = ComputeManagementClient(credential, subscription_id)
+   ```
+
+3. **Retrieve VMs and Check Retention Period:**
+   Now that you're authenticated, you can retrieve the VMs and check their Instant Restore Retention Period. Here's an example:
+   ```python
+   for vm in compute_client.virtual_machines.list_all():
+       backup_policy = compute_client.backup_policies.get(vm.resource_group_name, vm.name)
+       if backup_policy.instant_restore_retention_days < desired_retention_days:
+           print(f"VM {vm.name} has insufficient Instant Restore Retention Period.")
+   ```
+   This script will print out the names of all VMs that have an Instant Restore Retention Period less than the desired number of days.
+
+4. **Handle Exceptions:**
+   It's important to handle exceptions in your script to ensure it doesn't crash unexpectedly. For example, you might want to catch the ResourceNotFoundError exception that's raised when a VM doesn't have a backup policy:
+   ```python
+   from azure.core.exceptions import ResourceNotFoundError
+
+   try:
+       backup_policy = compute_client.backup_policies.get(vm.resource_group_name, vm.name)
+   except ResourceNotFoundError:
+       print(f"VM {vm.name} does not have a backup policy.")
+   ```
+   This will print out a message if a VM doesn't have a backup policy, instead of crashing the script.
+
+Remember to replace 'your-subscription-id' and 'desired_retention_days' with your actual Azure subscription ID and the number of days you consider to be a sufficient Instant Restore Retention Period, respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -125,3 +215,6 @@ Note: Replace the placeholders `<your-subscription-id>`, `<your-client-id>`, `<y
 
 - [https://docs.microsoft.com/en-us/azure/backup/backup-instant-restore-capability](https://docs.microsoft.com/en-us/azure/backup/backup-instant-restore-capability) 
 
+
+</Tab>
+</Tabs>

@@ -19,6 +19,86 @@ Security
 ### Compliance Standards
 
 HIPAA, NIST, HITRUST, GDPR, SOC2, NISTCSF, PCIDSS, FedRAMP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Login to Azure Portal: Open your web browser and navigate to the Azure portal. Sign in with your Azure account credentials.
+
+2. Navigate to Network Watcher: On the left-hand side menu, click on "All services". In the search box, type "Network Watcher" and select it from the dropdown list.
+
+3. Check Security Group Rules: In the Network Watcher dashboard, click on "Effective security rules" under the "Security Group View" section. This will display all the security rules applied to your network interfaces.
+
+4. Inspect Rules for NetBIOS Access: Look for any rules that allow inbound or outbound traffic on ports 137, 138, and 139, which are used by NetBIOS. If such rules are found and they are not restricted to specific IP addresses, it indicates unrestricted NetBIOS access, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can run any Azure CLI commands, you need to install Azure CLI on your local machine. You can download it from the official Microsoft Azure website. Once installed, open your command prompt and type `az login` to log in to your Azure account.
+
+2. List Network Security Groups: The first step to detect unrestricted NetBIOS access is to list all the network security groups in your Azure account. You can do this by running the following command: `az network nsg list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table`. This command will display a table with the names of all your network security groups and their respective resource groups.
+
+3. Check Security Rules: For each network security group, you need to check the security rules to see if any of them allow unrestricted NetBIOS access. You can do this by running the following command for each network security group: `az network nsg rule list --nsg-name <NSG Name> --resource-group <Resource Group Name> --query "[?access=='Allow' && (protocol=='All' || protocol=='Tcp') && (destinationPortRange=='137-139' || destinationPortRange=='445')]" -o table`. Replace `<NSG Name>` and `<Resource Group Name>` with the name of the network security group and the name of the resource group respectively. This command will display a table with the security rules that allow unrestricted NetBIOS access.
+
+4. Analyze the Output: If the output from the previous step is not empty, it means that unrestricted NetBIOS access is allowed. You should see a list of security rules that allow traffic on ports 137-139 and 445, which are the ports used by NetBIOS. If the output is empty, it means that unrestricted NetBIOS access is not allowed.
+
+#### Using Python
+
+1. AWS:
+   - Use the AWS SDK for Python (Boto3) to interact with AWS services. To check for unrestricted NetBIOS access, you can use the EC2 client to describe security groups and check their ingress rules.
+   - Here is a sample script:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for group in response['SecurityGroups']:
+       for permission in group['IpPermissions']:
+           if 'FromPort' in permission and permission['FromPort'] == 139:
+               for range in permission['IpRanges']:
+                   if range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Unrestricted NetBIOS access detected in security group: {group['GroupId']}")
+   ```
+2. Azure:
+   - Use the Azure SDK for Python to interact with Azure services. To check for unrestricted NetBIOS access, you can use the NetworkManagementClient to list all network security groups and check their security rules.
+   - Here is a sample script:
+   ```python
+   from azure.mgmt.network import NetworkManagementClient
+   from azure.identity import DefaultAzureCredential
+
+   credential = DefaultAzureCredential()
+   subscription_id = 'your-subscription-id'
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   for nsg in network_client.network_security_groups.list_all():
+       for rule in nsg.security_rules:
+           if rule.destination_port_range == '139' and rule.source_address_prefix == '*':
+               print(f"Unrestricted NetBIOS access detected in network security group: {nsg.id}")
+   ```
+3. GCP:
+   - Use the Google Cloud Client Library for Python to interact with GCP services. To check for unrestricted NetBIOS access, you can use the Compute Engine client to list all firewalls and check their allowed configurations.
+   - Here is a sample script:
+   ```python
+   from google.cloud import compute_v1
+
+   client = compute_v1.FirewallsClient()
+
+   for firewall in client.list(project='your-project-id'):
+       for allowed in firewall.allowed:
+           if allowed.IPProtocol == 'tcp' and '139' in allowed.ports:
+               for source_range in firewall.source_ranges:
+                   if source_range == '0.0.0.0/0':
+                       print(f"Unrestricted NetBIOS access detected in firewall: {firewall.name}")
+   ```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -143,3 +223,6 @@ This code will remove the rule that allows unrestricted Netbios access from the 
 
 
 
+
+</Tab>
+</Tabs>

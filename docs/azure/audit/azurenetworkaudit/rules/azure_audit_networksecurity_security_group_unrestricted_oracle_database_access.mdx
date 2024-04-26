@@ -19,6 +19,94 @@ Security
 ### Compliance Standards
 
 SOC2, GDPR, HIPAA, NISTCSF, PCIDSS, FedRAMP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Navigate to the Azure portal by entering "https://portal.azure.com" in your web browser. Enter your login credentials to access your Azure account.
+
+2. Navigate to the Network Security Group (NSG): On the left-hand side of the Azure portal, click on "All Services". In the search box, type "Network Security Groups" and select it. This will display a list of all the NSGs associated with your Azure account.
+
+3. Check for Oracle Database Access Rules: Select the NSG associated with the Oracle database. In the NSG window, click on "Inbound security rules" or "Outbound security rules" depending on the direction of the traffic you want to inspect. Look for any rules that allow traffic to or from the Oracle database (port 1521) from any source (0.0.0.0/0 or ::/0).
+
+4. Inspect the Access: For each rule that allows traffic to or from the Oracle database, check the "Action" column. If the action is set to "Allow", this indicates that the Oracle database access is unrestricted.
+
+#### Using CLI
+
+1. Install and configure Azure CLI: Before you can run any Azure CLI commands, you need to install Azure CLI on your local machine and sign in to your Azure account. You can install Azure CLI by following the instructions on the official Azure CLI documentation. After installing Azure CLI, you can sign in to your Azure account by running the following command in your terminal:
+
+   ```
+   az login
+   ```
+
+2. List all Network Security Groups (NSGs): NSGs contain a list of Access Control List (ACL) rules that allow or deny network traffic to your VM instances in a Virtual Network. To list all NSGs in your Azure account, run the following command:
+
+   ```
+   az network nsg list
+   ```
+
+3. Check NSG rules for unrestricted Oracle Database access: Oracle Database typically uses port 1521 for connections. If there is an NSG rule that allows inbound traffic from any source to port 1521, it means that Oracle Database access is unrestricted. To check NSG rules, run the following command for each NSG:
+
+   ```
+   az network nsg rule list --nsg-name <NSG Name>
+   ```
+
+   Replace `<NSG Name>` with the name of your NSG. This command will return a list of all rules in the specified NSG.
+
+4. Analyze the output: Look for rules that have 'destinationPortRange' set to '1521' and 'access' set to 'Allow'. If the 'sourceAddressPrefix' is set to '*', it means that the rule allows traffic from any source. This is a misconfiguration as it allows unrestricted Oracle Database access.
+
+#### Using Python
+
+1. AWS:
+   - Use the AWS SDK for Python (Boto3) to list all the security groups in your AWS environment.
+   - For each security group, check the inbound rules. If any rule allows traffic from all IP addresses (0.0.0.0/0) to port 1521 (the default port for Oracle databases), then the database is misconfigured.
+   - Python script:
+   ```python
+   import boto3
+   ec2 = boto3.resource('ec2')
+   for security_group in ec2.security_groups.all():
+       for permission in security_group.ip_permissions:
+           for ip_range in permission['IpRanges']:
+               if ip_range['CidrIp'] == '0.0.0.0/0' and permission['FromPort'] == 1521:
+                   print(f"Security Group {security_group.id} allows unrestricted Oracle database access.")
+   ```
+
+2. Azure:
+   - Use the Azure SDK for Python to list all the network security groups in your Azure environment.
+   - For each network security group, check the security rules. If any rule allows traffic from all IP addresses (0.0.0.0/0) to port 1521, then the database is misconfigured.
+   - Python script:
+   ```python
+   from azure.mgmt.network import NetworkManagementClient
+   from azure.identity import DefaultAzureCredential
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, '<subscription_id>')
+   for nsg in network_client.network_security_groups.list_all():
+       for rule in nsg.security_rules:
+           if rule.destination_port_range == '1521' and rule.source_address_prefix == '*':
+               print(f"Network Security Group {nsg.id} allows unrestricted Oracle database access.")
+   ```
+
+3. GCP:
+   - Use the Google Cloud SDK for Python to list all the firewall rules in your GCP environment.
+   - For each firewall rule, check the allowed traffic. If any rule allows traffic from all IP addresses (0.0.0.0/0) to port 1521, then the database is misconfigured.
+   - Python script:
+   ```python
+   from google.cloud import compute_v1
+   client = compute_v1.FirewallsClient()
+   for firewall in client.list(project='<project_id>'):
+       for allowed in firewall.allowed:
+           if '1521' in allowed.ports and firewall.source_ranges == ['0.0.0.0/0']:
+               print(f"Firewall {firewall.name} allows unrestricted Oracle database access.")
+   ```
+Please replace '<subscription_id>' and '<project_id>' with your actual Azure subscription ID and GCP project ID respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -138,3 +226,6 @@ Note: You will need to replace `subscription_id` with your Azure subscription ID
 
 
 
+
+</Tab>
+</Tabs>

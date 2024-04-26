@@ -19,6 +19,128 @@ Security
 ### Compliance Standards
 
 HITRUST, SOC2, NISTCSF, PCIDSS
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Navigate to the Azure portal by entering "https://portal.azure.com" in your web browser's address bar. Enter your Azure account credentials to log in.
+
+2. Navigate to the Virtual Machines: Once you're logged in, look for the "Virtual machines" option in the left-hand menu. Click on it to view all the virtual machines associated with your Azure account.
+
+3. Check for Endpoint Protection: Click on a virtual machine to view its details. Look for the "Security" section in the left-hand menu. Under this section, click on "Antimalware" to check if Endpoint Protection is installed. If it's installed, you should see details about the Endpoint Protection status and configuration.
+
+4. Repeat for all VMs: Repeat the above step for all the virtual machines in your Azure account. Make sure to check each one individually to ensure Endpoint Protection is installed on all of them.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can use Azure CLI to detect misconfigurations, you need to install it. You can download it from the official Microsoft website and install it on your local machine. 
+
+2. Login to Azure Account: After installing Azure CLI, you need to login to your Azure account. You can do this by running the following command in your terminal or command prompt:
+
+   ```
+   az login
+   ```
+   Follow the instructions on the screen to complete the login process.
+
+3. List all VMs: Once you are logged in, you can list all the virtual machines (VMs) in your account by running the following command:
+
+   ```
+   az vm list --query "[].{name:name}" -o table
+   ```
+   This command will display a table with the names of all the VMs in your account.
+
+4. Check Endpoint Protection: To check if Endpoint Protection is installed on a VM, you need to check the VM's extensions. You can do this by running the following command:
+
+   ```
+   az vm extension list --vm-name <vm-name> --resource-group <resource-group-name> --query "[?contains(publisher, 'Microsoft.Azure.Security')].{Name:name}" -o table
+   ```
+   Replace `<vm-name>` with the name of the VM and `<resource-group-name>` with the name of the resource group that the VM belongs to. This command will display a table with the names of all the extensions installed on the VM. If Endpoint Protection is installed, you should see an extension with the name 'IaaSAntimalware' in the list. If you don't see this extension, then Endpoint Protection is not installed on the VM.
+
+#### Using Python
+
+Detecting whether Endpoint Protection is installed on Compute instances across AWS, Azure, and GCP can be done using Python scripts. Here are the steps:
+
+1. AWS:
+   - Use the Boto3 library in Python to interact with AWS services.
+   - Use the `describe_instances()` function to get a list of all EC2 instances.
+   - For each instance, check the `Platform` attribute to determine the operating system.
+   - Depending on the OS, check for the presence of Endpoint Protection software. This can be done by executing a command on the instance using the `send_command()` function from the SSM client.
+
+```python
+import boto3
+
+ec2 = boto3.resource('ec2')
+ssm_client = boto3.client('ssm')
+
+for instance in ec2.instances.all():
+    if instance.platform == 'windows':
+        command = 'Get-WmiObject -Query "Select * from AntiVirusProduct"'
+    else:
+        command = 'ps -ef | grep antivirus'
+
+    response = ssm_client.send_command(
+        InstanceIds=[instance.id],
+        DocumentName="AWS-RunShellScript",
+        Parameters={'commands': [command]},
+    )
+```
+
+2. Azure:
+   - Use the Azure SDK for Python to interact with Azure services.
+   - Use the `list_all()` function from the ComputeManagementClient to get a list of all VMs.
+   - For each VM, use the `run_command()` function to execute a command on the VM to check for the presence of Endpoint Protection software.
+
+```python
+from azure.mgmt.compute import ComputeManagementClient
+
+compute_client = ComputeManagementClient(credentials, subscription_id)
+
+for vm in compute_client.virtual_machines.list_all():
+    command = 'Get-MpPreference' if vm.os_profile.windows_configuration else 'ps -ef | grep antivirus'
+    result = compute_client.virtual_machines.run_command(
+        vm.resource_group_name,
+        vm.name,
+        {'commandId': 'RunShellScript', 'script': [command]}
+    )
+```
+
+3. GCP:
+   - Use the google-cloud-sdk library in Python to interact with GCP services.
+   - Use the `list_instances()` function to get a list of all Compute Engine instances.
+   - For each instance, use the `execute_ssh()` function to execute a command on the instance to check for the presence of Endpoint Protection software.
+
+```python
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
+
+credentials = GoogleCredentials.get_application_default()
+compute = discovery.build('compute', 'v1', credentials=credentials)
+
+project = 'my-project'
+zone = 'us-central1-a'
+
+request = compute.instances().list(project=project, zone=zone)
+response = request.execute()
+
+for instance in response['items']:
+    command = 'ps -ef | grep antivirus'
+    result = compute.instances().execute_ssh(
+        project=project,
+        zone=zone,
+        instance=instance['name'],
+        command=command
+    )
+```
+
+Please note that these scripts assume that you have the necessary permissions to execute commands on the instances and that the instances have the necessary agents installed to receive commands (SSM Agent for AWS, Azure VM Agent for Azure, and gcloud for GCP).
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -157,3 +279,6 @@ By following these steps, you can remediate the misconfiguration of not having E
 
 
 
+
+</Tab>
+</Tabs>

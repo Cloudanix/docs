@@ -19,6 +19,93 @@ Security
 ### Compliance Standards
 
 HITRUST, SOC2, GDPR
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Azure portal: Navigate to the Azure portal (https://portal.azure.com/) and sign in with your Azure account credentials.
+
+2. Navigate to Network Security Groups: From the left-hand menu, select "All services". In the "All services" box, type "Network Security Groups". Select "Network Security Groups" from the search results.
+
+3. Check Security Rules: Select the Network Security Group you want to inspect. In the Network Security Group window, select "Inbound security rules" or "Outbound security rules" depending on the traffic direction you want to inspect. 
+
+4. Inspect Rules: Look for any rules that allow traffic from any source (0.0.0.0/0) to any destination (0.0.0.0/0) over port 443 (HTTPS). If such a rule exists, it means that unrestricted HTTPS access is allowed, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install Azure CLI: Before you can use Azure CLI commands, you need to install Azure CLI on your local machine. You can download it from the official Microsoft Azure website. After installation, open your command prompt or terminal.
+
+2. Login to Azure: Use the following command to login to your Azure account. You will be redirected to the browser for login. Enter your credentials and login.
+   ```
+   az login
+   ```
+3. List Network Security Groups: Use the following command to list all the network security groups in your Azure account. This will return a JSON object with all the network security groups.
+   ```
+   az network nsg list
+   ```
+4. Check for Unrestricted HTTPS Access: Now, for each network security group, check the security rules for unrestricted HTTPS access. Use the following command to list all the security rules for a particular network security group.
+   ```
+   az network nsg rule list --nsg-name {nsg-name} --resource-group {resource-group-name}
+   ```
+   In the output, look for rules where the `protocol` is `Tcp`, `destinationPortRange` is `443`, and `sourceAddressPrefix` is `*`. If such a rule exists, it means that unrestricted HTTPS access is allowed.
+
+#### Using Python
+
+Detecting unrestricted HTTPS access in a network involves checking if security groups allow unrestricted ingress (incoming) access on port 443 (HTTPS). Here's how you can do it using Python scripts with Boto3 for AWS, Azure SDK for Python, and Google Cloud Client Library for Python.
+
+1. AWS:
+   - Install Boto3, the AWS SDK for Python.
+   - Use the `describe_security_groups()` function to retrieve all security groups.
+   - Iterate over each security group and check the `IpPermissions` field for unrestricted access (0.0.0.0/0) on port 443.
+   ```python
+   import boto3
+   ec2 = boto3.resource('ec2')
+   for sg in ec2.security_groups.all():
+       for rule in sg.ip_permissions:
+           for ip_range in rule['IpRanges']:
+               if ip_range['CidrIp'] == '0.0.0.0/0' and rule['FromPort'] <= 443 and rule['ToPort'] >= 443:
+                   print("Unrestricted HTTPS access detected in security group:", sg.id)
+   ```
+
+2. Azure:
+   - Install Azure SDK for Python.
+   - Use the `network_client.security_groups.list_all()` function to retrieve all network security groups.
+   - Iterate over each security group and check the `security_rules` field for unrestricted access (0.0.0.0/0) on port 443.
+   ```python
+   from azure.mgmt.network import NetworkManagementClient
+   from azure.identity import DefaultAzureCredential
+   credential = DefaultAzureCredential()
+   subscription_id = 'your-subscription-id'
+   network_client = NetworkManagementClient(credential, subscription_id)
+   for sg in network_client.network_security_groups.list_all():
+       for rule in sg.security_rules:
+           if rule.destination_address_prefix == '*' and rule.destination_port_range == '443':
+               print("Unrestricted HTTPS access detected in security group:", sg.id)
+   ```
+
+3. GCP:
+   - Install Google Cloud Client Library for Python.
+   - Use the `compute.firewalls().list()` function to retrieve all firewall rules.
+   - Iterate over each rule and check the `allowed` field for unrestricted access (0.0.0.0/0) on port 443.
+   ```python
+   from google.cloud import compute_v1
+   client = compute_v1.FirewallsClient()
+   for firewall in client.list(project='your-project-id'):
+       for rule in firewall.allowed:
+           if 'IPProtocol' in rule and rule['IPProtocol'] == 'tcp' and 'ports' in rule and '443' in rule['ports']:
+               for source_range in firewall.source_ranges:
+                   if source_range == '0.0.0.0/0':
+                       print("Unrestricted HTTPS access detected in firewall rule:", firewall.id)
+   ```
+Please replace 'your-subscription-id' and 'your-project-id' with your actual Azure subscription ID and GCP project ID respectively.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -181,3 +268,6 @@ By running the above code, you will update the NSG to deny all inbound traffic t
 
 
 
+
+</Tab>
+</Tabs>
