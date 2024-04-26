@@ -20,6 +20,106 @@ Security, Reliability, Operational Excellence, Performance Efficiency
 
 SOC2, CISGKE
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Login to your Google Cloud Platform (GCP) console: Open your browser and navigate to the GCP console. Enter your login credentials to access your GCP account.
+
+2. Navigate to Kubernetes Engine: Once you are logged in, go to the navigation menu (hamburger icon on the top left corner), scroll down and click on "Kubernetes Engine". This will take you to the Kubernetes dashboard.
+
+3. Check the Kubernetes clusters: In the Kubernetes dashboard, you will see a list of all your Kubernetes clusters. Click on the specific cluster you want to check for the misconfiguration.
+
+4. Verify RBAC settings: Once you are in the specific cluster, navigate to the "Security" tab. Here, you can check the RBAC (Role-Based Access Control) settings. If Google Groups are being used to manage Kubernetes RBAC users, you should see the Google Group names listed under the "Identity and API access" section. If not, then it's a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, authenticate your Google Cloud account by running the following command in your terminal:
+
+   ```
+   gcloud auth login
+   ```
+
+2. After you have authenticated, you can list all the clusters in your GCP project by running the following command:
+
+   ```
+   gcloud container clusters list
+   ```
+
+   This command will return a list of all the Kubernetes clusters in your project.
+
+3. To check the RBAC configuration of a specific cluster, you need to get the cluster's credentials first. You can do this by running the following command:
+
+   ```
+   gcloud container clusters get-credentials [CLUSTER_NAME] --zone [ZONE_NAME] --project [PROJECT_ID]
+   ```
+
+   Replace `[CLUSTER_NAME]`, `[ZONE_NAME]`, and `[PROJECT_ID]` with your actual cluster name, zone, and project ID.
+
+4. Now, you can check the RBAC configuration by describing the cluster's role bindings. Run the following command:
+
+   ```
+   kubectl describe rolebindings,clusterrolebindings
+   ```
+
+   This command will return a list of all role bindings and cluster role bindings in the cluster. Look for any bindings that are associated with Google Groups. If there are none, then Kubernetes RBAC users are not being managed with Google Groups.
+
+#### Using Python
+
+1. **Import Required Libraries**: The first step is to import the required libraries in your Python script. You will need the `googleapiclient` library to interact with the Google Cloud Platform (GCP) and the `kubernetes` library to interact with the Kubernetes API.
+
+    ```python
+    import googleapiclient.discovery
+    from kubernetes import client, config
+    ```
+
+2. **Initialize GCP and Kubernetes Clients**: The next step is to initialize the GCP and Kubernetes clients. You will need to authenticate with GCP and Kubernetes using your credentials.
+
+    ```python
+    # Initialize the GCP client
+    service = googleapiclient.discovery.build('cloudresourcemanager', 'v1')
+    request = service.projects().getIamPolicy(resource='your-project-id')
+
+    # Initialize the Kubernetes client
+    config.load_kube_config()
+    v1 = client.CoreV1Api()
+    ```
+
+3. **Fetch and Analyze IAM Policies**: Now, fetch the IAM policies for your GCP project and analyze them to check if Kubernetes RBAC users are managed with Google Groups. You can do this by checking if the `gke-security-groups` attribute is set in the IAM policy.
+
+    ```python
+    # Fetch the IAM policy
+    response = request.execute()
+
+    # Check if Kubernetes RBAC users are managed with Google Groups
+    for binding in response['bindings']:
+        if 'gke-security-groups' in binding['role']:
+            print(f"Kubernetes RBAC users are managed with Google Groups in role {binding['role']}")
+    ```
+
+4. **Fetch and Analyze Kubernetes RBAC Policies**: Similarly, fetch the Kubernetes RBAC policies and analyze them to check if users are managed with Google Groups. You can do this by checking if the `user` field in the RBAC policy is a Google Group.
+
+    ```python
+    # Fetch the Kubernetes RBAC policies
+    rbac_policies = v1.list_cluster_role_binding()
+
+    # Check if users are managed with Google Groups
+    for item in rbac_policies.items:
+        if 'user' in item.metadata.annotations:
+            user = item.metadata.annotations['user']
+            if user.startswith('group:'):
+                print(f"User {user} is managed with Google Groups")
+    ```
+
+This script will print out the roles in which Kubernetes RBAC users are managed with Google Groups and the users that are managed with Google Groups.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -132,3 +232,6 @@ This will remediate the misconfiguration "Manage Kubernetes RBAC Users With Goog
 
 - [https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#google-groups-for-gke](https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control#google-groups-for-gke) 
 
+
+</Tab>
+</Tabs>

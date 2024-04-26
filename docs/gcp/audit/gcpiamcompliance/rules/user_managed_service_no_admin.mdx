@@ -20,6 +20,89 @@ Security
 
 CISGCP, CBP, HIPAA, ISO27001, HITRUST, SOC2, NISTCSF, PCIDSS
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser and navigate to the GCP Console (console.cloud.google.com) and sign in with your Google account credentials.
+
+2. Navigate to IAM & Admin: Once you're logged in, locate the navigation menu on the top left corner of the console. Click on it and scroll down to "IAM & Admin" and click on it.
+
+3. View IAM Roles: In the IAM & Admin page, you will see a list of all the IAM roles in your GCP project. Look for any user-managed service accounts.
+
+4. Check Privileges: Click on the service account to view its details. In the "Role" column, check if the service account has been assigned any 'Admin' roles. If it has, then it's a misconfiguration as user-managed service accounts should not have admin privileges.
+
+#### Using CLI
+
+1. First, you need to install and initialize the Google Cloud SDK (if not already done). You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, you can initialize it using the command `gcloud init`.
+
+2. List all the IAM policies in your GCP project using the following command:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your actual project ID. This command will return a list of all IAM policies in your project.
+
+3. Filter the output to find user-managed service accounts with admin privileges. You can do this by looking for roles that include "admin" in their name. You can use the following command:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] --flatten="bindings[].members" --format='table(bindings.role,bindings.members)' | grep 'admin'
+   ```
+   This command will return a table with two columns: the role and the member. If a user-managed service account has an admin role, it will appear in this list.
+
+4. To further filter the output to only show user-managed service accounts, you can add another `grep` command to the pipeline:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] --flatten="bindings[].members" --format='table(bindings.role,bindings.members)' | grep 'admin' | grep 'user'
+   ```
+   This command will only return user-managed service accounts with admin roles. If this command returns any results, it means that there are user-managed service accounts with admin privileges in your GCP project.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the Google Cloud SDK and the Google Auth, Google Auth OAuthlib, Google Auth HTTPLib2, Google API Client, and Google Cloud IAM libraries for Python. You can do this using pip:
+
+   ```
+   pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-cloud-iam
+   ```
+
+2. Authenticate your session: You need to authenticate your session with GCP. You can do this by setting the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your service account key JSON file.
+
+   ```python
+   import os
+   os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/your/service-account-file.json"
+   ```
+
+3. Get the IAM policy for the service account: You can use the `get_iam_policy` method of the `google.cloud.iam` library to get the IAM policy for the service account. This will return a `Policy` object that contains the bindings for the service account.
+
+   ```python
+   from google.cloud import iam
+   from google.api_core.exceptions import NotFound
+
+   client = iam.ServiceAccountManagerClient()
+   service_account_name = client.service_account_path('[PROJECT]', '[SERVICE_ACCOUNT]')
+
+   try:
+       policy = client.get_iam_policy(service_account_name)
+   except NotFound:
+       print('Service account not found.')
+   ```
+
+4. Check the roles of the service account: You can iterate over the bindings in the policy and check if the service account has the 'roles/owner' or 'roles/editor' role. If it does, then it has admin privileges.
+
+   ```python
+   for binding in policy.bindings:
+       if 'roles/owner' in binding.role or 'roles/editor' in binding.role:
+           for member in binding.members:
+               if service_account_name in member:
+                   print('Service account has admin privileges.')
+   ```
+   
+Remember to replace '[PROJECT]' and '[SERVICE_ACCOUNT]' with your actual project ID and service account ID.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -138,3 +221,6 @@ These steps will remediate the misconfiguration "User Managed Service Account Sh
 ### Additional Reading:
 
 
+
+</Tab>
+</Tabs>

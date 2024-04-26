@@ -19,6 +19,98 @@ Security
 ### Compliance Standards
 
 CISGCP, CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to IAM & Admin: Once you're logged in, locate the navigation menu in the top left corner of the console. Click on it and scroll down to find "IAM & Admin". Click on it to open the IAM & Admin dashboard.
+
+3. Access IAM Policy: In the IAM & Admin dashboard, click on "IAM" in the left-hand menu. This will open the IAM policy for your GCP project. Here, you can see all the IAM roles and permissions assigned to your project.
+
+4. Check KMS Cryptokeys Permissions: In the IAM policy, look for any roles or users that have the "cloudkms.cryptoKeyVersions.useToEncrypt" permission. This permission allows a user or service to use a CryptoKey to encrypt data. If this permission is assigned to "allUsers" or "allAuthenticatedUsers", then your KMS CryptoKeys are public, which is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions to set it up.
+
+2. Once the Google Cloud SDK is installed and configured, open your terminal and run the following command to list all the projects in your GCP account:
+
+   ```
+   gcloud projects list
+   ```
+
+   This command will return a list of all the projects in your GCP account. Note down the PROJECT_ID of the project you want to check.
+
+3. Now, you need to list all the KMS Cryptokeys in the project. Run the following command:
+
+   ```
+   gcloud kms keys list --location global --keyring [KEYRING_NAME] --project [PROJECT_ID]
+   ```
+
+   Replace [KEYRING_NAME] with the name of your keyring and [PROJECT_ID] with the project id you noted down in the previous step. This command will return a list of all the KMS Cryptokeys in the specified keyring and project.
+
+4. Finally, you need to check the IAM policy for each KMS Cryptokey. Run the following command:
+
+   ```
+   gcloud kms keys get-iam-policy [KEY_NAME] --location global --keyring [KEYRING_NAME] --project [PROJECT_ID]
+   ```
+
+   Replace [KEY_NAME] with the name of the KMS Cryptokey you want to check, [KEYRING_NAME] with the name of your keyring, and [PROJECT_ID] with the project id. This command will return the IAM policy for the specified KMS Cryptokey. If the IAM policy includes "allUsers" or "allAuthenticatedUsers" in its members, then the KMS Cryptokey is public.
+
+#### Using Python
+
+1. Install the necessary Python libraries: You will need the `google-cloud-iam` and `google-cloud-kms` libraries to interact with Google Cloud IAM and KMS services. You can install these libraries using pip:
+
+```python
+pip install --upgrade google-cloud-iam google-cloud-kms
+```
+
+2. Import the necessary modules and initialize the KMS client:
+
+```python
+from google.cloud import kms_v1
+from google.cloud.kms_v1 import enums
+
+# Creates an API client for the KMS service.
+client = kms_v1.KeyManagementServiceClient()
+```
+
+3. Define a function to list all the crypto keys and their IAM policies:
+
+```python
+def list_keys_and_policies(project_id, location_id, key_ring_id):
+    parent = client.key_ring_path(project_id, location_id, key_ring_id)
+
+    # Lists crypto keys
+    crypto_keys = client.list_crypto_keys(parent)
+
+    for crypto_key in crypto_keys:
+        policy = client.get_iam_policy(crypto_key.name)
+        yield crypto_key, policy
+```
+
+4. Check the IAM policies of each crypto key to see if they are public:
+
+```python
+def check_public_keys(project_id, location_id, key_ring_id):
+    for crypto_key, policy in list_keys_and_policies(project_id, location_id, key_ring_id):
+        for binding in policy.bindings:
+            # If the role is 'roles/cloudkms.cryptoKeyEncrypterDecrypter' and the member is 'allUsers' or 'allAuthenticatedUsers', then the key is public.
+            if binding.role == 'roles/cloudkms.cryptoKeyEncrypterDecrypter' and ('allUsers' in binding.members or 'allAuthenticatedUsers' in binding.members):
+                print(f'The crypto key {crypto_key.name} is public.')
+```
+
+You can call the `check_public_keys` function with your project ID, location ID, and key ring ID to check if any of your KMS crypto keys are public.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -176,3 +268,6 @@ By following the above steps, you can remediate the misconfiguration "KMS Crypto
 
 
 
+
+</Tab>
+</Tabs>

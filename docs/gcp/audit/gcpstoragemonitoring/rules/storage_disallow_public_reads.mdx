@@ -19,6 +19,125 @@ Security
 ### Compliance Standards
 
 NIST
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to your Google Cloud Platform (GCP) console.
+
+2. Navigate to the "Storage" section. This can be found under the "Storage" option in the left-hand side menu.
+
+3. Once you are in the "Storage" section, you will see a list of all your storage buckets. Click on the name of the bucket that you want to check.
+
+4. In the bucket details page, navigate to the "Permissions" tab. Here, you can see all the permissions that are currently set for the bucket. If you see "allUsers" or "allAuthenticatedUsers" with the role of "Storage Object Viewer" or "Storage Legacy Bucket Reader", it means that the bucket allows all users to read its content.
+
+#### Using CLI
+
+1. Install and authenticate the Google Cloud SDK: The Google Cloud SDK includes the gcloud command-line tool, which is necessary to interact with your GCP resources. You can install it by following the instructions provided by Google Cloud. After installation, authenticate the SDK using the command `gcloud auth login`.
+
+2. List all the buckets in your project: Use the `gsutil ls` command to list all the buckets in your project. The command is as follows:
+   ```
+   gsutil ls
+   ```
+   This command will return a list of all the buckets in your project.
+
+3. Check the IAM policies for each bucket: For each bucket, you can check the IAM policies to see if they allow all users read access. The command to check the IAM policies is as follows:
+   ```
+   gsutil iam get gs://[BUCKET_NAME]
+   ```
+   Replace `[BUCKET_NAME]` with the name of your bucket. This command will return the IAM policy for the specified bucket.
+
+4. Look for AllUsers in the IAM policy: If the IAM policy includes "allUsers" in the "members" field, then the bucket allows all users read access. This is a misconfiguration because it allows anyone on the internet to read the bucket's contents. You can manually look for "allUsers" in the IAM policy, or you can use a command like the following to automatically search for it:
+   ```
+   gsutil iam get gs://[BUCKET_NAME] | grep allUsers
+   ```
+   If this command returns any output, then the bucket allows all users read access.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. For AWS, you would need boto3, for Azure, you would need azure-storage-blob, and for GCP, you would need google-cloud-storage. You can install these libraries using pip.
+
+```python
+pip install boto3 azure-storage-blob google-cloud-storage
+```
+
+2. Connect to the cloud service: The next step is to connect to the cloud service. You would need to authenticate your script with the cloud service. Here is how you can do it for each service:
+
+AWS:
+```python
+import boto3
+s3 = boto3.resource('s3')
+```
+
+Azure:
+```python
+from azure.storage.blob import BlobServiceClient
+blob_service_client = BlobServiceClient.from_connection_string("my_connection_string")
+```
+
+GCP:
+```python
+from google.cloud import storage
+client = storage.Client()
+```
+
+3. List all the buckets: Once you are connected to the service, you can list all the buckets. Here is how you can do it:
+
+AWS:
+```python
+for bucket in s3.buckets.all():
+    print(bucket.name)
+```
+
+Azure:
+```python
+for container in blob_service_client.list_containers():
+    print(container.name)
+```
+
+GCP:
+```python
+for bucket in client.list_buckets():
+    print(bucket.name)
+```
+
+4. Check the permissions: The final step is to check the permissions of each bucket. If a bucket allows all users to read, it is a misconfiguration. Here is how you can check it:
+
+AWS:
+```python
+for bucket in s3.buckets.all():
+    acl = bucket.Acl()
+    for grant in acl.grants:
+        if grant['Grantee']['Type'] == 'Group' and 'AllUsers' in grant['Grantee']['URI']:
+            print(f"Bucket {bucket.name} allows all users to read")
+```
+
+Azure:
+```python
+for container in blob_service_client.list_containers():
+    acl = blob_service_client.get_container_access_policy(container.name)
+    if acl and 'publicAccess' in acl and acl['publicAccess'] != 'None':
+        print(f"Container {container.name} allows all users to read")
+```
+
+GCP:
+```python
+for bucket in client.list_buckets():
+    policy = bucket.get_iam_policy()
+    for role in policy:
+        if role == 'roles/storage.objectViewer':
+            for member in policy[role]:
+                if member == 'allUsers':
+                    print(f"Bucket {bucket.name} allows all users to read")
+```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -131,3 +250,6 @@ This Python script will remediate the issue of allowing all users to read bucket
 
 
 
+
+</Tab>
+</Tabs>

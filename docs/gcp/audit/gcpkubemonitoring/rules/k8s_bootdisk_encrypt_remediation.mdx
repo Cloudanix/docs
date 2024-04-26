@@ -1,3 +1,92 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your preferred web browser, navigate to the Google Cloud Platform web console and sign in with your Google account that has the necessary permissions to access and manage your GCP resources.
+
+2. Navigate to Kubernetes Engine: From the main dashboard of the Google Cloud Platform Console, click on the hamburger menu (three horizontal lines) located at the top left corner of the console. Scroll down and click on "Kubernetes Engine" under the "Compute" section.
+
+3. Select the Kubernetes Cluster: In the Kubernetes Engine page, you will see a list of all your Kubernetes clusters. Click on the name of the cluster you want to inspect.
+
+4. Check Boot Disk Encryption: In the cluster details page, scroll down to the "Node Pools" section. Click on the name of the node pool to expand its details. Look for the "Boot disk encryption" field. If it's set to "Google-managed key", then the boot disk is not encrypted with a customer-managed key. If it's set to a specific key, then the boot disk is encrypted with that customer-managed key.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions for your specific operating system.
+
+2. Once the SDK is installed and configured, you can list all the disks in your project by running the following command in your terminal:
+
+   ```
+   gcloud compute disks list --format="table(name,zone,sourceImage)"
+   ```
+
+   This command will return a table with the names of all disks, their zones, and the source images they were created from.
+
+3. To check if a specific disk is encrypted with a customer-managed key, you can use the following command:
+
+   ```
+   gcloud compute disks describe [DISK_NAME] --zone=[ZONE]
+   ```
+
+   Replace `[DISK_NAME]` with the name of the disk you want to check and `[ZONE]` with the zone where the disk is located. This command will return a description of the disk, including its encryption key information.
+
+4. In the output of the previous command, look for the "diskEncryptionKey" field. If the disk is encrypted with a customer-managed key, this field will contain a "kmsKeyName" subfield with the name of the key. If the "diskEncryptionKey" field is not present or does not contain a "kmsKeyName" subfield, the disk is not encrypted with a customer-managed key.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the Google Cloud SDK and the Python client library for Google's API. You can do this using pip:
+
+   ```bash
+   pip install --upgrade google-cloud-sdk google-api-python-client
+   ```
+
+2. Authenticate your session: You need to authenticate your session with GCP. You can do this by setting the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your service account key file:
+
+   ```bash
+   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-file.json"
+   ```
+
+3. Write a Python script to check the encryption status of Kubernetes boot disks: Here's a simple script that uses the Google Cloud API to check the encryption status of all boot disks in a project:
+
+   ```python
+   from googleapiclient import discovery
+   from googleapiclient.errors import HttpError
+
+   def check_boot_disk_encryption(project_id):
+       """Check the encryption status of all boot disks in a project."""
+       compute = discovery.build('compute', 'v1')
+
+       try:
+           request = compute.disks().list(project=project_id)
+           while request is not None:
+               response = request.execute()
+
+               for disk in response['items']:
+                   # Check if the disk is a boot disk
+                   if 'sourceImage' in disk and 'gce-uefi-images' in disk['sourceImage']:
+                       # Check the encryption key
+                       if 'diskEncryptionKey' in disk:
+                           print(f"Disk {disk['name']} is encrypted with a customer-managed key.")
+                       else:
+                           print(f"Disk {disk['name']} is not encrypted with a customer-managed key.")
+
+               request = compute.disks().list_next(previous_request=request, previous_response=response)
+       except HttpError as err:
+           print(f"An error occurred: {err}")
+
+   if __name__ == "__main__":
+       project_id = "your-project-id"  # replace with your project ID
+       check_boot_disk_encryption(project_id)
+   ```
+
+4. Run the script: You can run the script from the command line like any other Python script. The script will print the encryption status of all boot disks in the specified project. If a disk is encrypted with a customer-managed key, the script will print a message saying so. If a disk is not encrypted with a customer-managed key, the script will print a message saying so.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -116,3 +205,6 @@ print(f'Boot disk encryption key: {cluster.spec.master_authorized_networks_confi
 
 This will print the name of the encryption key used for boot disk encryption.
 
+
+</Tab>
+</Tabs>

@@ -1,3 +1,84 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to your Google Cloud Platform (GCP) console.
+
+2. Navigate to the Kubernetes Engine section. Here, you will find a list of all your Kubernetes clusters.
+
+3. Click on the specific cluster you want to check. This will open the cluster's details page.
+
+4. In the details page, look for the "Node Local DNS Cache" setting. If it's enabled, you will see it listed there. If it's not listed, then the cluster is not using Node Local DNS Cache.
+
+#### Using CLI
+
+1. First, you need to install and configure Google Cloud SDK (gcloud CLI) on your local machine. Once installed, authenticate your SDK using the command `gcloud auth login`.
+
+2. After successful authentication, set your project ID to the current project using the command `gcloud config set project [PROJECT_ID]`.
+
+3. Now, list all the clusters in the current project using the command `gcloud container clusters list`. This will give you a list of all the clusters along with their details.
+
+4. For each cluster, check if NodeLocal DNSCache is enabled or not. You can do this by describing the cluster using the command `gcloud container clusters describe [CLUSTER_NAME] --zone=[ZONE_NAME] | grep -A5 dnsCacheConfig`. If the output contains `enabled: true`, then NodeLocal DNSCache is enabled. If not, it means NodeLocal DNSCache is not enabled for that cluster.
+
+#### Using Python
+
+To check if a Kubernetes cluster is using Node Local DNS Cache, you can use the Kubernetes Python client. Here are the steps:
+
+1. **Install the Kubernetes Python client:**
+
+   You can install the Kubernetes Python client using pip:
+   ```
+   pip install kubernetes
+   ```
+2. **Configure access to your Kubernetes cluster:**
+
+   You need to configure your access to the Kubernetes cluster. If you're running the script from within a pod in the cluster, you can use the service account token and cluster CA certificate that Kubernetes automatically mounts into the pod. If you're running the script from outside the cluster, you'll need to provide a kubeconfig file that specifies the cluster's API server and a user to authenticate as.
+
+   Here's how you can configure the client to use a kubeconfig file:
+   ```python
+   from kubernetes import config
+
+   config.load_kube_config('/path/to/your/kubeconfig')
+   ```
+3. **Check the ConfigMap of kube-dns:**
+
+   You can use the Kubernetes Python client to get the ConfigMap of kube-dns in the kube-system namespace. If the cluster is using Node Local DNS Cache, the ConfigMap should contain a stubDomains field that redirects DNS queries for the cluster's DNS domain to the Node Local DNS Cache.
+
+   Here's how you can get the ConfigMap and check for the stubDomains field:
+   ```python
+   from kubernetes import client
+
+   v1 = client.CoreV1Api()
+   config_map = v1.read_namespaced_config_map('kube-dns', 'kube-system')
+
+   if 'stubDomains' in config_map.data:
+       print('Cluster is using Node Local DNS Cache')
+   else:
+       print('Cluster is not using Node Local DNS Cache')
+   ```
+4. **Check the DaemonSet of node-local-dns:**
+
+   In addition to the ConfigMap, you can also check if there's a DaemonSet for node-local-dns in the kube-system namespace. If the cluster is using Node Local DNS Cache, this DaemonSet should exist and its pods should be running on every node in the cluster.
+
+   Here's how you can get the DaemonSet and check if its pods are running on every node:
+   ```python
+   from kubernetes import client
+
+   v1 = client.AppsV1Api()
+   daemon_set = v1.read_namespaced_daemon_set('node-local-dns', 'kube-system')
+
+   if daemon_set.status.current_number_scheduled == daemon_set.status.number_ready:
+       print('Node Local DNS Cache is running on every node')
+   else:
+       print('Node Local DNS Cache is not running on every node')
+   ```
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -174,3 +255,6 @@ except HttpError as e:
 
 With these steps, the misconfiguration "Cluster Should Use Node Local DNS Cache" has been remediated for GCP using Python.
 
+
+</Tab>
+</Tabs>

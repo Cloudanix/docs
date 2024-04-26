@@ -19,6 +19,128 @@ Security, Operational Maturity
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com) and sign in with your Google account credentials.
+
+2. Navigate to IAM & Admin: Once you're logged in, locate the navigation menu in the top left corner of the console. Click on it and scroll down to find "IAM & Admin". Click on it to open the IAM & Admin dashboard.
+
+3. Check IAM Policies: In the IAM & Admin dashboard, click on "IAM" in the left-hand menu. This will display a list of all IAM policies in your GCP environment. Look for any policies that include "roles/compute.networkUser" on "projects/[PROJECT_ID]/global/networks/[NETWORK_NAME]" resources. This role allows the user to use VPC Network Peering.
+
+4. Review User Permissions: For each policy that includes the "roles/compute.networkUser" role, click on the policy to view its details. Check the "Members" section to see which users have been granted this role. If a user who should not have the ability to use VPC Network Peering has been granted this role, this is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and initialize the Google Cloud SDK if you haven't done so already. You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, you can initialize it using the following command:
+
+   ```
+   gcloud init
+   ```
+
+2. After initializing the Google Cloud SDK, you can list all the VPC networks in your project using the following command:
+
+   ```
+   gcloud compute networks list
+   ```
+
+3. To check the VPC peering configurations, you can use the following command:
+
+   ```
+   gcloud compute networks peerings list --network=[NETWORK_NAME]
+   ```
+
+   Replace `[NETWORK_NAME]` with the name of the network you want to check.
+
+4. To check the IAM policies for the VPC network, you can use the following command:
+
+   ```
+   gcloud compute networks get-iam-policy [NETWORK_NAME]
+   ```
+
+   Replace `[NETWORK_NAME]` with the name of the network you want to check. This command will return a list of IAM policies for the network. You should check if there are any policies that allow unrestricted VPC peering usage.
+
+#### Using Python
+
+To detect the misconfiguration of Restrict VPC Peering Usage in IAM using Python scripts, you can use the Boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. Here are the steps:
+
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+
+   First, you need to set up the AWS SDK (Boto3) in your Python environment. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:**
+
+   You need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. **Create a Python Script to List All IAM Policies:**
+
+   You can use the `list_policies` method to retrieve all IAM policies. Here is a sample script:
+
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List policies
+   response = iam.list_policies(
+       Scope='All',
+       OnlyAttached=False,
+       PolicyUsageFilter='PermissionsPolicy',
+       MaxItems=123
+   )
+
+   print(response['Policies'])
+   ```
+
+4. **Check for VPC Peering Permissions:**
+
+   Now, you need to check if any of the listed policies have the `ec2:CreateVpcPeeringConnection` or `ec2:AcceptVpcPeeringConnection` permissions. If these permissions are found, it means that VPC Peering Usage is not restricted. Here is a sample script:
+
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List policies
+   response = iam.list_policies(
+       Scope='All',
+       OnlyAttached=False,
+       PolicyUsageFilter='PermissionsPolicy',
+       MaxItems=123
+   )
+
+   for policy in response['Policies']:
+       policy_version = iam.get_policy_version(
+           PolicyArn=policy['Arn'],
+           VersionId=policy['DefaultVersionId']
+       )
+       for statement in policy_version['PolicyVersion']['Document']['Statement']:
+           if ('ec2:CreateVpcPeeringConnection' in statement['Action'] or 'ec2:AcceptVpcPeeringConnection' in statement['Action']) and statement['Effect'] == 'Allow':
+               print(f"Policy {policy['PolicyName']} allows VPC Peering Usage")
+   ```
+
+This script will print the names of all policies that allow VPC Peering Usage. If no such policies are found, it means that VPC Peering Usage is restricted.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -135,3 +257,6 @@ Note: Make sure to authenticate your python script with appropriate GCP credenti
 
 
 
+
+</Tab>
+</Tabs>

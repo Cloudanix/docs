@@ -19,6 +19,111 @@ Security, Operational Maturity
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Select your project: From the project drop-down, select the project that contains the VPN you want to inspect.
+
+3. Navigate to VPN: On the left side menu, click on "Hybrid Connectivity" and then "VPN". This will display a list of all VPNs in your project.
+
+4. Check VPN Peer IPs: Click on the name of the VPN you want to inspect. In the VPN details page, look for the "Peer IP" field under the "Tunnel Details" section. If the Peer IP is not restricted to specific IPs, then there is a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and initialize the Google Cloud SDK (if not already done). You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, you can initialize it using the following command:
+   ```
+   gcloud init
+   ```
+2. After initializing the Google Cloud SDK, you can list all the VPN gateways in your project using the following command:
+   ```
+   gcloud compute vpn-gateways list
+   ```
+   This command will list all the VPN gateways along with their details like name, network, region, etc.
+
+3. To check the configuration of a specific VPN gateway, you can use the following command:
+   ```
+   gcloud compute vpn-gateways describe [VPN_GATEWAY_NAME]
+   ```
+   Replace `[VPN_GATEWAY_NAME]` with the name of your VPN gateway. This command will display the configuration of the specified VPN gateway.
+
+4. To check the peer IPs of the VPN gateway, look for the `peerIp` field in the output of the above command. If the `peerIp` field is not restricted to specific IPs, then it is a misconfiguration.
+
+#### Using Python
+
+To check for the restriction of VPN Peer IPs in IAM using Python scripts, you can use the Boto3 library for AWS, Azure SDK for Python for Azure, and Google Cloud Client Library for Python for GCP. Here are the steps:
+
+1. AWS:
+   - Import the Boto3 library in your Python script.
+   - Create a session using your AWS credentials.
+   - Use the `describe_vpn_connections` method to get a list of all VPN connections.
+   - Iterate over the list and check the `VpnGatewayConfiguration` for each VPN connection. If the `VpnGatewayConfiguration` does not restrict the VPN Peer IPs, flag it.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+
+ec2 = session.resource('ec2')
+for vpn_connection in ec2.vpn_connections.all():
+    if 'VpnGatewayConfiguration' in vpn_connection and 'VpnTunnelOptionsSpecifications' in vpn_connection['VpnGatewayConfiguration']:
+        for tunnel_option in vpn_connection['VpnGatewayConfiguration']['VpnTunnelOptionsSpecifications']:
+            if 'TunnelInsideCidr' not in tunnel_option or tunnel_option['TunnelInsideCidr'] == '0.0.0.0/0':
+                print(f"VPN connection {vpn_connection['VpnConnectionId']} does not restrict VPN Peer IPs")
+```
+
+2. Azure:
+   - Import the Azure SDK in your Python script.
+   - Authenticate with your Azure credentials.
+   - Use the `list_all` method from the `NetworkManagementClient` to get a list of all VPN connections.
+   - Iterate over the list and check the `VpnClientConfiguration` for each VPN connection. If the `VpnClientConfiguration` does not restrict the VPN Peer IPs, flag it.
+
+```python
+from azure.mgmt.network import NetworkManagementClient
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+subscription_id = 'YOUR_SUBSCRIPTION_ID'
+network_client = NetworkManagementClient(credential, subscription_id)
+
+for vpn_gateway in network_client.vpn_gateways.list_all():
+    if 'VpnClientConfiguration' in vpn_gateway and 'VpnClientAddressPool' in vpn_gateway['VpnClientConfiguration']:
+        if 'addressPrefixes' not in vpn_gateway['VpnClientConfiguration']['VpnClientAddressPool'] or '0.0.0.0/0' in vpn_gateway['VpnClientConfiguration']['VpnClientAddressPool']['addressPrefixes']:
+            print(f"VPN gateway {vpn_gateway['name']} does not restrict VPN Peer IPs")
+```
+
+3. GCP:
+   - Import the Google Cloud Client Library in your Python script.
+   - Authenticate with your GCP credentials.
+   - Use the `list` method from the `VpnGatewaysClient` to get a list of all VPN gateways.
+   - Iterate over the list and check the `VpnTunnel` for each VPN gateway. If the `VpnTunnel` does not restrict the VPN Peer IPs, flag it.
+
+```python
+from google.cloud import compute_v1
+
+client = compute_v1.VpnGatewaysClient()
+
+for vpn_gateway in client.list(project='YOUR_PROJECT_ID', region='YOUR_REGION'):
+    for vpn_tunnel in vpn_gateway.vpn_tunnels:
+        if 'remoteTrafficSelector' not in vpn_tunnel or '0.0.0.0/0' in vpn_tunnel['remoteTrafficSelector']:
+            print(f"VPN gateway {vpn_gateway['name']} does not restrict VPN Peer IPs")
+```
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', 'YOUR_SUBSCRIPTION_ID', 'YOUR_PROJECT_ID', and 'YOUR_REGION' with your actual AWS, Azure, and GCP credentials and settings.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -148,3 +253,6 @@ if vpn_gateway.get('vpnInterfaces'):
 
 
 
+
+</Tab>
+</Tabs>

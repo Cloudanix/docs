@@ -20,6 +20,104 @@ Security
 
 SOC2, GDPR, HITRUST, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your preferred web browser, navigate to the Google Cloud Platform web console and sign in with your Google account credentials.
+
+2. Navigate to VPC Network: From the main navigation menu, select "VPC Network" and then "Firewall rules". This will display a list of all the firewall rules that are currently configured in your Google Cloud environment.
+
+3. Check for Oracle Port: Look for any firewall rules that have '1521' (the default port for Oracle) specified in the "ports and protocols" column. If such a rule exists, it means that the Oracle port is open.
+
+4. Verify Source Range: Check the "Source IP ranges" column for the rule identified in the previous step. If the source range is set to '0.0.0.0/0' or '::/0', it means that the Oracle port is open to the entire internet, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install and authenticate the Google Cloud SDK CLI on your local machine. You can download it from the official Google Cloud website and follow the instructions to install and authenticate.
+
+2. Once you have the Google Cloud SDK CLI installed and authenticated, you can use the `gcloud` command to interact with your Google Cloud resources. 
+
+3. To check if the Oracle port is open in your network, you can use the `gcloud compute firewall-rules list` command. This command will list all the firewall rules in your Google Cloud project. Look for any rules that have the Oracle port (usually 1521) in their allowed ports list. Here is the command:
+
+   ```
+   gcloud compute firewall-rules list --format="table(name, network, direction, priority, sourceRanges.list():label=SRC_RANGES, allowed[].map().firewall_rule().list():label=ALLOW, targetTags.list():label=TARGET_TAGS)"
+   ```
+
+4. Analyze the output of the command. If you see any firewall rules that allow traffic on the Oracle port (1521), then the Oracle port is open in your network. If you don't see any such rules, then the Oracle port is not open.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the 'boto3' library for AWS, 'azure-mgmt-network' for Azure, and 'google-cloud-securitycenter' for GCP. You will also need the 'socket' library to check the port status. 
+
+```python
+import boto3
+import socket
+from azure.mgmt.network import NetworkManagementClient
+from google.cloud import securitycenter_v1
+```
+
+2. Define a function to check the port status: This function will take an IP address and a port number as input and return the status of the port (open or closed).
+
+```python
+def check_port(ip, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    try:
+        sock.connect((ip, port))
+        return "Open"
+    except:
+        return "Closed"
+    finally:
+        sock.close()
+```
+
+3. For AWS, use the 'boto3' library to get a list of all security groups and their rules. Then, use the 'check_port' function to check the status of the Oracle port (1521) for each security group.
+
+```python
+ec2 = boto3.resource('ec2')
+for security_group in ec2.security_groups.all():
+    for permission in security_group.ip_permissions:
+        for ip_range in permission['IpRanges']:
+            status = check_port(ip_range['CidrIp'], 1521)
+            if status == "Open":
+                print(f"Oracle port is open in security group {security_group.id}")
+```
+
+4. For Azure, use the 'NetworkManagementClient' to get a list of all network security groups and their rules. Then, use the 'check_port' function to check the status of the Oracle port for each network security group.
+
+```python
+network_client = NetworkManagementClient(credentials, subscription_id)
+for nsg in network_client.network_security_groups.list_all():
+    for rule in nsg.security_rules:
+        if rule.destination_port_range == '1521':
+            status = check_port(rule.source_address_prefix, 1521)
+            if status == "Open":
+                print(f"Oracle port is open in network security group {nsg.id}")
+```
+
+5. For GCP, use the 'securitycenter_v1' library to get a list of all firewall rules. Then, use the 'check_port' function to check the status of the Oracle port for each firewall rule.
+
+```python
+client = securitycenter_v1.SecurityCenterClient()
+organization_id = 'your-organization-id'
+for firewall in client.list_assets(request={"parent": f"organizations/{organization_id}", "filter": "securityCenterProperties.resourceType=\"google.compute.Firewall\""}):
+    for rule in firewall.asset.security_center_properties.additional_properties['allowed']:
+        if 'ports' in rule and '1521' in rule['ports']:
+            status = check_port(rule['IPProtocol'], 1521)
+            if status == "Open":
+                print(f"Oracle port is open in firewall {firewall.asset.name}")
+```
+
+Remember to replace 'your-organization-id' with your actual GCP organization ID.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -140,3 +238,6 @@ Note: Replace 'your-project-id' with the actual ID of your GCP project, and 'ora
 
 - [https://cloud.google.com/vpc/docs/using-firewalls](https://cloud.google.com/vpc/docs/using-firewalls) 
 
+
+</Tab>
+</Tabs>

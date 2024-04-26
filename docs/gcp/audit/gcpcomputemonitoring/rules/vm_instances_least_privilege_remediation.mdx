@@ -1,3 +1,102 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform (GCP) Console (https://console.cloud.google.com/) and sign in with your GCP account. If you don't have an account, you'll need to create one.
+
+2. Navigate to the VM Instances: From the GCP Console dashboard, select the project that you want to examine. In the left navigation panel, click on "Compute Engine" and then "VM instances". This will display a list of all the VM instances that are currently running in your selected project.
+
+3. Check the Service Account: For each VM instance, click on the instance name to open its "Instance details" page. Scroll down to the "Cloud API access scopes" section. Here, you can see the service account associated with the VM instance and the access scopes it has. If the service account is the default one (PROJECT_NUMBER-compute@developer.gserviceaccount.com) and the access scope is set to "Allow full access to all Cloud APIs", then the VM instance is using the default service account with full access to Cloud APIs.
+
+4. Repeat the Process: Repeat the process for all the VM instances in your project. If you have multiple projects, you'll need to check each one individually.
+
+#### Using CLI
+
+1. Install and authenticate the Google Cloud SDK: Before you can use the Google Cloud CLI, you need to install it on your local machine and authenticate it with your Google Cloud account. You can download the SDK from the official Google Cloud website and follow the instructions to install it. Once installed, you can authenticate it by running the following command in your terminal:
+
+   ```
+   gcloud auth login
+   ```
+
+2. List all the VM instances: Once the SDK is authenticated, you can list all the VM instances in your project by running the following command:
+
+   ```
+   gcloud compute instances list
+   ```
+
+3. Check the service account for each VM instance: For each VM instance, you can check the service account it's using by running the following command:
+
+   ```
+   gcloud compute instances describe [INSTANCE_NAME] --format='value(serviceAccounts[].email)'
+   ```
+
+   Replace `[INSTANCE_NAME]` with the name of your VM instance. This command will return the email of the service account that the VM instance is using.
+
+4. Check the permissions of the service account: For each service account, you can check its permissions by running the following command:
+
+   ```
+   gcloud iam service-accounts get-iam-policy [SERVICE_ACCOUNT_EMAIL] --format='value(bindings[].role)'
+   ```
+
+   Replace `[SERVICE_ACCOUNT_EMAIL]` with the email of your service account. This command will return the roles that the service account has. If the service account has the role `roles/editor`, it means it has full access to all Cloud APIs, which is a misconfiguration.
+
+#### Using Python
+
+1. Install the necessary Python libraries: You will need the `google-auth`, `google-auth-httplib2`, `google-auth-oauthlib`, `google-auth-urllib3`, and `google-api-python-client` libraries. You can install these using pip:
+
+```python
+pip install --upgrade google-auth google-auth-httplib2 google-auth-oauthlib google-auth-urllib3 google-api-python-client
+```
+
+2. Authenticate and create a service client: Before you can interact with the GCP APIs, you need to authenticate your client. Here's how you can do it:
+
+```python
+from google.oauth2 import service_account
+from googleapiclient import discovery
+
+# Load the credentials from the service account key file
+credentials = service_account.Credentials.from_service_account_file('path/to/keyfile.json')
+
+# Build the service
+compute = discovery.build('compute', 'v1', credentials=credentials)
+```
+
+3. List all instances and check their service accounts: Now that you have a service client, you can use it to list all instances and check their service accounts. Here's how you can do it:
+
+```python
+# Get the project ID
+project_id = 'your-project-id'
+
+# List all instances
+request = compute.instances().aggregatedList(project=project_id)
+while request is not None:
+    response = request.execute()
+
+    # Iterate over all instances
+    for name, instances_scoped_list in response['items'].items():
+        # Check if there are any instances in this zone
+        if 'instances' in instances_scoped_list:
+            # Iterate over all instances in this zone
+            for instance in instances_scoped_list['instances']:
+                # Check the service account
+                if 'serviceAccounts' in instance:
+                    for service_account in instance['serviceAccounts']:
+                        # Check if the service account is the default one and has full access
+                        if service_account['email'] == 'default' and 'https://www.googleapis.com/auth/cloud-platform' in service_account['scopes']:
+                            print(f"Instance {instance['name']} in project {project_id} is using the default service account with full access to all Cloud APIs.")
+
+    # Get the next list of instances
+    request = compute.instances().aggregatedList_next(previous_request=request, previous_response=response)
+```
+
+4. Analyze the output: The script will print out the names of all instances that are using the default service account with full access to all Cloud APIs. You can use this information to identify misconfigurations.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -159,3 +258,6 @@ print(f"Updated instance {instance_name} with new service account.")
 
 By following the above steps, you can remediate the misconfiguration "VM Instances Should Not Use Default Service Accounts With Full Access To Cloud APIs" for GCP using Python.
 
+
+</Tab>
+</Tabs>

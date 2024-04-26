@@ -20,6 +20,89 @@ Security
 
 CISGCP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to your Google Cloud Platform (GCP) console.
+
+2. Navigate to the Kubernetes Engine section. Here, you will find a list of all your Kubernetes clusters.
+
+3. Click on the specific cluster you want to inspect. This will open the cluster details page.
+
+4. In the cluster details page, navigate to the "Workloads" tab. Here, you can see all the service accounts associated with the cluster. Check if any service account has more permissions than necessary. This can be done by clicking on the service account and viewing its roles. If a service account has roles that are not required for its function, it indicates a misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions for your specific operating system.
+
+2. Once the SDK is installed, authenticate your account using the following command:
+   ```
+   gcloud auth login
+   ```
+   This will open a new browser window where you can log in with your Google account. After successful login, your credentials will be stored on your local machine.
+
+3. Set your project ID to the project you want to check. Replace `YOUR_PROJECT_ID` with your actual project ID.
+   ```
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+
+4. Now, you can list all the service accounts in your project using the following command:
+   ```
+   gcloud iam service-accounts list
+   ```
+   This will display a list of all service accounts, including their email addresses and descriptions.
+
+5. To check the roles assigned to a specific service account, use the following command. Replace `SERVICE_ACCOUNT_EMAIL` with the email of the service account you want to check.
+   ```
+   gcloud iam service-accounts get-iam-policy SERVICE_ACCOUNT_EMAIL
+   ```
+   This will display a list of all roles assigned to the service account. If the service account has access to more roles than necessary, it indicates a misconfiguration.
+
+#### Using Python
+
+1. Install the necessary Python libraries: You will need the Kubernetes Python client to interact with the Kubernetes API. You can install it using pip:
+
+```python
+pip install kubernetes
+```
+
+2. Connect to the Kubernetes API: Use the `config.load_kube_config()` function from the Kubernetes client to connect to the API. This function reads from the default kubeconfig file location (`~/.kube/config`) or the path specified in the `KUBECONFIG` environment variable.
+
+```python
+from kubernetes import client, config
+
+config.load_kube_config()
+v1 = client.CoreV1Api()
+```
+
+3. Fetch all Service Accounts: Use the `list_service_account_for_all_namespaces()` function to fetch all service accounts across all namespaces.
+
+```python
+service_accounts = v1.list_service_account_for_all_namespaces().items
+```
+
+4. Check for excessive permissions: For each service account, check if it has `cluster-admin` role. This role has full control over the entire cluster and should be limited. If a service account has this role, it's a misconfiguration.
+
+```python
+for sa in service_accounts:
+    roles = v1.list_cluster_role_binding().items
+    for role in roles:
+        if role.role_ref.name == 'cluster-admin':
+            for subject in role.subjects:
+                if subject.kind == 'ServiceAccount' and subject.name == sa.metadata.name and subject.namespace == sa.metadata.namespace:
+                    print(f"Service Account {sa.metadata.name} in namespace {sa.metadata.namespace} has cluster-admin role.")
+```
+
+This script will print out the names and namespaces of all service accounts that have the `cluster-admin` role. If no such service accounts are found, it means there is no misconfiguration in this regard.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -142,3 +225,6 @@ Note: The above steps assume that you have a GCP service account with sufficient
 
 - [https://cloud.google.com/compute/docs/access/service-accounts](https://cloud.google.com/compute/docs/access/service-accounts) 
 
+
+</Tab>
+</Tabs>

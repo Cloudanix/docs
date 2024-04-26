@@ -19,6 +19,94 @@ Operational Maturity, Reliability, Security
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser and navigate to the Google Cloud Platform Console (console.cloud.google.com). Enter your login credentials to access the console.
+
+2. Navigate to IAM & Admin: Once you are logged in, click on the navigation menu (three horizontal lines) located at the top left corner of the console. Scroll down and click on "IAM & Admin".
+
+3. Check the IAM Policies: In the IAM & Admin page, click on "IAM" in the left-hand menu. Here, you can see all the IAM policies associated with your GCP account. Look for any policies that allow the creation of resources in locations that are not supposed to be allowed.
+
+4. Check the Organization Policy: Go back to the IAM & Admin page and click on "Organization policies" in the left-hand menu. Look for a policy named "Restrict Resource Locations". If this policy is not set or is set to allow all locations, then the creation of cloud resources is not restricted to specific locations.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can download it from the official Google Cloud website and follow the instructions to set it up.
+
+2. Once the SDK is installed, authenticate your Google Cloud account by running the following command in your terminal:
+   ```
+   gcloud auth login
+   ```
+   Follow the prompts to log in with your Google Cloud account.
+
+3. Now, you can list all the IAM policies in your project by running the following command:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your actual project ID. This command will return a list of all IAM policies in your project.
+
+4. To check if the creation of cloud resources is restricted to specific locations, you need to look for the `resourceLocations` field in the IAM policy. If this field is set to `IN_SPECIFIC_LOCATIONS`, it means that the creation of cloud resources is restricted to specific locations. If this field is not present or set to `ANY`, it means that the creation of cloud resources is not restricted to specific locations. You can use the following command to filter the output and check the `resourceLocations` field:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] --format=json | jq '.bindings[] | select(.role=="roles/resourcemanager.organizationAdmin") | .resourceLocations'
+   ```
+   Replace `[PROJECT_ID]` with your actual project ID. This command will return the value of the `resourceLocations` field for the `roles/resourcemanager.organizationAdmin` role. If this command returns `IN_SPECIFIC_LOCATIONS`, it means that the creation of cloud resources is restricted to specific locations. If it returns `ANY` or nothing, it means that the creation of cloud resources is not restricted to specific locations.
+
+#### Using Python
+
+To detect the misconfiguration of restricting the creation of cloud resources to specific locations in IAM, you can use the Boto3 library in Python for AWS, Azure SDK for Python for Azure, and Google Cloud Client Library for Python for GCP. Here are the steps:
+
+1. AWS:
+   - Install and configure Boto3 library in Python.
+   ```python
+   import boto3
+   client = boto3.client('iam')
+   response = client.get_account_authorization_details(Filter=['LocalManagedPolicy'])
+   for policy in response['Policies']:
+       if 'Condition' in policy['PolicyDocument']['Statement'][0] and 'aws:RequestedRegion' in policy['PolicyDocument']['Statement'][0]['Condition']['StringEquals']:
+           print(policy['PolicyName'], policy['PolicyDocument']['Statement'][0]['Condition']['StringEquals']['aws:RequestedRegion'])
+   ```
+   This script will print the names of the policies that have a condition to restrict the creation of resources to specific regions.
+
+2. Azure:
+   - Install and configure Azure SDK for Python.
+   ```python
+   from azure.mgmt.resource import ResourceManagementClient
+   from azure.identity import DefaultAzureCredential
+
+   credential = DefaultAzureCredential()
+   subscription_id = 'your-subscription-id'
+   client = ResourceManagementClient(credential, subscription_id)
+
+   policy_definitions = client.policy_definitions.list()
+   for policy in policy_definitions:
+       if 'parameters' in policy.policy_rule and 'allowedLocations' in policy.policy_rule['parameters']:
+           print(policy.name, policy.policy_rule['parameters']['allowedLocations'])
+   ```
+   This script will print the names of the policies that have a parameter to restrict the creation of resources to specific locations.
+
+3. GCP:
+   - Install and configure Google Cloud Client Library for Python.
+   ```python
+   from google.cloud import resource_manager
+
+   client = resource_manager.Client()
+   for project in client.list_projects():
+       policy = client.get_iam_policy(project.project_id)
+       for binding in policy.bindings:
+           if 'condition' in binding and 'requesterLocation' in binding['condition']:
+               print(project.project_id, binding['role'], binding['condition']['requesterLocation'])
+   ```
+   This script will print the project IDs, roles, and conditions that restrict the creation of resources to specific locations.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -151,3 +239,6 @@ By following these steps, you can ensure that your GCP resources are only create
 
 
 
+
+</Tab>
+</Tabs>

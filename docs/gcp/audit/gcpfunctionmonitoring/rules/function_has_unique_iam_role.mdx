@@ -20,6 +20,97 @@ Security
 
 CBP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to Cloud Functions: From the main dashboard, click on the navigation menu (three horizontal lines in the upper left-hand corner), scroll down and click on "Cloud Functions" under the "Compute" section.
+
+3. Check IAM roles for each function: Once you're in the Cloud Functions dashboard, you'll see a list of all your deployed functions. Click on each function to open its details page. In the details page, click on the "Permissions" tab to view the IAM roles associated with the function.
+
+4. Compare IAM roles: Repeat step 3 for each function and take note of the IAM roles. If you notice that multiple functions are using the same IAM role, then there is a misconfiguration. Each function should have its own unique IAM role for security and access control purposes.
+
+#### Using CLI
+
+1. First, you need to install and initialize the Google Cloud SDK if you haven't done so already. You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, you can initialize it by running the command `gcloud init` and follow the prompts to authorize the SDK and set your default project, compute region and zone.
+
+2. Once the SDK is set up, you can list all the Cloud Functions in your project by running the following command: `gcloud functions list`. This will return a list of all the Cloud Functions in your project, along with some basic information about each one.
+
+3. To check the IAM role used by each function, you can use the `gcloud functions describe` command followed by the name of the function. This will return a detailed description of the function, including the IAM role it uses. The command would look like this: `gcloud functions describe [FUNCTION_NAME]`.
+
+4. You would need to run the `gcloud functions describe` command for each function in your project and compare the IAM roles used by each one. If you find that multiple functions are using the same IAM role, then you have detected a misconfiguration. 
+
+Note: Replace [FUNCTION_NAME] with the name of your function.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the `boto3` library for AWS, `azure.identity` and `azure.mgmt.resource` for Azure, and `google.cloud` for GCP. 
+
+```python
+import boto3
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource import ResourceManagementClient
+from google.cloud import resource_manager
+```
+
+2. Connect to the cloud service and retrieve all IAM roles: For AWS, you can use the `boto3` client for IAM. For Azure, you can use the `ResourceManagementClient` to get all role assignments. For GCP, you can use the `resource_manager` client to get all projects, and then use the `iam` client to get all roles.
+
+```python
+# AWS
+iam = boto3.client('iam')
+roles = iam.list_roles()['Roles']
+
+# Azure
+credential = DefaultAzureCredential()
+client = ResourceManagementClient(credential, '<subscription_id>')
+role_assignments = client.role_assignments.list()
+
+# GCP
+client = resource_manager.Client()
+projects = [project.project_id for project in client.list_projects()]
+iam = google.cloud.iam.Client()
+roles = [role for project in projects for role in iam.list_roles(project)]
+```
+
+3. Check for duplicate IAM roles in cloud functions: For each cloud function, check if its IAM role is used by any other function. If it is, add it to a list of duplicates.
+
+```python
+# AWS
+lambda_client = boto3.client('lambda')
+functions = lambda_client.list_functions()['Functions']
+duplicates = [function for function in functions if function['Role'] in [other_function['Role'] for other_function in functions if function != other_function]]
+
+# Azure
+# Azure does not directly support IAM roles for functions, but you can check for duplicate Managed Service Identities (MSI)
+function_client = azure.mgmt.web.WebSiteManagementClient(credential, '<subscription_id>')
+web_apps = function_client.web_apps.list()
+duplicates = [app for app in web_apps if app.identity and app.identity.principal_id in [other_app.identity.principal_id for other_app in web_apps if app != other_app]]
+
+# GCP
+# GCP does not directly support IAM roles for functions, but you can check for duplicate service accounts
+service_accounts = [iam.get_service_account(project, function['serviceAccountEmail']) for project in projects for function in google.cloud.functions_v1.CloudFunctionsServiceClient().list_functions(project)]
+duplicates = [account for account in service_accounts if account.email in [other_account.email for other_account in service_accounts if account != other_account]]
+```
+
+4. Print or return the duplicates: If you want to print the duplicates to the console, you can simply use the `print` function. If you want to return them from a function, you can use the `return` statement.
+
+```python
+print(duplicates)
+# or
+return duplicates
+```
+
+This will give you a list of all cloud functions that are using the same IAM role, MSI, or service account.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -127,3 +218,6 @@ Note: You will need to authenticate with GCP before running the above code. You 
 
 - [https://cloud.google.com/functions/docs/reference/iam/permissions](https://cloud.google.com/functions/docs/reference/iam/permissions) 
 
+
+</Tab>
+</Tabs>

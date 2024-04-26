@@ -19,6 +19,133 @@ Security
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform web console and sign in with your Google account that has the necessary permissions to view and manage storage buckets.
+
+2. Navigate to Storage: From the main dashboard of the Google Cloud Platform Console, click on the navigation menu (three horizontal lines) located at the top left corner of the page. Scroll down and click on "Storage" under the "STORAGE" section. This will take you to the "Browser" page where you can see all your storage buckets.
+
+3. Check Retention Policy: Click on the name of the bucket for which you want to check the retention policy. This will take you to the bucket details page. Click on the "Retention" tab. Here, you can see the current retention policy settings for the bucket. If the retention policy is not locked or the minimum duration is not specified, then it is a misconfiguration.
+
+4. Use Cloud Shell for Verification: For further verification, you can use the Cloud Shell feature in the GCP console. Click on the Cloud Shell icon at the top right corner of the console. In the Cloud Shell command line, type the following command: `gsutil retention get gs://[BUCKET_NAME]`. Replace `[BUCKET_NAME]` with the name of your bucket. This command will display the current retention policy settings for the bucket. If the policy is not locked or the minimum duration is not specified, then it is a misconfiguration.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can do this by following the instructions provided by Google Cloud at https://cloud.google.com/sdk/docs/install.
+
+2. Once the SDK is installed and configured, you can list all the buckets in your project by running the following command in your terminal:
+   ```
+   gsutil ls
+   ```
+   This command will return a list of all the buckets in your project.
+
+3. To check the retention policy of a specific bucket, use the following command:
+   ```
+   gsutil retention get gs://[BUCKET_NAME]
+   ```
+   Replace `[BUCKET_NAME]` with the name of the bucket you want to check. This command will return the retention policy of the specified bucket.
+
+4. To check if the retention policy is locked, use the following command:
+   ```
+   gsutil retention info gs://[BUCKET_NAME]
+   ```
+   Replace `[BUCKET_NAME]` with the name of the bucket you want to check. This command will return information about the retention policy of the specified bucket, including whether or not it is locked. If the policy is locked, the output will include "isLocked: true". If the policy is not locked, the output will include "isLocked: false".
+
+#### Using Python
+
+1. **Import Necessary Libraries**: The first step is to import the necessary libraries in your Python script. You will need the 'google.cloud' library for interacting with GCP, 'boto3' for AWS, and 'azure-storage-blob' for Azure. 
+
+```python
+from google.cloud import storage
+import boto3
+from azure.storage.blob import BlobServiceClient
+```
+
+2. **Create Connection to the Cloud Service**: The next step is to create a connection to the respective cloud service. 
+
+For GCP:
+```python
+def create_connection_gcp():
+    storage_client = storage.Client()
+    return storage_client
+```
+For AWS:
+```python
+def create_connection_aws():
+    s3 = boto3.resource('s3')
+    return s3
+```
+For Azure:
+```python
+def create_connection_azure():
+    blob_service_client = BlobServiceClient.from_connection_string(my_connection_string)
+    return blob_service_client
+```
+
+3. **Check Retention Policy**: Now, you can check the retention policy of the storage buckets. 
+
+For GCP:
+```python
+def check_retention_policy_gcp(storage_client):
+    buckets = storage_client.list_buckets()
+    for bucket in buckets:
+        if bucket.retention_period is None or bucket.retention_period < MIN_RETENTION_PERIOD:
+            print(f"Bucket {bucket.name} has a misconfigured retention policy.")
+```
+For AWS:
+```python
+def check_retention_policy_aws(s3):
+    for bucket in s3.buckets.all():
+        try:
+            retention = bucket.get_bucket_lifecycle_configuration()
+            if 'Rules' not in retention or any(rule['Status'] == 'Disabled' or rule['Expiration']['Days'] < MIN_RETENTION_PERIOD for rule in retention['Rules']):
+                print(f"Bucket {bucket.name} has a misconfigured retention policy.")
+        except:
+            print(f"Bucket {bucket.name} has a misconfigured retention policy.")
+```
+For Azure:
+```python
+def check_retention_policy_azure(blob_service_client):
+    all_containers = blob_service_client.list_containers(include_metadata=True)
+    for container in all_containers:
+        properties = blob_service_client.get_container_properties(container.name)
+        if 'hasImmutabilityPolicy' in properties and properties['hasImmutabilityPolicy'] is True:
+            policy = blob_service_client.get_container_immutability_policy(container.name)
+            if policy.immutabilityPeriodSinceCreationInDays < MIN_RETENTION_PERIOD:
+                print(f"Container {container.name} has a misconfigured retention policy.")
+        else:
+            print(f"Container {container.name} has a misconfigured retention policy.")
+```
+
+4. **Run the Checks**: Finally, you can run the checks by calling the functions.
+
+```python
+MIN_RETENTION_PERIOD = 30  # Set your minimum retention period
+
+# GCP
+storage_client = create_connection_gcp()
+check_retention_policy_gcp(storage_client)
+
+# AWS
+s3 = create_connection_aws()
+check_retention_policy_aws(s3)
+
+# Azure
+blob_service_client = create_connection_azure()
+check_retention_policy_azure(blob_service_client)
+```
+
+This script will print out the names of all the storage buckets or containers that have a misconfigured retention policy.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -134,3 +261,6 @@ This code will check the current retention policy for the specified log, and upd
 
 
 
+
+</Tab>
+</Tabs>

@@ -20,6 +20,81 @@ Security
 
 SOC2, GDPR, HIPAA, HITRUST, NISTCSF, PCIDSS, FedRAMP
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform web console and sign in with your Google account credentials.
+
+2. Navigate to the VPC network: From the main navigation menu, click on "VPC Network" and then select "Firewall rules". This will display a list of all the firewall rules that are currently configured in your Google Cloud environment.
+
+3. Check for open SQL Server ports: Look for any firewall rules that have the "tcp:1433" (default SQL Server port) specified in the "Protocols and ports" column. If such a rule exists, it means that the SQL Server port is open.
+
+4. Verify the source range: Check the "Source IP ranges" column for the rule identified in the previous step. If the source range is set to "0.0.0.0/0", it means that the SQL Server port is open to the entire internet, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install and authenticate Google Cloud SDK: Before you can start using the GCP CLI, you need to install the Google Cloud SDK on your local machine and authenticate it. You can download the SDK from the official Google Cloud website and authenticate it using the command `gcloud auth login`.
+
+2. List all the firewall rules: Once you have the SDK installed and authenticated, you can list all the firewall rules in your project using the command `gcloud compute firewall-rules list`. This command will display a list of all the firewall rules in your project.
+
+3. Filter the firewall rules for SQL Server port: SQL Server typically uses port 1433 for connections. You can filter the list of firewall rules for this port using the command `gcloud compute firewall-rules list --filter="allowed:1433"`. This command will display a list of all the firewall rules that allow traffic on port 1433.
+
+4. Check the source ranges: For each of the firewall rules that allow traffic on port 1433, check the source ranges. If any of the source ranges is set to 0.0.0.0/0, it means that the SQL Server port is open to the entire internet. You can check the source ranges using the command `gcloud compute firewall-rules describe [FIREWALL_RULE_NAME]`, replacing `[FIREWALL_RULE_NAME]` with the name of each firewall rule.
+
+#### Using Python
+
+1. Import the necessary libraries: You will need the 'requests' library to send HTTP requests and 'json' to handle the JSON responses. You may also need 'os' to interact with the operating system.
+
+```python
+import requests
+import json
+import os
+```
+
+2. Set up the necessary variables: You will need the subscription ID, resource group, and server name for the SQL Server you want to check. You will also need a token for authentication. This can be obtained using the Azure CLI.
+
+```python
+subscription_id = 'your-subscription-id'
+resource_group = 'your-resource-group'
+server_name = 'your-server-name'
+
+# Get the token
+token = os.popen('az account get-access-token --query accessToken --output tsv').read()
+```
+
+3. Send a GET request to the Azure REST API: The URL for the request should be in the format `https://management.azure.com/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Sql/servers/{serverName}/firewallRules?api-version=2015-05-01-preview`. You will need to include the token in the headers for authentication.
+
+```python
+url = f"https://management.azure.com/subscriptions/{subscription_id}/resourceGroups/{resource_group}/providers/Microsoft.Sql/servers/{server_name}/firewallRules?api-version=2015-05-01-preview"
+
+headers = {
+    'Authorization': f'Bearer {token}',
+    'Content-Type': 'application/json'
+}
+
+response = requests.get(url, headers=headers)
+```
+
+4. Check the response: The response will be in JSON format and will contain a list of all the firewall rules for the SQL Server. You can parse this to check if the SQL Server port (usually 1433) is open.
+
+```python
+firewall_rules = json.loads(response.text)
+
+for rule in firewall_rules['value']:
+    if rule['properties']['startIpAddress'] <= '0.0.0.0' and rule['properties']['endIpAddress'] >= '255.255.255.255':
+        print(f"SQL Server port is open in the rule: {rule['name']}")
+```
+
+This script will print a message for each firewall rule where the SQL Server port is open. If no such rules exist, it will not print anything.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -143,3 +218,6 @@ These steps should remediate the SQL Server Port Should Not Be Open misconfigura
 
 - [https://cloud.google.com/vpc/docs/using-firewalls](https://cloud.google.com/vpc/docs/using-firewalls) 
 
+
+</Tab>
+</Tabs>

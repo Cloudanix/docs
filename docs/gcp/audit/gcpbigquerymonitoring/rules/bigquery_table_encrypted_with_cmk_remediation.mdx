@@ -1,3 +1,87 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform (GCP) Console (https://console.cloud.google.com/) and sign in with your Google account.
+
+2. Navigate to BigQuery: From the GCP Console dashboard, select the hamburger menu in the upper left-hand corner, scroll down and click on "BigQuery" under the "Big Data" section.
+
+3. Check Dataset Details: In the BigQuery dashboard, you will see a list of your datasets. Click on the dataset that you want to check. This will open the "Dataset details" page.
+
+4. Check Encryption: In the "Dataset details" page, scroll down to the "Encryption" section. If the dataset is encrypted with a customer-managed key, it will be listed here. If it says "Google-managed key", then the dataset is not encrypted with a customer-managed key.
+
+#### Using CLI
+
+1. Install and configure Google Cloud SDK: Before you can use the GCP CLI, you need to install the Google Cloud SDK on your local machine and authenticate it with your Google Cloud account. You can do this by following the instructions provided by Google Cloud.
+
+2. List all BigQuery datasets in your project: Use the following command to list all the datasets in your current GCP project:
+
+   ```
+   bq ls --project_id=[PROJECT_ID]
+   ```
+
+   Replace `[PROJECT_ID]` with your actual project ID. This command will return a list of all datasets in your project.
+
+3. Get details about a specific dataset: Use the following command to get details about a specific dataset:
+
+   ```
+   bq show --encryption_service_account=[SERVICE_ACCOUNT] [DATASET]
+   ```
+
+   Replace `[SERVICE_ACCOUNT]` with the email address of the service account that you want to use for encryption, and replace `[DATASET]` with the name of the dataset that you want to inspect. This command will return information about the specified dataset, including its encryption configuration.
+
+4. Check the encryption configuration: In the output of the previous command, look for the `encryptionConfiguration` field. If this field is present and its `kmsKeyName` subfield is set to the name of a customer-managed key, then the dataset is encrypted with a customer-managed key. If the `encryptionConfiguration` field is not present or its `kmsKeyName` subfield is not set, then the dataset is not encrypted with a customer-managed key.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Google Cloud BigQuery and Google Cloud KMS. You can install these libraries using pip:
+
+```python
+pip install google-cloud-bigquery
+pip install google-cloud-kms
+```
+
+2. Import the necessary libraries and initialize the BigQuery and KMS clients:
+
+```python
+from google.cloud import bigquery
+from google.cloud import kms
+
+bigquery_client = bigquery.Client()
+kms_client = kms.KeyManagementServiceClient()
+```
+
+3. Fetch all the datasets in the project and for each dataset, fetch all the tables. For each table, check if it is encrypted with a customer-managed key:
+
+```python
+datasets = list(bigquery_client.list_datasets())
+for dataset in datasets:
+    tables = list(bigquery_client.list_tables(dataset.dataset_id))
+    for table in tables:
+        table_ref = bigquery_client.dataset(dataset.dataset_id).table(table.table_id)
+        table_obj = bigquery_client.get_table(table_ref)
+        if table_obj.encryption_configuration is None or table_obj.encryption_configuration.kms_key_name is None:
+            print(f"Table {table.table_id} in dataset {dataset.dataset_id} is not encrypted with a customer-managed key.")
+```
+
+4. If you want to check if the customer-managed key exists and is enabled, you can use the KMS client:
+
+```python
+        else:
+            key_name = table_obj.encryption_configuration.kms_key_name
+            key = kms_client.get_crypto_key(request={'name': key_name})
+            if key.primary.state != kms.CryptoKeyVersion.CryptoKeyVersionState.ENABLED:
+                print(f"Table {table.table_id} in dataset {dataset.dataset_id} is encrypted with a customer-managed key, but the key is not enabled.")
+```
+
+This script will print out the names of all tables that are not encrypted with a customer-managed key, or that are encrypted with a key that is not enabled.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -108,3 +192,6 @@ print(f'Table {table.table_id} is now encrypted with CMEK')
 
 Once you run the above two code snippets, the BigQuery table will be encrypted with the newly created CMEK.
 
+
+</Tab>
+</Tabs>

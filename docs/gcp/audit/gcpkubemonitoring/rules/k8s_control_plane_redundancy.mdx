@@ -19,6 +19,117 @@ Security, Reliability, Operational Excellence, Performance Efficiency
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to your Google Cloud Platform (GCP) console.
+
+2. Navigate to the Kubernetes Engine section. Here, you will find a list of all your Kubernetes clusters.
+
+3. Click on the specific Kubernetes cluster for which you want to check the regional redundancy.
+
+4. In the cluster details page, look for the "Location type" field. If the location type is set to "Zonal", it means that the cluster is not regionally redundant. If it is set to "Regional", it means that the cluster is regionally redundant.
+
+5. Additionally, you can check the "Locations" field. If multiple zones are listed, it indicates that the cluster is regionally redundant. If only one zone is listed, it indicates that the cluster is not regionally redundant.
+
+#### Using CLI
+
+1. First, you need to install and configure Google Cloud SDK (if not already done). You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, authenticate it with your Google Cloud account using the command: 
+```
+gcloud auth login
+```
+
+2. After setting up the Google Cloud SDK, you can list all the running clusters in your project with the following command:
+```
+gcloud container clusters list
+```
+This command will display all the clusters along with their details like name, location, master version, etc.
+
+3. To check if regional redundancy is enabled for a specific cluster, you need to check the location of the cluster. If the location is a region (like us-central1), then regional redundancy is enabled. If the location is a zone (like us-central1-a), then regional redundancy is not enabled. You can get the location of a cluster with the following command:
+```
+gcloud container clusters describe [CLUSTER_NAME] --format='value(location)'
+```
+Replace [CLUSTER_NAME] with the name of your cluster.
+
+4. To check the regional redundancy for all clusters, you can use a loop in the shell script. Here is an example:
+```
+for cluster in $(gcloud container clusters list --format='value(name)'); do
+  location=$(gcloud container clusters describe $cluster --format='value(location)')
+  if [[ $location == *-*-* ]]; then
+    echo "Cluster $cluster does not have regional redundancy enabled. Location: $location"
+  else
+    echo "Cluster $cluster has regional redundancy enabled. Location: $location"
+  fi
+done
+```
+This script will list all the clusters and their regional redundancy status.
+
+#### Using Python
+
+To check if regional redundancy is enabled for maximum availability in Kubernetes, you can use the Kubernetes Python client. Here are the steps:
+
+1. **Install the Kubernetes Python Client:**
+   You can install the Kubernetes Python client using pip:
+   ```
+   pip install kubernetes
+   ```
+2. **Configure Access to the Kubernetes Cluster:**
+   You need to configure your access to the Kubernetes cluster. If you're running the script from a machine that's outside the cluster, you'll need to provide the path to your kubeconfig file:
+   ```python
+   from kubernetes import client, config
+
+   config.load_kube_config('/path/to/your/kubeconfig/file')
+   ```
+   If you're running the script from within the cluster (e.g., from a pod), you can use the following code to configure access:
+   ```python
+   from kubernetes import client, config
+
+   config.load_incluster_config()
+   ```
+3. **Get the List of Nodes:**
+   You can get the list of nodes in the cluster using the `list_node` method of the `CoreV1Api` class:
+   ```python
+   from kubernetes import client, config
+
+   config.load_kube_config('/path/to/your/kubeconfig/file')
+
+   v1 = client.CoreV1Api()
+   print("Listing nodes with their info:")
+   ret = v1.list_node(pretty=True)
+   for i in ret.items:
+       print("%s\t%s\t%s" % (i.status.node_info.kubelet_version, i.metadata.name, i.status.node_info.os_image))
+   ```
+4. **Check the Regions of the Nodes:**
+   To check if regional redundancy is enabled, you need to check if the nodes are spread across multiple regions. This information is usually available in the labels of the nodes. However, the exact label can vary depending on the cloud provider. For example, on GCP, the label is `failure-domain.beta.kubernetes.io/region`. You can check the labels of the nodes as follows:
+   ```python
+   from kubernetes import client, config
+
+   config.load_kube_config('/path/to/your/kubeconfig/file')
+
+   v1 = client.CoreV1Api()
+   print("Listing nodes with their info:")
+   ret = v1.list_node(pretty=True)
+   regions = set()
+   for i in ret.items:
+       region = i.metadata.labels.get('failure-domain.beta.kubernetes.io/region')
+       if region:
+           regions.add(region)
+
+   if len(regions) > 1:
+       print("Regional redundancy is enabled.")
+   else:
+       print("Regional redundancy is not enabled.")
+   ```
+   This script checks if there are nodes in more than one region. If there are, it prints that regional redundancy is enabled. Otherwise, it prints that regional redundancy is not enabled.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -128,3 +239,6 @@ Note: Replace "your-bucket-name" and "your-region" with the actual name of your 
 
 
 
+
+</Tab>
+</Tabs>

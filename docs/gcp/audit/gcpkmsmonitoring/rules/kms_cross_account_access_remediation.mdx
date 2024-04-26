@@ -1,3 +1,80 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to KMS Service: From the left-hand side menu, navigate to "Security" > "Key Management". This will open the Key Management Service (KMS) dashboard where you can manage all your cryptographic keys.
+
+3. Check Key Permissions: For each key ring and key, click on the three dots on the right side and select "Manage permissions". This will open a new page showing all the IAM roles associated with the key.
+
+4. Review IAM Roles: In the IAM roles, look for any roles that are associated with accounts outside of your organization. If there are any, it means that cross-account access is present, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can do this by following the instructions provided by Google Cloud at https://cloud.google.com/sdk/docs/install.
+
+2. Once the SDK is installed and configured, you can list all the KMS keys in your project by running the following command in your terminal:
+
+   ```
+   gcloud kms keys list --location global --keyring [KEYRING_NAME]
+   ```
+   Replace `[KEYRING_NAME]` with the name of your keyring.
+
+3. To check the IAM policies for each key, use the following command:
+
+   ```
+   gcloud kms keys get-iam-policy [KEY_NAME] --location global --keyring [KEYRING_NAME]
+   ```
+   Replace `[KEY_NAME]` and `[KEYRING_NAME]` with the name of your key and keyring respectively.
+
+4. Review the output of the command. If there are any bindings with the role `roles/cloudkms.cryptoKeyEncrypterDecrypter` and the member is not part of your organization (i.e., the member's email address does not end with your organization's domain), then cross-account access is present.
+
+#### Using Python
+
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a client for AWS Key Management Service (KMS):
+
+```python
+import boto3
+kms_client = boto3.client('kms')
+```
+
+2. List all the KMS keys in your account:
+
+```python
+response = kms_client.list_keys()
+keys = response['Keys']
+```
+
+3. For each key, get the key policy and check if there are any principals that are not in your account:
+
+```python
+for key in keys:
+    key_id = key['KeyId']
+    policy = kms_client.get_key_policy(KeyId=key_id, PolicyName='default')
+```
+
+4. Parse the policy and check for any principals that are not in your account. If there are any, print a warning message:
+
+```python
+import json
+policy_document = json.loads(policy['Policy'])
+for statement in policy_document['Statement']:
+    principal = statement['Principal']
+    if 'AWS' in principal:
+        aws_account = principal['AWS'].split(':')[4]
+        if aws_account != boto3.client('sts').get_caller_identity().get('Account'):
+            print(f"Warning: KMS key {key_id} is accessible by account {aws_account}")
+```
+
+This script will print a warning for each KMS key that is accessible by a different AWS account. Note that this script only checks the default key policy. If you have custom key policies, you may need to modify the script to check those as well.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -107,3 +184,6 @@ for binding in policy.bindings:
 
 By following these steps, you can remediate the KMS Cross Account Access misconfiguration in GCP using Python.
 
+
+</Tab>
+</Tabs>

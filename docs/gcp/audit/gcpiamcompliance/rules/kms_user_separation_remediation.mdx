@@ -1,3 +1,89 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to IAM & Admin: Once you're logged in, locate the navigation menu in the top left corner of the console. Click on it and scroll down to find "IAM & Admin". Click on it to open the IAM & Admin dashboard.
+
+3. View IAM Roles: In the IAM & Admin dashboard, click on "IAM" in the left-hand menu. This will display a list of all IAM roles in your GCP environment. 
+
+4. Check for CryptoKey Role: In the list of IAM roles, look for any roles that have "roles/cloudkms.cryptoKeyEncrypterDecrypter" assigned to them. If you find any, check if they are assigned to KMS Admin roles. If they are, this is a misconfiguration as KMS Admin roles should not have the CryptoKey role.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions to set it up.
+
+2. Once the SDK is installed and configured, open your terminal and run the following command to list all the IAM policies for your project:
+
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your actual project ID. This command will return a list of all IAM policies for your project.
+
+3. To check if KMS Admin roles have the CryptoKey role, you need to look for the `roles/cloudkms.admin` and `roles/cloudkms.cryptoKeyEncrypterDecrypter` in the output of the previous command. You can use the following command to filter the output:
+
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.role:roles/cloudkms.admin OR bindings.role:roles/cloudkms.cryptoKeyEncrypterDecrypter"
+   ```
+   This command will return a table with the roles that match the filter.
+
+4. If the `roles/cloudkms.admin` and `roles/cloudkms.cryptoKeyEncrypterDecrypter` roles are assigned to the same member, it means that the KMS Admin role has the CryptoKey role, which is a misconfiguration.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you start, you need to install the Google Cloud SDK and the Google Auth, Google Auth OAuthlib, Google Auth HTTPLib2, Google API Client, and Google Cloud KMS libraries for Python. You can do this using pip:
+
+```python
+pip install --upgrade google-cloud-sdk google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-cloud-kms
+```
+
+2. Authenticate your session: You need to authenticate your session with GCP. You can do this by setting the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your service account key file.
+
+```python
+import os
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/path/to/your/service-account-file.json"
+```
+
+3. Connect to the IAM service: Now you can connect to the IAM service and get a list of all roles in your project.
+
+```python
+from googleapiclient import discovery
+from googleapiclient.errors import HttpError
+
+def get_roles(project_id):
+    """Lists all roles in a project."""
+    try:
+        service = discovery.build('iam', 'v1', cache_discovery=False)
+        request = service.roles().list(parent='projects/' + project_id)
+        response = request.execute()
+        return response.get('roles', [])
+    except HttpError as error:
+        print(f'An error occurred: {error}')
+        return []
+```
+
+4. Check for CryptoKey roles: Now you can iterate over the roles and check if any of them have the `roles/cloudkms.cryptoKeyEncrypterDecrypter` role.
+
+```python
+def check_cryptokey_roles(roles):
+    """Checks if any role has the CryptoKey role."""
+    for role in roles:
+        if 'roles/cloudkms.cryptoKeyEncrypterDecrypter' in role['includedPermissions']:
+            print(f'Role {role["name"]} has the CryptoKey role')
+
+roles = get_roles('your-project-id')
+check_cryptokey_roles(roles)
+```
+
+This script will print out the names of any roles that have the CryptoKey role. If no roles have this role, it will not print anything.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -108,3 +194,6 @@ for role in kms_admin_cryptokey_roles:
 
 Note: Replace the `path/to/service_account.json`, `your_project_id`, `location`, `keyring_name`, and `cryptokey_name` with the actual values in your GCP environment.
 
+
+</Tab>
+</Tabs>

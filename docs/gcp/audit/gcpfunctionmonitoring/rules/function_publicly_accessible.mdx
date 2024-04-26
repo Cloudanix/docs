@@ -20,6 +20,92 @@ Security
 
 SOC2, ISO27001, HITRUST, NISTCSF, PCIDSS
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to Cloud Functions: From the left-hand side menu, select "Cloud Functions" under the "Compute" section. This will display a list of all the Cloud Functions that are currently deployed in your GCP project.
+
+3. Check the Trigger column: For each Cloud Function, look at the "Trigger" column. If the trigger is set to "HTTP", this means that the function can be triggered by a HTTP request.
+
+4. Check the Authentication requirement: Click on the name of the Cloud Function to open its details page. Under the "Trigger" tab, check the "Authentication" section. If it is set to "Allow unauthenticated invocations", this means that the Cloud Function endpoint is publicly accessible.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can do this by following the instructions provided by Google Cloud at https://cloud.google.com/sdk/docs/install.
+
+2. Once the SDK is installed and configured, open your terminal and use the following command to list all the Cloud Functions in your project:
+
+   ```
+   gcloud functions list
+   ```
+
+3. For each function listed, use the following command to describe the function and get its details:
+
+   ```
+   gcloud functions describe [FUNCTION_NAME]
+   ```
+
+   Replace `[FUNCTION_NAME]` with the name of your function.
+
+4. In the output of the describe command, look for the `httpsTrigger` field. If the `httpsTrigger` field is present, it means that the function is publicly accessible. If the `httpsTrigger` field is not present, it means that the function is not publicly accessible.
+
+#### Using Python
+
+1. Install the necessary Python libraries: You will need the `google-auth`, `google-auth-httplib2`, `google-auth-oauthlib`, `google-api-python-client`, and `oauthlib` libraries. You can install these using pip:
+
+```python
+pip install --upgrade google-auth google-auth-httplib2 google-auth-oauthlib google-api-python-client oauthlib
+```
+
+2. Authenticate and create a service client: Before you can interact with GCP services, you need to authenticate your client. Here's how you can do it:
+
+```python
+from google.oauth2 import service_account
+from googleapiclient import discovery
+
+# Load the credentials from the service account key file
+credentials = service_account.Credentials.from_service_account_file('path/to/keyfile.json')
+
+# Build the service client
+service = discovery.build('cloudfunctions', 'v1', credentials=credentials)
+```
+
+3. List all Cloud Functions: You can list all the Cloud Functions in a project by making a request to the `projects.locations.functions.list` method:
+
+```python
+# Replace 'my-project' with your project ID
+response = service.projects().locations().functions().list(parent='projects/my-project/locations/-').execute()
+
+# Print the names of all functions
+for function in response['functions']:
+    print(function['name'])
+```
+
+4. Check the IAM policy for each function: For each function, you can get the IAM policy and check if the `allUsers` or `allAuthenticatedUsers` members have the `cloudfunctions.invoker` role. If they do, the function is publicly accessible:
+
+```python
+for function in response['functions']:
+    policy = service.projects().locations().functions().getIamPolicy(resource=function['name']).execute()
+
+    for binding in policy['bindings']:
+        if 'cloudfunctions.invoker' in binding['role']:
+            for member in binding['members']:
+                if member in ['allUsers', 'allAuthenticatedUsers']:
+                    print(f"Function {function['name']} is publicly accessible")
+```
+
+This script will print the names of all publicly accessible Cloud Functions in your project.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -104,3 +190,6 @@ Make sure to replace the `project_id`, `function_name`, and `vpc-connector-name`
 
 - [https://cloud.google.com/functions/docs/securing](https://cloud.google.com/functions/docs/securing) 
 
+
+</Tab>
+</Tabs>

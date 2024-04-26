@@ -19,6 +19,97 @@ Security, Operational Maturity
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to the Google Cloud Console: Open your web browser, navigate to the Google Cloud Console (console.cloud.google.com) and sign in with your Google Cloud account credentials.
+
+2. Select your project: From the project drop-down (My First Project), select the project that contains the resources you want to inspect for misconfigurations.
+
+3. Navigate to IAM & Admin: On the left side navigation menu, click on "IAM & Admin". This will open the Identity and Access Management (IAM) page for your project.
+
+4. Check the IAM policies: On the IAM page, you can see a list of all the IAM policies associated with your project. Look for any policies that have the role "Compute Network User" and check if they are associated with any service accounts. If a service account has this role, it means that it has permissions to use resources from the Shared VPC, which could be a potential misconfiguration if the service account is not supposed to have these permissions.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can download it from the official Google Cloud website and follow the instructions to set it up.
+
+2. Authenticate your GCP account using the following command. This will open a new window in your web browser asking you to log in to your Google Cloud account.
+   ```
+   gcloud auth login
+   ```
+
+3. Set your project ID to the project you want to check. Replace `your-project-id` with your actual project ID.
+   ```
+   gcloud config set project your-project-id
+   ```
+
+4. Run the following command to list all the IAM policies for your project. This will return a JSON object containing all the IAM policies. You can then manually check if the "compute.subnetworks.use" permission is restricted to the necessary service accounts.
+   ```
+   gcloud projects get-iam-policy your-project-id
+   ```
+   If the "compute.subnetworks.use" permission is not restricted, it means that the Shared VPC Subnetworks are not restricted in IAM, which is a misconfiguration.
+
+#### Using Python
+
+To check for the restriction of Shared VPC Subnetworks in IAM using Python scripts, you can use the Google Cloud SDK (gcloud) or Google Cloud Client Libraries. Here are the steps:
+
+1. **Install Google Cloud SDK and Python Client Libraries:**
+   First, you need to install the Google Cloud SDK and Python Client Libraries on your local machine. You can do this by following the instructions provided in the official Google Cloud documentation.
+
+   ```bash
+   pip install --upgrade google-cloud-sdk
+   pip install --upgrade google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client
+   ```
+
+2. **Authenticate your SDK:**
+   Use the `gcloud auth application-default login` command to authenticate your SDK. This command will open a new browser window for you to log in to your Google account. After logging in, your SDK will be authenticated.
+
+   ```bash
+   gcloud auth application-default login
+   ```
+
+3. **List all the Shared VPC Subnetworks:**
+   Use the `compute networks subnets list` command to list all the Shared VPC Subnetworks. This command will return a list of all the Shared VPC Subnetworks in your project.
+
+   ```python
+   from googleapiclient import discovery
+   from googleapiclient.errors import HttpError
+   from oauth2client.client import GoogleCredentials
+
+   credentials = GoogleCredentials.get_application_default()
+   service = discovery.build('compute', 'v1', credentials=credentials)
+
+   request = service.subnetworks().list(project='my-project', region='us-central1')
+   response = request.execute()
+
+   for subnet in response['items']:
+       print(subnet['name'])
+   ```
+
+4. **Check the IAM policies for each Shared VPC Subnetwork:**
+   For each Shared VPC Subnetwork, use the `compute networks subnets getIamPolicy` command to get the IAM policy. If the IAM policy allows all users to access the Shared VPC Subnetwork, then it is a misconfiguration.
+
+   ```python
+   for subnet in response['items']:
+       request = service.subnetworks().getIamPolicy(project='my-project', region='us-central1', resource=subnet['name'])
+       policy = request.execute()
+
+       for binding in policy['bindings']:
+           if 'allUsers' in binding['members']:
+               print(f"Misconfiguration detected: {subnet['name']} is accessible by all users.")
+   ```
+
+This script will print the names of all Shared VPC Subnetworks that are accessible by all users, indicating a misconfiguration.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -103,3 +194,6 @@ Note: Make sure to replace the "path/to/service_account_key.json", "your_project
 
 
 
+
+</Tab>
+</Tabs>

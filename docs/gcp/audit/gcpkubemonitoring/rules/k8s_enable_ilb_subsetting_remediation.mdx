@@ -1,3 +1,76 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to your Google Cloud Console: Open your browser and navigate to the Google Cloud Console (console.cloud.google.com) and sign in with your credentials.
+
+2. Navigate to Kubernetes Engine: From the left-hand side menu, click on "Kubernetes Engine" and then "Clusters". This will display a list of all your Kubernetes clusters.
+
+3. Check Cluster Size: Click on the name of the cluster you want to inspect. In the "Details" tab, look for the "Size" section. If the number of nodes is large (typically more than 500), it indicates that you are using a large cluster.
+
+4. Check for L4 ILB Subsetting: Navigate to "Services & Ingress" under the "Kubernetes Engine". Look for any services that are of type "LoadBalancer". Click on the service to inspect its details. In the "Details" tab, look for the "Annotations" section. If the annotation "networking.gke.io/load-balancer-type" is not set to "Internal" and `"cloud.google.com/neg: '{"exposed_ports":{"PORT":{}}}'"` is not present, it indicates that L4 ILB Subsetting is not being used.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions to install and authenticate it.
+
+2. Once the gcloud CLI is installed and authenticated, you can list all the clusters in your GCP project by running the following command:
+
+   ```
+   gcloud container clusters list
+   ```
+   This command will return a list of all the Kubernetes clusters in your GCP project.
+
+3. To check if a specific cluster is using L4 ILB Subsetting, you need to describe the cluster and look for the "l4ilbSubsetting" field. You can do this by running the following command:
+
+   ```
+   gcloud container clusters describe [CLUSTER_NAME] --zone=[CLUSTER_ZONE]
+   ```
+   Replace [CLUSTER_NAME] with the name of your cluster and [CLUSTER_ZONE] with the zone of your cluster. This command will return a detailed description of the cluster.
+
+4. In the output of the previous command, look for the "l4ilbSubsetting" field. If it is set to "enabled", then the cluster is using L4 ILB Subsetting. If it is set to "disabled" or if the field is not present, then the cluster is not using L4 ILB Subsetting.
+
+#### Using Python
+
+1. Install the necessary Python libraries: You will need the Kubernetes Python client to interact with the Kubernetes API. You can install it using pip:
+
+```python
+pip install kubernetes
+```
+
+2. Connect to the Kubernetes API: You will need to authenticate with the Kubernetes API. This can be done using a kubeconfig file or by directly providing the API server address and a valid token.
+
+```python
+from kubernetes import client, config
+
+# Load the kubeconfig file
+config.load_kube_config()
+
+# Create an API client
+v1 = client.CoreV1Api()
+```
+
+3. Query the Kubernetes API for Services: You can use the list_service_for_all_namespaces method to get a list of all services in all namespaces. You will need to check the type of each service and whether it uses L4 ILB subsetting.
+
+```python
+services = v1.list_service_for_all_namespaces().items
+
+for svc in services:
+    if svc.spec.type == 'LoadBalancer':
+        annotations = svc.metadata.annotations
+        if annotations and 'networking.gke.io/load-balancer-type' in annotations:
+            if annotations['networking.gke.io/load-balancer-type'] != 'Internal':
+                print(f"Service {svc.metadata.name} in namespace {svc.metadata.namespace} is not using L4 ILB subsetting")
+```
+
+4. Analyze the results: The script will print out the names and namespaces of all services that are not using L4 ILB subsetting. You can use this information to identify the misconfigured services.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -165,3 +238,6 @@ print('L4 ILB Subsetting has been enabled for the network endpoint group.')
 
 By following these steps, you can remediate the "For Large Clusters L4 ILB Subsetting Should Be Used" misconfiguration in GCP using Python.
 
+
+</Tab>
+</Tabs>

@@ -20,6 +20,82 @@ Security
 
 GDPR, NISTCSF, PCIDSS
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (https://console.cloud.google.com/) and sign in with your Google account credentials.
+
+2. Navigate to BigQuery: From the left-hand side menu, select "BigQuery" under the "Big Data" section. This will take you to the BigQuery dashboard.
+
+3. Select the Dataset: From the list of available datasets, select the one you want to check for encryption. Click on the dataset name to open its details.
+
+4. Check Encryption: In the dataset details page, look for the "Encryption" section. If the dataset tables are encrypted, you should see "Google-managed key" or "Customer-managed key" mentioned there. If there is no such information, it means the tables are not encrypted.
+
+#### Using CLI
+
+1. Install and configure Google Cloud SDK: Before you can use the GCP CLI, you need to install the Google Cloud SDK on your local machine. You can download it from the official Google Cloud website. After installation, authenticate your account using the command `gcloud auth login`.
+
+2. List all BigQuery datasets: Use the following command to list all the datasets in a specific project. Replace `[PROJECT_ID]` with your project ID.
+   ```
+   gcloud bigquery datasets list --project=[PROJECT_ID]
+   ```
+   This command will return a list of all datasets in the specified project.
+
+3. Get dataset details: For each dataset, you can get more details, including the default encryption method, using the following command. Replace `[DATASET_ID]` with the ID of the dataset you want to inspect.
+   ```
+   gcloud bigquery datasets describe [DATASET_ID] --project=[PROJECT_ID]
+   ```
+   This command will return a JSON object with the dataset's properties. Look for the "defaultEncryptionConfiguration" field. If this field is not present or if it doesn't specify "Google-managed key", then the dataset is not encrypted with a Google-managed key.
+
+4. Repeat for all datasets: Repeat step 3 for each dataset in your project. If any dataset is not encrypted with a Google-managed key, then you have detected a misconfiguration.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Google Cloud BigQuery and Google Auth libraries are required to interact with GCP services. You can install them using pip:
+
+```python
+pip install google-cloud-bigquery google-auth
+```
+
+2. Authenticate with GCP: Use the Google Auth library to authenticate your script with GCP. You'll need to provide the path to your service account key file (replace 'path/to/keyfile.json' with the actual path):
+
+```python
+from google.auth import load_credentials_from_file
+
+credentials, project = load_credentials_from_file('path/to/keyfile.json')
+```
+
+3. Connect to BigQuery: Use the BigQuery client from the Google Cloud library to connect to the BigQuery service:
+
+```python
+from google.cloud import bigquery
+
+client = bigquery.Client(credentials=credentials, project=project)
+```
+
+4. Check for unencrypted tables: You can use the list_datasets and list_tables methods to iterate over all datasets and tables in your project. For each table, check the encryption_configuration property. If it's None, the table is not encrypted:
+
+```python
+datasets = list(client.list_datasets())
+for dataset in datasets:
+    tables = list(client.list_tables(dataset.dataset_id))
+    for table in tables:
+        table_ref = client.dataset(dataset.dataset_id).table(table.table_id)
+        table_obj = client.get_table(table_ref)
+        if table_obj.encryption_configuration is None:
+            print(f'Table {table.table_id} in dataset {dataset.dataset_id} is not encrypted.')
+```
+
+This script will print out the IDs of all unencrypted tables in your project.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -143,3 +219,6 @@ To remediate the misconfiguration "GCP BigQuery Tables Should Be Encrypted", you
 
 - [https://cloud.google.com/bigquery/docs/encryption-at-rest](https://cloud.google.com/bigquery/docs/encryption-at-rest) 
 
+
+</Tab>
+</Tabs>

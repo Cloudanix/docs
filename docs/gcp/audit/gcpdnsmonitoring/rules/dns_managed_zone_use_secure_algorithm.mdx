@@ -20,6 +20,84 @@ Security
 
 SOC2, NISTCSF
 
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Sign in to Google Cloud Console: Open your web browser and navigate to the Google Cloud Console (console.cloud.google.com) and sign in with your Google Cloud credentials.
+
+2. Navigate to Network Services: Once you're logged in, select the project you want to check from the drop-down menu at the top of the page. Then, on the left-hand side navigation menu, click on "Network Services" and then "Cloud DNS".
+
+3. Check Managed Zones: In the Cloud DNS page, you will see a list of your DNS managed zones. Click on the name of the managed zone you want to check.
+
+4. Verify DNSSEC: In the managed zone details page, look for the "DNSSEC" section. If the DNSSEC is set to "Off" or if it's using an insecure algorithm, then it's a misconfiguration. The secure algorithms that should be used are RSASHA1, RSASHA256, RSASHA512, or ECDSAP256SHA256.
+
+#### Using CLI
+
+1. Install and configure Google Cloud SDK: Before you can use the GCP CLI, you need to install the Google Cloud SDK on your local machine. You can download it from the official Google Cloud website. After installation, authenticate your account using the command `gcloud auth login`.
+
+2. List all DNS managed zones: Use the following command to list all the DNS managed zones in your GCP project:
+
+   ```
+   gcloud dns managed-zones list --project=[PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your actual GCP project ID.
+
+3. Get DNSSEC details: For each managed zone, use the following command to get the DNSSEC details:
+
+   ```
+   gcloud dns managed-zones describe [ZONE_NAME] --project=[PROJECT_ID]
+   ```
+   Replace `[ZONE_NAME]` with the name of each managed zone and `[PROJECT_ID]` with your actual GCP project ID. Look for the `dnssecConfig` field in the output. This field contains the DNSSEC configuration for the managed zone.
+
+4. Check the algorithm: In the `dnssecConfig` field, check the `defaultKeySpecs` list. Each item in this list represents a DNSSEC key. Look for the `algorithm` field in each key. If the algorithm is not `rsasha256` or `rsasha512`, then the managed zone is not using a secure algorithm.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. You can install the Google Cloud SDK and the Google Auth, Google Auth Oauthlib, Google Auth HTTPLib2, Google API Client, and DNS Python libraries using pip.
+
+```python
+pip install --upgrade google-cloud-sdk google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client dnspython
+```
+
+2. Authenticate your GCP account: You need to authenticate your GCP account using the service account key. You can do this by setting the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to the path of your service account key.
+
+```python
+import os
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = '/path/to/your/service-account-key.json'
+```
+
+3. Connect to the DNS service: Now, you can connect to the DNS service using the `build` function from the `googleapiclient.discovery` module.
+
+```python
+from googleapiclient.discovery import build
+service = build('dns', 'v1')
+```
+
+4. Check the DNSSEC configuration: You can now check the DNSSEC configuration of all managed zones in your project. If the `dnssecConfig.state` is not 'on' or the `dnssecConfig.defaultKeySpecs.algorithm` is not 'rsasha256' or 'rsasha512', then the managed zone is not using a secure algorithm.
+
+```python
+project = 'your-project-id'  # replace with your project id
+request = service.managedZones().list(project=project)
+response = request.execute()
+
+for managed_zone in response['managedZones']:
+    dnssec_config = managed_zone['dnssecConfig']
+    if dnssec_config['state'] != 'on':
+        print(f"Managed zone {managed_zone['name']} does not have DNSSEC enabled.")
+    elif dnssec_config['defaultKeySpecs'][0]['algorithm'] not in ['rsasha256', 'rsasha512']:
+        print(f"Managed zone {managed_zone['name']} is not using a secure algorithm.")
+```
+
+This script will print the names of all managed zones that are not using a secure algorithm.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -123,3 +201,6 @@ This will update the DNS managed zone to use a secure algorithm (in this case, `
 
 - [https://cloud.google.com/dns/docs/dnssec-advanced](https://cloud.google.com/dns/docs/dnssec-advanced) 
 
+
+</Tab>
+</Tabs>

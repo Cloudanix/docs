@@ -19,6 +19,110 @@ Security
 ### Compliance Standards
 
 HITRUST, GDPR, SOC2, NISTCSF, PCIDSS
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to SQL Instances: From the left-hand side menu, navigate to SQL under the Storage section. This will display a list of all SQL instances in your project.
+
+3. Check Encryption Key: Click on the name of the SQL instance you want to check. Under the "Overview" tab, look for the "Encryption" section. If the instance is encrypted using a customer-managed key, it will display "Customer-managed key" next to "Encryption".
+
+4. Verify Key Source: To ensure the key is customer-managed, click on the "Show Info Panel" button on the top right corner of the page. Under the "Encryption" section, it should display the name of the customer-managed key used for encryption. If it displays "Google-managed key", then the instance is not encrypted using a customer-managed key.
+
+Remember, these steps only allow you to check if a SQL instance is encrypted using a customer-managed key. If you find any instances that are not, you will need to take additional steps to remediate this misconfiguration.
+
+#### Using CLI
+
+1. First, you need to install and configure the Google Cloud SDK (gcloud CLI) on your local machine. You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, authenticate your Google Cloud account by running the following command in your terminal:
+
+   ```
+   gcloud auth login
+   ```
+
+2. After successful authentication, you can list all the SQL instances in your project by running the following command:
+
+   ```
+   gcloud sql instances list
+   ```
+
+   This command will return a list of all SQL instances along with their details.
+
+3. Now, for each SQL instance, you can check the encryption configuration by running the following command:
+
+   ```
+   gcloud sql instances describe [INSTANCE_NAME]
+   ```
+
+   Replace `[INSTANCE_NAME]` with the name of your SQL instance. This command will return the details of the specified SQL instance.
+
+4. In the output of the above command, look for the `diskEncryptionConfiguration` field. If the `kmsKeyName` field under it is empty or not present, it means that the SQL instance is not encrypted using a Customer Managed Key (CMK). If the `kmsKeyName` field is present and contains a value, it means that the SQL instance is encrypted using a CMK.
+
+#### Using Python
+
+1. **AWS:**
+   - Install and configure AWS SDK for Python (Boto3).
+   - Use the `describe_db_instances()` function to retrieve the metadata for all DB instances.
+   - For each DB instance, check the `KmsKeyId` attribute. If it's not set or set to an AWS-managed key, the DB instance is not encrypted with a customer-managed key.
+   - Python script example:
+     ```python
+     import boto3
+
+     client = boto3.client('rds')
+     response = client.describe_db_instances()
+
+     for instance in response['DBInstances']:
+         if 'KmsKeyId' not in instance or instance['KmsKeyId'].startswith('arn:aws:kms:aws:'):
+             print(f"DB instance {instance['DBInstanceIdentifier']} is not encrypted with a customer-managed key.")
+     ```
+
+2. **Azure:**
+   - Install and configure Azure SDK for Python.
+   - Use the `sql_servers.list()` function to retrieve all SQL servers.
+   - For each SQL server, use the `transparent_data_encryption.get()` function to retrieve the encryption settings.
+   - Check the `status` attribute. If it's not 'Enabled', the SQL server is not encrypted with a customer-managed key.
+   - Python script example:
+     ```python
+     from azure.mgmt.sql import SqlManagementClient
+     from azure.identity import DefaultAzureCredential
+
+     credential = DefaultAzureCredential()
+     subscription_id = 'your-subscription-id'
+     sql_client = SqlManagementClient(credential, subscription_id)
+
+     for server in sql_client.sql_servers.list():
+         encryption_settings = sql_client.transparent_data_encryption.get(server.resource_group, server.name)
+         if encryption_settings.status != 'Enabled':
+             print(f"SQL server {server.name} is not encrypted with a customer-managed key.")
+     ```
+
+3. **GCP:**
+   - Install and configure Google Cloud SDK for Python.
+   - Use the `instances().list()` function to retrieve all SQL instances.
+   - For each SQL instance, check the `diskEncryptionConfiguration` attribute. If it's not set or set to a Google-managed key, the SQL instance is not encrypted with a customer-managed key.
+   - Python script example:
+     ```python
+     from googleapiclient import discovery
+     from oauth2client.client import GoogleCredentials
+
+     credentials = GoogleCredentials.get_application_default()
+     service = discovery.build('sqladmin', 'v1beta4', credentials=credentials)
+
+     response = service.instances().list(project='your-project-id').execute()
+
+     for instance in response['items']:
+         if 'diskEncryptionConfiguration' not in instance or 'kmsKeyName' not in instance['diskEncryptionConfiguration']:
+             print(f"SQL instance {instance['name']} is not encrypted with a customer-managed key.")
+     ```
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -133,3 +237,6 @@ These steps will remediate the misconfiguration of SQL instances not being encry
 
 
 
+
+</Tab>
+</Tabs>

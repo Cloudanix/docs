@@ -1,3 +1,108 @@
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com) and sign in with your Google account credentials.
+
+2. Navigate to IAM & Admin: Once you're logged in, click on the navigation menu (three horizontal lines) in the top left corner of the console. Scroll down and click on "IAM & Admin".
+
+3. Access Cryptographic Keys: In the IAM & Admin page, click on "Cryptographic Keys" under the "Security" section. This will open a list of all the cryptographic keys associated with your GCP account.
+
+4. Check Key Rotation: For each key, check the "Rotation period" and "Next rotation date" fields. If the rotation period is set to never or the next rotation date is past due, it indicates that the cryptographic keys are not being rotated regularly.
+
+#### Using CLI
+
+1. Install and authenticate the Google Cloud SDK CLI: You need to have the Google Cloud SDK installed on your local machine. You can download it from the official Google Cloud website. After installation, authenticate the SDK by running the following command in your terminal:
+
+   ```
+   gcloud auth login
+   ```
+
+2. List all the service accounts in your project: Use the following command to list all the service accounts in your project. Replace `PROJECT_ID` with your actual project ID.
+
+   ```
+   gcloud iam service-accounts list --project=PROJECT_ID
+   ```
+
+3. List all the keys for each service account: For each service account, list all the keys. Replace `SERVICE_ACCOUNT` with the email of the service account.
+
+   ```
+   gcloud iam service-accounts keys list --iam-account=SERVICE_ACCOUNT
+   ```
+
+4. Check the 'validBeforeTime' for each key: The 'validBeforeTime' field indicates when the key will expire. If this date is more than 90 days in the future, the key has not been rotated in the last 90 days. You can use a script to automate this check. Here is a simple Python script that uses the Google Cloud SDK to check the 'validBeforeTime' for each key:
+
+   ```python
+   import subprocess
+   import json
+   from datetime import datetime, timedelta
+
+   # Get the list of service accounts
+   service_accounts = json.loads(subprocess.check_output("gcloud iam service-accounts list --format=json", shell=True))
+
+   for account in service_accounts:
+       # Get the list of keys for each service account
+       keys = json.loads(subprocess.check_output(f"gcloud iam service-accounts keys list --iam-account={account['email']} --format=json", shell=True))
+
+       for key in keys:
+           # Convert the 'validBeforeTime' to a datetime object
+           valid_before = datetime.strptime(key['validBeforeTime'], '%Y-%m-%dT%H:%M:%SZ')
+
+           # Check if the key has been rotated in the last 90 days
+           if valid_before > datetime.now() + timedelta(days=90):
+               print(f"Key {key['name']} for service account {account['email']} has not been rotated in the last 90 days.")
+   ```
+   
+This script will print a message for each key that has not been rotated in the last 90 days.
+
+#### Using Python
+
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. For AWS, you will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Import the necessary libraries and initialize the client: In your Python script, you will need to import the boto3 library and initialize the IAM client. Here is how you can do it:
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   # Create IAM client
+   iam = boto3.client('iam')
+   ```
+
+3. List all the access keys: You can use the list_access_keys method to get all the access keys for a user. You will need to provide the username. Here is how you can do it:
+
+   ```python
+   try:
+       response = iam.list_access_keys(UserName='username')
+   except ClientError as error:
+       print(f"An error occurred: {error}")
+   ```
+
+4. Check the age of the keys: For each key in the response, you can check the 'CreateDate' field to determine the age of the key. If the key is older than a certain threshold (for example, 90 days), it should be rotated. Here is how you can do it:
+
+   ```python
+   from datetime import datetime, timedelta
+
+   # Define the threshold
+   threshold = datetime.now() - timedelta(days=90)
+
+   for key in response['AccessKeyMetadata']:
+       if key['CreateDate'] < threshold:
+           print(f"Key {key['AccessKeyId']} should be rotated")
+   ```
+   
+This script will print out the IDs of all keys that should be rotated.
+
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -107,3 +212,6 @@ for key_version in key_versions:
 
 Make sure you replace the `[PROJECT_ID]` and `[LOCATION]` placeholders with your actual project ID and location. Also, ensure that you have the necessary permissions to perform these actions.
 
+
+</Tab>
+</Tabs>

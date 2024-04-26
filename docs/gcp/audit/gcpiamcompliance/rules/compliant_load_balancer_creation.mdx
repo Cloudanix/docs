@@ -19,6 +19,109 @@ Operational Maturity, Reliability, Security
 ### Compliance Standards
 
 CBP
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform web console and sign in with your Google account that has the necessary permissions to view IAM policies.
+
+2. Navigate to IAM & Admin: From the main dashboard of the Google Cloud Platform Console, click on the navigation menu (three horizontal lines in the upper left-hand corner of the screen), then scroll down and click on "IAM & Admin".
+
+3. View IAM Policies: In the IAM & Admin page, click on "IAM" in the left-hand menu to view the IAM policies. Here, you can see all the IAM roles and the members (users, groups, or service accounts) that are assigned to each role.
+
+4. Check Load Balancer Permissions: Look for roles that have permissions related to load balancers (e.g., "compute.loadBalancer.create", "compute.loadBalancer.list", "compute.loadBalancer.update", etc.). Check if these roles are assigned to any members that should not have the ability to create certain types of load balancers. If such misconfigurations are found, it indicates that the restriction on load balancer creation based on load balancer types is not properly configured in IAM.
+
+#### Using CLI
+
+1. First, you need to install and initialize the Google Cloud SDK (if not already done). You can download it from the official Google Cloud website and follow the instructions to install it. Once installed, you can initialize it using the command `gcloud init`.
+
+2. Once the SDK is set up, you can list all the IAM policies in your project using the following command:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your project ID. This command will return a list of all IAM policies in your project.
+
+3. To check the restrictions on Load Balancer creation, you need to look for the `compute.loadBalancer.create` permission in the IAM policies. You can do this by filtering the output of the previous command using the `grep` command in Unix-based systems or the `findstr` command in Windows. The command would look like this:
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] | grep "compute.loadBalancer.create"
+   ```
+   or
+   ```
+   gcloud projects get-iam-policy [PROJECT_ID] | findstr "compute.loadBalancer.create"
+   ```
+   This command will return the IAM policies that include the `compute.loadBalancer.create` permission.
+
+4. If the `compute.loadBalancer.create` permission is present in any IAM policy, it means that the policy allows the creation of Load Balancers. If it is not present, it means that the creation of Load Balancers is restricted. You can further analyze the output to determine which types of Load Balancers are allowed or restricted based on the associated roles and members.
+
+#### Using Python
+
+To check the restriction of Load Balancer creation based on Load Balancer types in IAM using Python scripts, you can follow these steps:
+
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials either by setting up environment variables or by using AWS CLI. 
+
+2. **List all IAM Policies:**
+   Use the `list_policies` method from IAM client in boto3 to list all the IAM policies. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List policies
+   response = iam.list_policies(
+       Scope='All',
+       OnlyAttached=False
+   )
+
+   for policy in response['Policies']:
+       print(policy['PolicyName'])
+   ```
+   This script will list all the IAM policies.
+
+3. **Check for Load Balancer Permissions in Policies:**
+   For each policy, you need to check if it has permissions related to Load Balancer creation. You can use the `get_policy_version` method to get the policy document and then check for Load Balancer permissions. Here is a sample script:
+   ```python
+   import json
+
+   # Get the default version of the policy
+   response = iam.get_policy_version(
+       PolicyArn=policy['Arn'],
+       VersionId=policy['DefaultVersionId']
+   )
+
+   # Parse the policy document
+   policy_document = json.loads(response['PolicyVersion']['Document'])
+
+   # Check for Load Balancer permissions
+   for statement in policy_document['Statement']:
+       if 'elasticloadbalancing:CreateLoadBalancer' in statement['Action']:
+           print(f"Policy {policy['PolicyName']} allows Load Balancer creation")
+   ```
+   This script will print the names of the policies that allow Load Balancer creation.
+
+4. **Check for Specific Load Balancer Types:**
+   If you want to restrict the creation of specific types of Load Balancers, you need to check the `Resource` field in the policy statement. For example, to restrict the creation of Application Load Balancers, you can modify the above script like this:
+   ```python
+   # Check for Load Balancer permissions
+   for statement in policy_document['Statement']:
+       if 'elasticloadbalancing:CreateLoadBalancer' in statement['Action']:
+           if 'Resource' in statement and 'arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*' in statement['Resource']:
+               print(f"Policy {policy['PolicyName']} allows Application Load Balancer creation")
+   ```
+   This script will print the names of the policies that allow Application Load Balancer creation.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -105,3 +208,6 @@ Note: This is just a sample code and you may need to modify it based on your spe
 
 
 
+
+</Tab>
+</Tabs>

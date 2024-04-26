@@ -19,6 +19,99 @@ Security
 ### Compliance Standards
 
 NIST
+
+
+<Tabs><Tab title='Cause'>
+### Check Cause
+
+#### Using Console
+
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (console.cloud.google.com), and sign in with your Google account credentials.
+
+2. Navigate to the Cloud Storage: From the left-hand side menu, select "Storage" under the "Storage" section. This will open the "Browser" page where you can see all your Cloud Storage buckets.
+
+3. Check the permissions: Click on the name of the bucket you want to inspect. This will open the bucket details page. Click on the "Permissions" tab to view the permissions associated with the bucket.
+
+4. Inspect the permissions: Look for any permissions that have "allUsers" as the member. If the role associated with "allUsers" is "Storage Object Creator" or "Storage Object Admin", then the bucket allows all users to write, which is a misconfiguration.
+
+#### Using CLI
+
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can download it from the official Google Cloud website and follow the instructions to set it up.
+
+2. Authenticate your CLI with your Google Cloud account using the following command:
+   ```
+   gcloud auth login
+   ```
+   This will open a new browser window where you can log in with your Google Cloud credentials.
+
+3. List all the buckets in your project using the following command:
+   ```
+   gsutil ls -p [PROJECT_ID]
+   ```
+   Replace `[PROJECT_ID]` with your actual Google Cloud project ID.
+
+4. For each bucket, check the IAM policy bindings to see if "allUsers" have write access. You can do this using the following command:
+   ```
+   gsutil iam get gs://[BUCKET_NAME]
+   ```
+   Replace `[BUCKET_NAME]` with the name of each bucket you want to check. If "allUsers" have write access, the output will include a line like this:
+   ```
+   "members": [
+     "allUsers"
+   ],
+   "role": "roles/storage.objectCreator"
+   ```
+   or
+   ```
+   "members": [
+     "allUsers"
+   ],
+   "role": "roles/storage.objectAdmin"
+   ```
+   If you see either of these lines, it means that the bucket allows all users to write to it.
+
+#### Using Python
+
+Detecting misconfigured buckets that allow all users to write in storage can be done using Python scripts. Here are the steps:
+
+1. **Install the necessary libraries**: Before you start, you need to install the necessary libraries. For AWS, you need boto3, for Azure, you need azure-storage-blob and for GCP, you need google-cloud-storage. You can install these libraries using pip.
+
+    ```python
+    pip install boto3 azure-storage-blob google-cloud-storage
+    ```
+
+2. **Create a function to check bucket permissions**: For each cloud provider, you need to create a function that checks the permissions of each bucket. Here is an example for AWS:
+
+    ```python
+    import boto3
+
+    def check_bucket_permissions(bucket_name):
+        s3 = boto3.resource('s3')
+        bucket_acl = s3.BucketAcl(bucket_name)
+        for grant in bucket_acl.grants:
+            if grant['Grantee']['Type'] == 'Group' and 'AllUsers' in grant['Grantee']['URI']:
+                if grant['Permission'] == 'WRITE':
+                    return True
+        return False
+    ```
+
+3. **Iterate over all buckets**: You need to iterate over all buckets and check their permissions. Here is an example for AWS:
+
+    ```python
+    s3 = boto3.resource('s3')
+    for bucket in s3.buckets.all():
+        if check_bucket_permissions(bucket.name):
+            print(f'Bucket {bucket.name} allows all users to write.')
+    ```
+
+4. **Run the script**: Finally, you need to run the script. If there are any buckets that allow all users to write, they will be printed out.
+
+Note: For Azure and GCP, you need to adjust the script to use the respective SDKs and APIs. The general idea remains the same: get all buckets, check their permissions, and print out the ones that allow all users to write.
+
+</Tab>
+
+
+<Tab title='Remediation'>
 ### Remediation
 
 #### Using Console
@@ -122,3 +215,6 @@ Note: This code assumes that you have the necessary permissions to modify the bu
 
 
 
+
+</Tab>
+</Tabs>
