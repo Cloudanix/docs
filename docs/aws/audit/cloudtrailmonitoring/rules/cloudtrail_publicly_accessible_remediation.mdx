@@ -1,6 +1,65 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check.
+
+3. Choose the Permissions tab.
+
+4. Under the Block public access (bucket settings) section, check if the settings are turned on. If any of the settings are turned off, it means that the bucket is publicly accessible. 
+
+Note: This is a basic check. For a more thorough check, you should also review the bucket policy and Access Control List (ACL).
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the S3 buckets in your AWS account. You can do this by using the AWS CLI command `aws s3api list-buckets`. This command will return a list of all the S3 buckets in your account.
+
+2. Next, you need to identify the bucket that is used for CloudTrail logging. You can do this by using the AWS CLI command `aws cloudtrail describe-trails`. This command will return a list of all the CloudTrail trails in your account, including the S3 bucket that each trail logs to.
+
+3. Once you have identified the S3 bucket used for CloudTrail logging, you can check its access control list (ACL) to see if it is publicly accessible. You can do this by using the AWS CLI command `aws s3api get-bucket-acl --bucket bucket-name`. Replace "bucket-name" with the name of your CloudTrail logging bucket. This command will return the ACL for the bucket. If the ACL includes the group `http://acs.amazonaws.com/groups/global/AllUsers` or `http://acs.amazonaws.com/groups/global/AuthenticatedUsers` with permissions `READ` or `WRITE`, then the bucket is publicly accessible.
+
+4. Additionally, you can check the bucket policy to see if it allows public access. You can do this by using the AWS CLI command `aws s3api get-bucket-policy --bucket bucket-name`. Replace "bucket-name" with the name of your CloudTrail logging bucket. This command will return the bucket policy. If the policy includes a statement with the principal `*` (which represents all users) and allows the actions `s3:GetObject` or `s3:ListBucket`, then the bucket is publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a client for AWS S3 and CloudTrail:
+
+```python
+import boto3
+s3 = boto3.client('s3')
+cloudtrail = boto3.client('cloudtrail')
+```
+
+2. Get a list of all CloudTrail trails and their respective S3 bucket names:
+
+```python
+trails = cloudtrail.describe_trails()
+bucket_names = [trail['S3BucketName'] for trail in trails['trailList']]
+```
+
+3. For each bucket, get the bucket policy and check if it allows public access:
+
+```python
+for bucket_name in bucket_names:
+    bucket_policy = s3.get_bucket_policy(Bucket=bucket_name)
+    is_public = any(statement['Principal'] == '*' for statement in bucket_policy['Policy']['Statement'])
+    if is_public:
+        print(f'Bucket {bucket_name} is publicly accessible.')
+```
+
+4. If the bucket is publicly accessible, the script will print a message indicating this. If no such message is printed for a bucket, it is not publicly accessible.
+
+Please note that this script only checks if the bucket policy allows public access. There are other ways a bucket can be made publicly accessible, such as through the bucket's ACLs or through a public access block configuration. To fully ensure a bucket is not publicly accessible, you would need to check these as well.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
