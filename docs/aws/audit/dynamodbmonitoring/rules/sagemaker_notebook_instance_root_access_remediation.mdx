@@ -1,6 +1,86 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon SageMaker console at https://console.aws.amazon.com/sagemaker/.
+
+2. In the left navigation pane, choose "Notebook instances".
+
+3. In the "Notebook instances" list, choose the name of the notebook instance that you want to check.
+
+4. In the "Permissions and encryption" section, check the "Lifecycle configuration" associated with the notebook instance. If the "Lifecycle configuration" script contains "sudo" commands, it means the notebook instance has root access enabled. 
+
+5. Additionally, you can check the IAM role associated with the notebook instance. In the "Permissions and encryption" section, click on the IAM role ARN. This will redirect you to the IAM console. Check the policies attached to the role. If the policies provide full access to DynamoDB or any other AWS services, it means the notebook instance potentially has root access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Sagemaker service.
+
+2. Once the AWS CLI is set up, you can list all the Sagemaker notebook instances using the following command:
+
+   ```
+   aws sagemaker list-notebook-instances --region your-region
+   ```
+   Replace 'your-region' with the region where your instances are located.
+
+3. After listing the notebook instances, you can describe the properties of each instance using the following command:
+
+   ```
+   aws sagemaker describe-notebook-instance --notebook-instance-name your-notebook-instance-name --region your-region
+   ```
+   Replace 'your-notebook-instance-name' with the name of your notebook instance and 'your-region' with the region where your instances are located.
+
+4. In the output of the above command, look for the "DirectInternetAccess" field. If the value of this field is "Enabled", it means that the notebook instance has root access enabled. If the value is "Disabled", it means that root access is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+To detect if a SageMaker Notebook Instance has root access enabled, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Import the necessary libraries and establish a client connection to AWS SageMaker:**
+
+```python
+import boto3
+
+sagemaker = boto3.client('sagemaker')
+```
+
+2. **List all the SageMaker notebook instances:**
+
+```python
+notebook_instances = sagemaker.list_notebook_instances()
+```
+
+3. **Iterate over the notebook instances and check the `DirectInternetAccess` attribute:**
+
+```python
+for notebook_instance in notebook_instances['NotebookInstances']:
+    if notebook_instance['DirectInternetAccess'] == 'Enabled':
+        print(f"Notebook Instance {notebook_instance['NotebookInstanceName']} has root access enabled.")
+```
+
+4. **Check the Lifecycle configurations for root access:**
+
+```python
+for notebook_instance in notebook_instances['NotebookInstances']:
+    lifecycle_config_name = notebook_instance.get('LifecycleConfigName')
+    if lifecycle_config_name:
+        lifecycle_config = sagemaker.describe_notebook_instance_lifecycle_config(
+            NotebookInstanceLifecycleConfigName=lifecycle_config_name
+        )
+        for script in lifecycle_config['OnStart']:
+            if 'sudo' in script['Content']:
+                print(f"Notebook Instance {notebook_instance['NotebookInstanceName']} has root access enabled in lifecycle configuration.")
+```
+
+Please note that the above scripts only detect if the SageMaker Notebook Instances have root access enabled. It does not provide any remediation steps. Also, the scripts assume that you have the necessary permissions to list and describe the SageMaker notebook instances and their lifecycle configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
