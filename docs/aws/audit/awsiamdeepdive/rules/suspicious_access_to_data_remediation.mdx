@@ -1,6 +1,90 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to AWS Management Console: First, you need to log in to your AWS Management Console. Make sure you have the necessary permissions to access IAM roles and policies.
+
+2. Access IAM Dashboard: Navigate to the IAM dashboard by clicking on "Services" at the top of the console, then typing "IAM" in the search box and selecting "IAM Manage User Access and Encryption Keys".
+
+3. Review IAM Roles: In the IAM dashboard, click on "Roles" in the left navigation pane. This will display a list of all IAM roles in your AWS account. Review these roles and their associated policies to identify any that have permissions to access data services that they shouldn't.
+
+4. Use AWS CloudTrail: AWS CloudTrail is a service that provides event history of your AWS account activity, including actions taken through the AWS Management Console, AWS SDKs, command line tools, and other AWS services. You can use CloudTrail to detect suspicious activity in your AWS account. Navigate to the CloudTrail dashboard, then click on "Event history". Filter the events by the IAM role or user you are investigating, and look for any events related to data service access that seem out of the ordinary.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can start using it to interact with AWS services.
+
+2. To check for suspicious access to data services, you can use the AWS CloudTrail service. CloudTrail records all API calls made in your AWS account, including successful and failed sign-in attempts. You can use the following command to list all CloudTrail trails:
+
+   ```
+   aws cloudtrail describe-trails
+   ```
+
+3. Once you have the name of the trail you want to investigate, you can use the following command to look at the events recorded in that trail:
+
+   ```
+   aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=ConsoleLogin
+   ```
+
+   This command will return a list of all 'ConsoleLogin' events, which represent sign-in attempts to the AWS Management Console.
+
+4. To further investigate suspicious activity, you can filter the events by date, user name, IP address, or other attributes. For example, the following command will return all 'ConsoleLogin' events from a specific user:
+
+   ```
+   aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=<username>
+   ```
+
+   Replace `<username>` with the name of the user you want to investigate. This will help you identify any unusual or suspicious access patterns.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure it with your user credentials. You can configure it in python script like this:
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       aws_session_token='SESSION_TOKEN',
+   )
+   ```
+2. **Create IAM Client:**
+   Now, create an IAM client using the session created above. This client will be used to interact with AWS IAM.
+   ```python
+   iam = session.client('iam')
+   ```
+3. **Fetch IAM Users:**
+   Fetch all the IAM users and iterate over them to check their access to data services. Here is how you can fetch IAM users:
+   ```python
+   users = iam.list_users()
+   for user in users['Users']:
+       print('User: {0}\nUserID: {1}\nARN: {2}\nCreatedOn: {3}\n'.format(
+           user['UserName'], user['UserId'], user['Arn'], user['CreateDate']))
+   ```
+4. **Check Access to Data Services:**
+   For each user, check their policies and permissions. If a user has access to data services, it might be suspicious. Here is how you can check user policies:
+   ```python
+   user_policies = iam.list_user_policies(UserName=user['UserName'])
+   for policy_name in user_policies['PolicyNames']:
+       policy = iam.get_user_policy(UserName=user['UserName'], PolicyName=policy_name)
+       # Check if the policy allows access to data services
+       if 'dynamodb' in policy['PolicyDocument']['Statement'][0]['Resource']:
+           print(f"Suspicious access to data services detected for user: {user['UserName']}")
+   ```
+   This script checks if the user has access to DynamoDB, which is a data service in AWS. You can replace 'dynamodb' with any other data service you want to check.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
