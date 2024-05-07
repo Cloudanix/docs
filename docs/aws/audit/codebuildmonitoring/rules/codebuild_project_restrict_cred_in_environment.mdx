@@ -20,10 +20,91 @@ Security
 
 CBP
 
+
+### Triage and Remediation
+<Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the AWS CodeBuild dashboard.
+2. In the navigation pane, select "Build projects". This will display a list of all the CodeBuild projects in your AWS account.
+3. Select the CodeBuild project you want to inspect for plaintext AWS credentials. This will open the project details page.
+4. In the project details page, check the "Environment" section. If the "Environment variables" field contains AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, it means plaintext AWS credentials are set in the environment variables of the CodeBuild project.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the CodeBuild projects in your account using the following command:
+
+   ```
+   aws codebuild list-projects --region your-region-name
+   ```
+
+   Replace 'your-region-name' with the name of your AWS region.
+
+3. After getting the list of projects, you can describe each project to get its environment variables. Use the following command:
+
+   ```
+   aws codebuild batch-get-projects --names project-name --region your-region-name
+   ```
+
+   Replace 'project-name' with the name of your CodeBuild project and 'your-region-name' with the name of your AWS region.
+
+4. Now, you need to check the 'environmentVariables' section in the output. If you find any AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) in plaintext, it means they are misconfigured. These credentials should not be stored in plaintext in the environment variables.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) and other necessary libraries. Boto3 allows you to directly create, update, and delete AWS resources from your Python scripts.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. Replace `'us-west-1'` with the region you're working in.
+
+```python
+session = boto3.Session(
+    region_name='us-west-1'
+)
+```
+
+3. Create a CodeBuild client from the session.
+
+```python
+client = session.client('codebuild')
+```
+
+4. List all the CodeBuild projects and check each project's environment variables for plaintext AWS credentials. If found, print the project name.
+
+```python
+try:
+    response = client.list_projects()
+    for project in response['projects']:
+        project_details = client.batch_get_projects(names=[project])
+        for project in project_details['projects']:
+            for env_var in project['environment']['environmentVariables']:
+                if 'AWS_ACCESS_KEY_ID' in env_var['name'] or 'AWS_SECRET_ACCESS_KEY' in env_var['name']:
+                    if env_var['type'] != 'SECRETS_MANAGER':
+                        print(f"Plaintext AWS Credentials found in project: {project['name']}")
+except (BotoCoreError, ClientError) as error:
+    print(f"Error getting CodeBuild projects: {error}")
+```
+
+This script will list all the CodeBuild projects in the specified region and check each project's environment variables for plaintext AWS credentials. If it finds any, it will print the project name.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Remediation'>
 ### Remediation
 
-#### Using Console
-
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
 To remediate plaintext AWS credentials in environment variables in an AWS CodeBuild project, follow these steps using the AWS Management Console:
 
 1. **Access AWS CodeBuild Console**:
@@ -59,8 +140,10 @@ To remediate plaintext AWS credentials in environment variables in an AWS CodeBu
 
 By following these steps, you can remediate the issue of plaintext AWS credentials in environment variables in an AWS CodeBuild project and ensure that sensitive information is handled securely.
 
-#### Using CLI
+#
+</Accordion>
 
+<Accordion title='Using CLI'>
 To remediate the issue of plaintext AWS credentials in environment variables in an AWS CodeBuild project using AWS CLI, you can follow these steps:
 
 1. **Identify the CodeBuild project**: Use the AWS CLI command `aws codebuild list-projects` to list all the CodeBuild projects in your account. Identify the project where plaintext AWS credentials are set in environment variables.
@@ -76,9 +159,9 @@ To remediate the issue of plaintext AWS credentials in environment variables in 
 6. **Test the updated CodeBuild project**: Trigger a build in the CodeBuild project to ensure that the changes made to remove plaintext AWS credentials from environment variables do not impact the build process.
 
 By following these steps, you can remediate the issue of plaintext AWS credentials in environment variables in an AWS CodeBuild project using AWS CLI.
+</Accordion>
 
-#### Using Python
-
+<Accordion title='Using Python'>
 To remediate the issue of having plaintext AWS credentials in environment variables in an AWS CodeBuild project, you should follow these steps:
 
 1. **Create an IAM Role**: Create an IAM role with the necessary permissions for your CodeBuild project to access AWS resources securely. This role will be assumed by the CodeBuild service when running your build.
@@ -97,3 +180,9 @@ To remediate the issue of having plaintext AWS credentials in environment variab
 5. **Test the Build**: After making these changes, run a test build to ensure that your CodeBuild project can access AWS resources securely without using plaintext AWS credentials in environment variables.
 
 By following these steps, you can remediate the issue of having plaintext AWS credentials in environment variables in an AWS CodeBuild project and ensure secure access to AWS resources.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+</Tabs>
+
