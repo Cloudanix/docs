@@ -23,6 +23,133 @@ NIST
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the API Gateway service.
+2. In the API Gateway dashboard, select the APIs that you want to examine.
+3. In the API details page, select the "Stages" option from the left-hand navigation panel.
+4. In the Stages section, check the "Client Certificate for Endpoint Verification" field. If the certificate is due to expire in less than 7 days, it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the ACM and API Gateway services.
+
+2. Once the AWS CLI is set up, you can list all the ACM Certificates using the following command:
+   ```
+   aws acm list-certificates --region your-region
+   ```
+   Replace 'your-region' with the region where your ACM Certificates are located. This command will return a list of Certificate ARNs.
+
+3. For each Certificate ARN, you can describe the certificate to get its details, including the renewal status. Use the following command:
+   ```
+   aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region
+   ```
+   Replace 'your-certificate-arn' with the ARN of the certificate you want to check, and 'your-region' with the region where the certificate is located. Look for the 'RenewalSummary' field in the output. If the 'RenewalStatus' is 'PENDING_VALIDATION', it means the certificate is due for renewal.
+
+4. To check if the certificate is used in API Gateway, list all the Rest APIs in API Gateway using the following command:
+   ```
+   aws apigateway get-rest-apis --region your-region
+   ```
+   For each Rest API, get its details using the following command:
+   ```
+   aws apigateway get-rest-api --rest-api-id your-rest-api-id --region your-region
+   ```
+   Replace 'your-rest-api-id' with the ID of the Rest API you want to check, and 'your-region' with the region where the Rest API is located. If the 'endpointConfiguration' field contains the ARN of the certificate, it means the certificate is used in the Rest API.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your local environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it. You can configure it using AWS CLI:
+   ```
+   aws configure
+   ```
+   It will ask for your AWS Access Key ID, Secret Access Key, Default region name, and Default output format. You can get these details from your AWS account.
+
+2. Use Boto3 to list all the ACM Certificates:
+   You can use the `list_certificates` method of ACM client in Boto3 to list all the ACM Certificates. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create ACM client
+   acm = boto3.client('acm')
+
+   # List certificates with the pagination interface
+   paginator = acm.get_paginator('list_certificates')
+   for response in paginator.paginate():
+       for certificate in response['CertificateSummaryList']:
+           print(certificate)
+   ```
+   This script will print all the ACM Certificates in your AWS account.
+
+3. Check the renewal status of each certificate:
+   You can use the `describe_certificate` method of ACM client in Boto3 to get the details of each certificate. Here is a sample script:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Create ACM client
+   acm = boto3.client('acm')
+
+   # List certificates with the pagination interface
+   paginator = acm.get_paginator('list_certificates')
+   for response in paginator.paginate():
+       for certificate in response['CertificateSummaryList']:
+           # Describe the specified certificate
+           response = acm.describe_certificate(
+               CertificateArn=certificate['CertificateArn']
+           )
+           # Get the renewal eligibility
+           renewal_eligibility = response['Certificate']['RenewalEligibility']
+           # Get the not_after date
+           not_after = response['Certificate']['NotAfter']
+           # Check if the certificate is eligible for renewal and will expire in less than 7 days
+           if renewal_eligibility == 'ELIGIBLE' and not_after < datetime.now() + timedelta(days=7):
+               print(f"Certificate {certificate['CertificateArn']} is eligible for renewal and will expire in less than 7 days.")
+   ```
+   This script will print all the ACM Certificates in your AWS account that are eligible for renewal and will expire in less than 7 days.
+
+4. Handle the exceptions:
+   You should handle the exceptions in your script to make it robust. For example, you can handle the `NoCredentialsError` exception if the AWS credentials are not configured properly. Here is a sample script:
+   ```python
+   import boto3
+   from botocore.exceptions import NoCredentialsError
+   from datetime import datetime, timedelta
+
+   try:
+       # Create ACM client
+       acm = boto3.client('acm')
+
+       # List certificates with the pagination interface
+       paginator = acm.get_paginator('list_certificates')
+       for response in paginator.paginate():
+           for certificate in response['CertificateSummaryList']:
+               # Describe the specified certificate
+               response = acm.describe_certificate(
+                   CertificateArn=certificate['CertificateArn']
+               )
+               # Get the renewal eligibility
+               renewal_eligibility = response['Certificate']['RenewalEligibility']
+               # Get the not_after date
+               not_after = response['Certificate']['NotAfter']
+               # Check if the certificate is eligible for renewal and will expire in less than 7 days
+               if renewal_eligibility == 'ELIGIBLE' and not_after < datetime.now() + timedelta(days=7):
+                   print(f"Certificate {certificate['CertificateArn']} is eligible for renewal and will expire in less than 7 days.")
+   except NoCredentialsError:
+       print("AWS credentials are not configured properly.")
+   ```
+   This script will print a message if the AWS credentials are not configured properly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,82 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the API Gateway console at https://console.aws.amazon.com/apigateway/.
+
+2. In the navigation pane, choose 'APIs'.
+
+3. In the APIs pane, choose the API you want to check.
+
+4. In the API details pane, choose 'Custom Domain Names'. This will display a list of custom domain names associated with the API.
+
+5. For each custom domain name, check the 'ACM Certificate' column. If the certificate is not valid, it will be indicated here.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the API Gateways in your account using the following command:
+   ```
+   aws apigateway get-rest-apis --region your-region-name
+   ```
+   Replace 'your-region-name' with the name of your AWS region. This command will return a list of all the REST APIs in the specified region.
+
+3. For each API Gateway, you can get the details of the API Gateway's stages using the following command:
+   ```
+   aws apigateway get-stages --rest-api-id your-rest-api-id --region your-region-name
+   ```
+   Replace 'your-rest-api-id' with the ID of your REST API and 'your-region-name' with the name of your AWS region. This command will return a list of all the stages of the specified REST API.
+
+4. For each stage, check the 'clientCertificateId' field. If this field is empty or the certificate ID is not valid, then the ACM Certificate is not valid in the API Gateway. You can check the validity of the certificate ID using the following command:
+   ```
+   aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region-name
+   ```
+   Replace 'your-certificate-arn' with the ARN of your certificate and 'your-region-name' with the name of your AWS region. This command will return the details of the specified certificate. If the 'Status' field is not 'ISSUED', then the certificate is not valid.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services using Python.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Use the `get_rest_apis` method from the `apigateway` client to get a list of all the APIs in your account. Then, for each API, use the `get_domain_names` method to get a list of all the domain names associated with that API. For each domain name, check the `certificateUploadDate` attribute. If it is more than 13 months ago, the certificate is not valid.
+
+```python
+client = session.client('apigateway')
+apis = client.get_rest_apis()['items']
+for api in apis:
+    domain_names = client.get_domain_names()['items']
+    for domain_name in domain_names:
+        if 'certificateUploadDate' in domain_name:
+            certificate_age = (datetime.datetime.now(datetime.timezone.utc) - domain_name['certificateUploadDate']).days
+            if certificate_age > 395:
+                print(f"API Gateway {api['name']} has an invalid certificate for domain {domain_name['domainName']}")
+```
+
+4. This script will print out the names of all the APIs and their associated domain names that have invalid certificates. You can modify this script to suit your needs, for example by sending an email alert instead of printing to the console.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

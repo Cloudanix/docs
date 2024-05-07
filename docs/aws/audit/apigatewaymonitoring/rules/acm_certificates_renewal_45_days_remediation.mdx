@@ -1,6 +1,99 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the API Gateway service.
+2. In the API Gateway dashboard, select the APIs that you want to examine.
+3. In the API details page, select the "Stages" option from the left-hand side menu.
+4. In the Stages section, under the "SSL certificate" tab, check the expiration date of the ACM certificate. If the certificate is set to expire in less than 45 days, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the ACM and API Gateway services.
+
+2. Once the AWS CLI is set up, you can list all the ACM Certificates using the following command:
+   ```
+   aws acm list-certificates --region your-region
+   ```
+   Replace 'your-region' with the region where your ACM Certificates are located. This command will return a list of Certificate ARNs.
+
+3. For each Certificate ARN, you can describe the certificate to get its details, including the expiration date. Use the following command:
+   ```
+   aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region
+   ```
+   Replace 'your-certificate-arn' with the ARN of the certificate you want to check, and 'your-region' with the region where the certificate is located. This command will return the certificate details in JSON format.
+
+4. You can then parse the JSON output to get the 'NotAfter' field, which indicates the expiration date of the certificate. If this date is less than 45 days from the current date, then the certificate is due for renewal. You can use a Python script or a tool like 'jq' to parse the JSON output. For example, using 'jq':
+   ```
+   aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region | jq '.Certificate.NotAfter'
+   ```
+   This command will return the expiration date of the certificate. You can then compare this date with the current date to check if it's less than 45 days away.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your local environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it. You can configure it using AWS CLI:
+   ```
+   aws configure
+   ```
+   It will ask for the AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format. You can get these details from your AWS account.
+
+2. Use Boto3 to list all the ACM Certificates:
+   You can use the `list_certificates` method of ACM client in Boto3 to list all the ACM Certificates. Here is a sample script:
+   ```python
+   import boto3
+
+   def list_certificates():
+       client = boto3.client('acm')
+       response = client.list_certificates()
+       return response['CertificateSummaryList']
+
+   certificates = list_certificates()
+   print(certificates)
+   ```
+   This script will print all the ACM Certificates.
+
+3. Check the renewal status of each certificate:
+   You can use the `describe_certificate` method of ACM client in Boto3 to get the details of each certificate. Here is a sample script:
+   ```python
+   import boto3
+   import datetime
+
+   def check_certificate_renewal(certificate_arn):
+       client = boto3.client('acm')
+       response = client.describe_certificate(CertificateArn=certificate_arn)
+       renewal_eligibility = response['Certificate']['RenewalEligibility']
+       not_after = response['Certificate']['NotAfter']
+       days_to_expiry = (not_after - datetime.datetime.now()).days
+       return renewal_eligibility, days_to_expiry
+
+   for certificate in certificates:
+       renewal_eligibility, days_to_expiry = check_certificate_renewal(certificate['CertificateArn'])
+       print(f"Certificate: {certificate['CertificateArn']}, Renewal Eligibility: {renewal_eligibility}, Days to Expiry: {days_to_expiry}")
+   ```
+   This script will print the renewal eligibility and days to expiry of each certificate.
+
+4. Filter the certificates which are eligible for renewal and have less than 45 days to expiry:
+   You can modify the above script to filter the certificates which are eligible for renewal and have less than 45 days to expiry. Here is the modified script:
+   ```python
+   for certificate in certificates:
+       renewal_eligibility, days_to_expiry = check_certificate_renewal(certificate['CertificateArn'])
+       if renewal_eligibility == 'ELIGIBLE' and days_to_expiry < 45:
+           print(f"Certificate: {certificate['CertificateArn']}, Renewal Eligibility: {renewal_eligibility}, Days to Expiry: {days_to_expiry}")
+   ```
+   This script will print only the certificates which are eligible for renewal and have less than 45 days to expiry.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

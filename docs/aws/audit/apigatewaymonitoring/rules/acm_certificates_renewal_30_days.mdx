@@ -23,6 +23,112 @@ NIST
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the API Gateway service.
+2. In the API Gateway dashboard, select the APIs that you want to examine.
+3. In the API details page, select the "Stages" option from the left navigation panel.
+4. In the Stages section, check the "Client Certificate for Endpoint Verification" field. If the certificate is set to expire in less than 30 days, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the ACM and API Gateway services.
+
+2. Once the AWS CLI is set up, you can list all the ACM Certificates using the following command:
+```
+aws acm list-certificates --region your-region
+```
+This command will return a list of Certificate ARNs. 
+
+3. Now, for each Certificate ARN, you can describe the certificate to get its details including the expiration date. Use the following command:
+```
+aws acm describe-certificate --certificate-arn your-certificate-arn --region your-region
+```
+This command will return the certificate details in JSON format. Look for the 'NotAfter' field in the 'Certificate' object. This field contains the expiration date of the certificate.
+
+4. Now, you can write a script to compare the current date with the 'NotAfter' date. If the difference is less than 30 days, then the certificate is due for renewal in less than 30 days. Here is a simple Python script to do this:
+```python
+import datetime
+import json
+import subprocess
+
+# Get the current date
+current_date = datetime.datetime.now()
+
+# List all the ACM Certificates
+command = 'aws acm list-certificates --region your-region'
+process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+output, error = process.communicate()
+
+# Parse the output to get the Certificate ARNs
+certificates = json.loads(output)['CertificateSummaryList']
+for certificate in certificates:
+    certificate_arn = certificate['CertificateArn']
+
+    # Describe the certificate to get its details
+    command = 'aws acm describe-certificate --certificate-arn ' + certificate_arn + ' --region your-region'
+    process = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
+    output, error = process.communicate()
+
+    # Parse the output to get the 'NotAfter' date
+    not_after = json.loads(output)['Certificate']['NotAfter']
+
+    # Compare the current date with the 'NotAfter' date
+    if (not_after - current_date).days < 30:
+        print('Certificate ' + certificate_arn + ' is due for renewal in less than 30 days.')
+```
+This script will print the ARNs of all the ACM Certificates that are due for renewal in less than 30 days.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials either by setting up environment variables or by using AWS CLI. 
+
+2. **List all ACM Certificates:**
+   Use the `list_certificates` method from the `boto3` client for ACM to get all the certificates. Here is a sample script:
+   ```python
+   import boto3
+   import datetime
+
+   # Create ACM client
+   acm = boto3.client('acm')
+
+   # List all certificates
+   response = acm.list_certificates()
+
+   for certificate in response['CertificateSummaryList']:
+       certificate_arn = certificate['CertificateArn']
+   ```
+   
+3. **Get Certificate Details:**
+   For each certificate, get the details using the `describe_certificate` method. This will give you the certificate's expiry date.
+   ```python
+   certificate_detail = acm.describe_certificate(CertificateArn=certificate_arn)
+   expiry_date = certificate_detail['Certificate']['NotAfter']
+   ```
+
+4. **Check if Certificate is Expiring in Less Than 30 Days:**
+   Compare the expiry date with the current date. If the difference is less than 30 days, then the certificate is due for renewal.
+   ```python
+   current_date = datetime.datetime.now(expiry_date.tzinfo)
+   days_to_expiry = (expiry_date - current_date).days
+
+   if days_to_expiry < 30:
+       print(f"Certificate {certificate_arn} is due for renewal in {days_to_expiry} days.")
+   ```
+   This script will print out the ARN of all certificates that are due for renewal in less than 30 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
