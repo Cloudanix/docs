@@ -1,6 +1,80 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the VPC Dashboard by selecting "Services" from the top menu, then choosing "VPC" under the "Networking & Content Delivery" category.
+3. In the VPC Dashboard, select "Endpoints" from the left-hand menu.
+4. In the Endpoints page, look for any endpoints associated with DynamoDB. The "Service Name" column should contain an entry like "com.amazonaws.[region].dynamodb". If such an entry does not exist, then VPC Endpoint is not enabled for DynamoDB.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the required resources.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the VPC endpoints in your account:
+
+   ```
+   aws ec2 describe-vpc-endpoints --query 'VpcEndpoints[*].[VpcEndpointId,ServiceName, VpcId, State]' --output table
+   ```
+   This command will return a table that includes the ID, service name, VPC ID, and state of each VPC endpoint.
+
+3. To check if there is a VPC endpoint for DynamoDB, you can filter the results by the service name. The service name for DynamoDB is "com.amazonaws.region.dynamodb". Replace 'region' with your specific AWS region. For example, for us-west-2, the service name would be "com.amazonaws.us-west-2.dynamodb". 
+
+4. If a VPC endpoint for DynamoDB exists, it should appear in the output of the previous command. If it does not appear, then a VPC endpoint for DynamoDB is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a new DynamoDB and EC2 client:
+
+```python
+import boto3
+
+dynamodb = boto3.client('dynamodb')
+ec2 = boto3.client('ec2')
+```
+
+2. List all the DynamoDB tables in your AWS account:
+
+```python
+response = dynamodb.list_tables()
+tables = response['TableNames']
+```
+
+3. For each DynamoDB table, check if there is a VPC endpoint associated with it:
+
+```python
+for table in tables:
+    response = ec2.describe_vpc_endpoints(
+        Filters=[
+            {
+                'Name': 'service-name',
+                'Values': [
+                    'com.amazonaws.region.dynamodb',
+                ]
+            },
+            {
+                'Name': 'vpc-endpoint-state',
+                'Values': [
+                    'available',
+                ]
+            },
+        ]
+    )
+    if not response['VpcEndpoints']:
+        print(f"VPC Endpoint for DynamoDB is not enabled for table {table}")
+```
+
+4. The script will print out the names of the DynamoDB tables that do not have a VPC endpoint enabled. If no output is produced, it means that all DynamoDB tables have a VPC endpoint enabled. 
+
+Please replace 'region' with your actual AWS region in the 'service-name' filter value. Also, ensure that your AWS credentials are correctly configured to allow the script to access the necessary resources.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
