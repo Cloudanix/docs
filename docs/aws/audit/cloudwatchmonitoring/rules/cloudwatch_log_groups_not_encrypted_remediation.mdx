@@ -1,96 +1,88 @@
 ### Remediation
 
-#### Using Console
+### Using Console:
 
-To remediate the misconfiguration of CloudWatch Log Groups not being encrypted in AWS, you can follow these steps using the AWS Management Console:
+1. **Create an AWS KMS Key:**
+   - Go to the AWS KMS console.
+   - Click on "Create key" and follow the prompts to create a symmetric key.
+   - Make note of the Key ID and ARN provided.
 
-1. **Sign in to the AWS Management Console**: Go to the AWS Management Console at https://aws.amazon.com/ and sign in using your credentials.
+2. **Set Permissions on the KMS Key:**
+   - After creating the key, navigate to it in the AWS KMS console.
+   - Select "Key policy" from the left-hand menu.
+   - Edit the key policy to allow CloudWatch Logs service principal to use the key.
+   - Add permissions as described in the documentation under "Step 2: Set permissions on the KMS key".
 
-2. **Navigate to CloudWatch**: In the AWS Management Console, navigate to the CloudWatch service by either searching for it in the search bar or locating it under the "Management & Governance" section.
+3. **Associate the KMS Key with a Log Group:**
+   - Navigate to the CloudWatch Logs console.
+   - Find the log group you want to encrypt or create a new log group.
+   - During log group creation or by selecting an existing log group, associate the KMS key with it.
 
-3. **Select the Log Group**: In the CloudWatch console, locate the log group that you want to encrypt. Click on the log group name to select it.
+4. **Disassociate Key from a Log Group (if needed):**
+   - If you need to disassociate the KMS key from a log group, navigate to the CloudWatch Logs console, select the log group, and disassociate the key.
 
-4. **Configure Encryption**: In the log group details page, click on the "Actions" dropdown menu and select "Edit log group". 
+### Using CLI:
 
-5. **Enable Encryption**: In the "Edit log group" settings, find the "Enable log encryption" option and select the encryption option you prefer (e.g., AWS Key Management Service (KMS) key). 
+1. **Create an AWS KMS Key:**
+   ```bash
+   aws kms create-key
+   ```
 
-6. **Choose KMS Key**: If you choose AWS Key Management Service (KMS) key encryption, select the KMS key that you want to use for encrypting the log group.
+2. **Set Permissions on the KMS Key:**
+   - Retrieve the default policy for the key:
+     ```bash
+     aws kms get-key-policy --key-id <key-id> --policy-name default --output text > ./policy.json
+     ```
+   - Edit `policy.json` to include the necessary permissions as described in the documentation.
+   - Apply the updated policy to the key:
+     ```bash
+     aws kms put-key-policy --key-id <key-id> --policy-name default --policy file://policy.json
+     ```
 
-7. **Save Changes**: After configuring the encryption settings, click on the "Save changes" button to apply the encryption settings to the log group.
+3. **Associate the KMS Key with a Log Group:**
+   - To associate the key during log group creation:
+     ```bash
+     aws logs create-log-group --log-group-name <log-group-name> --kms-key-id <key-arn>
+     ```
+   - To associate the key with an existing log group:
+     ```bash
+     aws logs associate-kms-key --log-group-name <log-group-name> --kms-key-id <key-arn>
+     ```
 
-8. **Verify Encryption**: To ensure that the encryption is successfully applied, you can check the log group details and confirm that encryption is enabled.
+4. **Disassociate Key from a Log Group (if needed):**
+   ```bash
+   aws logs disassociate-kms-key --log-group-name <log-group-name>
+   ```
 
-By following these steps, you can remediate the misconfiguration of CloudWatch Log Groups not being encrypted in AWS using the AWS Management Console.
+### Using Python:
 
-#### Using CLI
+You can use the `boto3` library in Python to achieve the same tasks programmatically.
 
-To remediate the misconfiguration of CloudWatch Log Groups not being encrypted in AWS using AWS CLI, follow these steps:
+1. **Create an AWS KMS Key:**
+   ```python
+   import boto3
 
-1. List all the CloudWatch Log Groups that are not encrypted:
-```bash
-aws logs describe-log-groups --query 'logGroups[?kmsKeyId==null].logGroupName' --output text
-```
+   kms = boto3.client('kms')
+   response = kms.create_key()
+   ```
 
-2. For each unencrypted CloudWatch Log Group, update the log group to enable encryption using a KMS key:
-```bash
-aws logs put-retention-policy --log-group-name <log-group-name> --retention-in-days <retention-period>
-```
+2. **Set Permissions on the KMS Key:**
+   - Retrieve, edit, and apply the policy similar to the AWS CLI method.
 
-Replace `<log-group-name>` with the name of the CloudWatch Log Group and `<retention-period>` with the desired retention period in days.
+3. **Associate the KMS Key with a Log Group:**
+   ```python
+   import boto3
 
-3. Verify that the CloudWatch Log Groups are now encrypted:
-```bash
-aws logs describe-log-groups --query 'logGroups[?kmsKeyId!=null].logGroupName' --output text
-```
+   logs = boto3.client('logs')
+   logs.create_log_group(logGroupName='<log-group-name>', kmsKeyId='<key-arn>')
+   ```
 
-By following these steps, you can remediate the misconfiguration of CloudWatch Log Groups not being encrypted in AWS using AWS CLI.
+4. **Disassociate Key from a Log Group (if needed):**
+   ```python
+   import boto3
 
-#### Using Python
+   logs = boto3.client('logs')
+   logs.disassociate_kms_key(logGroupName='<log-group-name>')
+   ```
 
-To remediate the misconfiguration of CloudWatch Log Groups not being encrypted in AWS using Python, you can follow these steps:
-
-1. Install the AWS SDK for Python (Boto3) if you haven't already:
-```bash
-pip install boto3
-```
-
-2. Use the following Python script to enable encryption for all existing CloudWatch Log Groups:
-
-```python
-import boto3
-
-def encrypt_cloudwatch_logs():
-    # Initialize the CloudWatch Logs client
-    client = boto3.client('logs')
-
-    # Get a list of all existing CloudWatch Log Groups
-    log_groups = client.describe_log_groups()
-
-    # Enable encryption for each log group
-    for log_group in log_groups['logGroups']:
-        log_group_name = log_group['logGroupName']
-        
-        # Enable encryption for the log group
-        response = client.put_retention_policy(
-            logGroupName=log_group_name,
-            retentionInDays=7,
-            metricFilterName='AllLogs',
-            metricTransformations=[
-                {
-                    'metricName': 'LogEvents',
-                    'metricNamespace': 'CloudWatchLogs',
-                    'metricValue': '1'
-                }
-            ]
-        )
-
-        print(f"Enabled encryption for Log Group: {log_group_name}")
-
-if __name__ == '__main__':
-    encrypt_cloudwatch_logs()
-```
-
-3. Run the Python script, and it will enable encryption for all existing CloudWatch Log Groups in your AWS account.
-
-Please note that this script assumes you have the necessary permissions to modify CloudWatch Log Groups in your AWS account. Make sure to configure your AWS credentials properly before running the script.
-
+Ensure you replace placeholders such as `<key-id>`, `<key-arn>`, and `<log-group-name>` with actual values in the commands or code snippets. Also, review and adjust the permissions and conditions according to your specific requirements.
