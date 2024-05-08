@@ -1,6 +1,94 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+
+2. In the navigation pane, under "Instances", click on "Instances".
+
+3. Select the EC2 instance that you want to check.
+
+4. In the bottom panel, click on the "Security" tab.
+
+5. Under "Instance Metadata", check the "Metadata version" field. If it is set to "IMDSv1", then IMDSv2 is not required for this EC2 instance. If it is set to "IMDSv2", then IMDSv2 is required.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EC2 instances.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the EC2 instances in your account:
+
+   ```
+   aws ec2 describe-instances
+   ```
+
+3. After getting the list of instances, you need to check the metadata options for each instance. You can do this by using the following command:
+
+   ```
+   aws ec2 describe-instances --instance-ids <instance-id> --query "Reservations[].Instances[].MetadataOptions"
+   ```
+
+   Replace `<instance-id>` with the ID of the instance you want to check.
+
+4. The output of the above command will show the metadata options for the specified instance. If the `HttpTokens` field is set to `required`, it means that IMDSv2 is required for the instance. If it's set to `optional`, it means that IMDSv2 is not required.
+
+Please note that the above steps will only check the IMDSv2 requirement for a single instance. If you want to check all instances, you will need to run the command in step 3 for each instance. You can automate this process by using a script.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if EC2 instances require Instance Metadata Service Version 2 (IMDSv2), you can use the Boto3 library in Python, which allows you to directly interact with AWS services, including EC2. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+Replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS credentials and the region you want to check.
+
+2. **Create an EC2 resource object using the session:**
+
+```python
+ec2_resource = session.resource('ec2')
+```
+
+3. **Iterate over all instances and check the metadata options:**
+
+```python
+for instance in ec2_resource.instances.all():
+    metadata_options = instance.describe_attribute(Attribute='metadataOptions')
+    http_tokens = metadata_options['MetadataOptions']['HttpTokens']
+    if http_tokens == 'optional':
+        print(f"Instance {instance.id} does not require IMDSv2")
+```
+This script will print out the IDs of all instances that do not require IMDSv2.
+
+4. **Handle exceptions:**
+
+While interacting with AWS services, it's a good practice to handle exceptions that might occur due to reasons like network issues, insufficient permissions, etc. You can use the `botocore.exceptions` module for this.
+
+```python
+from botocore.exceptions import NoCredentialsError
+
+try:
+    # Your code here
+except NoCredentialsError:
+    print("No AWS credentials found")
+```
+This will print a helpful error message if the script is unable to find your AWS credentials.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

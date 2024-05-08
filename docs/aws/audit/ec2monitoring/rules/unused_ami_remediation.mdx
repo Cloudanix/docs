@@ -1,6 +1,74 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Images", click on "AMIs". This will display a list of all available AMIs.
+3. To identify unused AMIs, check the "Launch Time" column. If an AMI hasn't been used for a long time, it's likely that it's unused.
+4. Additionally, you can check the "Usage" column. If the value is "Not used", it means that the AMI is not associated with any running instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI by following the instructions provided in the official AWS documentation. Once installed, you can configure it by running the command `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all AMIs: You can list all the AMIs available in your AWS account by running the following command: `aws ec2 describe-images --owners self`. This command will return a JSON object containing details of all the AMIs owned by your AWS account.
+
+3. Check for unused AMIs: To check for unused AMIs, you need to compare the list of AMIs obtained in the previous step with the list of AMIs currently in use by your EC2 instances. You can get the list of AMIs currently in use by running the following command: `aws ec2 describe-instances --query 'Reservations[*].Instances[*].ImageId' --output text`. Any AMI that is in the first list but not in the second list is an unused AMI.
+
+4. Filter unused AMIs: To make the process of identifying unused AMIs easier, you can use the `jq` command-line JSON processor. The following command will return a list of AMIs that are not in use: `aws ec2 describe-images --owners self | jq -r '.Images[].ImageId' | grep -v -f <(aws ec2 describe-instances --query 'Reservations[*].Instances[*].ImageId' --output text)`.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can configure your AWS credentials in several ways, but the simplest is to use the AWS CLI tool to store them in ~/.aws/credentials:
+
+```bash
+aws configure
+```
+
+3. Write a Python script to list all AMIs: You can use the `describe_images` method from the EC2 client in Boto3 to list all AMIs. You can filter the AMIs by the owner to list only the AMIs owned by your account.
+
+```python
+import boto3
+
+def list_amis():
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_images(Owners=['self'])
+    for image in response['Images']:
+        print("Image ID: ", image['ImageId'])
+
+list_amis()
+```
+
+4. Check if the AMIs are in use: To check if an AMI is in use, you can describe the instances in your account and check if the `ImageId` of any instance matches the `ImageId` of the AMI. If an AMI is not used by any instance, it is unused.
+
+```python
+def check_unused_amis():
+    ec2 = boto3.client('ec2')
+    amis = ec2.describe_images(Owners=['self'])
+    instances = ec2.describe_instances()
+    used_amis = set(instance['Instances'][0]['ImageId'] for instance in instances['Reservations'])
+    for ami in amis['Images']:
+        if ami['ImageId'] not in used_amis:
+            print("Unused AMI: ", ami['ImageId'])
+
+check_unused_amis()
+```
+
+This script will print the IDs of all unused AMIs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

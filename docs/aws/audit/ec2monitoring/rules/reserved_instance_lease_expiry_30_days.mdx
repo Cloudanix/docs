@@ -23,6 +23,108 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+2. In the navigation pane, under "RESOURCES", click on "Reserved Instances".
+3. In the Reserved Instances page, you will see a list of all your reserved instances. Check the "End date" column for each of your reserved instances.
+4. If the "End date" is within the next 30 days, then the Reserved Instance lease is expiring in the next 30 days.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   During the configuration process, you will be asked to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format. You can find these details in your AWS Management Console.
+
+2. List all EC2 Reserved Instances: You can list all your EC2 Reserved Instances by running the following command:
+
+   ```
+   aws ec2 describe-reserved-instances --filters Name=state,Values=active
+   ```
+
+   This command will return a JSON object that contains information about all your active Reserved Instances.
+
+3. Parse the output: You can parse the output to get the end date of each Reserved Instance. The end date is contained in the `End` field of each Reserved Instance object. You can use a tool like `jq` to parse the JSON output. Here is an example command:
+
+   ```
+   aws ec2 describe-reserved-instances --filters Name=state,Values=active | jq -r '.ReservedInstances[] | .End'
+   ```
+
+4. Check if the end date is within the next 30 days: You can write a script that checks if the end date of each Reserved Instance is within the next 30 days. Here is an example Python script:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   command = ["aws", "ec2", "describe-reserved-instances", "--filters", "Name=state,Values=active"]
+   output = subprocess.check_output(command)
+   reserved_instances = json.loads(output)["ReservedInstances"]
+
+   for ri in reserved_instances:
+       end_date = datetime.strptime(ri["End"], "%Y-%m-%dT%H:%M:%S.%fZ")
+       if end_date <= datetime.now() + timedelta(days=30):
+           print(f"Reserved Instance {ri['ReservedInstancesId']} will expire in the next 30 days.")
+   ```
+
+   This script runs the AWS CLI command to list all active Reserved Instances, parses the output, and checks if the end date of each Reserved Instance is within the next 30 days. If it is, it prints a message with the ID of the Reserved Instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You need to set up your AWS credentials. You can set your credentials for use by Boto3 in several ways, but the simplest is to use the AWS CLI tool to configure them:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to list all EC2 Reserved Instances and their expiration dates:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create a client
+ec2 = boto3.client('ec2')
+
+# Get the list of all reserved instances
+reservations = ec2.describe_reserved_instances()['ReservedInstances']
+
+# Get the current date
+now = datetime.now()
+
+# Check each reserved instance
+for ri in reservations:
+    # Get the end date of the reserved instance
+    end_date = ri['End']
+    
+    # Calculate the difference between the end date and the current date
+    diff = end_date - now
+    
+    # If the difference is less than 30 days, print the ID of the reserved instance
+    if diff.days < 30:
+        print("Reserved Instance ID: ", ri['ReservedInstancesId'])
+```
+
+4. Run the script: You can run the script using any Python interpreter. The script will print the IDs of all EC2 Reserved Instances that will expire in the next 30 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

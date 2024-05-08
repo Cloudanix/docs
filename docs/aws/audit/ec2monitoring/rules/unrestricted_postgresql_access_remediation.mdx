@@ -1,6 +1,80 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, select 'Security Groups'. This will display a list of all security groups associated with your EC2 instances.
+3. For each security group, select it and then click on the 'Inbound Rules' tab in the lower panel. This will display a list of all inbound rules associated with the selected security group.
+4. Check the inbound rules for any that allow unrestricted access (0.0.0.0/0) to PostgreSQL (default port 5432). If such a rule exists, it indicates that unrestricted PostgreSQL access is allowed, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the security groups in your AWS environment. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+```
+
+2. Once you have the list of all security groups, you need to check the inbound rules for each security group. You can do this by using the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]' --output json
+```
+Replace `<security-group-id>` with the ID of the security group you want to check.
+
+3. In the output of the above command, look for any rules that allow access to port 5432 (the default port for PostgreSQL) from any IP address (0.0.0.0/0 or ::/0). 
+
+4. If such a rule exists, it means that unrestricted PostgreSQL access is allowed, which is a misconfiguration. If no such rule exists, then unrestricted PostgreSQL access is not allowed, which is the correct configuration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The Boto3 library is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write the Python script: Now you can write a Python script that uses the Boto3 library to check for unrestricted PostgreSQL access in EC2. Here is a simple script that checks for security groups with unrestricted access:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   # Check each security group
+   for security_group in ec2.security_groups.all():
+       # Check each rule in the security group
+       for rule in security_group.ip_permissions:
+           # Check if the rule allows unrestricted access to PostgreSQL
+           if rule['FromPort'] == 5432 and rule['ToPort'] == 5432:
+               for ip_range in rule['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security group {security_group.id} allows unrestricted PostgreSQL access.")
+   ```
+
+4. Run the script: Finally, you can run the script using Python. The script will print out the IDs of any security groups that allow unrestricted access to PostgreSQL:
+
+   ```bash
+   python check_postgresql_access.py
+   ```
+
+This script only checks for IPv4 addresses. If you also want to check for unrestricted access from IPv6 addresses, you would need to check the 'Ipv6Ranges' field in the rule.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

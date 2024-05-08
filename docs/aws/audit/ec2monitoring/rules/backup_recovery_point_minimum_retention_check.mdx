@@ -23,6 +23,78 @@ CBP,RBI_MD_ITF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under 'ELASTIC BLOCK STORE', click on 'Snapshots'.
+3. Here, you can see all the snapshots that are currently available in your AWS account. Each snapshot will have details like Snapshot ID, Volume ID, State, Started (date and time), Volume Size, Description, Tags, etc.
+4. To check the Recovery Point Retention, you need to look at the 'Started' column. This column shows the date and time when the snapshot was taken. If the snapshot is too old, it might indicate that the Recovery Point Retention should be reviewed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all the EC2 instances: Use the following command to list all the EC2 instances in your AWS account.
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+
+3. List all the snapshots for each EC2 instance: For each EC2 instance, you need to list all the snapshots. You can do this by running the following command for each instance ID.
+
+   ```
+   aws ec2 describe-snapshots --owner-ids self --filters Name=volume-id,Values=<volume-id> --query 'Snapshots[*].[SnapshotId,StartTime]' --output text
+   ```
+
+   Replace `<volume-id>` with the volume ID of the EC2 instance.
+
+4. Review the retention period of each snapshot: The output of the previous command includes the creation time of each snapshot. You can review these times to determine the retention period of each snapshot. If the retention period is longer than necessary, it may indicate a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries**: The first step is to import the necessary libraries in your Python script. You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. **Create a session**: The next step is to create a session using your AWS credentials. You can do this by using the Session function in boto3. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. **Connect to the EC2 service**: Now, you can connect to the EC2 service using the session object you created in the previous step. 
+
+```python
+ec2_resource = session.resource('ec2')
+```
+
+4. **Check Recovery Point Retention**: Finally, you can check the recovery point retention for each instance. You can do this by iterating over all instances and checking the 'RetentionPeriod' attribute. If the retention period is not set or is set to a value that is too low, you have detected a misconfiguration.
+
+```python
+for instance in ec2_resource.instances.all():
+    try:
+        recovery_point = instance.describe_attribute('RetentionPeriod')
+        if not recovery_point or recovery_point < YOUR_DESIRED_VALUE:
+            print(f"Instance {instance.id} has a misconfigured recovery point retention.")
+    except Exception as e:
+        print(f"Error checking instance {instance.id}: {e}")
+```
+
+Replace 'YOUR_DESIRED_VALUE' with the minimum acceptable recovery point retention period for your use case.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
