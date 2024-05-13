@@ -24,102 +24,56 @@ HIPAA, GDPR, CISAWS, CBP, NIST
 
 #### Using Console
 
-To remediate the misconfiguration of "Notebook Data Encrypted" for AWS DynamoDB using the AWS console, follow these step-by-step instructions:
-
-1. **Login to AWS Console**: Go to the AWS Management Console (https://aws.amazon.com/console/) and log in with your credentials.
-
-2. **Navigate to DynamoDB**: From the AWS Management Console, search for "DynamoDB" in the services search bar and click on the DynamoDB service to open it.
-
-3. **Select the Table**: In the DynamoDB dashboard, select the table that contains the notebook data that needs to be encrypted.
-
-4. **Enable Server-Side Encryption**: Click on the "Manage" tab in the table details page, then click on the "Advanced settings" tab.
-
-5. **Enable Encryption**: Scroll down to the "Encryption at rest" section and click on the "Edit" button.
-
-6. **Choose Encryption Type**: In the encryption settings, select the option for "Enable encryption at rest" and choose the encryption type you prefer (e.g., AWS managed CMK or Customer managed CMK).
-
-7. **Save Changes**: After selecting the encryption type, click on the "Save" button to apply the encryption settings to the DynamoDB table.
-
-8. **Monitor Encryption Status**: Once the encryption settings are saved, monitor the DynamoDB table to ensure that the encryption is successfully applied to the notebook data.
-
-By following these steps, you can remediate the misconfiguration of "Notebook Data Encrypted" for AWS DynamoDB using the AWS console and ensure that your data is encrypted at rest for improved security.
+1. Go to the Amazon SQS console.
+2. Navigate to the list of queues.
+3. Select the queue encrypted with `ALIAS/AWS/SQS`.
+4. Click "Configure queue".
+5. Under "Queue encryption", select "Use customer managed CMK".
+6. Choose or create a customer managed CMK from the list.
+7. Click "Save changes".
 
 #### Using CLI
+```bash
+aws sqs set-queue-attributes --queue-url <queue-url> --attributes KmsMasterKeyId=<new-cmk-arn>
+```
 
-To remediate the misconfiguration of notebook data being encrypted in AWS DynamoDB using AWS CLI, follow these steps:
+### Using Python
 
-1. **Enable Encryption at Rest for DynamoDB Tables**:
-   - Run the following AWS CLI command to enable encryption at rest for the DynamoDB table:
-     ```
-     aws dynamodb update-table \
-     --table-name YOUR_TABLE_NAME \
-     --sse-specification Enabled=true \
-     --endpoint-url YOUR_DYNAMODB_ENDPOINT_URL
-     ```
-   - Replace `YOUR_TABLE_NAME` with the name of your DynamoDB table.
-   - Replace `YOUR_DYNAMODB_ENDPOINT_URL` with the endpoint URL of your DynamoDB table.
+```python
+import boto3
 
-2. **Verify Encryption at Rest**:
-   - To verify that encryption at rest is enabled for the DynamoDB table, describe the table using the following command:
-     ```
-     aws dynamodb describe-table \
-     --table-name YOUR_TABLE_NAME \
-     --endpoint-url YOUR_DYNAMODB_ENDPOINT_URL
-     ```
-   - Ensure that the `SSEDescription` field shows encryption is enabled.
+def enable_queue_encryption(queue_url, new_cmk_arn):
+    client = boto3.client('sqs')
+    response = client.get_queue_attributes(
+        QueueUrl=queue_url,
+        AttributeNames=['All']
+    )
+    client.set_queue_attributes(
+        QueueUrl=queue_url,
+        Attributes={
+            'KmsMasterKeyId': new_cmk_arn
+        }
+    )
+    print(f"Encryption enabled for queue: {queue_url}")
 
-3. **Update IAM Policy** (Optional):
-   - If needed, update the IAM policy associated with the DynamoDB table to ensure that only authorized users and services have access to the data.
+def main():
+    client = boto3.client('sqs')
+    response = client.list_queues()
+    for queue_url in response['QueueUrls']:
+        response = client.get_queue_attributes(
+            QueueUrl=queue_url,
+            AttributeNames=['KmsMasterKeyId']
+        )
+        kms_key_id = response.get('Attributes', {}).get('KmsMasterKeyId', '')
+        if kms_key_id.upper() == 'ALIAS/AWS/SQS':
+            new_cmk_arn = '<new-cmk-arn>'
+            enable_queue_encryption(queue_url, new_cmk_arn)
 
-By following these steps, you can remediate the misconfiguration of notebook data being encrypted in AWS DynamoDB using AWS CLI.
+if __name__ == "__main__":
+    main()
+```
 
-#### Using Python
-
-To remediate the misconfiguration of "Notebook Data Encrypted" for AWS DynamoDB using Python, you can follow these steps:
-
-1. Enable Encryption at Rest for DynamoDB Tables:
-   - Use the AWS SDK for Python (Boto3) to update the DynamoDB table to enable encryption at rest.
-   - Ensure that you have the necessary permissions (e.g., `dynamodb:UpdateTable`) to make changes to the DynamoDB table.
-
-2. Install Boto3:
-   - If you haven't already installed the Boto3 library, you can install it using pip:
-     ```
-     pip install boto3
-     ```
-
-3. Update the DynamoDB Table Encryption Configuration:
-   - Use the following Python script to update the encryption settings for the DynamoDB table. Replace `table_name` with the name of your DynamoDB table.
-   
-     ```python
-     import boto3
-
-     # Initialize the DynamoDB client
-     dynamodb_client = boto3.client('dynamodb')
-
-     # Specify the name of the DynamoDB table to update
-     table_name = 'YOUR_TABLE_NAME'
-
-     # Enable encryption at rest for the DynamoDB table
-     response = dynamodb_client.update_table(
-         TableName=table_name,
-         SSESpecification={
-             'Enabled': True
-         }
-     )
-
-     print(f"Encryption at rest enabled for DynamoDB table: {table_name}")
-     ```
-
-4. Run the Python Script:
-   - Save the above Python script in a file (e.g., `enable_dynamodb_encryption.py`) and run it using the Python interpreter.
-     ```
-     python enable_dynamodb_encryption.py
-     ```
-
-5. Verify Encryption Configuration:
-   - After running the script, verify that encryption at rest is enabled for the specified DynamoDB table by checking the table settings in the AWS Management Console or using the AWS CLI.
-
-By following these steps, you can remediate the misconfiguration of "Notebook Data Encrypted" for AWS DynamoDB by enabling encryption at rest for the DynamoDB table using Python and the Boto3 SDK.
+Replace `<new-cmk-arn>` with the ARN of the new customer managed CMK.
 
 ### Additional Reading:
 
