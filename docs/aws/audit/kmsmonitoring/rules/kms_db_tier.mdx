@@ -23,6 +23,124 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases" to navigate to the databases section.
+
+3. Select the database instance that you want to check. In the details section, look for the "KMS key ID" field. If the field is empty or not present, it means that the database-tier KMS key is not in use.
+
+4. To further verify, you can go to the AWS Key Management Service (KMS) console at https://console.aws.amazon.com/kms/. Check if the key ID mentioned in the RDS database details is present and enabled in the KMS console. If it's not, then the KMS key is not in use for the selected database instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the RDS instances in your AWS account. You can do this by using the AWS CLI command:
+
+```bash
+aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]' --output text
+```
+
+2. Once you have the list of RDS instances, you can check the KMS key associated with each instance. This can be done using the following command:
+
+```bash
+aws rds describe-db-instances --db-instance-identifier <DBInstanceIdentifier> --query 'DBInstances[*].[KmsKeyId]' --output text
+```
+Replace `<DBInstanceIdentifier>` with the actual identifier of the RDS instance.
+
+3. If the output of the above command is `None`, it means that the RDS instance is not using a KMS key. If it returns a KMS key ID, it means that the RDS instance is using that KMS key.
+
+4. To ensure that the KMS key is in use, you can list all the grants for the KMS key using the following command:
+
+```bash
+aws kms list-grants --key-id <KmsKeyId> --query 'Grants[*].[GranteePrincipal]' --output text
+```
+Replace `<KmsKeyId>` with the actual KMS key ID. If the output includes the ARN of the RDS instance, it means that the KMS key is in use by the RDS instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if a Database-tier KMS Key is in use in AWS KMS using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Setup AWS SDK for Python (Boto3):**
+   First, you need to set up Boto3. Install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. **List all KMS keys:**
+   Use the `list_keys` method to retrieve all KMS keys. Here's a sample script:
+   ```python
+   import boto3
+
+   # Create a client
+   kms = boto3.client('kms')
+
+   # List keys
+   response = kms.list_keys()
+
+   # Print the keys
+   for key in response['Keys']:
+       print(key['KeyId'])
+   ```
+
+3. **Check if the key is used by RDS instances:**
+   Use the `describe_db_instances` method from the RDS client to list all RDS instances and their KMS key IDs. Here's a sample script:
+   ```python
+   import boto3
+
+   # Create a client
+   rds = boto3.client('rds')
+
+   # List RDS instances
+   response = rds.describe_db_instances()
+
+   # Print the KMS key ID for each instance
+   for instance in response['DBInstances']:
+       print(instance['KmsKeyId'])
+   ```
+
+4. **Compare the keys:**
+   Compare the keys from step 2 and step 3. If a key from step 2 is not found in step 3, it means that the key is not used by any RDS instance. Here's a sample script:
+   ```python
+   import boto3
+
+   # Create KMS and RDS clients
+   kms = boto3.client('kms')
+   rds = boto3.client('rds')
+
+   # List keys
+   kms_response = kms.list_keys()
+
+   # List RDS instances
+   rds_response = rds.describe_db_instances()
+
+   # Get the KMS key IDs
+   kms_keys = [key['KeyId'] for key in kms_response['Keys']]
+
+   # Get the KMS key IDs used by RDS instances
+   rds_keys = [instance['KmsKeyId'] for instance in rds_response['DBInstances']]
+
+   # Find the keys that are not used by RDS instances
+   unused_keys = set(kms_keys) - set(rds_keys)
+
+   # Print the unused keys
+   for key in unused_keys:
+       print(key)
+   ```
+   This script will print the IDs of the KMS keys that are not used by any RDS instance.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
