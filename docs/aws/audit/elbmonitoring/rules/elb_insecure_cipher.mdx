@@ -24,6 +24,97 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the load balancer that you want to check.
+
+4. In the bottom panel, select the "Listeners" tab.
+
+5. In the "Cipher" column, click on the "Change" link. This will open a pop-up window with the SSL Negotiation settings.
+
+6. In the pop-up window, check the Predefined Security Policy. If the policy includes insecure ciphers, then the ELB is misconfigured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. After installation, you can configure it using the command `aws configure`. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all the Load Balancers: Use the following command to list all the load balancers in your AWS account.
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON output with details of all the load balancers.
+
+3. Describe the SSL policies: For each load balancer, describe the SSL policies using the following command. Replace `policy-name` with the name of the SSL policy you want to check.
+
+   ```
+   aws elbv2 describe-ssl-policies --names policy-name
+   ```
+
+   This command will return a JSON output with details of the SSL policy, including the enabled SSL protocols, ciphers, and the SSL negotiation policy.
+
+4. Check for insecure ciphers: In the JSON output, look for the `Ciphers` field. This field contains a list of all the ciphers enabled for the SSL policy. Check if any of the ciphers in this list are considered insecure. If any insecure ciphers are found, then the ELB is misconfigured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the AWS SDK for Python (Boto3). You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. Inside this file, you should include your Access Key ID and Secret Access Key:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check for insecure ciphers: The following script will list all the ELBs and their associated policies. It will then check each policy to see if it includes any insecure ciphers:
+
+   ```python
+   import boto3
+
+   elb = boto3.client('elbv2')
+
+   # Get all load balancers
+   load_balancers = elb.describe_load_balancers()
+   
+   for lb in load_balancers['LoadBalancers']:
+       # Get the policies associated with each load balancer
+       policies = elb.describe_ssl_policies(
+           Names=[
+               lb['PolicyNames'],
+           ]
+       )
+       for policy in policies['SslPolicies']:
+           # Check if the policy includes any insecure ciphers
+           for cipher in policy['Ciphers']:
+               if cipher['Name'] in ['RC4', 'DES', 'MD5', 'DH', 'aNULL', 'eNULL', 'LOW', 'EXP']:
+                   print(f"Insecure cipher {cipher['Name']} found in policy {policy['Name']} for load balancer {lb['LoadBalancerName']}")
+   ```
+
+4. Run the script: You can run the script using the Python command in your terminal:
+
+   ```bash
+   python check_insecure_ciphers.py
+   ```
+
+This script will print out a message for each insecure cipher it finds, along with the name of the policy and load balancer where it was found.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
