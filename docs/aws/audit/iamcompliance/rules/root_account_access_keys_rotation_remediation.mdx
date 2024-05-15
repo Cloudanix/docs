@@ -1,6 +1,103 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users".
+
+3. In the "User Name" list, choose the name of the desired user, which will take you to the "Summary" page for that user.
+
+4. In the "Security Credentials" section, you can see the access keys and their status. If the access keys are older than 90 days, it indicates that they have not been rotated and this is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation: `pip install awscli`
+   
+   Configuration: `aws configure`
+
+2. List all IAM users: Use the following command to list all the IAM users in your AWS account:
+
+   `aws iam list-users --query 'Users[*].UserName' --output text`
+
+3. For each user, list all access keys: For each IAM user, you can list all their access keys using the following command:
+
+   `aws iam list-access-keys --user-name <username>`
+
+   Replace `<username>` with the actual username.
+
+4. Check the age of each access key: For each access key, you can check its age using the following command:
+
+   `aws iam get-access-key-last-used --access-key-id <accessKeyId>`
+
+   Replace `<accessKeyId>` with the actual access key ID. The `CreateDate` field in the output indicates when the access key was last rotated. If it's more than 90 days old, it's a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3). You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create an IAM client and retrieve all the users:
+
+```python
+# Create an IAM client
+iam = session.client('iam')
+
+# Retrieve all users
+try:
+    users = iam.list_users()
+except ClientError as e:
+    print(f"Unexpected error: {e}")
+```
+
+4. For each user, retrieve the access keys and check the creation date. If the creation date is older than 90 days, print a warning message:
+
+```python
+from datetime import datetime, timedelta
+
+# Check each user
+for user in users['Users']:
+    # Retrieve the access keys
+    access_keys = iam.list_access_keys(UserName=user['UserName'])
+
+    # Check each access key
+    for key in access_keys['AccessKeyMetadata']:
+        # Calculate the age of the key
+        age = datetime.now(tz=key['CreateDate'].tzinfo) - key['CreateDate']
+
+        # If the key is older than 90 days, print a warning
+        if age > timedelta(days=90):
+            print(f"WARNING: The access key {key['AccessKeyId']} for user {user['UserName']} is {age.days} days old and should be rotated.")
+```
+
+This script will help you detect if any IAM user's access keys are older than 90 days and should be rotated.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,101 @@ CISAWS, CBP, HIPAA, SOC2, ISO27001, HITRUST, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users". This will display a list of all IAM users that are currently set up for your AWS account.
+
+3. For each user, click on the user name to open the user's "Summary" page. Here, you can see the "Access Advisor" tab which shows the service permissions granted to the user and when those services were last accessed.
+
+4. If the "Last accessed" column shows "No activity", it means the user account has not been used to make an AWS request. If the user account has not been used for a long period of time, it may be a misconfiguration and should be reviewed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation: `pip install awscli`
+   
+   Configuration: `aws configure`
+
+2. List all IAM users: Use the following command to list all the IAM users in your AWS account:
+
+   `aws iam list-users`
+
+3. Check the last activity of each user: For each user, you can check their last activity date by using the following command:
+
+   `aws iam get-user --user-name <username>`
+
+   Replace `<username>` with the name of the user. This command will return a JSON object that includes the `PasswordLastUsed` field, which indicates the last time the user logged in to the AWS Management Console.
+
+4. Analyze the output: If the `PasswordLastUsed` field is not present or the date is too old, it means the user account has not been used for a long time and should be considered for removal.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a connection with AWS:**
+   You need to import the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You also need to establish a connection with AWS using your access keys.
+
+   ```python
+   import boto3
+   import datetime
+   from dateutil.tz import tzutc
+
+   # Create IAM client
+   iam = boto3.client(
+       'iam',
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       aws_session_token='SESSION_TOKEN',
+   )
+   ```
+
+2. **Fetch all the IAM users:**
+   Use the `list_users` function to fetch all the IAM users.
+
+   ```python
+   users = iam.list_users()
+   ```
+
+3. **Check the last activity of each user:**
+   For each user, you need to check their last activity. You can do this by using the `get_user` function and checking the `PasswordLastUsed` field. If this field is not present or the date is older than your threshold (e.g., 90 days), then the user is not active.
+
+   ```python
+   for user in users['Users']:
+       user_detail = iam.get_user(UserName=user['UserName'])
+       if 'PasswordLastUsed' in user_detail['User']:
+           last_used = user_detail['User']['PasswordLastUsed']
+           if last_used < datetime.datetime.now(tzutc()) - datetime.timedelta(days=90):
+               print(f"User {user['UserName']} is inactive")
+       else:
+           print(f"User {user['UserName']} has never logged in")
+   ```
+
+4. **Check for access key usage:**
+   Some users might not log in via the console but might use access keys instead. You need to check the last used date of all access keys of each user. If all access keys are inactive, then the user is inactive.
+
+   ```python
+   for user in users['Users']:
+       access_keys = iam.list_access_keys(UserName=user['UserName'])
+       for key in access_keys['AccessKeyMetadata']:
+           last_used_response = iam.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])
+           if 'LastUsedDate' in last_used_response['AccessKeyLastUsed']:
+               last_used = last_used_response['AccessKeyLastUsed']['LastUsedDate']
+               if last_used < datetime.datetime.now(tzutc()) - datetime.timedelta(days=90):
+                   print(f"Access key {key['AccessKeyId']} of user {user['UserName']} is inactive")
+           else:
+               print(f"Access key {key['AccessKeyId']} of user {user['UserName']} has never been used")
+   ```
+   
+This script will print out all the users and access keys that are inactive. You can then decide what to do with these users and keys.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

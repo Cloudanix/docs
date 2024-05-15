@@ -1,6 +1,104 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the IAM dashboard by selecting "Services" and then "IAM" under the "Security, Identity, & Compliance" section.
+3. In the IAM dashboard, select "SSL/TLS certificates" from the left-hand navigation pane.
+4. Here, you can see all the SSL/TLS certificates associated with your account. Check the expiration dates of these certificates. If any of them are close to their expiration date or have already expired, it indicates that the ELB Certificates need to be rotated.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the server certificates in IAM using the following command:
+
+   ```
+   aws iam list-server-certificates
+   ```
+
+   This command will return a JSON object that contains all the server certificates.
+
+3. To check the expiration date of each certificate, you can use the following command:
+
+   ```
+   aws iam get-server-certificate --server-certificate-name {certificate-name}
+   ```
+
+   Replace `{certificate-name}` with the name of the certificate you want to check. This command will return a JSON object that contains the details of the certificate, including the expiration date.
+
+4. You can then write a Python script to parse the JSON object and check if the certificate is expired or not. Here is a simple example:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime
+
+   # Run the AWS CLI command and get the output
+   output = subprocess.check_output(['aws', 'iam', 'get-server-certificate', '--server-certificate-name', 'your-certificate-name'])
+
+   # Parse the JSON output
+   data = json.loads(output)
+
+   # Get the expiration date
+   expiration_date = data['ServerCertificate']['ServerCertificateMetadata']['Expiration']
+
+   # Convert the expiration date to a datetime object
+   expiration_date = datetime.strptime(expiration_date, '%Y-%m-%dT%H:%M:%S%z')
+
+   # Check if the certificate is expired
+   if expiration_date < datetime.now():
+       print('The certificate is expired.')
+   else:
+       print('The certificate is not expired.')
+   ```
+
+   Replace `'your-certificate-name'` with the name of your certificate. This script will print whether the certificate is expired or not.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+```
+
+2. Create an AWS session using boto3: You can create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'region_name' with your AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Connect to the IAM service: You can use the session object to connect to the IAM service.
+
+```python
+client = session.client('iam')
+```
+
+4. Check the certificate rotation: You can use the client object to list all the server certificates and check their rotation status. If the certificate is older than 90 days, print a warning message.
+
+```python
+response = client.list_server_certificates()
+
+for certificate in response['ServerCertificateMetadataList']:
+    if (datetime.now() - certificate['UploadDate']).days > 90:
+        print(f"Warning: The certificate {certificate['ServerCertificateName']} should be rotated.")
+```
+
+This script will print a warning message for all the server certificates that are older than 90 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
