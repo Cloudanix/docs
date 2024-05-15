@@ -23,6 +23,87 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard by choosing "Elasticsearch Service" from the "Services" dropdown menu.
+3. In the Amazon Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains. Click on the domain name that you want to check.
+4. In the domain dashboard, navigate to the "Access Policy" section. Here, you can see the access policy for the domain. If the policy allows access from AWS accounts other than your own, then the Elasticsearch domain is misconfigured to allow cross-account access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI. Make sure you have the necessary permissions to access the Elasticsearch domains.
+
+2. Use the following command to list all the Elasticsearch domains:
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domain names.
+
+3. For each domain, you need to check the access policy. Use the following command:
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name <your-domain-name>
+   ```
+   Replace `<your-domain-name>` with the name of your domain. This command will return the configuration information for the specified Amazon Elasticsearch domain, including the domain ID, domain endpoint, and domain ARN.
+
+4. In the output of the above command, look for the `AccessPolicies` field. This field contains the access policies for the domain. If the `Principal` field in the access policy contains an AWS account ID other than the current account or `'*'` (which allows access from any AWS account), then the Elasticsearch domain allows cross-account access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError
+```
+
+2. Create a session using your AWS credentials. You can configure credentials in the AWS credentials profile file on your local system.
+
+```python
+session = boto3.Session(profile_name='prod')
+es_client = session.client('es')
+```
+
+3. List all Elasticsearch domains and check their access policies. The `list_domain_names` method returns all Elasticsearch domains owned by the current user's account.
+
+```python
+def check_es_domains():
+    domains = es_client.list_domain_names()
+    for domain in domains['DomainNames']:
+        domain_name = domain['DomainName']
+        domain_config = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+        access_policies = domain_config['DomainStatus']['AccessPolicies']
+        check_access_policy(access_policies, domain_name)
+```
+
+4. Define the `check_access_policy` function. This function will parse the access policy of each domain and check if it allows cross-account access. If it does, it will print a warning message.
+
+```python
+import json
+
+def check_access_policy(policy, domain_name):
+    policy = json.loads(policy)
+    statements = policy['Statement']
+    for statement in statements:
+        if statement['Effect'] == 'Allow' and 'AWS' in statement['Principal']:
+            aws_accounts = statement['Principal']['AWS']
+            if isinstance(aws_accounts, list) and len(aws_accounts) > 1:
+                print(f"Warning: Elasticsearch domain {domain_name} allows cross-account access.")
+            elif isinstance(aws_accounts, str) and aws_accounts != '*':
+                print(f"Warning: Elasticsearch domain {domain_name} allows cross-account access.")
+```
+
+This script will check all Elasticsearch domains in the specified AWS account and print a warning message for each domain that allows cross-account access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
