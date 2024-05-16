@@ -23,6 +23,96 @@ CBP,RBI_MD_ITF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes services are running.
+
+3. Select the service you want to inspect and click on the "Task Definitions" tab.
+
+4. In the Task Definitions section, select the task definition associated with your service. In the task definition details, check the "User" field under the "Container Definitions" section. If the user is set to "root", then the ECS task is running as root.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS access key ID, secret access key, default region name, and default output format.
+
+2. List the ECS tasks: Use the following command to list all the ECS tasks in a specific cluster.
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your cluster. This command will return a list of task ARNs.
+
+3. Describe the tasks: For each task ARN returned by the previous command, use the following command to get more information about the task.
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object containing detailed information about the task.
+
+4. Check the user: In the JSON object returned by the previous command, look for the `user` field under `containerDefinitions`. If the value of this field is `root`, then the task is running as the root user.
+
+   ```
+   "containerDefinitions": [
+       {
+           ...
+           "user": "root",
+           ...
+       }
+   ]
+   ```
+
+   If you see `root` as the user, then the ECS task is misconfigured and is running as the root user.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: You will need the boto3 library to interact with AWS services, and the kubernetes library to interact with Kubernetes. You can install these libraries using pip:
+
+```python
+pip install boto3
+pip install kubernetes
+```
+
+2. Connect to the AWS ECS service: Use the boto3 library to create a client for the ECS service. You will need to provide your AWS credentials (access key, secret access key, and region) to do this:
+
+```python
+import boto3
+
+aws_access_key_id = 'YOUR_ACCESS_KEY'
+aws_secret_access_key = 'YOUR_SECRET_KEY'
+region_name = 'YOUR_REGION'
+
+ecs_client = boto3.client('ecs', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=region_name)
+```
+
+3. List all the ECS tasks: Use the list_tasks method of the ECS client to get a list of all the tasks in your ECS cluster:
+
+```python
+cluster = 'YOUR_CLUSTER_NAME'
+tasks = ecs_client.list_tasks(cluster=cluster)
+```
+
+4. Check the user of each task: For each task in the list, use the describe_tasks method to get detailed information about the task, and check the 'user' field of the task definition. If the user is 'root', then the task is misconfigured:
+
+```python
+for task in tasks['taskArns']:
+    task_info = ecs_client.describe_tasks(cluster=cluster, tasks=[task])
+    for task in task_info['tasks']:
+        task_def = ecs_client.describe_task_definition(taskDefinition=task['taskDefinitionArn'])
+        if 'user' in task_def['taskDefinition']['containerDefinitions'][0] and task_def['taskDefinition']['containerDefinitions'][0]['user'] == 'root':
+            print(f"Task {task['taskArn']} is running as root")
+```
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
