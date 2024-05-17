@@ -23,6 +23,99 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, select "Hosted zones". This will display a list of all the domains that you manage with Amazon Route 53.
+3. Click on the domain name that you want to check. This will open the "Record sets" for that domain.
+4. Look for any CNAME records that point to an Elastic Beanstalk environment. Check if the Elastic Beanstalk environment is still active. If the environment is inactive but the CNAME record still exists, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install AWS CLI on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all hosted zones: Use the following command to list all the hosted zones in your AWS account:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+   This command will return a list of all the hosted zones along with their IDs.
+
+3. List all the record sets for a hosted zone: Once you have the ID of the hosted zone, you can list all the record sets for that hosted zone using the following command:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+   ```
+   Replace `<hosted-zone-id>` with the ID of your hosted zone. This command will return a list of all the record sets in the hosted zone.
+
+4. Check for vulnerable CNAME records: Go through the list of record sets and look for any CNAME records that point to an Elastic Beanstalk environment. If the CNAME record is not associated with an active Elastic Beanstalk environment, it is vulnerable. The record sets will be in the following format:
+
+   ```
+   {
+       "ResourceRecords": [
+           {
+               "Value": "myapp.elasticbeanstalk.com"
+           }
+       ],
+       "Type": "CNAME",
+       "Name": "www.mydomain.com.",
+       "TTL": 300
+   }
+   ```
+   If the `Value` field points to an Elastic Beanstalk environment that is not active, the CNAME record is vulnerable.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can do this by running the command `pip install boto3` in your terminal.
+
+2. Import the necessary libraries and initialize the AWS clients for Elastic Beanstalk and Route53. Here's a sample script:
+
+```python
+import boto3
+
+# Initialize the clients
+eb_client = boto3.client('elasticbeanstalk')
+route53_client = boto3.client('route53')
+```
+
+3. Fetch all the Elastic Beanstalk environments and their CNAMEs, then check if these CNAMEs are present in Route53 hosted zones. Here's a sample script:
+
+```python
+# Fetch all Elastic Beanstalk environments
+eb_environments = eb_client.describe_environments()
+
+for environment in eb_environments['Environments']:
+    # Get the CNAME of the environment
+    cname = environment['CNAME']
+
+    # Fetch all Route53 hosted zones
+    hosted_zones = route53_client.list_hosted_zones()
+
+    for zone in hosted_zones['HostedZones']:
+        # Get the records in the hosted zone
+        records = route53_client.list_resource_record_sets(HostedZoneId=zone['Id'])
+
+        for record in records['ResourceRecordSets']:
+            # Check if the CNAME is present in the records
+            if record['Type'] == 'CNAME' and cname in record['ResourceRecords']:
+                print(f"Vulnerable CNAME found: {cname}")
+```
+
+4. Run the script. If any Elastic Beanstalk CNAMEs are found in Route53 records, they will be printed out. This indicates a potential misconfiguration, as it means the Elastic Beanstalk environment can be hijacked by adding a record in Route53.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
