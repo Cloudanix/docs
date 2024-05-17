@@ -22,6 +22,87 @@ HIPAA,GDPR,NIST,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" from the top menu and then selecting "RDS" under the "Database" category.
+3. In the navigation pane on the left, click on "Snapshots". This will display a list of all the snapshots for your RDS instances.
+4. For each snapshot, check the "Encryption" column. If the value is "Not Enabled" or "Disabled", then the Neptune Cluster snapshot is not encrypted.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all Neptune Clusters: Use the following AWS CLI command to list all the Neptune clusters in your AWS account:
+
+   ```
+   aws rds describe-db-clusters --query 'DBClusters[*].[DBClusterIdentifier]' --output text
+   ```
+
+   This command will return a list of all Neptune cluster identifiers.
+
+3. Check the encryption status of each Neptune Cluster: For each Neptune cluster, you need to check if it has encrypted snapshots. You can do this by running the following AWS CLI command:
+
+   ```
+   aws rds describe-db-cluster-snapshots --db-cluster-identifier <DBClusterIdentifier> --query 'DBClusterSnapshots[*].[DBClusterSnapshotIdentifier,StorageEncrypted]' --output text
+   ```
+
+   Replace `<DBClusterIdentifier>` with the identifier of the Neptune cluster you want to check. This command will return a list of all snapshots for the specified Neptune cluster along with their encryption status. If the `StorageEncrypted` field is `false` for any snapshot, then that snapshot is not encrypted.
+
+4. Automate the process with a script: If you have many Neptune clusters, it might be more efficient to automate the process with a Python script. You can use the `boto3` library to interact with AWS services. The script would iterate over all Neptune clusters and check the encryption status of their snapshots. If it finds any unencrypted snapshots, it could print a warning message or take some other action.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if Neptune Clusters Snapshots are encrypted in RDS using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including Amazon RDS. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+2. **Create a client for Amazon RDS:**
+
+```python
+rds = session.client('rds')
+```
+
+3. **Retrieve all DB snapshots and check their encryption status:**
+
+```python
+def check_encryption():
+    snapshots = rds.describe_db_snapshots()['DBSnapshots']
+    for snapshot in snapshots:
+        if snapshot['Engine'] == 'neptune':
+            if 'KmsKeyId' in snapshot:
+                print(f"Snapshot {snapshot['DBSnapshotIdentifier']} is encrypted with KMS Key {snapshot['KmsKeyId']}")
+            else:
+                print(f"Snapshot {snapshot['DBSnapshotIdentifier']} is not encrypted")
+```
+
+4. **Call the function to start the check:**
+
+```python
+check_encryption()
+```
+
+This script will print out the encryption status of all Neptune cluster snapshots. If a snapshot is encrypted, it will also print out the ID of the KMS key used for encryption. If a snapshot is not encrypted, it will simply state that it is not encrypted.
+
+Please replace `'YOUR_ACCESS_KEY'` and `'YOUR_SECRET_KEY'` with your actual AWS access key and secret key. Also, you may need to change the `region_name` depending on where your resources are located.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

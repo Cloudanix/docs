@@ -22,6 +22,76 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" from the top menu and then selecting "RDS" under the "Database" category.
+3. In the RDS dashboard, select "Databases" from the left-hand side menu. This will display a list of all your DB instances.
+4. For each Aurora DB cluster, check the "Latest restorable time" field under the "Details" section. This field indicates the most recent time to which you can restore the DB cluster. If this field is not recent or does not exist, it means the DB cluster does not have a recovery point.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List all DB Clusters**: Use the `describe-db-clusters` command to list all the DB clusters in your AWS account. The command is as follows:
+
+    ```
+    aws rds describe-db-clusters --query 'DBClusters[*].[DBClusterIdentifier]' --output text
+    ```
+
+    This command will return a list of all DB cluster identifiers.
+
+3. **Check Recovery Point**: For each DB cluster identifier returned from the previous step, use the `describe-db-cluster-snapshots` command to list all the snapshots of the DB cluster. The command is as follows:
+
+    ```
+    aws rds describe-db-cluster-snapshots --db-cluster-identifier <DBClusterIdentifier> --query 'DBClusterSnapshots[*].[SnapshotCreateTime]' --output text
+    ```
+
+    Replace `<DBClusterIdentifier>` with the actual DB cluster identifier. This command will return a list of snapshot creation times.
+
+4. **Analyze the Output**: If the `describe-db-cluster-snapshots` command returns no results or the latest snapshot is older than your recovery point objective, then the DB cluster does not have a recovery point. If the command returns at least one snapshot and the latest snapshot is within your recovery point objective, then the DB cluster has a recovery point.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import Necessary Libraries**: The first step is to import the necessary libraries in your Python script. You will need the `boto3` library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. **Create a Session**: The next step is to create a session using your AWS credentials. You can do this by using the `Session` function in the `boto3` library. Replace `'my_access_key'`, `'my_secret_key'`, and `'my_region'` with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='my_access_key',
+    aws_secret_access_key='my_secret_key',
+    region_name='my_region'
+)
+```
+
+3. **Connect to the RDS Service**: Now that you have a session, you can connect to the RDS service. You can do this by using the `client` function in your session object.
+
+```python
+rds = session.client('rds')
+```
+
+4. **Check for Recovery Point**: Finally, you can check for the recovery point of your Aurora DB clusters. You can do this by using the `describe_db_clusters` function in your RDS client object. This function returns a list of DB clusters. For each DB cluster, you can check the `EarliestRestorableTime` attribute. If this attribute is not set, then the DB cluster does not have a recovery point.
+
+```python
+clusters = rds.describe_db_clusters()
+for cluster in clusters['DBClusters']:
+    if 'EarliestRestorableTime' not in cluster:
+        print(f"DB cluster {cluster['DBClusterIdentifier']} does not have a recovery point.")
+```
+
+This script will print out the identifiers of all DB clusters that do not have a recovery point.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 <AccordionGroup>

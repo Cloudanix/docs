@@ -1,6 +1,79 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" from the top menu and then selecting "RDS" under the "Database" category.
+3. In the navigation pane, click on "Databases".
+4. In the list of database instances, select the Aurora DB cluster that you want to examine.
+5. In the details pane, under the "Connectivity & security" tab, check the "Public accessibility" setting. If it is set to "Yes", then the Aurora cluster is publicly accessible, which may be a misconfiguration if the database should not be publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). The command to install AWS CLI is `pip install awscli`. After installation, you can configure it using `aws configure` command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. **List all RDS Instances**: Use the `describe-db-instances` command to list all your RDS instances. The command is as follows:
+   ```
+   aws rds describe-db-instances
+   ```
+   This command will return a JSON output with details of all your RDS instances.
+
+3. **Check Public Accessibility**: In the JSON output, look for the `PubliclyAccessible` attribute for each instance. If the value of this attribute is `true`, then the RDS instance is publicly accessible, which is a misconfiguration. The command to filter out the instances with public accessibility is:
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier,PubliclyAccessible]' --output text
+   ```
+   This command will return a list of all RDS instances along with their public accessibility status.
+
+4. **Check for Aurora Clusters**: If you specifically want to check for Aurora clusters, you can use the `describe-db-clusters` command. The command is as follows:
+   ```
+   aws rds describe-db-clusters --query 'DBClusters[*].[DBClusterIdentifier,Engine,PubliclyAccessible]' --output text
+   ```
+   This command will return a list of all RDS clusters along with their engine type and public accessibility status. Look for clusters with the engine type as 'aurora'.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a new RDS client:
+```python
+import boto3
+rds = boto3.client('rds')
+```
+
+2. Fetch all the Aurora clusters in your AWS account:
+```python
+clusters = rds.describe_db_clusters()['DBClusters']
+```
+
+3. Iterate over each cluster and check the `PubliclyAccessible` attribute. If it's set to `True`, then the accessibility is not well-defined:
+```python
+for cluster in clusters:
+    if cluster['PubliclyAccessible']:
+        print(f"Cluster {cluster['DBClusterIdentifier']} is publicly accessible.")
+```
+
+4. To further check the accessibility, you can also check the VPC security groups associated with the cluster. If any security group allows unrestricted inbound or outbound access, then the accessibility is not well-defined:
+```python
+for cluster in clusters:
+    for vpc_security_group in cluster['VpcSecurityGroups']:
+        sg_id = vpc_security_group['VpcSecurityGroupId']
+        sg = boto3.resource('ec2').SecurityGroup(sg_id)
+        for permission in sg.ip_permissions:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Security group {sg_id} associated with cluster {cluster['DBClusterIdentifier']} allows unrestricted inbound access.")
+        for permission in sg.ip_permissions_egress:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Security group {sg_id} associated with cluster {cluster['DBClusterIdentifier']} allows unrestricted outbound access.")
+```
+This script will print out the identifiers of all Aurora clusters that are publicly accessible or associated with a security group that allows unrestricted access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

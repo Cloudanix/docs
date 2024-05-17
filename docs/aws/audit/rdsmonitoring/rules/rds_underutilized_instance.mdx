@@ -23,6 +23,101 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to AWS Management Console: First, you need to log in to your AWS Management Console. Make sure you have the necessary permissions to access the RDS dashboard.
+
+2. Navigate to RDS Dashboard: Once you are logged in, navigate to the RDS service from the list of services provided by AWS. This will take you to the RDS dashboard where you can see all your RDS instances.
+
+3. Check RDS Instances: In the RDS dashboard, you will see a list of all your RDS instances. Click on the instance that you want to check for underutilization. This will take you to the instance details page.
+
+4. Check Utilization Metrics: In the instance details page, navigate to the "Monitoring" tab. Here, you can see various metrics related to the utilization of your RDS instance. Check the "CPU Utilization" and "Freeable Memory" metrics. If the CPU Utilization is consistently low (less than 20%) and the Freeable Memory is high, it indicates that the RDS instance is underutilized.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI:** Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer) with the command `pip install awscli`. After installation, you can configure it using `aws configure` command and provide your AWS credentials (Access Key ID, Secret Access Key, Default region name, Default output format).
+
+2. **List all RDS Instances:** Use the AWS CLI command `aws rds describe-db-instances` to list all the RDS instances. This command will return a JSON output with the details of all RDS instances.
+
+    ```
+    aws rds describe-db-instances
+    ```
+
+3. **Check CPU Utilization:** For each RDS instance, you can check the CPU utilization using the `aws cloudwatch get-metric-statistics` command. You need to provide the namespace as 'AWS/RDS', the metric name as 'CPUUtilization', the start and end time for the period you want to check, the period in seconds (for example, 3600 for one hour), the statistics as 'Average', and the dimensions as the DB instance identifier.
+
+    ```
+    aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --start-time 2021-01-01T00:00:00 --end-time 2021-01-01T01:00:00 --period 3600 --statistics Average --dimensions Name=DBInstanceIdentifier,Value=mydbinstance
+    ```
+
+4. **Analyze the Output:** The command will return a JSON output with the average CPU utilization for the specified period. If the CPU utilization is consistently low (for example, less than 20%), the RDS instance may be underutilized. You can automate this process using a Python script that iterates over all RDS instances and checks their CPU utilization.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Import necessary libraries and establish a session:
+   In your Python script, you need to import the necessary libraries and establish a session with AWS. Here is an example:
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Connect to the RDS service and retrieve all RDS instances:
+   Next, you need to connect to the RDS service and retrieve all RDS instances. Here is an example:
+
+   ```python
+   rds = session.client('rds')
+
+   response = rds.describe_db_instances()
+
+   for instance in response['DBInstances']:
+       print(instance['DBInstanceIdentifier'])
+   ```
+
+4. Check the utilization of each RDS instance:
+   Finally, you need to check the utilization of each RDS instance. You can do this by using the CloudWatch service to retrieve the CPUUtilization metric for each instance. Here is an example:
+
+   ```python
+   cloudwatch = session.client('cloudwatch')
+
+   for instance in response['DBInstances']:
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/RDS',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance['DBInstanceIdentifier']
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=60,
+           Statistics=['Average']
+       )
+
+       if metrics['Datapoints']:
+           avg_cpu_utilization = metrics['Datapoints'][0]['Average']
+           if avg_cpu_utilization < 20:  # or any threshold you consider underutilization
+               print(f"RDS instance {instance['DBInstanceIdentifier']} is underutilized with average CPU utilization of {avg_cpu_utilization}%")
+   ```
+   
+This script will print out the identifiers of all RDS instances that are underutilized, i.e., their average CPU utilization over the last 10 minutes is less than 20%. You can adjust the threshold and the time period as needed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
