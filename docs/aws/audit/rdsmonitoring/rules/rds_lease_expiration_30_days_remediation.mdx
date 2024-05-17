@@ -1,6 +1,110 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard. 
+
+2. In the navigation pane, click on 'Reserved Instances'. This will display a list of all your reserved instances.
+
+3. For each reserved instance, check the 'State' and 'End date'. If the state is 'active' and the end date is within the next 30 days, then the reserved instance is due for renewal.
+
+4. You can also set up an alert to notify you when a reserved instance is due for renewal. To do this, go to CloudWatch, create a new alarm, and set the alarm condition to trigger when the 'ReservedInstance' metric is less than 30. This will send you an email notification when any of your reserved instances are due for renewal within the next 30 days.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all RDS Reserved Instances: Use the `describe-reserved-db-instances` command to list all your RDS Reserved Instances. This command returns a JSON object that contains all your RDS Reserved Instances.
+
+   ```
+   aws rds describe-reserved-db-instances
+   ```
+
+3. Parse the output: The output from the previous command includes a `ReservedDBInstances` field that contains an array of all your RDS Reserved Instances. Each instance has a `LeaseId`, `ReservedDBInstanceId`, `ReservedDBInstancesOfferingId`, `DBInstanceCount`, `Start`, `Duration`, `FixedPrice`, `UsagePrice`, `CurrencyCode`, `DBInstanceClass`, `ProductDescription`, `OfferingType`, `RecurringCharges`, `State`, and `OfferingDescription` field. The `Duration` field indicates the duration of the reservation in seconds, and the `Start` field indicates when the reservation started.
+
+4. Calculate the expiration date: You can calculate the expiration date of each RDS Reserved Instance by adding the `Duration` to the `Start` date. If the current date is within 30 days of the expiration date, then the RDS Reserved Instance is about to expire.
+
+   Here is a sample Python script that uses the `boto3` library to perform this calculation:
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Create a client
+   rds = boto3.client('rds')
+
+   # Get the current date
+   now = datetime.now()
+
+   # List all RDS Reserved Instances
+   response = rds.describe_reserved_db_instances()
+
+   # Iterate over all RDS Reserved Instances
+   for instance in response['ReservedDBInstances']:
+       # Calculate the expiration date
+       expiration_date = instance['Start'] + timedelta(seconds=instance['Duration'])
+       # Check if the RDS Reserved Instance is about to expire
+       if now > expiration_date - timedelta(days=30):
+           print(f"The RDS Reserved Instance {instance['ReservedDBInstanceId']} is about to expire.")
+   ```
+   This script prints the ID of each RDS Reserved Instance that is about to expire.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You will also need the datetime library to work with dates.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+```
+
+2. Create a session using your AWS credentials. You can replace 'aws_access_key_id', 'aws_secret_access_key', and 'region_name' with your own details.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create a client for 'rds' and get all the reserved instances.
+
+```python
+rds = session.client('rds')
+reservations = rds.describe_reserved_db_instances()
+```
+
+4. Iterate over each reserved instance and check if it's going to expire in less than 30 days.
+
+```python
+for reservation in reservations['ReservedDBInstances']:
+    start_time = reservation['StartTime']
+    duration = reservation['Duration']
+    end_time = start_time + timedelta(seconds=duration)
+    if end_time - datetime.now() < timedelta(days=30):
+        print(f"RDS Reserved Instance {reservation['ReservedDBInstanceId']} is going to expire in less than 30 days.")
+```
+
+This script will print out the IDs of all RDS Reserved Instances that are going to expire in less than 30 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

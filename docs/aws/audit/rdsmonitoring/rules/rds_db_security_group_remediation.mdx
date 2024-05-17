@@ -1,6 +1,134 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. Select the RDS instance that you want to check.
+
+4. In the details section, find the "Security group rules" section. Here, you can see the inbound and outbound rules for your RDS instance.
+
+5. Check the "Source" or "Destination" column for any rules that have "0.0.0.0/0" (for IPv4) or "::/0" (for IPv6). This indicates that the RDS instance allows unrestricted inbound or outbound access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the DB security groups. Use the following AWS CLI command:
+
+```bash
+aws rds describe-db-security-groups --query 'DBSecurityGroups[*].[DBSecurityGroupName]' --output text
+```
+
+2. For each DB security group, describe the details to check the Ingress and Egress rules. Replace 'DBSecurityGroupName' with the actual security group name from the previous step:
+
+```bash
+aws rds describe-db-security-groups --db-security-group-name 'DBSecurityGroupName' --query 'DBSecurityGroups[*].[EC2SecurityGroups[*].[EC2SecurityGroupId,Status]]' --output text
+```
+
+3. Check the inbound rules for each security group. Replace 'EC2SecurityGroupId' with the actual security group ID from the previous step:
+
+```bash
+aws ec2 describe-security-groups --group-ids 'EC2SecurityGroupId' --query 'SecurityGroups[*].IpPermissions[*].[IpProtocol,FromPort,ToPort,IpRanges]' --output text
+```
+
+4. Check the outbound rules for each security group. Replace 'EC2SecurityGroupId' with the actual security group ID:
+
+```bash
+aws ec2 describe-security-groups --group-ids 'EC2SecurityGroupId' --query 'SecurityGroups[*].IpPermissionsEgress[*].[IpProtocol,FromPort,ToPort,IpRanges]' --output text
+```
+
+If the inbound or outbound rules allow unrestricted access (0.0.0.0/0), then the RDS instance is misconfigured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install and configure Boto3 to interact with AWS services. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials to allow Boto3 to interact with AWS services on your behalf. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID='your_access_key'
+   AWS_SECRET_ACCESS_KEY='your_secret_key'
+   ```
+
+2. Create a Python script to list all RDS instances and their security groups:
+   You can use the `describe_db_instances` method to list all RDS instances and the `describe_db_security_groups` method to get the security groups associated with each instance. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_rds_instances():
+       client = boto3.client('rds')
+       response = client.describe_db_instances()
+       return response['DBInstances']
+
+   def get_security_groups(db_instance):
+       return db_instance['VpcSecurityGroups']
+
+   def main():
+       rds_instances = get_rds_instances()
+       for instance in rds_instances:
+           security_groups = get_security_groups(instance)
+           print(f"Instance: {instance['DBInstanceIdentifier']}, Security Groups: {security_groups}")
+
+   if __name__ == "__main__":
+       main()
+   ```
+   This script will print the ID of each RDS instance and the security groups associated with it.
+
+3. Check the inbound and outbound rules of each security group:
+   You can use the `describe_security_groups` method to get the inbound (`IpPermissions`) and outbound (`IpPermissionsEgress`) rules of each security group. You should check if any of these rules allow unrestricted access (0.0.0.0/0 for IPv4 or ::/0 for IPv6). Here is how you can modify the previous script to do this:
+   ```python
+   import boto3
+
+   def get_rds_instances():
+       client = boto3.client('rds')
+       response = client.describe_db_instances()
+       return response['DBInstances']
+
+   def get_security_groups(db_instance):
+       return db_instance['VpcSecurityGroups']
+
+   def check_security_group_rules(security_group_id):
+       client = boto3.client('ec2')
+       response = client.describe_security_groups(GroupIds=[security_group_id])
+       for group in response['SecurityGroups']:
+           for permission in group['IpPermissions']:
+               for range in permission['IpRanges']:
+                   if range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group: {group['GroupId']} allows unrestricted inbound access")
+           for permission in group['IpPermissionsEgress']:
+               for range in permission['IpRanges']:
+                   if range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group: {group['GroupId']} allows unrestricted outbound access")
+
+   def main():
+       rds_instances = get_rds_instances()
+       for instance in rds_instances:
+           security_groups = get_security_groups(instance)
+           for group in security_groups:
+               check_security_group_rules(group['VpcSecurityGroupId'])
+
+   if __name__ == "__main__":
+       main()
+   ```
+   This script will print a warning for each security group that allows unrestricted inbound or outbound access.
+
+4. Run the script:
+   You can run the script using the Python interpreter:
+   ```
+   python check_rds_security.py
+   ```
+   This will print a list of all RDS instances and their security groups, along with warnings for any security groups that allow unrestricted access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

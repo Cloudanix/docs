@@ -1,6 +1,97 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+
+2. In the navigation pane, choose "Databases" to open the list of your RDS instances.
+
+3. Select the RDS instance that is used as the source for the DMS Replication Task.
+
+4. In the instance details section, look for the "Logs & events" tab. Click on it.
+
+5. Here, you can check if logging is enabled or not. If the "Logging" status is "Enabled", then the source DB for the DMS Replication Task has logging enabled. If it's "Disabled", then logging is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS instances.
+
+2. Once the AWS CLI is set up, you can list all the DMS replication tasks using the following command:
+
+   ```
+   aws dms describe-replication-tasks
+   ```
+
+   This command will return a JSON output with details of all the DMS replication tasks.
+
+3. From the output, identify the replication task for which you want to check the source DB logging status. Note down the 'ReplicationTaskIdentifier' of the task.
+
+4. Now, use the 'ReplicationTaskIdentifier' to describe the replication task and get the 'SourceEndpointArn':
+
+   ```
+   aws dms describe-endpoints --filters Name=endpoint-arn,Values=<SourceEndpointArn>
+   ```
+
+   Replace `<SourceEndpointArn>` with the actual ARN of the source endpoint.
+
+5. Finally, use the 'SourceEndpointArn' to describe the RDS instance and check the 'EnabledCloudwatchLogsExports' field:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <SourceEndpointArn>
+   ```
+
+   Replace `<SourceEndpointArn>` with the actual ARN of the source endpoint. If the 'EnabledCloudwatchLogsExports' field is empty or does not contain 'audit', 'error', 'general', or 'slowquery', then the source DB does not have logging enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if the DMS Replication Task Source DB has logging enabled in RDS using Python scripts, you can use the boto3 library, which allows you to directly interact with AWS services, including RDS. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+Replace 'YOUR_ACCESS_KEY' and 'YOUR_SECRET_KEY' with your actual AWS access and secret keys.
+
+2. **Create a client for RDS:**
+
+```python
+rds = session.client('rds')
+```
+
+3. **Get the list of all DB instances and check if logging is enabled:**
+
+```python
+def check_logging_enabled():
+    db_instances = rds.describe_db_instances()
+    for db_instance in db_instances['DBInstances']:
+        if 'EnabledCloudwatchLogsExports' in db_instance:
+            print(f"DB instance {db_instance['DBInstanceIdentifier']} has logging enabled.")
+        else:
+            print(f"DB instance {db_instance['DBInstanceIdentifier']} does not have logging enabled.")
+```
+
+4. **Call the function to check if logging is enabled:**
+
+```python
+check_logging_enabled()
+```
+
+This script will print out whether each DB instance has logging enabled or not. If the 'EnabledCloudwatchLogsExports' key is present in the DB instance's details, that means logging is enabled. If not, logging is not enabled.
+</Accordion>
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 <AccordionGroup>
