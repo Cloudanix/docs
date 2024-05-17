@@ -23,6 +23,82 @@ NIST, AWSWAF, HITRUST, SOC2, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the S3 service by typing 'S3' in the search bar and selecting 'S3' from the dropdown menu.
+3. In the S3 dashboard, click on the name of the bucket you want to check.
+4. Under the 'Properties' tab, scroll down to the 'Default encryption' section. If the bucket is encrypted with a customer-provided CMK, it will display 'AWS-KMS' along with the ARN of the CMK. If it does not, then the bucket is not encrypted with a customer-provided CMK.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the S3 buckets and KMS keys.
+
+2. Once the AWS CLI is set up, you can list all the S3 buckets in your account using the following command:
+   ```
+   aws s3api list-buckets --query 'Buckets[].Name'
+   ```
+   This command will return a list of all the bucket names in your account.
+
+3. For each bucket, you can check the default encryption configuration using the following command:
+   ```
+   aws s3api get-bucket-encryption --bucket <bucket-name>
+   ```
+   Replace `<bucket-name>` with the name of the bucket you want to check. This command will return the default encryption configuration for the specified bucket.
+
+4. To check if the bucket is encrypted with a customer-provided CMK, you need to look for the `SSEKMS` value in the `SSEAlgorithm` field and the `KMSMasterKeyID` field in the output of the previous command. If the `SSEAlgorithm` field is `SSEKMS` and the `KMSMasterKeyID` field is not empty, then the bucket is encrypted with a customer-provided CMK. If not, then the bucket is not encrypted with a customer-provided CMK.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it with your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+2. Import the necessary modules and create a session: In your Python script, you'll need to import Boto3 and create a session using your AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. List all S3 buckets and check their encryption configuration: You can use the `list_buckets` method to get a list of all your S3 buckets, and then use the `get_bucket_encryption` method to check the encryption configuration of each bucket.
+
+```python
+s3 = session.resource('s3')
+
+for bucket in s3.buckets.all():
+    try:
+        encryption = bucket.BucketEncryption()
+        rules = encryption.server_side_encryption_configuration['Rules']
+        for rule in rules:
+            if 'SSEAlgorithm' in rule['ApplyServerSideEncryptionByDefault']:
+                if rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm'] != 'aws:kms':
+                    print(f"Bucket {bucket.name} is not encrypted with a customer-provided CMK.")
+    except Exception as e:
+        print(f"Bucket {bucket.name} does not have an encryption policy.")
+```
+
+4. Analyze the output: The script will print the names of all buckets that are not encrypted with a customer-provided CMK. If a bucket does not have an encryption policy, this will also be printed. This way, you can easily identify misconfigurations in your S3 buckets.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,89 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+   
+2. In the Bucket name list, choose the name of the bucket that you want to check for a secure transport policy.
+
+3. Choose the Permissions tab, and then choose Bucket Policy. 
+
+4. In the Bucket policy editor, look for a statement with `"Condition": { "Bool": { "aws:SecureTransport": "false" } }`. If this statement is present, it means that the bucket has a secure transport policy. If it's not present, the bucket does not have a secure transport policy.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all S3 buckets: Use the following command to list all the S3 buckets in your AWS account.
+
+   ```
+   aws s3api list-buckets --query 'Buckets[].Name'
+   ```
+
+3. Check the bucket policy: For each bucket, you need to check if it has a secure transport policy. You can do this by running the following command for each bucket.
+
+   ```
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+4. Analyze the output: The output of the above command will be a JSON object representing the bucket's policy. You need to check if this policy includes a statement with `"Effect": "Deny"` and `"Condition": { "Bool": { "aws:SecureTransport": "false" } }`. This statement ensures that all requests to the bucket must be made over SSL. If this statement is not present, then the bucket does not have a secure transport policy.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 's3' and get the list of all the buckets:
+
+```python
+s3 = session.client('s3')
+response = s3.list_buckets()
+
+buckets = [bucket['Name'] for bucket in response['Buckets']]
+```
+
+4. For each bucket, get the bucket policy and check if it has a Secure Transport statement:
+
+```python
+for bucket in buckets:
+    try:
+        bucket_policy = s3.get_bucket_policy(Bucket=bucket)
+        policy = json.loads(bucket_policy['Policy'])
+
+        for statement in policy['Statement']:
+            if statement['Sid'] == 'ForceSSLOnlyAccess':
+                if statement['Effect'] == 'Deny' and 'aws:SecureTransport' in statement['Condition']['Bool'] and statement['Condition']['Bool']['aws:SecureTransport'] == 'false':
+                    print(f"Bucket {bucket} has a secure transport policy.")
+                else:
+                    print(f"Bucket {bucket} does not have a secure transport policy.")
+    except:
+        print(f"Bucket {bucket} does not have a policy.")
+```
+
+This script will print out whether each bucket has a secure transport policy or not. If a bucket does not have a policy or if the policy does not include a statement with Sid 'ForceSSLOnlyAccess' that denies access when 'aws:SecureTransport' is 'false', it will be flagged as not having a secure transport policy.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
