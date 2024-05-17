@@ -24,6 +24,113 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Redshift dashboard. From the navigation pane, choose "Clusters".
+3. In the Clusters section, you will see a list of all your Redshift clusters. Click on the cluster for which you want to check the Reserved Node Lease Expiration.
+4. In the cluster details page, navigate to the "Configuration" tab. Here, you can find the "Node Configuration" section which includes details about the lease of the reserved node. Check the "Lease Expiration" date to see if it falls within the next 7 days.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Redshift Reserved Nodes: Use the `describe-reserved-nodes` command to list all the reserved nodes in your Redshift cluster. This command returns a JSON output that includes details about each reserved node.
+
+   ```
+   aws redshift describe-reserved-nodes
+   ```
+
+3. Parse the output: The output from the previous command includes a `StartTime` field that indicates when the lease for each reserved node started. You can calculate the expiration date by adding the lease duration to this start time. 
+
+   You can use a tool like `jq` to parse the JSON output and extract the necessary information. For example, the following command extracts the `ReservedNodeId` and `StartTime` for each reserved node:
+
+   ```
+   aws redshift describe-reserved-nodes | jq -r '.ReservedNodes[] | .ReservedNodeId, .StartTime'
+   ```
+
+4. Check for upcoming lease expirations: Now that you have the start time for each reserved node, you can calculate the expiration date and check if it falls within the next 7 days. You can do this using a scripting language like Python or Bash. For example, in Python, you could use the `datetime` module to calculate the expiration date and compare it to the current date:
+
+   ```python
+   from datetime import datetime, timedelta
+
+   # Replace these with the actual start time and lease duration
+   start_time = datetime.strptime(start_time_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+   lease_duration = timedelta(days=365)  # 1 year lease
+
+   expiration_date = start_time + lease_duration
+   if expiration_date <= datetime.now() + timedelta(days=7):
+       print(f'Reserved node {reserved_node_id} will expire in the next 7 days')
+   ```
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+2. Import the necessary libraries and establish a session with AWS using your access keys.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'  # or your preferred region
+)
+```
+
+3. Create a Redshift client using the session created above and retrieve all reserved nodes.
+
+```python
+# Create a Redshift client
+redshift = session.client('redshift')
+
+# Get all reserved nodes
+response = redshift.describe_reserved_nodes()
+
+reserved_nodes = response['ReservedNodes']
+```
+
+4. Iterate over the reserved nodes and check if the lease expiration is within the next 7 days.
+
+```python
+# Get the current date and time
+now = datetime.now()
+
+# Calculate the date and time 7 days from now
+seven_days_from_now = now + timedelta(days=7)
+
+# Iterate over the reserved nodes
+for node in reserved_nodes:
+    # Get the lease expiration date and time
+    lease_expiration = node['StartTime'] + timedelta(days=node['Duration'])
+
+    # Check if the lease expiration is within the next 7 days
+    if now <= lease_expiration <= seven_days_from_now:
+        print(f"Reserved node {node['ReservedNodeId']} will expire in the next 7 days.")
+```
+
+This script will print out the IDs of all reserved nodes that will expire in the next 7 days. You can modify it to take other actions as needed, such as sending an email notification.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

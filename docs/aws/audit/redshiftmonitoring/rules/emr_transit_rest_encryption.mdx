@@ -23,6 +23,125 @@ ISO27001, HIPAA, AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Redshift dashboard. 
+
+2. In the navigation pane, choose "Clusters". This will display a list of all your Redshift clusters.
+
+3. Click on the name of the cluster that you want to check. This will open the cluster details page.
+
+4. In the cluster details page, look for the "Encryption" section. If the "In-Transit Encryption" and "At-Rest Encryption" are enabled, they will be listed here. If not, these options will not be present, indicating a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Redshift clusters.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the Redshift clusters:
+
+   ```
+   aws redshift describe-clusters
+   ```
+
+   This command will return a JSON output with details about all your Redshift clusters.
+
+3. To check if EMR In-Transit encryption is enabled, look for the "PubliclyAccessible" parameter in the output. If it's set to "true", it means that the cluster is publicly accessible and the data might be vulnerable during transit. 
+
+4. To check if At-Rest encryption is enabled, look for the "Encrypted" parameter in the output. If it's set to "false", it means that the data is not encrypted at rest.
+
+Please note that these steps only allow you to detect the misconfiguration. To fix it, you would need to modify the cluster settings, which is not covered in these steps.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. AWS SDK for Python (Boto3) can be used to interact with AWS services including Redshift. To check for EMR In-Transit and At-Rest Encryption in Redshift, you can use the `describe_clusters` method in the Redshift client. 
+
+Python script:
+```python
+import boto3
+
+def check_redshift_encryption():
+    client = boto3.client('redshift')
+    clusters = client.describe_clusters()
+    for cluster in clusters['Clusters']:
+        if 'Encrypted' in cluster:
+            if cluster['Encrypted']:
+                print(f"Cluster {cluster['ClusterIdentifier']} is encrypted.")
+            else:
+                print(f"Cluster {cluster['ClusterIdentifier']} is not encrypted.")
+        else:
+            print(f"Cluster {cluster['ClusterIdentifier']} does not have encryption information.")
+
+check_redshift_encryption()
+```
+This script will print out whether each Redshift cluster is encrypted or not.
+
+2. For checking EMR In-Transit encryption, you can use the `describe_cluster` method in the EMR client. 
+
+Python script:
+```python
+import boto3
+
+def check_emr_in_transit_encryption():
+    client = boto3.client('emr')
+    clusters = client.list_clusters()
+    for cluster in clusters['Clusters']:
+        cluster_id = cluster['Id']
+        cluster_info = client.describe_cluster(ClusterId=cluster_id)
+        if 'SecurityConfiguration' in cluster_info['Cluster']:
+            security_config = client.describe_security_configuration(
+                Name=cluster_info['Cluster']['SecurityConfiguration'])
+            if 'InTransitEncryption' in security_config['SecurityConfiguration']:
+                if security_config['SecurityConfiguration']['InTransitEncryption']['Enabled']:
+                    print(f"Cluster {cluster_id} has in-transit encryption enabled.")
+                else:
+                    print(f"Cluster {cluster_id} does not have in-transit encryption enabled.")
+            else:
+                print(f"Cluster {cluster_id} does not have in-transit encryption information.")
+        else:
+            print(f"Cluster {cluster_id} does not have a security configuration.")
+
+check_emr_in_transit_encryption()
+```
+This script will print out whether each EMR cluster has in-transit encryption enabled or not.
+
+3. For checking EMR At-Rest encryption, you can use the `describe_security_configuration` method in the EMR client. 
+
+Python script:
+```python
+import boto3
+
+def check_emr_at_rest_encryption():
+    client = boto3.client('emr')
+    clusters = client.list_clusters()
+    for cluster in clusters['Clusters']:
+        cluster_id = cluster['Id']
+        cluster_info = client.describe_cluster(ClusterId=cluster_id)
+        if 'SecurityConfiguration' in cluster_info['Cluster']:
+            security_config = client.describe_security_configuration(
+                Name=cluster_info['Cluster']['SecurityConfiguration'])
+            if 'AtRestEncryption' in security_config['SecurityConfiguration']:
+                if security_config['SecurityConfiguration']['AtRestEncryption']['Enabled']:
+                    print(f"Cluster {cluster_id} has at-rest encryption enabled.")
+                else:
+                    print(f"Cluster {cluster_id} does not have at-rest encryption enabled.")
+            else:
+                print(f"Cluster {cluster_id} does not have at-rest encryption information.")
+        else:
+            print(f"Cluster {cluster_id} does not have a security configuration.")
+
+check_emr_at_rest_encryption()
+```
+This script will print out whether each EMR cluster has at-rest encryption enabled or not.
+
+4. Please note that these scripts assume that you have the necessary permissions to call these methods and that your AWS credentials are configured correctly. If not, you may need to configure your credentials by following the instructions in the [Boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html#configuration).
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
