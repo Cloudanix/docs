@@ -1,6 +1,87 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Redshift dashboard by selecting "Services" from the navigation bar, then choosing "Redshift" under the "Database" category.
+3. In the Redshift dashboard, select "Clusters" from the left-hand navigation pane. This will display a list of all your Redshift clusters.
+4. For each cluster, check the "Last Modified" date and time under the "Properties" tab. If a cluster has not been modified or accessed for a long period of time, it may be idle and should be considered for termination.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all Redshift clusters: Use the following AWS CLI command to list all Redshift clusters in your AWS account:
+
+   ```
+   aws redshift describe-clusters --query 'Clusters[*].[ClusterIdentifier, ClusterStatus]' --output text
+   ```
+   This command will return a list of all Redshift clusters along with their status.
+
+3. Check the status of each Redshift cluster: From the output of the previous command, check the status of each Redshift cluster. If the status of a cluster is 'available' but it's not being used, it's an idle cluster.
+
+4. Check the last access time of each Redshift cluster: To confirm if a cluster is idle, you can check the last access time of the cluster. Unfortunately, AWS CLI does not provide a direct command to do this. However, you can run a SQL query on each cluster to get the last access time. The query is:
+
+   ```
+   SELECT db_id, MAX(last_activity_time) FROM stv_sessions GROUP BY db_id;
+   ```
+   If the last access time is a long time ago, the cluster is likely idle.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This SDK allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a Redshift client and retrieve all the Redshift clusters.
+
+```python
+redshift_client = session.client('redshift')
+
+try:
+    response = redshift_client.describe_clusters()
+except ClientError as e:
+    print(f"Error: {e}")
+```
+
+4. Iterate over the clusters and check the 'ClusterStatus' attribute. If the status is 'available' but the 'NumberOfNodes' attribute is 0, then the cluster is idle.
+
+```python
+for cluster in response['Clusters']:
+    if cluster['ClusterStatus'] == 'available' and cluster['NumberOfNodes'] == 0:
+        print(f"Idle Redshift Cluster: {cluster['ClusterIdentifier']}")
+```
+
+This script will print out the identifiers of all idle Redshift clusters. You can then decide what action to take based on this information.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

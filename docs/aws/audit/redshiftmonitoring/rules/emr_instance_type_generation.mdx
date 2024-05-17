@@ -23,6 +23,96 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Redshift dashboard by selecting "Services" from the top menu, then selecting "Redshift" under the "Database" category.
+3. In the Redshift dashboard, select "Clusters" from the left-hand menu. This will display a list of all your Redshift clusters.
+4. For each cluster, check the "Node type" column. If the node type is not the latest generation (for example, dc2.large), then the EMR instances are not using the latest generation in Redshift.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Redshift clusters.
+
+2. Once the AWS CLI is set up, you can list all the Redshift clusters using the following command:
+
+   ```
+   aws redshift describe-clusters --query 'Clusters[*].[ClusterIdentifier,NodeType]' --output text
+   ```
+   This command will return a list of all Redshift clusters along with their node types.
+
+3. To check if the Redshift clusters are using the latest generation of EMR instances, you need to compare the NodeType of each cluster with the latest generation of EMR instances. As of now, the latest generation of EMR instances is dc2.
+
+4. You can use the following Python script to automate the process:
+
+   ```python
+   import subprocess
+   import json
+
+   def get_clusters():
+       command = "aws redshift describe-clusters --query 'Clusters[*].[ClusterIdentifier,NodeType]'"
+       process = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
+       output, error = process.communicate()
+       return json.loads(output)
+
+   def check_latest_generation(clusters):
+       latest_generation = 'dc2'
+       for cluster in clusters:
+           if not cluster[1].startswith(latest_generation):
+               print(f"Cluster {cluster[0]} is not using the latest generation of EMR instances")
+
+   if __name__ == "__main__":
+       clusters = get_clusters()
+       check_latest_generation(clusters)
+   ```
+   This script first gets a list of all Redshift clusters and their node types. Then it checks if the node type of each cluster starts with 'dc2', which is the latest generation of EMR instances. If a cluster is not using the latest generation, it prints a message with the cluster identifier.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules in your Python script. You will need the 'boto3' and 'botocore' modules to interact with AWS services.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'aws_session_token' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a Redshift client using the session. This client will allow you to interact with your Redshift clusters.
+
+```python
+redshift = session.client('redshift')
+```
+
+4. Now, you can use the 'describe_clusters' method to get information about your Redshift clusters. Check the 'NodeType' attribute of each cluster. If the 'NodeType' is not 'dc2.large' or 'dc2.8xlarge', it means the cluster is not using the latest generation of EMR instances.
+
+```python
+try:
+    response = redshift.describe_clusters()
+    for cluster in response['Clusters']:
+        if cluster['NodeType'] not in ['dc2.large', 'dc2.8xlarge']:
+            print(f"Cluster {cluster['ClusterIdentifier']} is not using the latest generation of EMR instances.")
+except (BotoCoreError, ClientError) as error:
+    print(f"An error occurred: {error}")
+```
+
+This script will print the identifiers of all Redshift clusters that are not using the latest generation of EMR instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,103 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Redshift dashboard. From the navigation pane, choose "Clusters".
+3. In the list of clusters, select the cluster for which you want to check the Redshift Reserved Node Lease Expiration.
+4. In the details pane, under "Configuration", look for "Reserved Node details". Here, you can see the expiration date of the lease. If the expiration date is within the next 30 days, then it indicates that the Redshift Reserved Node Lease will expire soon.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-reserved-nodes" command to get information about the reserved nodes in Amazon Redshift. The command is as follows:
+
+   ```
+   aws redshift describe-reserved-nodes
+   ```
+
+3. This command will return a JSON output with details about all the reserved nodes. You need to look for the "StartTime" and "Duration" fields in the output. The "StartTime" field indicates when the reservation started, and the "Duration" field indicates the duration of the reservation in seconds.
+
+4. To find out if a reserved node lease is expiring in the next 30 days, you need to write a script that calculates the difference between the current date and the start time plus the duration. If the difference is less than or equal to 30 days, then the lease is expiring in the next 30 days. Here is a simple Python script that does this:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   # Run the AWS CLI command and get the output
+   output = subprocess.check_output(["aws", "redshift", "describe-reserved-nodes"])
+   data = json.loads(output)
+
+   # Get the current date
+   now = datetime.now()
+
+   # Check each reserved node
+   for node in data['ReservedNodes']:
+       # Get the start time and duration
+       start_time = datetime.strptime(node['StartTime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+       duration = timedelta(seconds=node['Duration'])
+
+       # Calculate the expiration date
+       expiration_date = start_time + duration
+
+       # Check if the lease is expiring in the next 30 days
+       if now <= expiration_date <= now + timedelta(days=30):
+           print(f"Reserved node {node['ReservedNodeId']} is expiring in the next 30 days.")
+   ```
+   
+Please note that this script assumes that the AWS CLI is configured with access to the necessary resources. If it's not, you may need to provide the necessary credentials or configure the AWS CLI accordingly.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+2. Import the necessary libraries and establish a session with AWS using your access keys. 
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create a session using your AWS credentials
+aws_session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # or your preferred region
+)
+```
+
+3. Use the `describe_reserved_nodes` method of the Redshift client to get a list of all reserved nodes. Then, iterate over the list and check the `EndTime` of each reserved node. If the `EndTime` is within the next 30 days, print the details of the node.
+
+```python
+# Create a Redshift client
+redshift = aws_session.client('redshift')
+
+# Get a list of all reserved nodes
+response = redshift.describe_reserved_nodes()
+
+# Get the current date and time
+now = datetime.now()
+
+# Iterate over the reserved nodes
+for node in response['ReservedNodes']:
+    # Get the end time of the reserved node
+    end_time = node['EndTime']
+    
+    # Check if the end time is within the next 30 days
+    if now <= end_time <= now + timedelta(days=30):
+        print(f"Reserved node {node['ReservedNodeId']} will expire on {end_time}")
+```
+
+4. Run the script regularly (for example, as a daily cron job) to monitor your Redshift reserved nodes. If a node is due to expire within the next 30 days, the script will print a message with the node's ID and expiration date.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
