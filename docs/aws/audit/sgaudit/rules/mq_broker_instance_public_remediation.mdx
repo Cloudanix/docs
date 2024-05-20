@@ -1,6 +1,87 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon MQ dashboard.
+2. In the navigation pane, select "Brokers". This will display a list of all your Amazon MQ brokers.
+3. Select the broker that you want to check. This will open the broker's details page.
+4. In the broker's details page, check the "Public accessibility" setting. If it is set to "Yes", then the broker instance is public.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the Amazon MQ brokers in your account. Use the following AWS CLI command:
+
+```bash
+aws mq list-brokers
+```
+
+This command will return a list of all the Amazon MQ brokers in your account.
+
+2. For each broker in the list, describe the broker to get its details. Use the following AWS CLI command:
+
+```bash
+aws mq describe-broker --broker-id <Broker-ID>
+```
+
+Replace `<Broker-ID>` with the ID of the broker you want to check. This command will return the details of the specified broker.
+
+3. From the broker details, get the list of security groups associated with the broker. The security groups are listed in the `SecurityGroups` field of the broker details.
+
+4. For each security group in the list, describe the security group to get its details. Use the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <Security-Group-ID>
+```
+
+Replace `<Security-Group-ID>` with the ID of the security group you want to check. This command will return the details of the specified security group.
+
+5. From the security group details, check the `IpPermissions` field. If this field contains an entry with `IpProtocol` set to `0`, `FromPort` set to `0`, `ToPort` set to `65535`, and `IpRanges` containing an entry with `CidrIp` set to `0.0.0.0/0`, then the MQ broker instance is public.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and establish a client connection to AWS. 
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+try:
+    mq_client = boto3.client('mq')
+except Exception as e:
+    print("Error establishing connection with AWS: ", e)
+```
+
+2. Fetch the list of all the Amazon MQ brokers in your account.
+
+```python
+try:
+    brokers = mq_client.list_brokers()
+except ClientError as e:
+    print("Error fetching brokers: ", e)
+```
+
+3. For each broker, get the details of the broker and check if the broker instances are public.
+
+```python
+for broker in brokers['BrokerSummaries']:
+    try:
+        broker_details = mq_client.describe_broker(BrokerId=broker['BrokerId'])
+        for instance in broker_details['BrokerInstances']:
+            if instance['PubliclyAccessible']:
+                print(f"Broker {broker['BrokerId']} instance {instance['BrokerId']} is public.")
+    except ClientError as e:
+        print("Error fetching broker details: ", e)
+```
+
+4. If the broker instance is public, it means there is a misconfiguration. The script will print out the broker ID and instance ID of the public instances. You can then take the necessary steps to secure these instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
