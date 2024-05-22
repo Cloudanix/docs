@@ -2,6 +2,202 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of Storage Gateway Volumes not having a backup plan in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable AWS Backup Service:**
+   - Navigate to the AWS Management Console.
+   - Go to the **AWS Backup** service.
+   - Click on **Create Backup Plan**.
+   - Choose a predefined plan or create a custom backup plan according to your requirements.
+
+2. **Assign Resources to Backup Plan:**
+   - In the AWS Backup console, go to the **Backup plans** section.
+   - Select the backup plan you created.
+   - Click on **Assign resources**.
+   - Choose the resource type as **Storage Gateway Volumes**.
+   - Select the specific volumes you want to include in the backup plan.
+
+3. **Configure Backup Settings:**
+   - Define the backup frequency and retention period as per your organization's policies.
+   - Ensure that the backup window is set to a time that minimizes impact on your operations.
+
+4. **Enable Continuous Backup:**
+   - In the backup plan settings, enable continuous backup if required.
+   - This ensures that any changes to the Storage Gateway Volumes are backed up continuously, providing more granular recovery points.
+
+By following these steps, you can ensure that your Storage Gateway Volumes in EC2 have a proper backup plan in place, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of Storage Gateway Volumes not having a backup plan in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, create a backup plan that defines when and how you want to back up your resources. You can do this by creating a JSON file that specifies the backup rules.
+
+   ```json
+   {
+     "BackupPlanName": "MyBackupPlan",
+     "Rules": [
+       {
+         "RuleName": "DailyBackup",
+         "TargetBackupVaultName": "Default",
+         "ScheduleExpression": "cron(0 12 * * ? *)",
+         "StartWindowMinutes": 60,
+         "CompletionWindowMinutes": 180,
+         "Lifecycle": {
+           "MoveToColdStorageAfterDays": 30,
+           "DeleteAfterDays": 365
+         }
+       }
+     ]
+   }
+   ```
+
+   Save this JSON file as `backup-plan.json`.
+
+2. **Create the Backup Plan using AWS CLI:**
+   Use the `create-backup-plan` command to create the backup plan from the JSON file.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan file://backup-plan.json
+   ```
+
+3. **Assign Resources to the Backup Plan:**
+   Identify the Amazon Resource Names (ARNs) of the Storage Gateway volumes you want to back up and assign them to the backup plan. You can list your Storage Gateway volumes using the `describe-volumes` command.
+
+   ```sh
+   aws ec2 describe-volumes --query "Volumes[*].VolumeId"
+   ```
+
+   Use the `create-backup-selection` command to assign the volumes to the backup plan. Replace `backupPlanId` with the ID of the backup plan created in step 2 and `volume-arn` with the ARN of your volume.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backupPlanId> --backup-selection '{"SelectionName":"MySelection","IamRoleArn":"arn:aws:iam::123456789012:role/AWSBackupDefaultServiceRole","Resources":["arn:aws:ec2:region:account-id:volume/volume-id"]}'
+   ```
+
+4. **Verify Backup Plan and Selection:**
+   Verify that the backup plan and selection have been created successfully by listing them.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <backupPlanId>
+   ```
+
+By following these steps, you ensure that your Storage Gateway volumes have a backup plan in place, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Storage Gateway Volumes not having a backup plan in AWS EC2 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Backup Plan**
+Create a backup plan using the AWS Backup service. This plan will define the backup rules and schedules.
+
+```python
+import boto3
+
+# Initialize a session using Amazon Backup
+backup_client = boto3.client('backup')
+
+# Define the backup plan
+backup_plan = {
+    'BackupPlanName': 'MyBackupPlan',
+    'Rules': [
+        {
+            'RuleName': 'DailyBackup',
+            'TargetBackupVaultName': 'Default',
+            'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12 PM UTC
+            'StartWindowMinutes': 60,
+            'CompletionWindowMinutes': 180,
+            'Lifecycle': {
+                'MoveToColdStorageAfterDays': 30,
+                'DeleteAfterDays': 365
+            },
+            'RecoveryPointTags': {
+                'Environment': 'Production'
+            }
+        }
+    ]
+}
+
+# Create the backup plan
+response = backup_client.create_backup_plan(BackupPlan=backup_plan)
+backup_plan_id = response['BackupPlanId']
+print(f"Backup Plan ID: {backup_plan_id}")
+```
+
+### 3. **Assign Resources to the Backup Plan**
+Assign the Storage Gateway volumes to the backup plan. You need to specify the resource ARN of the volumes.
+
+```python
+# Define the resource assignment
+resource_assignment = {
+    'BackupPlanId': backup_plan_id,
+    'BackupSelection': {
+        'SelectionName': 'MyResourceSelection',
+        'IamRoleArn': 'arn:aws:iam::123456789012:role/AWSBackupDefaultServiceRole',
+        'Resources': [
+            'arn:aws:ec2:region:account-id:volume/volume-id'  # Replace with your volume ARN
+        ]
+    }
+}
+
+# Assign the resources to the backup plan
+response = backup_client.create_backup_selection(**resource_assignment)
+print(f"Backup Selection ID: {response['SelectionId']}")
+```
+
+### 4. **Automate the Backup Plan Creation and Assignment**
+To ensure that all new Storage Gateway volumes are automatically assigned to a backup plan, you can create a script that periodically checks for new volumes and assigns them to the backup plan.
+
+```python
+import time
+
+def assign_new_volumes_to_backup_plan():
+    ec2_client = boto3.client('ec2')
+    backup_client = boto3.client('backup')
+
+    # Get the list of all volumes
+    volumes = ec2_client.describe_volumes()
+    volume_arns = [f"arn:aws:ec2:region:account-id:volume/{volume['VolumeId']}" for volume in volumes['Volumes']]
+
+    # Get the list of already assigned volumes
+    assigned_volumes = backup_client.list_backup_selections(BackupPlanId=backup_plan_id)
+    assigned_volume_arns = [resource['ResourceArn'] for resource in assigned_volumes['BackupSelectionsList']]
+
+    # Find new volumes that are not yet assigned
+    new_volumes = set(volume_arns) - set(assigned_volume_arns)
+
+    if new_volumes:
+        # Assign new volumes to the backup plan
+        resource_assignment['BackupSelection']['Resources'] = list(new_volumes)
+        response = backup_client.create_backup_selection(**resource_assignment)
+        print(f"Assigned new volumes to backup plan: {response['SelectionId']}")
+    else:
+        print("No new volumes to assign.")
+
+# Run the script periodically
+while True:
+    assign_new_volumes_to_backup_plan()
+    time.sleep(3600)  # Check every hour
+```
+
+These steps will help you prevent the misconfiguration of Storage Gateway Volumes not having a backup plan in AWS EC2 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

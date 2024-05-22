@@ -24,6 +24,129 @@ SOC2, PCIDSS, HIPAA
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted outbound access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Outbound Rules:**
+   - With the security group selected, go to the "Outbound rules" tab.
+   - Click on the "Edit outbound rules" button.
+
+4. **Restrict Outbound Traffic:**
+   - Remove any rules that allow unrestricted outbound access (e.g., rules with destination set to `0.0.0.0/0` or `::/0`).
+   - Add specific outbound rules that only allow necessary traffic to specific IP addresses or ranges, ports, and protocols.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your EC2 instances have restricted outbound access, enhancing your security posture.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted outbound access in EC2 instances using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group with Restricted Outbound Rules:**
+   First, create a security group that has specific outbound rules to restrict traffic. For example, you can restrict outbound traffic to only certain IP ranges or ports.
+
+   ```sh
+   aws ec2 create-security-group --group-name restricted-outbound-sg --description "Security group with restricted outbound access"
+   ```
+
+2. **Add Outbound Rules to the Security Group:**
+   Add specific outbound rules to the security group to allow only necessary traffic. For example, allow outbound traffic only to a specific IP range on port 80 (HTTP).
+
+   ```sh
+   aws ec2 authorize-security-group-egress --group-id sg-xxxxxxxx --protocol tcp --port 80 --cidr 203.0.113.0/24
+   ```
+
+3. **Revoke Default Outbound Rule:**
+   By default, security groups allow all outbound traffic. Revoke this default rule to ensure that only the specified outbound rules are in effect.
+
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id sg-xxxxxxxx --protocol all --port all --cidr 0.0.0.0/0
+   ```
+
+4. **Associate the Security Group with Your EC2 Instances:**
+   Finally, associate the newly created security group with your EC2 instances to enforce the restricted outbound access.
+
+   ```sh
+   aws ec2 modify-instance-attribute --instance-id i-xxxxxxxx --groups sg-xxxxxxxx
+   ```
+
+Replace `sg-xxxxxxxx` with your actual security group ID and `i-xxxxxxxx` with your actual instance ID. This will ensure that your EC2 instances have restricted outbound access as per the defined security group rules.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted outbound access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script to Restrict Outbound Access**:
+   Use the following Python script to modify the security group rules to restrict outbound access. This script will remove any outbound rule that allows unrestricted access (i.e., `0.0.0.0/0` for IPv4 and `::/0` for IPv6).
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Function to remove unrestricted outbound rules
+   def restrict_outbound_access(security_group_id):
+       # Describe the security group to get its current rules
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       security_group = response['SecurityGroups'][0]
+
+       # Iterate over the outbound rules
+       for rule in security_group['IpPermissionsEgress']:
+           for ip_range in rule.get('IpRanges', []):
+               if ip_range['CidrIp'] == '0.0.0.0/0':
+                   # Revoke the unrestricted IPv4 outbound rule
+                   ec2.revoke_security_group_egress(
+                       GroupId=security_group_id,
+                       IpPermissions=[rule]
+                   )
+           for ipv6_range in rule.get('Ipv6Ranges', []):
+               if ipv6_range['CidrIpv6'] == '::/0':
+                   # Revoke the unrestricted IPv6 outbound rule
+                   ec2.revoke_security_group_egress(
+                       GroupId=security_group_id,
+                       IpPermissions=[rule]
+                   )
+
+   # Example usage
+   security_group_id = 'sg-0123456789abcdef0'  # Replace with your security group ID
+   restrict_outbound_access(security_group_id)
+   ```
+
+4. **Run the Script**:
+   Execute the script to apply the changes to your security group. Ensure you have the necessary permissions to modify security group rules.
+
+   ```bash
+   python restrict_outbound_access.py
+   ```
+
+This script will help you prevent unrestricted outbound access by removing any outbound rules that allow traffic to `0.0.0.0/0` or `::/0`. Make sure to replace the `security_group_id` with the actual ID of the security group you want to modify.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

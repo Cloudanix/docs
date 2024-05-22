@@ -24,6 +24,143 @@ CBP,RBI_MD_ITF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of a VPN tunnel being down in EC2 using the AWS Management Console, follow these steps:
+
+1. **Monitor VPN Tunnel Status:**
+   - Navigate to the **VPC Dashboard** in the AWS Management Console.
+   - Select **Site-to-Site VPN Connections** from the left-hand menu.
+   - Check the **Status** of your VPN tunnels. Ensure that both tunnels (if you have two for redundancy) are in the **UP** state.
+
+2. **Enable CloudWatch Alarms:**
+   - Go to the **CloudWatch Dashboard**.
+   - Create an alarm for the **VPN Tunnel State** metric.
+   - Set the alarm to trigger if the VPN tunnel state changes to **DOWN**. This will notify you immediately if there is an issue with the VPN connection.
+
+3. **Configure Route Tables:**
+   - In the **VPC Dashboard**, select **Route Tables**.
+   - Ensure that your route tables are correctly configured to route traffic through the VPN connection.
+   - Verify that the routes are pointing to the correct **Virtual Private Gateway (VGW)** or **Transit Gateway (TGW)**.
+
+4. **Regularly Review VPN Configuration:**
+   - Periodically review the VPN configuration settings.
+   - Ensure that the **Customer Gateway** and **Virtual Private Gateway** settings are correct and up-to-date.
+   - Verify that the **pre-shared keys** and **IKE configurations** match between your on-premises device and AWS.
+
+By following these steps, you can proactively monitor and maintain the health of your VPN tunnels, reducing the risk of misconfigurations that could lead to downtime.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of a VPN tunnel not being up in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a VPN Gateway:**
+   Ensure you have a VPN Gateway created and attached to your VPC. This is the first step to set up a VPN connection.
+   ```sh
+   aws ec2 create-vpn-gateway --type ipsec.1
+   ```
+
+2. **Attach the VPN Gateway to Your VPC:**
+   Attach the created VPN Gateway to your VPC.
+   ```sh
+   aws ec2 attach-vpn-gateway --vpn-gateway-id <vpn-gateway-id> --vpc-id <vpc-id>
+   ```
+
+3. **Create a Customer Gateway:**
+   Define the customer gateway, which represents the on-premises gateway device.
+   ```sh
+   aws ec2 create-customer-gateway --type ipsec.1 --public-ip <customer-gateway-ip> --bgp-asn <asn>
+   ```
+
+4. **Create a VPN Connection:**
+   Establish the VPN connection between the VPN Gateway and the Customer Gateway.
+   ```sh
+   aws ec2 create-vpn-connection --type ipsec.1 --customer-gateway-id <customer-gateway-id> --vpn-gateway-id <vpn-gateway-id> --options StaticRoutesOnly=false
+   ```
+
+By following these steps, you ensure that the VPN tunnel is properly configured and should be up, preventing the misconfiguration in EC2.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of a VPN tunnel not being up in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that the VPN tunnel is up:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a credentials file at `~/.aws/credentials`.
+
+3. **Create a Python Script to Monitor VPN Tunnel Status**:
+   Write a Python script that checks the status of the VPN tunnel and takes action if it is down.
+
+   ```python
+   import boto3
+   from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+   def check_vpn_tunnel_status(vpn_connection_id):
+       try:
+           # Create a Boto3 EC2 client
+           ec2_client = boto3.client('ec2')
+
+           # Describe the VPN connection
+           response = ec2_client.describe_vpn_connections(VpnConnectionIds=[vpn_connection_id])
+
+           # Extract the VPN tunnel status
+           vpn_connection = response['VpnConnections'][0]
+           tunnels = vpn_connection['VgwTelemetry']
+
+           for tunnel in tunnels:
+               status = tunnel['Status']
+               if status != 'UP':
+                   print(f"VPN Tunnel {tunnel['OutsideIpAddress']} is {status}. Taking preventive action.")
+                   # Add your preventive action here, e.g., send an alert, restart the tunnel, etc.
+               else:
+                   print(f"VPN Tunnel {tunnel['OutsideIpAddress']} is UP.")
+
+       except NoCredentialsError:
+           print("AWS credentials not found.")
+       except PartialCredentialsError:
+           print("Incomplete AWS credentials.")
+       except Exception as e:
+           print(f"An error occurred: {e}")
+
+   if __name__ == "__main__":
+       # Replace with your VPN connection ID
+       vpn_connection_id = 'vpn-xxxxxxxx'
+       check_vpn_tunnel_status(vpn_connection_id)
+   ```
+
+4. **Automate the Script Execution**:
+   To ensure continuous monitoring, you can set up a cron job (on Linux) or a scheduled task (on Windows) to run this script at regular intervals.
+
+   **For Linux (using cron job)**:
+   ```bash
+   crontab -e
+   ```
+
+   Add the following line to run the script every 5 minutes:
+   ```bash
+   */5 * * * * /usr/bin/python3 /path/to/your/script.py
+   ```
+
+   **For Windows (using Task Scheduler)**:
+   - Open Task Scheduler.
+   - Create a new task.
+   - Set the trigger to run every 5 minutes.
+   - Set the action to start a program and point it to your Python executable and script.
+
+By following these steps, you can continuously monitor the status of your VPN tunnel and take preventive actions if it goes down.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,141 @@ HIPAA, PCIDSS, NIST, SOC2, CISAWS, CBP, HITRUST, AWSWAF, GDPR, NISTCSF, FedRAMP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted SSH access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - In the "Inbound rules" tab, click on the "Edit inbound rules" button.
+   - Locate the rule that allows SSH (port 22) access.
+
+4. **Restrict SSH Access:**
+   - Modify the SSH rule to restrict access. Instead of allowing access from "0.0.0.0/0" (which allows access from any IP address), specify a more restrictive IP range or a specific IP address that should have SSH access.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that SSH access to your EC2 instances is restricted to only trusted IP addresses, thereby enhancing the security of your instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted SSH access to EC2 instances using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance. You can list all security groups and find the relevant one using the following command:
+   ```sh
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{ID:GroupId,Name:GroupName}"
+   ```
+
+2. **Check Existing Rules:**
+   Check the existing inbound rules for the identified security group to see if there are any rules allowing unrestricted SSH access (port 22 from 0.0.0.0/0 or ::/0).
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions"
+   ```
+
+3. **Revoke Unrestricted SSH Access:**
+   If you find any rules allowing unrestricted SSH access, revoke them. Replace `<security-group-id>` with your actual security group ID.
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 22 --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 22 --cidr ::/0
+   ```
+
+4. **Add Restricted SSH Access:**
+   Add a more restrictive rule to allow SSH access only from specific IP addresses or IP ranges. Replace `<your-ip-range>` with the specific IP range you want to allow.
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 22 --cidr <your-ip-range>
+   ```
+
+By following these steps, you can ensure that SSH access to your EC2 instances is restricted to specific IP addresses, thereby preventing unrestricted SSH access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted SSH access in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to find and update security groups that allow unrestricted SSH access (port 22). The script will revoke any inbound rules that allow SSH access from `0.0.0.0/0`.
+
+4. **Run the Script**:
+   Execute the script to apply the changes.
+
+Here is a sample Python script to prevent unrestricted SSH access:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Describe all security groups
+response = ec2.describe_security_groups()
+
+# Iterate over each security group
+for sg in response['SecurityGroups']:
+    group_id = sg['GroupId']
+    group_name = sg['GroupName']
+    
+    # Iterate over each inbound rule
+    for permission in sg['IpPermissions']:
+        if permission['IpProtocol'] == 'tcp' and permission['FromPort'] == 22 and permission['ToPort'] == 22:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Revoking unrestricted SSH access for Security Group: {group_name} ({group_id})")
+                    
+                    # Revoke the rule
+                    ec2.revoke_security_group_ingress(
+                        GroupId=group_id,
+                        IpProtocol='tcp',
+                        FromPort=22,
+                        ToPort=22,
+                        CidrIp='0.0.0.0/0'
+                    )
+
+print("Unrestricted SSH access has been revoked where applicable.")
+```
+
+### Explanation:
+
+1. **Initialize Boto3 Client**:
+   ```python
+   ec2 = boto3.client('ec2')
+   ```
+   This initializes the EC2 client using Boto3.
+
+2. **Describe Security Groups**:
+   ```python
+   response = ec2.describe_security_groups()
+   ```
+   This retrieves all security groups in your AWS account.
+
+3. **Iterate and Check for Unrestricted SSH Access**:
+   The script iterates over each security group and its inbound rules to check if there is a rule allowing SSH access from `0.0.0.0/0`.
+
+4. **Revoke Unrestricted SSH Access**:
+   If such a rule is found, the script revokes it using the `revoke_security_group_ingress` method.
+
+By running this script, you can ensure that no security group in your AWS account allows unrestricted SSH access, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

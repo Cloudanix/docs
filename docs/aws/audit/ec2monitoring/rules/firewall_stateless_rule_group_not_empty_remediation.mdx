@@ -2,6 +2,183 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent non-empty stateless network firewall rule groups from being present in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the VPC Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the VPC Dashboard by selecting "VPC" from the "Services" menu.
+
+2. **Access Network Firewall:**
+   - In the VPC Dashboard, scroll down to the "Network Firewall" section.
+   - Click on "Firewall policies" to view existing firewall policies.
+
+3. **Review Stateless Rule Groups:**
+   - Select the firewall policy you want to review.
+   - Under the "Stateless rule groups" section, ensure that no non-empty stateless rule groups are attached. If any are present, review their necessity and configuration.
+
+4. **Modify or Remove Unnecessary Rule Groups:**
+   - If you find any non-empty stateless rule groups that are not required, select the rule group.
+   - Click on "Actions" and choose "Disassociate" to remove the rule group from the firewall policy.
+
+By following these steps, you can ensure that non-empty stateless network firewall rule groups are not present in your EC2 configurations, thereby maintaining a more secure and compliant environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent non-empty stateless network firewall rule groups in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Stateless Rule Group with No Rules:**
+   Ensure that when you create a stateless rule group, you do not add any rules to it. This can be done using the `create-rule-group` command.
+
+   ```sh
+   aws network-firewall create-rule-group \
+       --rule-group-name myStatelessRuleGroup \
+       --type STATELESS \
+       --capacity 100 \
+       --rule-group '{"rulesSource": {"statelessRulesAndCustomActions": {"statelessRules": []}}}' \
+       --description "Empty stateless rule group"
+   ```
+
+2. **List Existing Rule Groups:**
+   Regularly list your existing rule groups to ensure that no non-empty stateless rule groups are present.
+
+   ```sh
+   aws network-firewall list-rule-groups
+   ```
+
+3. **Describe Rule Groups to Verify Rules:**
+   For each rule group, describe it to check if it contains any rules. This helps in verifying that the rule groups are indeed empty.
+
+   ```sh
+   aws network-firewall describe-rule-group \
+       --rule-group-arn <rule-group-arn>
+   ```
+
+4. **Automate Checks with a Script:**
+   Create a script that automates the process of checking for non-empty stateless rule groups and alerts you if any are found. This can be done using a combination of AWS CLI commands and a scripting language like Python.
+
+   ```python
+   import subprocess
+   import json
+
+   def list_rule_groups():
+       result = subprocess.run(['aws', 'network-firewall', 'list-rule-groups'], capture_output=True, text=True)
+       return json.loads(result.stdout)
+
+   def describe_rule_group(rule_group_arn):
+       result = subprocess.run(['aws', 'network-firewall', 'describe-rule-group', '--rule-group-arn', rule_group_arn], capture_output=True, text=True)
+       return json.loads(result.stdout)
+
+   rule_groups = list_rule_groups()
+   for rg in rule_groups['RuleGroups']:
+       details = describe_rule_group(rg['RuleGroupArn'])
+       if details['RuleGroup']['RulesSource']['StatelessRulesAndCustomActions']['StatelessRules']:
+           print(f"Non-empty stateless rule group found: {rg['RuleGroupName']}")
+       else:
+           print(f"Stateless rule group {rg['RuleGroupName']} is empty.")
+   ```
+
+By following these steps, you can ensure that non-empty stateless network firewall rule groups are not present in your EC2 environment using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent non-empty stateless network firewall rule groups in EC2 using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Python Script to List Stateless Rule Groups:**
+   Write a script to list all stateless rule groups in your AWS account.
+
+   ```python
+   import boto3
+
+   def list_stateless_rule_groups():
+       client = boto3.client('network-firewall')
+       response = client.list_rule_groups(
+           Type='STATELESS'
+       )
+       return response['RuleGroups']
+
+   stateless_rule_groups = list_stateless_rule_groups()
+   print(stateless_rule_groups)
+   ```
+
+3. **Check for Non-Empty Rule Groups:**
+   Modify the script to check if any of the stateless rule groups are non-empty.
+
+   ```python
+   def check_non_empty_stateless_rule_groups():
+       client = boto3.client('network-firewall')
+       stateless_rule_groups = list_stateless_rule_groups()
+       non_empty_groups = []
+
+       for group in stateless_rule_groups:
+           group_details = client.describe_rule_group(
+               RuleGroupArn=group['Arn'],
+               Type='STATELESS'
+           )
+           if group_details['RuleGroupResponse']['RuleGroupStatus'] != 'INACTIVE':
+               non_empty_groups.append(group['Name'])
+
+       return non_empty_groups
+
+   non_empty_stateless_rule_groups = check_non_empty_stateless_rule_groups()
+   if non_empty_stateless_rule_groups:
+       print("Non-empty stateless rule groups found:", non_empty_stateless_rule_groups)
+   else:
+       print("All stateless rule groups are empty.")
+   ```
+
+4. **Prevent Creation of Non-Empty Stateless Rule Groups:**
+   Implement a function to prevent the creation of non-empty stateless rule groups by checking the rules before creating a new group.
+
+   ```python
+   def create_stateless_rule_group(rule_group_name, rules):
+       if rules:
+           raise ValueError("Stateless rule group should not contain any rules.")
+       
+       client = boto3.client('network-firewall')
+       response = client.create_rule_group(
+           RuleGroupName=rule_group_name,
+           Type='STATELESS',
+           RuleGroup={
+               'RulesSource': {
+                   'StatelessRulesAndCustomActions': {
+                       'StatelessRules': []
+                   }
+               }
+           },
+           Capacity=100
+       )
+       return response
+
+   try:
+       create_stateless_rule_group('example-rule-group', [])
+       print("Stateless rule group created successfully.")
+   except ValueError as e:
+       print(e)
+   ```
+
+By following these steps, you can ensure that non-empty stateless network firewall rule groups are not present in your EC2 environment using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

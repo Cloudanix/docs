@@ -2,6 +2,124 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted SMTP access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups."
+
+2. **Identify the Relevant Security Group:**
+   - Locate the security group associated with your EC2 instance that you want to modify.
+   - Click on the security group ID to view its details.
+
+3. **Review Inbound Rules:**
+   - In the security group details, go to the "Inbound rules" tab.
+   - Look for any rules that allow unrestricted access (0.0.0.0/0 or ::/0) on port 25 (SMTP).
+
+4. **Modify or Remove Inbound Rules:**
+   - If you find any unrestricted rules for port 25, either modify the source IP range to a more restrictive range or remove the rule entirely.
+   - Click "Edit inbound rules," make the necessary changes, and then click "Save rules."
+
+By following these steps, you can ensure that SMTP access is not unrestricted, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted SMTP access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to port 25 (SMTP). Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].SecurityGroups[*].GroupId' --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rules:**
+   Revoke any existing inbound rules that allow unrestricted access to port 25.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 25 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rules:**
+   Add a new inbound rule to allow access to port 25 only from specific IP addresses or ranges.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 25 --cidr <allowed-ip-range>
+   ```
+
+4. **Verify the Security Group Rules:**
+   Verify that the security group rules have been updated correctly.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+Replace `<instance-id>`, `<security-group-id>`, and `<allowed-ip-range>` with your specific instance ID, security group ID, and the IP range you want to allow.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted SMTP access in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to find and update security groups that allow unrestricted SMTP access (port 25).
+
+4. **Implement the Script**:
+   Below is a sample Python script to prevent unrestricted SMTP access by removing inbound rules that allow access to port 25 from any IP address (0.0.0.0/0):
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Describe all security groups
+   response = ec2.describe_security_groups()
+
+   for sg in response['SecurityGroups']:
+       sg_id = sg['GroupId']
+       for permission in sg['IpPermissions']:
+           if permission['IpProtocol'] == 'tcp' and permission['FromPort'] == 25 and permission['ToPort'] == 25:
+               for ip_range in permission['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       # Revoke the rule that allows unrestricted access to port 25
+                       ec2.revoke_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol='tcp',
+                           FromPort=25,
+                           ToPort=25,
+                           CidrIp='0.0.0.0/0'
+                       )
+                       print(f"Revoked unrestricted SMTP access for security group {sg_id}")
+
+   print("Completed checking and updating security groups.")
+   ```
+
+### Summary of Steps:
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create a Python Script**: Write a script to identify and modify security groups.
+4. **Implement the Script**: Use the script to revoke unrestricted SMTP access.
+
+This script will help you prevent unrestricted SMTP access by modifying the security group rules in your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,147 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Reserved Instance Lease Expiration in the next 7 days in EC2 using the AWS Management Console, follow these steps:
+
+1. **Monitor Reserved Instances:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - In the left-hand menu, click on **Reserved Instances**.
+   - Review the list of Reserved Instances and their expiration dates. Pay special attention to those expiring within the next 7 days.
+
+2. **Set Up Billing and Cost Management Alerts:**
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Click on **Budgets** in the left-hand menu.
+   - Create a new budget and set up alerts for when your Reserved Instance usage is nearing its limit or when expiration is approaching.
+
+3. **Enable AWS Config Rules:**
+   - Navigate to the **AWS Config** service in the AWS Management Console.
+   - Click on **Rules** in the left-hand menu.
+   - Add a new rule and select **ec2-reserved-instance-expiration-check**. This rule will continuously monitor your Reserved Instances and notify you of any that are expiring soon.
+
+4. **Automate Notifications with CloudWatch:**
+   - Go to the **CloudWatch** service in the AWS Management Console.
+   - Click on **Rules** under the Events section.
+   - Create a new rule with an event pattern that matches Reserved Instance expiration events.
+   - Set up a target for this rule, such as an SNS topic, to send notifications to your email or other communication channels when a Reserved Instance is about to expire.
+
+By following these steps, you can proactively monitor and receive notifications about your Reserved Instances, helping you to take timely action before they expire.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Reserved Instance Lease Expiration in the next 7 days in EC2 using AWS CLI, you can follow these steps:
+
+1. **List Reserved Instances:**
+   First, identify the Reserved Instances that are about to expire. Use the following command to list all your Reserved Instances and their expiration dates:
+   ```sh
+   aws ec2 describe-reserved-instances --query "ReservedInstances[*].{ID:ReservedInstancesId,End:End}"
+   ```
+
+2. **Filter Expiring Instances:**
+   Filter the Reserved Instances that are expiring within the next 7 days. You can use the `--filters` option to narrow down the results. Note that AWS CLI does not directly support date arithmetic, so you may need to handle this logic in a script or manually:
+   ```sh
+   aws ec2 describe-reserved-instances --filters "Name=end,Values=$(date -d '+7 days' --utc +%Y-%m-%dT%H:%M:%SZ)" --query "ReservedInstances[*].{ID:ReservedInstancesId,End:End}"
+   ```
+
+3. **Purchase New Reserved Instances:**
+   Once you have identified the expiring Reserved Instances, you can purchase new ones to replace them. Use the following command to purchase a new Reserved Instance:
+   ```sh
+   aws ec2 purchase-reserved-instances-offering --instance-count <count> --reserved-instances-offering-id <offering-id>
+   ```
+   Replace `<count>` with the number of instances you need and `<offering-id>` with the ID of the Reserved Instance offering you want to purchase.
+
+4. **Automate Monitoring and Notification:**
+   Set up a CloudWatch alarm or a scheduled Lambda function to monitor Reserved Instance expiration and notify you in advance. This step involves creating a CloudWatch alarm and a Lambda function, which can be done using the AWS CLI:
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ReservedInstanceExpirationAlarm" --metric-name "ReservedInstanceExpiration" --namespace "AWS/EC2" --statistic "Maximum" --period 86400 --threshold 1 --comparison-operator "GreaterThanOrEqualToThreshold" --evaluation-periods 1 --alarm-actions <sns-topic-arn>
+   ```
+
+By following these steps, you can proactively manage and prevent Reserved Instance lease expiration in AWS EC2 using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Reserved Instance Lease Expiration in the next 7 days in Amazon EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Monitor Reserved Instances:**
+   - Write a script to check the expiration dates of your Reserved Instances.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon EC2
+   ec2_client = boto3.client('ec2')
+
+   # Get the current date and the date 7 days from now
+   current_date = datetime.utcnow()
+   warning_date = current_date + timedelta(days=7)
+
+   # Describe reserved instances
+   response = ec2_client.describe_reserved_instances()
+
+   # Check for instances expiring in the next 7 days
+   for reserved_instance in response['ReservedInstances']:
+       end_date = reserved_instance['End']
+       if current_date <= end_date <= warning_date:
+           print(f"Reserved Instance {reserved_instance['ReservedInstancesId']} is expiring on {end_date}")
+   ```
+
+3. **Set Up Notifications:**
+   - Integrate with AWS SNS (Simple Notification Service) to send alerts if any Reserved Instances are expiring soon.
+
+   ```python
+   import boto3
+
+   sns_client = boto3.client('sns')
+   topic_arn = 'arn:aws:sns:your-region:your-account-id:your-topic'
+
+   def send_notification(message):
+       sns_client.publish(
+           TopicArn=topic_arn,
+           Message=message,
+           Subject='Reserved Instance Expiration Alert'
+       )
+
+   # Modify the previous script to send notifications
+   for reserved_instance in response['ReservedInstances']:
+       end_date = reserved_instance['End']
+       if current_date <= end_date <= warning_date:
+           message = f"Reserved Instance {reserved_instance['ReservedInstancesId']} is expiring on {end_date}"
+           print(message)
+           send_notification(message)
+   ```
+
+4. **Automate the Script Execution:**
+   - Use AWS Lambda or a cron job to run the script periodically (e.g., daily) to ensure continuous monitoring.
+
+   Example of setting up a cron job (Linux):
+
+   ```bash
+   crontab -e
+   ```
+
+   Add the following line to run the script daily at midnight:
+
+   ```bash
+   0 0 * * * /usr/bin/python3 /path/to/your/script.py
+   ```
+
+By following these steps, you can effectively monitor and prevent Reserved Instance Lease Expiration in the next 7 days using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

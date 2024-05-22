@@ -24,6 +24,145 @@ HIPAA,ISO27001,SEBI,RBI_MD_ITF,RBI_UCB,CBP,GDPR
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of VPC Flow Logs not being enabled in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the VPC Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "VPC" and select "VPC" from the dropdown list to go to the VPC Dashboard.
+
+2. **Select Your VPC:**
+   - In the VPC Dashboard, click on "Your VPCs" in the left-hand menu.
+   - Select the VPC for which you want to enable Flow Logs.
+
+3. **Create Flow Log:**
+   - With your VPC selected, click on the "Actions" dropdown menu.
+   - Choose "Create Flow Log" from the list of actions.
+
+4. **Configure Flow Log Settings:**
+   - In the "Create Flow Log" dialog, configure the necessary settings:
+     - **Filter:** Choose the type of traffic to log (e.g., All, Accept, Reject).
+     - **Destination:** Select where to send the flow logs (e.g., CloudWatch Logs, S3 bucket).
+     - **IAM Role:** Ensure you have an IAM role with the necessary permissions to publish flow logs.
+   - Click "Create Flow Log" to enable the logging.
+
+By following these steps, you can ensure that VPC Flow Logs are enabled for your EC2 instances, helping you monitor and troubleshoot network traffic effectively.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of VPC Flow Logs not being enabled in EC2 using AWS CLI, follow these steps:
+
+1. **Identify the VPC ID:**
+   First, you need to identify the VPC ID for which you want to enable VPC Flow Logs. You can list all VPCs and their IDs using the following command:
+   ```sh
+   aws ec2 describe-vpcs --query 'Vpcs[*].{VPCID:VpcId}'
+   ```
+
+2. **Create an IAM Role for VPC Flow Logs:**
+   Ensure you have an IAM role that allows VPC Flow Logs to publish logs to CloudWatch or S3. If you don't have one, create it using the following command:
+   ```sh
+   aws iam create-role --role-name VPCFlowLogsRole --assume-role-policy-document file://trust-policy.json
+   ```
+   The `trust-policy.json` should contain the trust relationship policy allowing VPC Flow Logs to assume the role.
+
+3. **Attach Policy to IAM Role:**
+   Attach the necessary policy to the IAM role to allow it to publish logs to CloudWatch or S3. For CloudWatch, you can use the following command:
+   ```sh
+   aws iam attach-role-policy --role-name VPCFlowLogsRole --policy-arn arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+   ```
+
+4. **Create VPC Flow Logs:**
+   Finally, create the VPC Flow Logs for the identified VPC using the following command:
+   ```sh
+   aws ec2 create-flow-logs --resource-type VPC --resource-id <VPC_ID> --traffic-type ALL --log-group-name <LOG_GROUP_NAME> --deliver-logs-permission-arn arn:aws:iam::<ACCOUNT_ID>:role/VPCFlowLogsRole
+   ```
+   Replace `<VPC_ID>`, `<LOG_GROUP_NAME>`, and `<ACCOUNT_ID>` with your specific VPC ID, desired CloudWatch log group name, and AWS account ID, respectively.
+
+By following these steps, you can ensure that VPC Flow Logs are enabled for your VPCs, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of VPC Flow Logs not being enabled in EC2 using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to ensure VPC Flow Logs are enabled:
+
+### Step 1: Install Boto3
+Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+### Step 3: Create a Python Script to Enable VPC Flow Logs
+Below is a Python script that checks if VPC Flow Logs are enabled for a given VPC and enables them if they are not.
+
+```python
+import boto3
+
+def enable_vpc_flow_logs(vpc_id, log_group_name, role_arn, region='us-west-2'):
+    ec2_client = boto3.client('ec2', region_name=region)
+    logs_client = boto3.client('logs', region_name=region)
+
+    # Check if Flow Logs are already enabled
+    response = ec2_client.describe_flow_logs(
+        Filter=[
+            {
+                'Name': 'resource-id',
+                'Values': [vpc_id]
+            }
+        ]
+    )
+
+    if response['FlowLogs']:
+        print(f"Flow Logs are already enabled for VPC {vpc_id}")
+        return
+
+    # Create a CloudWatch Logs log group if it doesn't exist
+    try:
+        logs_client.create_log_group(logGroupName=log_group_name)
+    except logs_client.exceptions.ResourceAlreadyExistsException:
+        pass
+
+    # Enable VPC Flow Logs
+    response = ec2_client.create_flow_logs(
+        ResourceIds=[vpc_id],
+        ResourceType='VPC',
+        TrafficType='ALL',
+        LogGroupName=log_group_name,
+        DeliverLogsPermissionArn=role_arn
+    )
+
+    if response['FlowLogIds']:
+        print(f"Successfully enabled Flow Logs for VPC {vpc_id}")
+    else:
+        print(f"Failed to enable Flow Logs for VPC {vpc_id}")
+
+# Example usage
+vpc_id = 'vpc-12345678'
+log_group_name = 'my-vpc-flow-logs'
+role_arn = 'arn:aws:iam::123456789012:role/FlowLogsRole'
+enable_vpc_flow_logs(vpc_id, log_group_name, role_arn)
+```
+
+### Step 4: Automate the Script
+You can automate this script to run periodically using AWS Lambda or a cron job on an EC2 instance to ensure that VPC Flow Logs are always enabled.
+
+#### Key Points:
+1. **Install Boto3**: Ensure Boto3 is installed in your Python environment.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create and Run the Script**: Use the provided Python script to enable VPC Flow Logs.
+4. **Automate the Script**: Schedule the script to run periodically to maintain compliance.
+
+By following these steps, you can ensure that VPC Flow Logs are enabled for your EC2 instances, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

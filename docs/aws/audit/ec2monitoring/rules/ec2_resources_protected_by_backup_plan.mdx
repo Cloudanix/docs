@@ -24,6 +24,201 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from lacking a backup plan protection in AWS using the AWS Management Console, follow these steps:
+
+1. **Create an IAM Role for Backup:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Create a new role with the necessary permissions for AWS Backup. Attach the `AWSBackupServiceRolePolicyForBackup` managed policy to this role.
+
+2. **Set Up AWS Backup Plan:**
+   - Go to the AWS Backup service in the AWS Management Console.
+   - Create a new backup plan by specifying the backup rules, such as frequency, backup window, and lifecycle policies.
+   - Define the resources to be backed up, including EC2 instances.
+
+3. **Assign Resources to Backup Plan:**
+   - In the AWS Backup console, navigate to the "Assign resources" section.
+   - Select the EC2 instances you want to include in the backup plan.
+   - Assign the previously created IAM role to these resources to allow AWS Backup to manage backups for these instances.
+
+4. **Enable Backup Monitoring and Notifications:**
+   - Set up monitoring and notifications for backup jobs in the AWS Backup console.
+   - Configure Amazon CloudWatch Alarms and SNS topics to receive notifications about backup job statuses, ensuring you are alerted to any issues or failures in the backup process.
+
+By following these steps, you can ensure that your EC2 instances have a robust backup plan in place, reducing the risk of data loss due to misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from lacking a backup plan protection using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Role for Backup**:
+   Ensure you have an IAM role with the necessary permissions to create and manage backups. This role will be used by AWS Backup to perform backup operations.
+
+   ```sh
+   aws iam create-role --role-name BackupRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name BackupRole --policy-arn arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+   ```
+
+2. **Create a Backup Plan**:
+   Define a backup plan that specifies when and how frequently backups should be taken.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan file://backup-plan.json
+   ```
+
+   Example `backup-plan.json`:
+   ```json
+   {
+     "BackupPlanName": "MyBackupPlan",
+     "Rules": [
+       {
+         "RuleName": "DailyBackup",
+         "TargetBackupVaultName": "Default",
+         "ScheduleExpression": "cron(0 12 * * ? *)",
+         "StartWindowMinutes": 60,
+         "CompletionWindowMinutes": 180,
+         "Lifecycle": {
+           "DeleteAfterDays": 30
+         }
+       }
+     ]
+   }
+   ```
+
+3. **Assign Resources to the Backup Plan**:
+   Assign your EC2 instances to the backup plan by specifying their resource ARNs.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection file://backup-selection.json
+   ```
+
+   Example `backup-selection.json`:
+   ```json
+   {
+     "SelectionName": "MyEC2BackupSelection",
+     "IamRoleArn": "arn:aws:iam::<account-id>:role/BackupRole",
+     "Resources": [
+       "arn:aws:ec2:<region>:<account-id>:instance/<instance-id>"
+     ]
+   }
+   ```
+
+4. **Verify Backup Plan and Selection**:
+   Ensure that the backup plan and selection are correctly configured and active.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <backup-plan-id>
+   ```
+
+By following these steps, you can ensure that your EC2 instances have a backup plan in place, thereby preventing the misconfiguration of lacking backup protection.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from lacking a backup plan protection using Python scripts, you can automate the creation and management of backups using AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Backup Plan**:
+   Define a backup plan using AWS Backup. This plan will specify the backup rules and schedules.
+
+   ```python
+   import boto3
+
+   backup_client = boto3.client('backup')
+
+   backup_plan = {
+       'BackupPlanName': 'MyBackupPlan',
+       'Rules': [
+           {
+               'RuleName': 'DailyBackup',
+               'TargetBackupVaultName': 'Default',
+               'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12:00 UTC
+               'StartWindowMinutes': 60,
+               'CompletionWindowMinutes': 180,
+               'Lifecycle': {
+                   'MoveToColdStorageAfterDays': 30,
+                   'DeleteAfterDays': 365
+               },
+               'RecoveryPointTags': {
+                   'Environment': 'Production'
+               }
+           }
+       ]
+   }
+
+   response = backup_client.create_backup_plan(
+       BackupPlan=backup_plan
+   )
+
+   backup_plan_id = response['BackupPlanId']
+   print(f"Backup Plan ID: {backup_plan_id}")
+   ```
+
+3. **Assign Resources to the Backup Plan**:
+   Assign your EC2 instances to the backup plan by creating a backup selection.
+
+   ```python
+   backup_selection = {
+       'SelectionName': 'EC2BackupSelection',
+       'IamRoleArn': 'arn:aws:iam::YOUR_ACCOUNT_ID:role/service-role/AWSBackupDefaultServiceRole',
+       'Resources': [
+           'arn:aws:ec2:REGION:ACCOUNT_ID:instance/INSTANCE_ID'
+       ]
+   }
+
+   response = backup_client.create_backup_selection(
+       BackupPlanId=backup_plan_id,
+       BackupSelection=backup_selection
+   )
+
+   print(f"Backup Selection ID: {response['SelectionId']}")
+   ```
+
+4. **Automate the Process**:
+   Automate the above steps to ensure that any new EC2 instances are automatically added to the backup plan. This can be done by integrating the script with your instance launch process or by periodically running the script to check for new instances.
+
+   ```python
+   import time
+
+   def automate_backup_for_new_instances():
+       ec2_client = boto3.client('ec2')
+       instances = ec2_client.describe_instances()
+
+       instance_ids = []
+       for reservation in instances['Reservations']:
+           for instance in reservation['Instances']:
+               instance_ids.append(instance['InstanceId'])
+
+       backup_selection['Resources'] = [f'arn:aws:ec2:REGION:ACCOUNT_ID:instance/{instance_id}' for instance_id in instance_ids]
+
+       response = backup_client.create_backup_selection(
+           BackupPlanId=backup_plan_id,
+           BackupSelection=backup_selection
+       )
+
+       print(f"Backup Selection ID: {response['SelectionId']}")
+
+   # Run the automation periodically
+   while True:
+       automate_backup_for_new_instances()
+       time.sleep(86400)  # Run daily
+   ```
+
+By following these steps, you can ensure that your EC2 instances are always protected by a backup plan, thus preventing the misconfiguration of lacking backup protection.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

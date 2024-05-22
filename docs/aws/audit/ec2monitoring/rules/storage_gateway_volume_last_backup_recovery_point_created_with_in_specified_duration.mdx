@@ -24,6 +24,174 @@ CBP,SEBI
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Storage Gateway Volume Last Backup Recovery Point Should Be Created Within Specified Duration" in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Backup:**
+   - Sign in to the AWS Management Console.
+   - Open the AWS Backup console by searching for "AWS Backup" in the search bar.
+
+2. **Create a Backup Plan:**
+   - In the AWS Backup console, click on "Backup plans" in the left-hand menu.
+   - Click on "Create backup plan."
+   - Choose to either start with a template or build a new plan from scratch.
+   - Define the backup rules, specifying the frequency and duration to ensure that backups are created within the required time frame.
+
+3. **Assign Resources to the Backup Plan:**
+   - After creating the backup plan, go to the "Assign resources" section.
+   - Select the resources you want to back up, such as EC2 instances or Storage Gateway volumes.
+   - Assign these resources to the backup plan you created.
+
+4. **Monitor Backup Jobs:**
+   - Regularly monitor the backup jobs to ensure they are running as expected.
+   - Go to the "Backup jobs" section in the AWS Backup console to view the status of your backup jobs.
+   - Set up notifications or CloudWatch alarms to alert you if backups are not created within the specified duration.
+
+By following these steps, you can ensure that your Storage Gateway volumes have recent backup recovery points created within the specified duration, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the Storage Gateway Volume Last Backup Recovery Point should be created within a specified duration in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   Ensure you have a backup plan that specifies the backup frequency and retention rules. This will help in automating the backup process.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the Storage Gateway volumes to the backup plan to ensure they are backed up according to the specified schedule.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection '{
+       "SelectionName": "MyBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:ec2:region:account-id:volume/volume-id"
+       ]
+   }'
+   ```
+
+3. **Monitor Backup Jobs:**
+   Regularly monitor the backup jobs to ensure they are completing successfully and within the specified duration.
+
+   ```sh
+   aws backup list-backup-jobs --by-resource-arn arn:aws:ec2:region:account-id:volume/volume-id
+   ```
+
+4. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to notify you if backups are not created within the specified duration.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "BackupNotCreated" --metric-name "BackupJobsCompleted" --namespace "AWS/Backup" --statistic "Sum" --period 86400 --threshold 1 --comparison-operator "LessThanThreshold" --dimensions Name=BackupVaultName,Value=Default --evaluation-periods 1 --alarm-actions arn:aws:sns:region:account-id:my-sns-topic
+   ```
+
+By following these steps, you can ensure that your Storage Gateway volumes are backed up regularly and within the specified duration, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the Storage Gateway Volume Last Backup Recovery Point should be created within a specified duration in AWS EC2 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Configure AWS Credentials**
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### 3. **Create a Python Script to Monitor Backup Recovery Points**
+Write a Python script that uses Boto3 to check the last backup recovery point for your Storage Gateway volumes and ensure they are within the specified duration.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+# Initialize the Storage Gateway client
+storagegateway_client = session.client('storagegateway')
+
+# Define the specified duration (e.g., 24 hours)
+specified_duration = timedelta(hours=24)
+
+def check_backup_recovery_points():
+    # List all gateways
+    gateways = storagegateway_client.list_gateways()
+    
+    for gateway in gateways['Gateways']:
+        gateway_arn = gateway['GatewayARN']
+        
+        # List all volumes for the gateway
+        volumes = storagegateway_client.list_volumes(GatewayARN=gateway_arn)
+        
+        for volume in volumes['VolumeInfos']:
+            volume_arn = volume['VolumeARN']
+            
+            # Describe the volume to get the last recovery point
+            volume_details = storagegateway_client.describe_cached_iscsi_volumes(
+                VolumeARNs=[volume_arn]
+            )
+            
+            for volume_info in volume_details['CachediSCSIVolumes']:
+                last_backup_time = volume_info['VolumeRecoveryPointTime']
+                last_backup_time = datetime.strptime(last_backup_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+                
+                # Check if the last backup is within the specified duration
+                if datetime.utcnow() - last_backup_time > specified_duration:
+                    print(f"Volume {volume_arn} has not been backed up within the specified duration.")
+                else:
+                    print(f"Volume {volume_arn} is compliant with the backup policy.")
+
+if __name__ == "__main__":
+    check_backup_recovery_points()
+```
+
+### 4. **Automate the Script Execution**
+To ensure continuous compliance, automate the execution of the script using a scheduling tool like cron (for Unix-based systems) or Task Scheduler (for Windows).
+
+#### Example: Using cron to run the script every hour
+1. Open the crontab editor:
+    ```bash
+    crontab -e
+    ```
+2. Add the following line to schedule the script to run every hour:
+    ```bash
+    0 * * * * /usr/bin/python3 /path/to/your/script.py
+    ```
+
+By following these steps, you can prevent the misconfiguration by ensuring that the Storage Gateway Volume Last Backup Recovery Point is created within the specified duration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

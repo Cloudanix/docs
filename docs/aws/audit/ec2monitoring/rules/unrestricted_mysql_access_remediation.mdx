@@ -2,6 +2,134 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted MySQL access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups" under the "Network & Security" section.
+
+2. **Identify the Relevant Security Group:**
+   - Locate the security group associated with your EC2 instance that is running MySQL.
+   - Click on the security group ID to view its details.
+
+3. **Review Inbound Rules:**
+   - In the security group details, go to the "Inbound rules" tab.
+   - Look for any rules that allow inbound traffic on port 3306 (the default MySQL port) from unrestricted sources (e.g., 0.0.0.0/0 or ::/0).
+
+4. **Modify Inbound Rules:**
+   - Select the rule that allows unrestricted access to port 3306 and click "Edit inbound rules."
+   - Change the source to a more restrictive IP range or specific IP addresses that require access.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that MySQL access is restricted to only trusted IP addresses, thereby enhancing the security of your EC2 instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted MySQL access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the MySQL port (default is 3306). Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance that allows MySQL access.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <your-instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rule:**
+   Revoke any existing inbound rule that allows unrestricted access (0.0.0.0/0) to port 3306.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 3306 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rule:**
+   Add a more restrictive inbound rule to allow access only from specific IP addresses or CIDR blocks.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 3306 --cidr <your-allowed-cidr>
+   ```
+
+4. **Verify Security Group Rules:**
+   Verify that the security group rules have been updated correctly.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   ```
+
+Replace `<your-instance-id>`, `<your-security-group-id>`, and `<your-allowed-cidr>` with your specific instance ID, security group ID, and allowed CIDR block, respectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted MySQL access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to find and modify security groups that allow unrestricted access to MySQL (port 3306).
+
+4. **Implement the Script**:
+   Here is a sample Python script to prevent unrestricted MySQL access:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Describe all security groups
+   response = ec2.describe_security_groups()
+
+   for sg in response['SecurityGroups']:
+       sg_id = sg['GroupId']
+       sg_name = sg['GroupName']
+       for permission in sg['IpPermissions']:
+           if 'FromPort' in permission and 'ToPort' in permission:
+               if permission['FromPort'] == 3306 and permission['ToPort'] == 3306:
+                   for ip_range in permission['IpRanges']:
+                       if ip_range['CidrIp'] == '0.0.0.0/0':
+                           print(f"Security Group {sg_name} ({sg_id}) allows unrestricted MySQL access. Revoking rule.")
+                           ec2.revoke_security_group_ingress(
+                               GroupId=sg_id,
+                               IpProtocol=permission['IpProtocol'],
+                               FromPort=permission['FromPort'],
+                               ToPort=permission['ToPort'],
+                               CidrIp=ip_range['CidrIp']
+                           )
+                           print(f"Revoked unrestricted MySQL access from Security Group {sg_name} ({sg_id}).")
+   ```
+
+### Explanation:
+
+1. **Install Boto3 Library**:
+   - Ensure you have the Boto3 library installed to interact with AWS services.
+
+2. **Set Up AWS Credentials**:
+   - Configure your AWS credentials to allow the script to authenticate and interact with your AWS account.
+
+3. **Create a Python Script to Modify Security Groups**:
+   - The script initializes a session with EC2 and retrieves all security groups.
+   - It iterates through each security group and checks for rules that allow MySQL access (port 3306) from any IP address (`0.0.0.0/0`).
+
+4. **Implement the Script**:
+   - If such a rule is found, the script revokes the rule, effectively preventing unrestricted MySQL access.
+
+By following these steps, you can automate the process of preventing unrestricted MySQL access in your EC2 instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,203 @@ CBP,RBI_MD_ITF,RBI_UCB
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having a retention period in a Backup Plan for EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Backup Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "AWS Backup" and select the AWS Backup service from the list.
+
+2. **Create or Modify a Backup Plan:**
+   - If you are creating a new backup plan, click on "Create backup plan."
+   - If you are modifying an existing backup plan, select the backup plan you want to modify from the list.
+
+3. **Set Retention Rules:**
+   - In the backup plan details, navigate to the "Backup rule" section.
+   - Click on "Add backup rule" or edit an existing rule.
+   - In the "Backup rule" settings, locate the "Lifecycle" section.
+   - Set the "Transition to cold storage" and "Expire" options to define the retention period for your backups. Ensure that the "Expire" option is set to a value that meets your retention policy requirements.
+
+4. **Save the Backup Plan:**
+   - After configuring the retention period, review the settings.
+   - Click on "Create plan" if you are creating a new plan or "Save changes" if you are modifying an existing plan.
+
+By following these steps, you ensure that your EC2 backup plan has a defined retention period, preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having a retention period in your AWS Backup Plan for EC2 using AWS CLI, follow these steps:
+
+1. **Create a Backup Plan:**
+   First, create a backup plan with a defined retention period. Use the `create-backup-plan` command to specify the backup rules, including the retention period.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "MyBackupVault",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the EC2 instances to the backup plan using the `create-backup-selection` command. This ensures that the specified resources are included in the backup plan.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection '{
+       "SelectionName": "MyBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:ec2:region:account-id:instance/instance-id"
+       ]
+   }'
+   ```
+
+3. **Verify the Backup Plan:**
+   Verify that the backup plan has been created and includes the retention period by using the `get-backup-plan` command.
+
+   ```sh
+   aws backup get-backup-plan --backup-plan-id <backup-plan-id>
+   ```
+
+4. **Monitor Backup Jobs:**
+   Regularly monitor the backup jobs to ensure they are running as expected and adhering to the retention period. Use the `list-backup-jobs` command to check the status of backup jobs.
+
+   ```sh
+   aws backup list-backup-jobs --by-backup-vault-name MyBackupVault
+   ```
+
+By following these steps, you can ensure that your AWS Backup Plan for EC2 instances includes a retention period, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having a retention period in an EC2 Backup Plan using Python scripts, you can follow these steps:
+
+1. **Install and Configure AWS SDK (Boto3):**
+   Ensure you have the AWS SDK for Python (Boto3) installed and configured with the necessary permissions to manage AWS Backup plans.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Backup Plan with Retention Period:**
+   Use Boto3 to create a backup plan that includes a retention period. This ensures that any new backup plan created will have a retention period set.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the Backup client
+   backup_client = session.client('backup')
+
+   # Define the backup plan with a retention period
+   backup_plan = {
+       'BackupPlanName': 'MyBackupPlan',
+       'Rules': [
+           {
+               'RuleName': 'DailyBackup',
+               'TargetBackupVaultName': 'Default',
+               'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12 PM UTC
+               'StartWindowMinutes': 60,
+               'CompletionWindowMinutes': 180,
+               'Lifecycle': {
+                   'DeleteAfterDays': 30  # Retention period of 30 days
+               }
+           }
+       ]
+   }
+
+   # Create the backup plan
+   response = backup_client.create_backup_plan(
+       BackupPlan=backup_plan
+   )
+
+   print("Backup Plan Created with ID:", response['BackupPlanId'])
+   ```
+
+3. **Validate Existing Backup Plans:**
+   Ensure that all existing backup plans have a retention period set. If not, update them to include a retention period.
+
+   ```python
+   # List all backup plans
+   backup_plans = backup_client.list_backup_plans()
+
+   for plan in backup_plans['BackupPlansList']:
+       plan_id = plan['BackupPlanId']
+       plan_details = backup_client.get_backup_plan(BackupPlanId=plan_id)
+       
+       for rule in plan_details['BackupPlan']['Rules']:
+           if 'Lifecycle' not in rule or 'DeleteAfterDays' not in rule['Lifecycle']:
+               # Update the rule to include a retention period
+               rule['Lifecycle'] = {'DeleteAfterDays': 30}  # Set retention period to 30 days
+
+       # Update the backup plan with the new rules
+       backup_client.update_backup_plan(
+           BackupPlanId=plan_id,
+           BackupPlan=plan_details['BackupPlan']
+       )
+
+       print(f"Updated Backup Plan {plan_id} to include retention period.")
+   ```
+
+4. **Automate the Validation Process:**
+   Schedule the validation script to run periodically (e.g., using AWS Lambda and CloudWatch Events) to ensure that all backup plans always have a retention period set.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       session = boto3.Session()
+       backup_client = session.client('backup')
+
+       # List all backup plans
+       backup_plans = backup_client.list_backup_plans()
+
+       for plan in backup_plans['BackupPlansList']:
+           plan_id = plan['BackupPlanId']
+           plan_details = backup_client.get_backup_plan(BackupPlanId=plan_id)
+           
+           for rule in plan_details['BackupPlan']['Rules']:
+               if 'Lifecycle' not in rule or 'DeleteAfterDays' not in rule['Lifecycle']:
+                   # Update the rule to include a retention period
+                   rule['Lifecycle'] = {'DeleteAfterDays': 30}  # Set retention period to 30 days
+
+           # Update the backup plan with the new rules
+           backup_client.update_backup_plan(
+               BackupPlanId=plan_id,
+               BackupPlan=plan_details['BackupPlan']
+           )
+
+           print(f"Updated Backup Plan {plan_id} to include retention period.")
+
+   # To deploy this function, create an AWS Lambda function and set up a CloudWatch Event to trigger it periodically.
+   ```
+
+By following these steps, you can ensure that all EC2 backup plans have a retention period set, preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

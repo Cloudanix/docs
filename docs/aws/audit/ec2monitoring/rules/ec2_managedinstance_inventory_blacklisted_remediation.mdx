@@ -2,6 +2,147 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 Systems Manager from being configured to collect blacklisted inventory in EC2 using the AWS Management Console, follow these steps:
+
+1. **Access Systems Manager Inventory:**
+   - Open the AWS Management Console.
+   - Navigate to the Systems Manager service by searching for "Systems Manager" in the search bar and selecting it from the results.
+   - In the left-hand navigation pane, under "Node Management," click on "Inventory."
+
+2. **Review Inventory Collection:**
+   - In the Inventory dashboard, review the inventory collection settings for your managed instances.
+   - Ensure that the inventory collection is configured to collect only the necessary data and does not include any blacklisted inventory types.
+
+3. **Modify Inventory Collection:**
+   - If you find any blacklisted inventory types being collected, click on the "Edit" button next to the inventory collection configuration.
+   - Adjust the inventory collection settings to exclude the blacklisted inventory types. You can do this by unchecking the boxes next to the blacklisted inventory types or by specifying only the allowed inventory types.
+
+4. **Save Changes and Monitor:**
+   - After making the necessary adjustments, click on the "Save" button to apply the changes.
+   - Regularly monitor the inventory collection settings to ensure compliance with your organization's policies and to prevent any future misconfigurations.
+
+By following these steps, you can prevent EC2 Systems Manager from being configured to collect blacklisted inventory using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 Systems Manager from collecting blacklisted inventory in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Systems Manager Inventory Policy:**
+   Define a policy that specifies the allowed inventory types and excludes the blacklisted ones. Save this policy in a JSON file, for example, `inventory-policy.json`.
+
+   ```json
+   {
+     "InventoryPolicy": {
+       "AllowList": [
+         "AWS:Application",
+         "AWS:InstanceInformation",
+         "AWS:Network"
+       ],
+       "DenyList": [
+         "AWS:BlacklistedInventoryType"
+       ]
+     }
+   }
+   ```
+
+2. **Attach the Inventory Policy to the EC2 Instances:**
+   Use the `aws ssm put-inventory` command to attach the inventory policy to your EC2 instances. Replace `INSTANCE_ID` with your actual instance ID and `inventory-policy.json` with the path to your policy file.
+
+   ```sh
+   aws ssm put-inventory \
+     --instance-id INSTANCE_ID \
+     --items file://inventory-policy.json
+   ```
+
+3. **Configure Systems Manager Inventory Collection:**
+   Ensure that the Systems Manager is configured to collect inventory according to the policy. Use the `aws ssm create-association` command to create an association that applies the inventory policy to your instances.
+
+   ```sh
+   aws ssm create-association \
+     --name "AWS-GatherSoftwareInventory" \
+     --targets "Key=InstanceIds,Values=INSTANCE_ID" \
+     --parameters '{"applications": "Enabled", "instanceInformation": "Enabled", "networkConfig": "Enabled"}'
+   ```
+
+4. **Verify the Inventory Collection Configuration:**
+   Use the `aws ssm list-inventory-entries` command to verify that the inventory collection is configured correctly and does not include any blacklisted inventory types.
+
+   ```sh
+   aws ssm list-inventory-entries \
+     --instance-id INSTANCE_ID \
+     --type-name "AWS:InstanceInformation"
+   ```
+
+By following these steps, you can ensure that EC2 Systems Manager is configured to collect only the allowed inventory types and prevent the collection of blacklisted inventory.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 Systems Manager from being configured to collect blacklisted inventory in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS Systems Manager.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Define the Blacklisted Inventory Types:**
+   Create a list of inventory types that you want to blacklist.
+
+   ```python
+   blacklisted_inventory_types = ['AWS:Application', 'AWS:InstanceInformation']
+   ```
+
+3. **Create a Function to Validate Inventory Collection:**
+   Write a function that checks the current inventory collection configuration and ensures it does not include any blacklisted types.
+
+   ```python
+   import boto3
+
+   def validate_inventory_collection(instance_id, blacklisted_inventory_types):
+       ssm_client = boto3.client('ssm')
+       response = ssm_client.list_inventory_entries(
+           InstanceId=instance_id,
+           TypeName='AWS:InstanceInformation'
+       )
+       
+       for item in response['Entries']:
+           if item['TypeName'] in blacklisted_inventory_types:
+               print(f"Blacklisted inventory type {item['TypeName']} found on instance {instance_id}.")
+               return False
+       return True
+   ```
+
+4. **Apply the Validation Across Instances:**
+   Iterate over your instances and apply the validation function to ensure no blacklisted inventory types are being collected.
+
+   ```python
+   def check_all_instances():
+       ec2_client = boto3.client('ec2')
+       instances = ec2_client.describe_instances()
+       
+       for reservation in instances['Reservations']:
+           for instance in reservation['Instances']:
+               instance_id = instance['InstanceId']
+               if not validate_inventory_collection(instance_id, blacklisted_inventory_types):
+                   print(f"Instance {instance_id} is collecting blacklisted inventory types.")
+               else:
+                   print(f"Instance {instance_id} is compliant.")
+
+   if __name__ == "__main__":
+       check_all_instances()
+   ```
+
+This script will help you identify instances that are configured to collect blacklisted inventory types and ensure compliance by preventing such configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -25,6 +25,177 @@ AWSWAF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused Amazon Machine Images (AMIs) from accumulating in your AWS EC2 environment using the AWS Management Console, follow these steps:
+
+1. **Identify Unused AMIs:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - In the left-hand menu, click on **AMIs** under the **Images** section.
+   - Review the list of AMIs and identify those that are not associated with any running instances or are no longer needed.
+
+2. **Tag AMIs with Metadata:**
+   - For better management, tag your AMIs with metadata such as creation date, owner, and purpose.
+   - Select an AMI, click on the **Tags** tab, and then click **Add/Edit Tags**.
+   - Add relevant tags to help identify and manage AMIs more effectively.
+
+3. **Set Up Lifecycle Policies:**
+   - Use AWS Data Lifecycle Manager to automate the deletion of outdated or unused AMIs.
+   - Navigate to the **Lifecycle Manager** under the **Elastic Block Store** section.
+   - Create a new lifecycle policy, specifying the criteria for AMI deletion, such as age or tag-based rules.
+
+4. **Regular Audits:**
+   - Schedule regular audits to review and clean up unused AMIs.
+   - Set a calendar reminder or use AWS Config rules to periodically check for compliance with your AMI management policies.
+
+By following these steps, you can effectively manage and prevent the accumulation of unused AMIs in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused Amazon Machine Images (AMIs) from accumulating in your AWS account using the AWS CLI, you can follow these steps:
+
+1. **List All AMIs:**
+   Use the `describe-images` command to list all AMIs owned by your account. This helps you identify which AMIs are currently available.
+   ```sh
+   aws ec2 describe-images --owners self
+   ```
+
+2. **Identify Unused AMIs:**
+   To identify unused AMIs, you can cross-reference the AMIs with the instances that are currently running. First, list all running instances:
+   ```sh
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].ImageId' --output text
+   ```
+
+3. **Filter Out Used AMIs:**
+   Compare the list of AMIs from step 1 with the list of AMIs in use from step 2. You can use a script to automate this comparison. Here is a simple example in Python:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # Get all AMIs
+   all_amis = ec2.describe_images(Owners=['self'])['Images']
+   all_ami_ids = {ami['ImageId'] for ami in all_amis}
+
+   # Get all running instances
+   running_instances = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+   used_ami_ids = {instance['ImageId'] for reservation in running_instances['Reservations'] for instance in reservation['Instances']}
+
+   # Find unused AMIs
+   unused_ami_ids = all_ami_ids - used_ami_ids
+   print("Unused AMIs:", unused_ami_ids)
+   ```
+
+4. **Automate the Cleanup Process:**
+   Once you have identified the unused AMIs, you can automate their deregistration to prevent accumulation. Here is a sample command to deregister an unused AMI:
+   ```sh
+   aws ec2 deregister-image --image-id ami-xxxxxxxxxxxxxxxxx
+   ```
+
+   You can loop through the list of unused AMIs and deregister them using a script:
+   ```python
+   for ami_id in unused_ami_ids:
+       ec2.deregister_image(ImageId=ami_id)
+       print(f"Deregistered AMI: {ami_id}")
+   ```
+
+By following these steps, you can effectively prevent unused AMIs from accumulating in your AWS account using the AWS CLI and a bit of Python scripting.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused Amazon Machine Images (AMIs) in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Install Boto3 if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Identify Unused AMIs:**
+   - Write a Python script to list all AMIs and check if they are associated with any running or stopped instances. If not, they are considered unused.
+
+3. **Automate the Cleanup Process:**
+   - Create a script to deregister unused AMIs and delete associated snapshots.
+
+4. **Schedule the Script:**
+   - Use AWS Lambda or a cron job to run the script periodically to ensure unused AMIs are regularly cleaned up.
+
+Here is a sample Python script to identify and deregister unused AMIs:
+
+```python
+import boto3
+
+def get_all_amis():
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_images(Owners=['self'])
+    return response['Images']
+
+def get_all_instances():
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_instances()
+    instances = []
+    for reservation in response['Reservations']:
+        for instance in reservation['Instances']:
+            instances.append(instance)
+    return instances
+
+def find_unused_amis():
+    amis = get_all_amis()
+    instances = get_all_instances()
+    
+    used_amis = set(instance['ImageId'] for instance in instances)
+    unused_amis = [ami for ami in amis if ami['ImageId'] not in used_amis]
+    
+    return unused_amis
+
+def deregister_ami(ami_id):
+    ec2 = boto3.client('ec2')
+    ec2.deregister_image(ImageId=ami_id)
+    print(f"Deregistered AMI: {ami_id}")
+
+def delete_snapshot(snapshot_id):
+    ec2 = boto3.client('ec2')
+    ec2.delete_snapshot(SnapshotId=snapshot_id)
+    print(f"Deleted Snapshot: {snapshot_id}")
+
+def cleanup_unused_amis():
+    unused_amis = find_unused_amis()
+    for ami in unused_amis:
+        ami_id = ami['ImageId']
+        deregister_ami(ami_id)
+        for block_device in ami['BlockDeviceMappings']:
+            if 'Ebs' in block_device:
+                snapshot_id = block_device['Ebs']['SnapshotId']
+                delete_snapshot(snapshot_id)
+
+if __name__ == "__main__":
+    cleanup_unused_amis()
+```
+
+### Steps Explanation:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure Boto3 is installed and configured with appropriate AWS credentials.
+
+2. **Identify Unused AMIs:**
+   - The script retrieves all AMIs owned by the user and all instances.
+   - It then checks which AMIs are not associated with any running or stopped instances.
+
+3. **Automate the Cleanup Process:**
+   - The script deregisters unused AMIs and deletes associated snapshots to free up storage.
+
+4. **Schedule the Script:**
+   - Deploy the script on AWS Lambda or set up a cron job to run it periodically, ensuring continuous cleanup of unused AMIs.
+
+By following these steps, you can effectively prevent the accumulation of unused AMIs in your AWS environment using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

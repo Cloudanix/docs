@@ -25,6 +25,161 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 Reserved Instances recent purchases from being overlooked in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Billing and Cost Management Alerts:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Select **Billing preferences**.
+   - Enable **Receive Billing Alerts** to get notifications about your billing and usage.
+
+2. **Set Up Cost and Usage Reports:**
+   - In the Billing and Cost Management Dashboard, go to **Cost & Usage Reports**.
+   - Create a new report by clicking on **Create report**.
+   - Configure the report to include details about your Reserved Instances purchases and usage.
+   - Schedule the report to be generated and delivered to an S3 bucket regularly.
+
+3. **Create CloudWatch Alarms for Reserved Instances:**
+   - Open the **CloudWatch** console.
+   - Go to **Alarms** and click on **Create Alarm**.
+   - Select the **Billing** metric and choose the appropriate metric related to Reserved Instances.
+   - Set the threshold and notification actions to alert you when there are significant changes or new purchases.
+
+4. **Enable AWS Config Rules:**
+   - Open the **AWS Config** console.
+   - Ensure AWS Config is enabled and recording.
+   - Add a managed rule such as **ec2-reserved-instance-purchase** to monitor and evaluate the configuration of your Reserved Instances.
+   - Set up notifications to alert you when the rule is triggered.
+
+By following these steps, you can ensure that recent purchases of EC2 Reserved Instances are reviewed and monitored effectively, helping to prevent misconfigurations and unexpected costs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not reviewing recent purchases of EC2 Reserved Instances using AWS CLI, you can follow these steps:
+
+1. **Enable Detailed Billing Reports:**
+   Ensure that detailed billing reports are enabled so you can review your Reserved Instances purchases. This will help you keep track of your spending and usage.
+
+   ```sh
+   aws ce put-report-definition --report-definition file://report-definition.json
+   ```
+
+   Here, `report-definition.json` should contain the necessary configuration for your billing report.
+
+2. **Set Up Cost and Usage Alerts:**
+   Configure cost and usage alerts to notify you when there are significant changes in your Reserved Instances usage or costs.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "EC2ReservedInstancesUsage" --metric-name "EstimatedCharges" --namespace "AWS/Billing" --statistic "Maximum" --period 86400 --threshold 100 --comparison-operator "GreaterThanThreshold" --dimensions Name=Currency,Value=USD --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:NotifyMe
+   ```
+
+3. **Automate Reserved Instances Purchase Review:**
+   Create a scheduled Lambda function that runs a script to review recent Reserved Instances purchases and sends a report to your email or logs it in a monitoring system.
+
+   ```sh
+   aws events put-rule --schedule-expression "rate(1 day)" --name "ReviewReservedInstances"
+   aws lambda create-function --function-name "ReviewReservedInstancesFunction" --runtime "python3.8" --role "arn:aws:iam::123456789012:role/service-role/YourLambdaRole" --handler "lambda_function.lambda_handler" --zip-file "fileb://function.zip"
+   aws lambda add-permission --function-name "ReviewReservedInstancesFunction" --statement-id "AllowExecutionFromCloudWatch" --action "lambda:InvokeFunction" --principal "events.amazonaws.com" --source-arn "arn:aws:events:us-east-1:123456789012:rule/ReviewReservedInstances"
+   aws events put-targets --rule "ReviewReservedInstances" --targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:123456789012:function:ReviewReservedInstancesFunction"
+   ```
+
+4. **Tagging and Resource Grouping:**
+   Implement a tagging strategy for your Reserved Instances to easily identify and review them. This helps in organizing and managing your resources effectively.
+
+   ```sh
+   aws ec2 create-tags --resources <resource-id> --tags Key=Environment,Value=Production Key=Owner,Value=TeamA
+   ```
+
+By following these steps, you can ensure that your EC2 Reserved Instances purchases are regularly reviewed and managed effectively using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 Reserved Instances recent purchases from being overlooked, you can set up automated monitoring and alerting using Python scripts. Here are the steps to achieve this:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed. If not, you can install it using pip:
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Write the Python Script
+Create a Python script to fetch and review recent EC2 Reserved Instances purchases.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+# Initialize EC2 client
+ec2_client = session.client('ec2')
+
+# Define the time range for recent purchases (e.g., last 7 days)
+time_range = datetime.utcnow() - timedelta(days=7)
+
+def get_recent_reserved_instances():
+    # Fetch all reserved instances
+    response = ec2_client.describe_reserved_instances()
+    reserved_instances = response['ReservedInstances']
+
+    # Filter reserved instances purchased within the time range
+    recent_purchases = [
+        ri for ri in reserved_instances
+        if ri['Start'] >= time_range
+    ]
+
+    return recent_purchases
+
+def main():
+    recent_purchases = get_recent_reserved_instances()
+    if recent_purchases:
+        print("Recent Reserved Instances Purchases:")
+        for ri in recent_purchases:
+            print(f"Reserved Instance ID: {ri['ReservedInstancesId']}, Start: {ri['Start']}")
+    else:
+        print("No recent Reserved Instances purchases found.")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Step 4: Automate the Script Execution
+To ensure continuous monitoring, you can automate the execution of this script using a cron job (on Linux) or Task Scheduler (on Windows).
+
+#### On Linux (using cron job):
+1. Open the crontab editor:
+    ```bash
+    crontab -e
+    ```
+2. Add a new cron job to run the script daily:
+    ```bash
+    0 0 * * * /usr/bin/python3 /path/to/your/script.py
+    ```
+
+#### On Windows (using Task Scheduler):
+1. Open Task Scheduler and create a new task.
+2. Set the trigger to run daily.
+3. Set the action to start a program and point it to your Python executable and script path.
+
+By following these steps, you can ensure that recent EC2 Reserved Instances purchases are regularly reviewed, helping to prevent any misconfigurations or overlooked purchases.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,188 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elastic Compute Cloud (EC2) instances from lacking a recovery point in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Automated Backups:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Select **Instances** from the left-hand menu.
+   - Choose the instance you want to configure.
+   - Click on the **Actions** dropdown menu, then select **Create Image (EBS AMI)** to create an initial backup.
+   - To automate this process, go to the **Lifecycle Manager** under the **Elastic Block Store (EBS)** section and create a new lifecycle policy to automate the creation of snapshots.
+
+2. **Configure Amazon Data Lifecycle Manager (DLM):**
+   - In the AWS Management Console, go to the **EC2 Dashboard**.
+   - Under **Elastic Block Store**, select **Lifecycle Manager**.
+   - Click on **Create lifecycle policy**.
+   - Define the policy details, such as the resource type (EBS volumes), target tags, and schedule for creating snapshots.
+   - Set retention rules to ensure that snapshots are kept for a specified period.
+
+3. **Enable AWS Backup:**
+   - Navigate to the **AWS Backup** service in the AWS Management Console.
+   - Click on **Create backup plan**.
+   - Choose a predefined plan or create a custom plan.
+   - Add a backup rule specifying the frequency and retention period for backups.
+   - Assign resources (EC2 instances) to the backup plan by tagging them appropriately.
+
+4. **Tagging for Backup Policies:**
+   - Ensure that your EC2 instances are properly tagged to be included in backup policies.
+   - Go to the **EC2 Dashboard** and select **Instances**.
+   - Select the instance you want to tag.
+   - Click on the **Tags** tab, then **Add/Edit Tags**.
+   - Add tags that match the criteria defined in your backup policies (e.g., `Backup=true`).
+
+By following these steps, you can ensure that your EC2 instances have regular recovery points, reducing the risk of data loss due to misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where Elastic Compute Cloud (EC2) instances should have a recovery point in AWS, you can ensure that regular snapshots are taken of your EC2 instances. Here are the steps to set up automated snapshots using AWS CLI:
+
+1. **Create an IAM Role for EC2 to Access AWS Services:**
+   Ensure that your EC2 instances have the necessary permissions to create snapshots. Create an IAM role with the required permissions.
+
+   ```sh
+   aws iam create-role --role-name EC2SnapshotRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name EC2SnapshotRole --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+   ```
+
+   The `trust-policy.json` should contain:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "ec2.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }
+   ```
+
+2. **Create a Snapshot Policy Using AWS CLI:**
+   Use the AWS CLI to create a Data Lifecycle Manager (DLM) policy that automates the creation of snapshots.
+
+   ```sh
+   aws dlm create-lifecycle-policy --execution-role-arn arn:aws:iam::<account-id>:role/EC2SnapshotRole --description "Daily snapshot policy" --state ENABLED --policy-details file://policy-details.json
+   ```
+
+   The `policy-details.json` should contain:
+   ```json
+   {
+     "ResourceTypes": ["VOLUME"],
+     "TargetTags": [
+       {
+         "Key": "Backup",
+         "Value": "true"
+       }
+     ],
+     "Schedules": [
+       {
+         "Name": "DailySnapshots",
+         "CreateRule": {
+           "Interval": 24,
+           "IntervalUnit": "HOURS",
+           "Times": ["00:00"]
+         },
+         "RetainRule": {
+           "Count": 7
+         }
+       }
+     ]
+   }
+   ```
+
+3. **Tag EC2 Volumes for Backup:**
+   Ensure that the volumes you want to back up are tagged appropriately so that the DLM policy can identify them.
+
+   ```sh
+   aws ec2 create-tags --resources <volume-id> --tags Key=Backup,Value=true
+   ```
+
+4. **Verify the Snapshot Policy:**
+   Verify that the lifecycle policy has been created and is in the enabled state.
+
+   ```sh
+   aws dlm get-lifecycle-policies
+   ```
+
+By following these steps, you can ensure that your EC2 instances have regular recovery points through automated snapshots, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Elastic Compute Cloud (EC2) instances not having a recovery point in AWS, you can use Python scripts to automate the creation of snapshots or AMIs (Amazon Machine Images) for your EC2 instances. Here are the steps to achieve this:
+
+### Step 1: Install AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed. Boto3 is the Amazon Web Services (AWS) SDK for Python, which allows Python developers to write software that makes use of Amazon services.
+
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+```bash
+aws configure
+```
+
+### Step 3: Write Python Script to Create Snapshots
+Create a Python script that will create snapshots for your EC2 instances. Below is an example script:
+
+```python
+import boto3
+from datetime import datetime
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Function to create a snapshot
+def create_snapshot(volume_id, description):
+    response = ec2.create_snapshot(
+        VolumeId=volume_id,
+        Description=description
+    )
+    return response
+
+# Function to get all volumes and create snapshots
+def create_snapshots_for_all_volumes():
+    volumes = ec2.describe_volumes()
+    for volume in volumes['Volumes']:
+        volume_id = volume['VolumeId']
+        description = f"Snapshot of {volume_id} taken on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        snapshot = create_snapshot(volume_id, description)
+        print(f"Created snapshot: {snapshot['SnapshotId']} for volume: {volume_id}")
+
+if __name__ == "__main__":
+    create_snapshots_for_all_volumes()
+```
+
+### Step 4: Automate the Script Execution
+To ensure that snapshots are created regularly, you can automate the execution of the script using AWS Lambda and CloudWatch Events.
+
+#### Create a Lambda Function
+1. Go to the AWS Lambda console.
+2. Create a new Lambda function.
+3. Upload the Python script as the Lambda function code.
+4. Set up the necessary IAM role with permissions to create snapshots.
+
+#### Schedule the Lambda Function
+1. Go to the CloudWatch console.
+2. Create a new rule under "Events" to trigger the Lambda function on a schedule (e.g., daily).
+3. Select the Lambda function you created as the target.
+
+By following these steps, you can ensure that your EC2 instances have regular recovery points, thereby preventing the misconfiguration of not having recovery points.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

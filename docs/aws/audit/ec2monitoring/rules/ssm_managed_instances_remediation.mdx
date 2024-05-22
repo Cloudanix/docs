@@ -2,6 +2,173 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from not being managed by AWS Systems Manager (SSM) using the AWS Management Console, follow these steps:
+
+1. **Enable SSM Agent on AMIs:**
+   - Ensure that the Amazon Machine Images (AMIs) you use for launching EC2 instances have the SSM Agent pre-installed and running. AWS provides official AMIs with the SSM Agent pre-installed.
+
+2. **Attach IAM Role with SSM Permissions:**
+   - When launching an EC2 instance, attach an IAM role that has the necessary permissions for SSM. You can use the `AmazonEC2RoleforSSM` managed policy or create a custom policy with the required permissions.
+     - Go to the EC2 Dashboard.
+     - Click on "Launch Instance."
+     - In the "Configure Instance" step, under "IAM role," select an IAM role that has SSM permissions.
+
+3. **Configure VPC Endpoints for SSM:**
+   - Ensure that your VPC has the necessary endpoints for SSM. This is especially important for instances in private subnets.
+     - Go to the VPC Dashboard.
+     - Click on "Endpoints" and then "Create Endpoint."
+     - Select the SSM services (`com.amazonaws.<region>.ssm`, `com.amazonaws.<region>.ec2messages`, and `com.amazonaws.<region>.ssmmessages`) and associate them with the appropriate VPC and subnets.
+
+4. **Enable SSM Agent on Running Instances:**
+   - For existing instances, ensure the SSM Agent is installed and running.
+     - Connect to the instance via SSH.
+     - Install the SSM Agent if it is not already installed.
+     - Start the SSM Agent service and ensure it is enabled to start on boot.
+
+By following these steps, you can ensure that your EC2 instances are managed by AWS Systems Manager, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that EC2 instances are managed by AWS Systems Manager (SSM) using the AWS CLI, you need to take the following steps:
+
+1. **Attach the IAM Role with SSM Permissions to the EC2 Instance:**
+   Ensure that your EC2 instance has an IAM role attached with the necessary SSM permissions. You can create an IAM role with the `AmazonSSMManagedInstanceCore` policy and attach it to your instance.
+
+   ```sh
+   aws iam create-role --role-name SSMRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name SSMRole --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+   aws ec2 associate-iam-instance-profile --instance-id i-1234567890abcdef0 --iam-instance-profile Name=SSMRole
+   ```
+
+2. **Install the SSM Agent on the EC2 Instance:**
+   Ensure that the SSM Agent is installed and running on your EC2 instance. For Amazon Linux and Amazon Linux 2, the SSM Agent is pre-installed, but for other operating systems, you may need to install it manually.
+
+   ```sh
+   aws ssm send-command --instance-ids "i-1234567890abcdef0" --document-name "AWS-RunShellScript" --comment "Install SSM Agent" --parameters commands="sudo yum install -y amazon-ssm-agent"
+   ```
+
+3. **Verify SSM Agent is Running:**
+   Check that the SSM Agent is running on your EC2 instance. You can use the AWS CLI to send a command to the instance and verify its status.
+
+   ```sh
+   aws ssm describe-instance-information --filters "Key=InstanceIds,Values=i-1234567890abcdef0"
+   ```
+
+4. **Ensure EC2 Instance is in a Managed State:**
+   Confirm that the EC2 instance is in a managed state by checking its status in Systems Manager.
+
+   ```sh
+   aws ssm describe-instance-information --query "InstanceInformationList[?InstanceId=='i-1234567890abcdef0']"
+   ```
+
+By following these steps, you can ensure that your EC2 instances are managed by AWS Systems Manager, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that EC2 instances are managed by AWS Systems Manager (SSM), you can take the following steps using Python scripts. These steps will help you automate the process of ensuring that your EC2 instances are properly configured to be managed by SSM.
+
+### 1. Install Required Python Packages
+First, ensure you have the `boto3` library installed, which is the AWS SDK for Python.
+
+```bash
+pip install boto3
+```
+
+### 2. Create an IAM Role for SSM
+Create an IAM role with the necessary policies to allow SSM to manage your EC2 instances. This role should have the `AmazonEC2RoleforSSM` policy attached.
+
+```python
+import boto3
+
+iam_client = boto3.client('iam')
+
+role_name = 'EC2SSMRole'
+assume_role_policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+
+# Create the role
+role = iam_client.create_role(
+    RoleName=role_name,
+    AssumeRolePolicyDocument=json.dumps(assume_role_policy_document)
+)
+
+# Attach the AmazonEC2RoleforSSM policy to the role
+iam_client.attach_role_policy(
+    RoleName=role_name,
+    PolicyArn='arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM'
+)
+```
+
+### 3. Launch EC2 Instances with the SSM Role
+When launching EC2 instances, ensure they are associated with the IAM role created in the previous step.
+
+```python
+ec2_client = boto3.client('ec2')
+
+instance_params = {
+    'ImageId': 'ami-0abcdef1234567890',  # Replace with your desired AMI ID
+    'InstanceType': 't2.micro',
+    'MinCount': 1,
+    'MaxCount': 1,
+    'IamInstanceProfile': {
+        'Name': role_name
+    },
+    'TagSpecifications': [
+        {
+            'ResourceType': 'instance',
+            'Tags': [
+                {
+                    'Key': 'Name',
+                    'Value': 'SSMManagedInstance'
+                }
+            ]
+        }
+    ]
+}
+
+# Launch the instance
+ec2_client.run_instances(**instance_params)
+```
+
+### 4. Verify SSM Agent Installation
+Ensure that the SSM agent is installed and running on your EC2 instances. You can use the SSM API to check the status of the agent.
+
+```python
+ssm_client = boto3.client('ssm')
+
+# List all managed instances
+response = ssm_client.describe_instance_information()
+
+for instance in response['InstanceInformationList']:
+    print(f"Instance ID: {instance['InstanceId']}, Ping Status: {instance['PingStatus']}")
+```
+
+### Summary
+1. **Install Required Python Packages**: Ensure `boto3` is installed.
+2. **Create an IAM Role for SSM**: Create an IAM role with the `AmazonEC2RoleforSSM` policy.
+3. **Launch EC2 Instances with the SSM Role**: Launch instances with the IAM role attached.
+4. **Verify SSM Agent Installation**: Use the SSM API to verify that the SSM agent is installed and running.
+
+By following these steps, you can automate the process of ensuring that your EC2 instances are managed by SSM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

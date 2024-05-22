@@ -2,6 +2,146 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not enabling volume encryption in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "EC2" to go to the EC2 Dashboard.
+
+2. **Modify Default Encryption Settings:**
+   - In the EC2 Dashboard, scroll down to the "Settings" section on the left-hand side and click on "EBS Encryption."
+   - Click on the "Manage" button to modify the default encryption settings.
+
+3. **Enable Default Encryption:**
+   - In the "Manage EBS Encryption" dialog, check the box that says "Encrypt new EBS volumes and snapshot copies by default."
+   - Select the desired Customer Master Key (CMK) from AWS Key Management Service (KMS) if you want to use a specific key, or leave it as the default AWS-managed key.
+
+4. **Save Changes:**
+   - Click the "Save" button to apply the changes.
+   - Ensure that the setting is now enabled, which will automatically encrypt all new EBS volumes and snapshot copies by default.
+
+By following these steps, you ensure that all new EBS volumes created in your AWS account are encrypted by default, thereby preventing the misconfiguration of unencrypted volumes.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not enabling volume encryption in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Customer Managed Key (CMK) in AWS KMS:**
+   First, you need to create a Customer Managed Key (CMK) in AWS Key Management Service (KMS) to use for encryption.
+
+   ```sh
+   aws kms create-key --description "My CMK for EC2 volume encryption"
+   ```
+
+2. **Create an Alias for the CMK:**
+   Create an alias for the CMK to make it easier to reference.
+
+   ```sh
+   aws kms create-alias --alias-name alias/myEC2VolumeKey --target-key-id <CMK_KEY_ID>
+   ```
+
+3. **Modify the Default EBS Encryption Settings:**
+   Set the default EBS encryption to use the newly created CMK. This ensures that all new EBS volumes are encrypted by default.
+
+   ```sh
+   aws ec2 modify-ebs-default-kms-key-id --kms-key-id alias/myEC2VolumeKey
+   ```
+
+4. **Enable Default EBS Encryption:**
+   Enable default EBS encryption for your account to ensure that all new volumes are encrypted by default.
+
+   ```sh
+   aws ec2 enable-ebs-encryption-by-default
+   ```
+
+By following these steps, you ensure that all new EBS volumes created in your AWS account are encrypted using the specified CMK, thereby preventing the misconfiguration of unencrypted volumes.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not enabling volume encryption in EC2 using Python scripts, you can follow these steps:
+
+1. **Install and Configure AWS SDK (Boto3):**
+   Ensure you have the AWS SDK for Python (Boto3) installed and configured with the necessary permissions to create and manage EC2 instances and volumes.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Key Management Service (KMS) Key:**
+   Before you can encrypt volumes, you need a KMS key. You can create one using Boto3.
+
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+   response = kms_client.create_key(
+       Description='KMS key for EC2 volume encryption',
+       KeyUsage='ENCRYPT_DECRYPT',
+       Origin='AWS_KMS'
+   )
+   kms_key_id = response['KeyMetadata']['KeyId']
+   print(f"KMS Key ID: {kms_key_id}")
+   ```
+
+3. **Create an Encrypted EBS Volume:**
+   Use the KMS key to create an encrypted EBS volume.
+
+   ```python
+   ec2_client = boto3.client('ec2')
+
+   response = ec2_client.create_volume(
+       AvailabilityZone='us-west-2a',  # Replace with your desired AZ
+       Size=10,  # Size in GiB
+       VolumeType='gp2',  # General Purpose SSD
+       Encrypted=True,
+       KmsKeyId=kms_key_id
+   )
+   volume_id = response['VolumeId']
+   print(f"Created Encrypted Volume ID: {volume_id}")
+   ```
+
+4. **Launch an EC2 Instance with Encrypted Root Volume:**
+   When launching an EC2 instance, ensure the root volume is encrypted using the KMS key.
+
+   ```python
+   response = ec2_client.run_instances(
+       ImageId='ami-0abcdef1234567890',  # Replace with your desired AMI ID
+       InstanceType='t2.micro',
+       MinCount=1,
+       MaxCount=1,
+       BlockDeviceMappings=[
+           {
+               'DeviceName': '/dev/sda1',
+               'Ebs': {
+                   'VolumeSize': 8,  # Size in GiB
+                   'VolumeType': 'gp2',
+                   'Encrypted': True,
+                   'KmsKeyId': kms_key_id
+               }
+           }
+       ],
+       KeyName='your-key-pair'  # Replace with your key pair name
+   )
+   instance_id = response['Instances'][0]['InstanceId']
+   print(f"Launched EC2 Instance ID: {instance_id}")
+   ```
+
+By following these steps, you ensure that all new EC2 instances and their associated volumes are encrypted using a KMS key, thereby preventing the misconfiguration of unencrypted volumes.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

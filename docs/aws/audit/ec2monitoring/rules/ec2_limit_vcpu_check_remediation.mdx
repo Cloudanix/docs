@@ -2,6 +2,176 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from reaching the vCPU limit in AWS using the AWS Management Console, follow these steps:
+
+1. **Monitor vCPU Usage:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Select **Limits** from the left-hand menu under **Instances**.
+   - Review the current vCPU usage and limits for your account. This will help you understand how close you are to reaching the limit.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the **CloudWatch** service in the AWS Management Console.
+   - Create a new alarm by selecting **Alarms** from the left-hand menu and then clicking **Create Alarm**.
+   - Choose the **EC2** metric for vCPU usage and set a threshold to alert you when usage approaches the limit.
+
+3. **Use Auto Scaling Groups:**
+   - Navigate to the **Auto Scaling Groups** section under the **EC2 Dashboard**.
+   - Create or modify an Auto Scaling Group to automatically adjust the number of instances based on demand, ensuring that you do not exceed the vCPU limit.
+
+4. **Request a vCPU Limit Increase:**
+   - If you anticipate needing more vCPUs, go to the **Service Quotas** in the AWS Management Console.
+   - Select **Amazon EC2** and then choose the vCPU limit.
+   - Click on **Request quota increase** and submit the necessary details to request a higher vCPU limit for your account.
+
+By following these steps, you can proactively manage and monitor your vCPU usage to prevent reaching the limit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from reaching the vCPU limit in AWS using the AWS CLI, you can follow these steps:
+
+1. **Check Current vCPU Limits:**
+   First, you need to check the current vCPU limits for your account in the specific region. This helps you understand your current usage and limits.
+
+   ```sh
+   aws service-quotas get-service-quota --service-code ec2 --quota-code L-1216C47A
+   ```
+
+2. **Monitor vCPU Usage:**
+   Regularly monitor your vCPU usage to ensure you are not approaching the limit. You can use CloudWatch to set up alarms for this purpose.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "vCPUUsageAlarm" --metric-name "vCPUUsage" --namespace "AWS/EC2" --statistic "Sum" --period 300 --threshold 80 --comparison-operator "GreaterThanOrEqualToThreshold" --evaluation-periods 1 --alarm-actions "arn:aws:sns:us-east-1:123456789012:MyTopic"
+   ```
+
+3. **Request a vCPU Limit Increase:**
+   If you are approaching your vCPU limit, you can request a limit increase through AWS Service Quotas.
+
+   ```sh
+   aws service-quotas request-service-quota-increase --service-code ec2 --quota-code L-1216C47A --desired-value 100
+   ```
+
+4. **Implement Auto Scaling:**
+   Use Auto Scaling to manage your EC2 instances efficiently. This ensures that you are not over-provisioning or under-provisioning your instances, which can help in managing vCPU usage.
+
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name my-asg --launch-configuration-name my-launch-config --min-size 1 --max-size 10 --desired-capacity 2 --vpc-zone-identifier subnet-12345678
+   ```
+
+By following these steps, you can effectively prevent your EC2 instances from reaching the vCPU limit using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from reaching the vCPU limit in AWS using Python scripts, you can follow these steps:
+
+1. **Monitor vCPU Usage:**
+   Use the AWS SDK for Python (Boto3) to monitor the vCPU usage of your EC2 instances. This involves periodically checking the vCPU usage and comparing it with the limits.
+
+   ```python
+   import boto3
+
+   def get_vcpu_usage():
+       client = boto3.client('ec2')
+       response = client.describe_instances()
+       vcpu_count = 0
+       for reservation in response['Reservations']:
+           for instance in reservation['Instances']:
+               instance_type = instance['InstanceType']
+               instance_info = client.describe_instance_types(InstanceTypes=[instance_type])
+               vcpu_count += instance_info['InstanceTypes'][0]['VCpuInfo']['DefaultVCpus']
+       return vcpu_count
+
+   def get_vcpu_limit():
+       client = boto3.client('service-quotas')
+       response = client.get_service_quota(
+           ServiceCode='ec2',
+           QuotaCode='L-1216C47A'
+       )
+       return response['Quota']['Value']
+
+   current_vcpu_usage = get_vcpu_usage()
+   vcpu_limit = get_vcpu_limit()
+
+   if current_vcpu_usage >= vcpu_limit:
+       print("Warning: vCPU usage is at or above the limit!")
+   else:
+       print("vCPU usage is within the limit.")
+   ```
+
+2. **Set Up Alarms:**
+   Use Amazon CloudWatch to set up alarms that trigger when vCPU usage approaches the limit. This can be done programmatically using Boto3.
+
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+
+   alarm = cloudwatch.put_metric_alarm(
+       AlarmName='vCPUUsageAlarm',
+       MetricName='CPUUtilization',
+       Namespace='AWS/EC2',
+       Statistic='Average',
+       Period=300,
+       EvaluationPeriods=1,
+       Threshold=80.0,
+       ComparisonOperator='GreaterThanOrEqualToThreshold',
+       AlarmActions=[
+           'arn:aws:sns:region:account-id:topic-name'
+       ],
+       Dimensions=[
+           {
+               'Name': 'InstanceId',
+               'Value': 'i-1234567890abcdef0'
+           },
+       ]
+   )
+   ```
+
+3. **Automate Scaling:**
+   Use AWS Auto Scaling to automatically adjust the number of EC2 instances based on vCPU usage. This can be configured using Boto3.
+
+   ```python
+   import boto3
+
+   client = boto3.client('autoscaling')
+
+   response = client.put_scaling_policy(
+       AutoScalingGroupName='my-auto-scaling-group',
+       PolicyName='ScaleOutPolicy',
+       PolicyType='TargetTrackingScaling',
+       TargetTrackingConfiguration={
+           'PredefinedMetricSpecification': {
+               'PredefinedMetricType': 'ASGAverageCPUUtilization',
+           },
+           'TargetValue': 50.0,
+       }
+   )
+   ```
+
+4. **Implement Quota Management:**
+   Use AWS Service Quotas to manage and request increases in vCPU limits if necessary. This can be done using Boto3.
+
+   ```python
+   import boto3
+
+   client = boto3.client('service-quotas')
+
+   response = client.request_service_quota_increase(
+       ServiceCode='ec2',
+       QuotaCode='L-1216C47A',
+       DesiredValue=200
+   )
+   ```
+
+By implementing these steps, you can effectively monitor, alert, and manage vCPU usage to prevent EC2 instances from reaching their vCPU limits.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

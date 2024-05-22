@@ -2,6 +2,151 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused AWS EC2 Key Pairs from accumulating and potentially posing a security risk, you can follow these steps using the AWS Management Console:
+
+1. **Identify Unused Key Pairs:**
+   - Navigate to the EC2 Dashboard in the AWS Management Console.
+   - In the left-hand navigation pane, click on "Key Pairs" under the "Network & Security" section.
+   - Review the list of key pairs and identify any that are not associated with any active EC2 instances.
+
+2. **Verify Key Pair Usage:**
+   - For each key pair, cross-check its usage by reviewing the EC2 instances.
+   - Go to the "Instances" section in the EC2 Dashboard.
+   - Filter instances by the key pair name to ensure that the key pair is not in use.
+
+3. **Document Key Pairs:**
+   - Maintain a record of key pairs and their associated instances.
+   - This documentation helps in tracking and verifying the necessity of each key pair.
+
+4. **Regular Audits:**
+   - Schedule regular audits to review and verify the usage of key pairs.
+   - Ensure that any unused key pairs are identified promptly for removal.
+
+By following these steps, you can effectively manage and prevent the accumulation of unused EC2 key pairs in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused AWS EC2 Key Pairs from accumulating, you can follow these steps using the AWS CLI:
+
+1. **List All Key Pairs:**
+   First, list all the existing key pairs to identify which ones are currently in use and which ones are not.
+   ```sh
+   aws ec2 describe-key-pairs --query 'KeyPairs[*].KeyName'
+   ```
+
+2. **Identify Unused Key Pairs:**
+   Manually cross-reference the listed key pairs with the key pairs currently in use by your EC2 instances. You can list all running instances and their associated key pairs using:
+   ```sh
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].KeyName'
+   ```
+
+3. **Tag Key Pairs:**
+   To keep track of which key pairs are in use, you can tag them. This helps in identifying unused key pairs in the future.
+   ```sh
+   aws ec2 create-tags --resources <key-pair-name> --tags Key=Status,Value=InUse
+   ```
+
+4. **Automate Cleanup:**
+   Write a script to automate the identification and deletion of unused key pairs. Here is a basic example in Python using Boto3:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # List all key pairs
+   key_pairs = ec2.describe_key_pairs()['KeyPairs']
+
+   # List all instances and their key pairs
+   instances = ec2.describe_instances()
+   used_key_pairs = set()
+   for reservation in instances['Reservations']:
+       for instance in reservation['Instances']:
+           if 'KeyName' in instance:
+               used_key_pairs.add(instance['KeyName'])
+
+   # Identify and delete unused key pairs
+   for key_pair in key_pairs:
+       if key_pair['KeyName'] not in used_key_pairs:
+           print(f"Deleting unused key pair: {key_pair['KeyName']}")
+           ec2.delete_key_pair(KeyName=key_pair['KeyName'])
+   ```
+
+By following these steps, you can effectively manage and prevent the accumulation of unused EC2 key pairs in AWS.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused AWS EC2 key pairs from accumulating, you can use a Python script to identify and remove them. Below are the steps to achieve this:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Authenticate and Initialize Boto3 Client:**
+   - Set up your AWS credentials and initialize the EC2 client in your Python script.
+     ```python
+     import boto3
+
+     # Initialize a session using Amazon EC2
+     session = boto3.Session(
+         aws_access_key_id='YOUR_ACCESS_KEY',
+         aws_secret_access_key='YOUR_SECRET_KEY',
+         region_name='YOUR_REGION'
+     )
+
+     ec2_client = session.client('ec2')
+     ```
+
+3. **List All Key Pairs and Identify Unused Ones:**
+   - Fetch all key pairs and determine which ones are not associated with any running instances.
+     ```python
+     def get_unused_key_pairs():
+         # Get all key pairs
+         key_pairs = ec2_client.describe_key_pairs()
+         key_pair_names = [kp['KeyName'] for kp in key_pairs['KeyPairs']]
+
+         # Get all instances
+         instances = ec2_client.describe_instances()
+         used_key_pairs = set()
+
+         for reservation in instances['Reservations']:
+             for instance in reservation['Instances']:
+                 if 'KeyName' in instance:
+                     used_key_pairs.add(instance['KeyName'])
+
+         # Identify unused key pairs
+         unused_key_pairs = set(key_pair_names) - used_key_pairs
+         return unused_key_pairs
+
+     unused_key_pairs = get_unused_key_pairs()
+     print("Unused Key Pairs:", unused_key_pairs)
+     ```
+
+4. **Remove Unused Key Pairs:**
+   - Delete the identified unused key pairs.
+     ```python
+     def delete_unused_key_pairs(unused_key_pairs):
+         for key_name in unused_key_pairs:
+             try:
+                 ec2_client.delete_key_pair(KeyName=key_name)
+                 print(f"Deleted key pair: {key_name}")
+             except Exception as e:
+                 print(f"Error deleting key pair {key_name}: {e}")
+
+     delete_unused_key_pairs(unused_key_pairs)
+     ```
+
+By following these steps, you can automate the process of identifying and removing unused EC2 key pairs using a Python script. This helps in maintaining a clean and secure AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

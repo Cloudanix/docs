@@ -2,6 +2,147 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS Client VPN authorization rules from authorizing all clients in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Client VPN Endpoint:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Client VPN Endpoints" under the "VPC" section.
+
+2. **Select the Specific Client VPN Endpoint:**
+   - From the list of Client VPN endpoints, select the one you want to configure.
+
+3. **Review Authorization Rules:**
+   - In the details pane, choose the "Authorization Rules" tab.
+   - Review the existing authorization rules to ensure they are not set to authorize all clients (i.e., ensure that the destination CIDR is not set to `0.0.0.0/0` unless absolutely necessary).
+
+4. **Add or Modify Authorization Rules:**
+   - If necessary, add new authorization rules or modify existing ones to specify more restrictive destination CIDRs and ensure that only the required clients are authorized.
+   - Click "Add authorization rule" or select an existing rule and click "Edit" to make changes.
+
+By following these steps, you can ensure that your AWS Client VPN authorization rules are configured to restrict access appropriately and do not authorize all clients indiscriminately.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Client VPN authorization rules from authorizing all clients in EC2 using AWS CLI, follow these steps:
+
+1. **Create a Specific Authorization Rule**:
+   Ensure that you create authorization rules that specify which clients are allowed to access the resources. Avoid using overly permissive rules that authorize all clients.
+
+   ```sh
+   aws ec2 authorize-client-vpn-ingress \
+       --client-vpn-endpoint-id <your-client-vpn-endpoint-id> \
+       --target-network-cidr <specific-network-cidr> \
+       --authorize-all-groups false \
+       --description "Specific authorization rule"
+   ```
+
+2. **Review Existing Authorization Rules**:
+   Regularly review your existing authorization rules to ensure they are not overly permissive. List all authorization rules for a specific Client VPN endpoint.
+
+   ```sh
+   aws ec2 describe-client-vpn-authorization-rules \
+       --client-vpn-endpoint-id <your-client-vpn-endpoint-id>
+   ```
+
+3. **Revoke Overly Permissive Authorization Rules**:
+   If you find any authorization rules that authorize all clients, revoke them to tighten security.
+
+   ```sh
+   aws ec2 revoke-client-vpn-ingress \
+       --client-vpn-endpoint-id <your-client-vpn-endpoint-id> \
+       --target-network-cidr <overly-permissive-network-cidr>
+   ```
+
+4. **Implement Least Privilege Principle**:
+   Always follow the principle of least privilege by creating authorization rules that grant the minimum necessary access to clients.
+
+   ```sh
+   aws ec2 authorize-client-vpn-ingress \
+       --client-vpn-endpoint-id <your-client-vpn-endpoint-id> \
+       --target-network-cidr <least-privilege-network-cidr> \
+       --authorize-all-groups false \
+       --description "Least privilege authorization rule"
+   ```
+
+By following these steps, you can ensure that your AWS Client VPN authorization rules are configured securely, preventing unauthorized access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Client VPN authorization rules from authorizing all clients in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that authorization rules are properly configured:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script to Check and Update Authorization Rules**:
+   Write a Python script that will check the authorization rules for your Client VPN endpoint and ensure that no rule authorizes all clients.
+
+4. **Implement the Script**:
+   Here is a sample Python script to achieve this:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2_client = boto3.client('ec2')
+
+   # Replace with your Client VPN endpoint ID
+   client_vpn_endpoint_id = 'cvpn-endpoint-0123456789abcdef0'
+
+   def get_authorization_rules(client_vpn_endpoint_id):
+       response = ec2_client.describe_client_vpn_authorization_rules(
+           ClientVpnEndpointId=client_vpn_endpoint_id
+       )
+       return response['AuthorizationRules']
+
+   def delete_authorization_rule(client_vpn_endpoint_id, target_network_cidr):
+       ec2_client.revoke_client_vpn_ingress(
+           ClientVpnEndpointId=client_vpn_endpoint_id,
+           TargetNetworkCidr=target_network_cidr
+       )
+       print(f"Deleted authorization rule for CIDR: {target_network_cidr}")
+
+   def main():
+       authorization_rules = get_authorization_rules(client_vpn_endpoint_id)
+       for rule in authorization_rules:
+           if rule['AccessAll']:
+               delete_authorization_rule(client_vpn_endpoint_id, rule['DestinationCidr'])
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+### Explanation:
+1. **Install Boto3 Library**:
+   - Ensure you have the Boto3 library installed to interact with AWS services.
+
+2. **Set Up AWS Credentials**:
+   - Configure your AWS credentials to allow the script to authenticate and interact with your AWS account.
+
+3. **Create a Python Script to Check and Update Authorization Rules**:
+   - The script initializes a Boto3 EC2 client.
+   - It defines a function to retrieve the current authorization rules for the specified Client VPN endpoint.
+   - It defines a function to delete any authorization rule that authorizes all clients (`AccessAll` is `True`).
+
+4. **Implement the Script**:
+   - The script retrieves the authorization rules and iterates through them.
+   - If an authorization rule is found that authorizes all clients, it deletes that rule.
+
+By running this script, you can ensure that no authorization rules in your AWS Client VPN endpoint are configured to authorize all clients, thereby preventing potential security risks.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

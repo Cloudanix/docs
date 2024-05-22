@@ -24,6 +24,144 @@ SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted RPC (Remote Procedure Call) access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - In the selected security group, go to the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+
+4. **Restrict RPC Access:**
+   - Locate any rules that allow inbound traffic on port 135 (commonly used for RPC).
+   - Modify the source to a specific IP address or range that requires access, rather than allowing unrestricted access (e.g., 0.0.0.0/0).
+   - If no specific IPs need access, consider removing the rule entirely.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that RPC access to your EC2 instances is restricted to only trusted sources, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted RPC (Remote Procedure Call) access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the necessary IP addresses and ports. Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance.
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rules:**
+   Revoke any existing inbound rules that allow unrestricted access to the RPC port (typically port 135 for Microsoft RPC).
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 135 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rules:**
+   Add inbound rules to allow access only from specific IP addresses or ranges that require RPC access.
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 135 --cidr <trusted-ip-range>
+   ```
+
+4. **Verify Security Group Rules:**
+   Verify that the security group rules have been updated correctly.
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+Replace `<instance-id>`, `<security-group-id>`, and `<trusted-ip-range>` with your specific instance ID, security group ID, and the IP range you want to allow access from, respectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted RPC (Remote Procedure Call) access in EC2 instances using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Describe Security Groups**
+You need to identify the security groups associated with your EC2 instances and check their inbound rules for unrestricted RPC access (port 135).
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Describe all security groups
+response = ec2.describe_security_groups()
+
+# Check for unrestricted RPC access
+for sg in response['SecurityGroups']:
+    for permission in sg['IpPermissions']:
+        if 'FromPort' in permission and permission['FromPort'] == 135:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Security Group {sg['GroupId']} has unrestricted RPC access")
+```
+
+### 3. **Modify Security Groups to Restrict RPC Access**
+If unrestricted access is found, modify the security group to restrict access. You can remove the rule allowing unrestricted access and add a more restrictive rule.
+
+```python
+# Function to remove unrestricted RPC access
+def remove_unrestricted_rpc_access(sg_id):
+    ec2.revoke_security_group_ingress(
+        GroupId=sg_id,
+        IpProtocol='tcp',
+        FromPort=135,
+        ToPort=135,
+        CidrIp='0.0.0.0/0'
+    )
+    print(f"Removed unrestricted RPC access from Security Group {sg_id}")
+
+# Function to add restricted RPC access (example: only from a specific IP)
+def add_restricted_rpc_access(sg_id, ip_range):
+    ec2.authorize_security_group_ingress(
+        GroupId=sg_id,
+        IpProtocol='tcp',
+        FromPort=135,
+        ToPort=135,
+        CidrIp=ip_range
+    )
+    print(f"Added restricted RPC access to Security Group {sg_id}")
+
+# Example usage
+for sg in response['SecurityGroups']:
+    for permission in sg['IpPermissions']:
+        if 'FromPort' in permission and permission['FromPort'] == 135:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    remove_unrestricted_rpc_access(sg['GroupId'])
+                    add_restricted_rpc_access(sg['GroupId'], '192.168.1.0/24')  # Example IP range
+```
+
+### 4. **Automate and Schedule the Script**
+To ensure continuous compliance, automate the script to run at regular intervals using a scheduler like cron (Linux) or Task Scheduler (Windows).
+
+```bash
+# Example cron job to run the script every day at midnight
+0 0 * * * /usr/bin/python3 /path/to/your/script.py
+```
+
+By following these steps, you can prevent unrestricted RPC access in your EC2 instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

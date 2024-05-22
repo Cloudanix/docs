@@ -24,6 +24,216 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from using blacklisted instance types in AWS using the AWS Management Console, follow these steps:
+
+1. **Create an IAM Policy:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Click on "Policies" in the left-hand menu and then click "Create policy."
+   - Use the JSON editor to define a policy that denies the creation of EC2 instances with the blacklisted instance types. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": "ec2:RunInstances",
+           "Resource": "arn:aws:ec2:*:*:instance/*",
+           "Condition": {
+             "StringEquals": {
+               "ec2:InstanceType": [
+                 "t2.micro",
+                 "m1.small"
+               ]
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Click "Review policy," give it a name and description, and then click "Create policy."
+
+2. **Attach the IAM Policy to Users/Roles:**
+   - Go to the "Users" or "Roles" section in the IAM console.
+   - Select the user or role to which you want to attach the policy.
+   - Click on the "Add permissions" button, then "Attach policies."
+   - Search for the policy you created and select it, then click "Next: Review" and "Add permissions."
+
+3. **Set Up AWS Config Rules:**
+   - Navigate to the AWS Config service in the AWS Management Console.
+   - Click on "Rules" in the left-hand menu and then click "Add rule."
+   - Search for and select the "ec2-instance-type-blacklist" managed rule.
+   - Configure the rule by specifying the blacklisted instance types and click "Save."
+
+4. **Enable CloudTrail for Monitoring:**
+   - Navigate to the CloudTrail service in the AWS Management Console.
+   - Ensure that CloudTrail is enabled to log API activity.
+   - Create a trail if one does not exist, and configure it to log to an S3 bucket and optionally to CloudWatch Logs for real-time monitoring.
+   - This will help you monitor any attempts to create instances with blacklisted types and take corrective actions if necessary.
+
+By following these steps, you can effectively prevent the use of blacklisted instance types in your AWS environment using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from using blacklisted instance types using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Policy to Deny Blacklisted Instance Types:**
+   - Create a JSON policy that denies the creation of specific instance types. Save this policy in a file, e.g., `deny-blacklisted-instance-types.json`.
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "ec2:RunInstances",
+         "Resource": "arn:aws:ec2:*:*:instance/*",
+         "Condition": {
+           "StringEquals": {
+             "ec2:InstanceType": [
+               "t2.micro",
+               "m1.small"
+               // Add other blacklisted instance types here
+             ]
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+2. **Create the IAM Policy Using AWS CLI:**
+   - Use the `aws iam create-policy` command to create the policy in AWS.
+
+   ```sh
+   aws iam create-policy --policy-name DenyBlacklistedInstanceTypes --policy-document file://deny-blacklisted-instance-types.json
+   ```
+
+3. **Attach the Policy to IAM Users, Groups, or Roles:**
+   - Attach the created policy to the relevant IAM users, groups, or roles that are responsible for launching EC2 instances.
+
+   ```sh
+   aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/DenyBlacklistedInstanceTypes
+   ```
+
+   Or for a group:
+
+   ```sh
+   aws iam attach-group-policy --group-name <groupname> --policy-arn arn:aws:iam::<account-id>:policy/DenyBlacklistedInstanceTypes
+   ```
+
+   Or for a role:
+
+   ```sh
+   aws iam attach-role-policy --role-name <rolename> --policy-arn arn:aws:iam::<account-id>:policy/DenyBlacklistedInstanceTypes
+   ```
+
+4. **Verify the Policy Attachment:**
+   - Ensure that the policy is correctly attached to the intended IAM entities by listing the attached policies.
+
+   For a user:
+
+   ```sh
+   aws iam list-attached-user-policies --user-name <username>
+   ```
+
+   For a group:
+
+   ```sh
+   aws iam list-attached-group-policies --group-name <groupname>
+   ```
+
+   For a role:
+
+   ```sh
+   aws iam list-attached-role-policies --role-name <rolename>
+   ```
+
+By following these steps, you can prevent the creation of EC2 instances with blacklisted instance types using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from using blacklisted instance types using Python scripts, you can leverage the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Define Blacklisted Instance Types:**
+   Create a list of blacklisted instance types that you want to prevent.
+
+   ```python
+   blacklisted_instance_types = ['t2.micro', 'm1.small', 'c1.medium']
+   ```
+
+3. **Check Existing Instances:**
+   Write a script to check existing EC2 instances and ensure none of them are using blacklisted instance types.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def check_instances():
+       response = ec2.describe_instances()
+       for reservation in response['Reservations']:
+           for instance in reservation['Instances']:
+               instance_type = instance['InstanceType']
+               instance_id = instance['InstanceId']
+               if instance_type in blacklisted_instance_types:
+                   print(f"Instance {instance_id} is using a blacklisted instance type: {instance_type}")
+
+   check_instances()
+   ```
+
+4. **Prevent Launching Blacklisted Instance Types:**
+   Implement a script to prevent the creation of new instances with blacklisted instance types by using AWS Lambda and CloudWatch Events to trigger the script on instance launch.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def lambda_handler(event, context):
+       instance_id = event['detail']['instance-id']
+       response = ec2.describe_instances(InstanceIds=[instance_id])
+       instance_type = response['Reservations'][0]['Instances'][0]['InstanceType']
+       
+       if instance_type in blacklisted_instance_types:
+           print(f"Terminating instance {instance_id} with blacklisted instance type: {instance_type}")
+           ec2.terminate_instances(InstanceIds=[instance_id])
+
+   # Example event to test the function locally
+   test_event = {
+       'detail': {
+           'instance-id': 'i-1234567890abcdef0'
+       }
+   }
+
+   lambda_handler(test_event, None)
+   ```
+
+   Note: To fully implement this in a production environment, you would need to set up an AWS Lambda function and a CloudWatch Events rule to trigger the Lambda function on EC2 instance state changes.
+
+By following these steps, you can prevent the use of blacklisted instance types in your AWS environment using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,147 @@ AWSWAF, SOC2, GDPR
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted HTTPS access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups" under the "Network & Security" section.
+
+2. **Identify the Security Group:**
+   - Locate the security group associated with your EC2 instance that you want to modify.
+   - Click on the security group ID to view its details.
+
+3. **Edit Inbound Rules:**
+   - In the security group details, go to the "Inbound rules" tab.
+   - Click the "Edit inbound rules" button.
+
+4. **Restrict HTTPS Access:**
+   - Find the rule that allows HTTPS (port 443) access.
+   - Modify the "Source" field to restrict access to specific IP addresses or CIDR blocks instead of allowing access from "0.0.0.0/0" (which means unrestricted access).
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that HTTPS access to your EC2 instances is restricted to only trusted IP addresses, thereby enhancing the security of your instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted HTTPS access in EC2 using AWS CLI, you need to modify the security group rules to restrict access. Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Describe Security Group Rules:**
+   Describe the security group rules to find the rule that allows unrestricted HTTPS access (port 443).
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+3. **Revoke Unrestricted HTTPS Access:**
+   Revoke the rule that allows unrestricted HTTPS access (0.0.0.0/0 or ::/0).
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+   ```
+
+   For IPv6:
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr ::/0
+   ```
+
+4. **Add Restricted HTTPS Access:**
+   Add a rule to allow HTTPS access from a specific IP range or trusted sources.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr <trusted-ip-range>
+   ```
+
+   For example, to allow access only from a specific IP address (e.g., 203.0.113.0/24):
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr 203.0.113.0/24
+   ```
+
+By following these steps, you can ensure that HTTPS access to your EC2 instances is restricted to trusted sources only.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted HTTPS access in EC2 using Python scripts, you can use the Boto3 library, which is the Amazon Web Services (AWS) SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials and region.
+
+3. **Identify Security Groups with Unrestricted HTTPS Access**:
+   Use Boto3 to describe security groups and identify those with unrestricted HTTPS access (port 443 open to 0.0.0.0/0).
+
+4. **Revoke Unrestricted HTTPS Access**:
+   Modify the identified security groups to revoke the unrestricted HTTPS access.
+
+Here is a Python script to perform these steps:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+    aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+
+ec2 = session.client('ec2')
+
+# Describe all security groups
+response = ec2.describe_security_groups()
+
+for sg in response['SecurityGroups']:
+    for permission in sg['IpPermissions']:
+        if permission['IpProtocol'] == 'tcp' and permission['FromPort'] == 443 and permission['ToPort'] == 443:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Security Group {sg['GroupId']} has unrestricted HTTPS access.")
+                    
+                    # Revoke the rule
+                    ec2.revoke_security_group_ingress(
+                        GroupId=sg['GroupId'],
+                        IpProtocol='tcp',
+                        FromPort=443,
+                        ToPort=443,
+                        CidrIp='0.0.0.0/0'
+                    )
+                    print(f"Revoked unrestricted HTTPS access from Security Group {sg['GroupId']}.")
+
+print("Completed checking and revoking unrestricted HTTPS access.")
+```
+
+### Key Points:
+1. **Install Boto3**: Ensure the Boto3 library is installed.
+2. **Create a Boto3 Session**: Initialize a session with your AWS credentials.
+3. **Identify Security Groups**: Use `describe_security_groups` to find security groups with unrestricted HTTPS access.
+4. **Revoke Access**: Use `revoke_security_group_ingress` to remove the unrestricted access.
+
+This script will help you identify and revoke any security group rules that allow unrestricted HTTPS access, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

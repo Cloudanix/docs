@@ -24,6 +24,175 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of ensuring specified applications are installed on an EC2 instance using the AWS Management Console, follow these steps:
+
+1. **Create a Custom AMI (Amazon Machine Image):**
+   - Launch an EC2 instance with the base operating system of your choice.
+   - Install the required applications on this instance.
+   - Once the applications are installed and configured, create an AMI from this instance.
+     - Go to the EC2 Dashboard.
+     - Select the instance you configured.
+     - Click on "Actions" > "Image and templates" > "Create image".
+     - Provide a name and description for the image and click "Create image".
+
+2. **Use EC2 Launch Templates:**
+   - Create a launch template that uses the custom AMI.
+     - Go to the EC2 Dashboard.
+     - Click on "Launch Templates" in the left-hand menu.
+     - Click "Create launch template".
+     - Provide a name and description.
+     - Under "Amazon Machine Image (AMI)", select the custom AMI you created.
+     - Configure other settings as needed and click "Create launch template".
+
+3. **Implement User Data Scripts:**
+   - Use user data scripts to install and configure applications at instance launch.
+     - When launching an instance, under "Advanced Details", add a user data script that installs the required applications.
+     - Example script for a Linux instance:
+       ```bash
+       #!/bin/bash
+       yum update -y
+       yum install -y <application-name>
+       ```
+
+4. **Use AWS Systems Manager (SSM) State Manager:**
+   - Create an SSM State Manager association to ensure applications are installed and remain installed.
+     - Go to the Systems Manager console.
+     - In the left-hand menu, choose "State Manager".
+     - Click "Create association".
+     - Choose a document such as "AWS-RunShellScript".
+     - Specify targets (e.g., instance IDs or tags).
+     - In the "Parameters" section, provide the script to install the required applications.
+     - Configure other settings as needed and click "Create association".
+
+By following these steps, you can ensure that specified applications are installed on your EC2 instances, thereby preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that specified applications are installed on an EC2 instance using AWS CLI, you can follow these steps:
+
+1. **Create a Custom AMI with Required Applications:**
+   - First, launch an EC2 instance and manually install the required applications.
+   - Create an Amazon Machine Image (AMI) from this instance.
+   ```sh
+   aws ec2 create-image --instance-id i-1234567890abcdef0 --name "CustomAMIWithApps" --no-reboot
+   ```
+
+2. **Launch EC2 Instances Using the Custom AMI:**
+   - Use the custom AMI to launch new EC2 instances, ensuring that the required applications are pre-installed.
+   ```sh
+   aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-903004f8 --subnet-id subnet-6e7f829e
+   ```
+
+3. **Use User Data to Install Applications on Instance Launch:**
+   - If you need to install applications at the time of instance launch, you can use the `--user-data` parameter to pass a script that installs the required applications.
+   ```sh
+   aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-903004f8 --subnet-id subnet-6e7f829e --user-data file://install-apps.sh
+   ```
+   - The `install-apps.sh` script should contain the commands to install the required applications.
+
+4. **Use AWS Systems Manager (SSM) to Ensure Applications are Installed:**
+   - Use AWS Systems Manager to run commands on your instances to ensure that the required applications are installed.
+   ```sh
+   aws ssm send-command --document-name "AWS-RunShellScript" --targets "Key=instanceIds,Values=i-1234567890abcdef0" --parameters 'commands=["sudo yum install -y your-application"]'
+   ```
+
+By following these steps, you can ensure that specified applications are installed on your EC2 instances using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that specified applications are installed on an EC2 instance using Python scripts, you can follow these steps:
+
+### 1. Use Boto3 to Interact with EC2
+Boto3 is the Amazon Web Services (AWS) SDK for Python, which allows you to interact with AWS services, including EC2.
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2 = session.resource('ec2')
+```
+
+### 2. Create a User Data Script
+User data scripts are executed when an instance is launched. You can use this feature to install the required applications.
+
+```python
+user_data_script = '''#!/bin/bash
+# Update the package index
+sudo apt-get update
+
+# Install specified applications
+sudo apt-get install -y application1 application2
+'''
+```
+
+### 3. Launch EC2 Instance with User Data
+When launching an EC2 instance, you can pass the user data script to ensure the specified applications are installed.
+
+```python
+instance = ec2.create_instances(
+    ImageId='ami-0abcdef1234567890',  # Replace with your desired AMI ID
+    MinCount=1,
+    MaxCount=1,
+    InstanceType='t2.micro',  # Replace with your desired instance type
+    KeyName='your-key-pair',  # Replace with your key pair name
+    UserData=user_data_script
+)
+
+print(f'Launched EC2 instance with ID: {instance[0].id}')
+```
+
+### 4. Verify Installation
+You can use AWS Systems Manager (SSM) to run a command on the instance to verify that the applications are installed.
+
+```python
+ssm = session.client('ssm')
+
+# Run a command to check if the applications are installed
+response = ssm.send_command(
+    InstanceIds=[instance[0].id],
+    DocumentName='AWS-RunShellScript',
+    Parameters={
+        'commands': [
+            'dpkg -l | grep application1',
+            'dpkg -l | grep application2'
+        ]
+    }
+)
+
+command_id = response['Command']['CommandId']
+
+# Get the command output
+output = ssm.get_command_invocation(
+    CommandId=command_id,
+    InstanceId=instance[0].id
+)
+
+print(f'Command output: {output["StandardOutputContent"]}')
+```
+
+### Summary
+1. **Initialize Boto3 session**: Set up a session to interact with AWS EC2.
+2. **Create a user data script**: Write a script to install the required applications.
+3. **Launch EC2 instance with user data**: Use the user data script when launching the instance.
+4. **Verify installation**: Use AWS Systems Manager to verify that the applications are installed.
+
+By following these steps, you can ensure that specified applications are installed on your EC2 instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

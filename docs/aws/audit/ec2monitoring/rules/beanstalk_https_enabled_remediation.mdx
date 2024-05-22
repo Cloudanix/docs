@@ -2,6 +2,144 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not enforcing HTTPS for Elastic Beanstalk Load Balancers in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Elastic Beanstalk Environment:**
+   - Open the [AWS Management Console](https://aws.amazon.com/console/).
+   - Navigate to the **Elastic Beanstalk** service.
+   - Select your application and then choose the specific environment you want to configure.
+
+2. **Modify Load Balancer Configuration:**
+   - In the environment dashboard, go to the **Configuration** section.
+   - Under the **Load Balancer** category, click on the **Edit** button.
+
+3. **Add HTTPS Listener:**
+   - In the Load Balancer settings, ensure that an HTTPS listener is added. If not, add a new listener with the following details:
+     - **Protocol:** HTTPS
+     - **Port:** 443
+     - **SSL Certificate:** Select or upload an SSL certificate from AWS Certificate Manager (ACM).
+
+4. **Enforce HTTPS Redirection:**
+   - Scroll down to the **Rules** section and add a rule to redirect HTTP traffic to HTTPS.
+     - Create a rule that redirects HTTP (port 80) requests to HTTPS (port 443).
+     - Save the changes to apply the new configuration.
+
+By following these steps, you ensure that your Elastic Beanstalk environment's load balancer enforces HTTPS, enhancing the security of your application.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfiguration and enforce HTTPS for Elastic Beanstalk Load Balancers in EC2 using AWS CLI, follow these steps:
+
+1. **Create an SSL Certificate:**
+   Ensure you have an SSL certificate in AWS Certificate Manager (ACM). If you don't have one, you can request a new certificate:
+   ```sh
+   aws acm request-certificate --domain-name yourdomain.com --validation-method DNS
+   ```
+
+2. **Retrieve the Load Balancer Name:**
+   Identify the load balancer associated with your Elastic Beanstalk environment:
+   ```sh
+   aws elasticbeanstalk describe-environments --environment-names your-environment-name
+   ```
+
+3. **Configure the Load Balancer to Use HTTPS:**
+   Modify the load balancer to add an HTTPS listener. Replace `your-load-balancer-name`, `your-ssl-certificate-arn`, and `your-environment-name` with your actual values:
+   ```sh
+   aws elb create-load-balancer-listeners --load-balancer-name your-load-balancer-name --listeners "Protocol=HTTPS,LoadBalancerPort=443,InstanceProtocol=HTTP,InstancePort=80,SSLCertificateId=your-ssl-certificate-arn"
+   ```
+
+4. **Update Elastic Beanstalk Environment:**
+   Update your Elastic Beanstalk environment to use the HTTPS listener:
+   ```sh
+   aws elasticbeanstalk update-environment --environment-name your-environment-name --option-settings Namespace=aws:elb:listener:443,OptionName=ListenerProtocol,Value=HTTPS
+   ```
+
+By following these steps, you can ensure that your Elastic Beanstalk Load Balancers enforce HTTPS, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to enforcing HTTPS for Elastic Beanstalk Load Balancers in AWS EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Below are the steps to ensure that HTTPS is enforced:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script to Enforce HTTPS**:
+   Below is a Python script that uses Boto3 to enforce HTTPS on an Elastic Beanstalk environment's load balancer.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon Elastic Beanstalk
+   client = boto3.client('elasticbeanstalk')
+
+   # Replace with your Elastic Beanstalk environment name
+   environment_name = 'your-environment-name'
+
+   # Describe the environment to get the environment ID
+   response = client.describe_environments(EnvironmentNames=[environment_name])
+   environment_id = response['Environments'][0]['EnvironmentId']
+
+   # Describe the environment resources to get the load balancer name
+   response = client.describe_environment_resources(EnvironmentId=environment_id)
+   load_balancer_name = response['EnvironmentResources']['LoadBalancers'][0]['Name']
+
+   # Initialize a session using Elastic Load Balancing
+   elb_client = boto3.client('elbv2')
+
+   # Describe the load balancer to get the listener ARNs
+   response = elb_client.describe_load_balancers(Names=[load_balancer_name])
+   load_balancer_arn = response['LoadBalancers'][0]['LoadBalancerArn']
+
+   # Describe listeners to get the HTTP listener ARN
+   response = elb_client.describe_listeners(LoadBalancerArn=load_balancer_arn)
+   http_listener_arn = None
+   for listener in response['Listeners']:
+       if listener['Protocol'] == 'HTTP':
+           http_listener_arn = listener['ListenerArn']
+           break
+
+   # Create a redirect action to enforce HTTPS
+   if http_listener_arn:
+       elb_client.modify_listener(
+           ListenerArn=http_listener_arn,
+           DefaultActions=[
+               {
+                   'Type': 'redirect',
+                   'RedirectConfig': {
+                       'Protocol': 'HTTPS',
+                       'Port': '443',
+                       'StatusCode': 'HTTP_301'
+                   }
+               }
+           ]
+       )
+       print(f"HTTPS enforcement enabled for load balancer: {load_balancer_name}")
+   else:
+       print("No HTTP listener found to enforce HTTPS.")
+   ```
+
+4. **Run the Script**:
+   Execute the script to enforce HTTPS on your Elastic Beanstalk environment's load balancer.
+   ```bash
+   python enforce_https_eb.py
+   ```
+
+This script will ensure that any HTTP requests to your Elastic Beanstalk load balancer are redirected to HTTPS, thereby enforcing secure communication.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,175 @@ PCIDSS, HITRUST, SOC2, NISTCSF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 AMIs from being unencrypted in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable EBS Encryption by Default:**
+   - Navigate to the **EC2 Dashboard**.
+   - In the left-hand menu, under **Elastic Block Store**, click on **Settings**.
+   - Check the box for **Enable encryption by default**.
+   - Click **Save** to apply the changes.
+
+2. **Create Encrypted AMIs:**
+   - When creating an AMI, ensure that the underlying EBS volumes are encrypted.
+   - Go to the **EC2 Dashboard** and select **Instances**.
+   - Choose the instance you want to create an AMI from, then click **Actions** > **Image** > **Create Image**.
+   - In the **Create Image** dialog, ensure that the **Encryption** option is selected for each volume.
+
+3. **Use Encrypted Snapshots:**
+   - When creating an AMI from a snapshot, ensure the snapshot is encrypted.
+   - Navigate to the **Snapshots** section under **Elastic Block Store**.
+   - Select the snapshot you want to use, then click **Actions** > **Create Image**.
+   - Ensure the **Encryption** option is selected.
+
+4. **IAM Policies and Permissions:**
+   - Create and attach IAM policies that enforce the use of encrypted volumes.
+   - Navigate to the **IAM Dashboard**.
+   - Create a new policy or modify an existing one to include conditions that require EBS volumes to be encrypted.
+   - Attach this policy to the users or roles that are responsible for creating AMIs.
+
+By following these steps, you can ensure that all EC2 AMIs are encrypted, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that EC2 AMIs are encrypted in AWS using the AWS CLI, you can follow these steps:
+
+1. **Create an Encrypted Snapshot:**
+   Before creating an AMI, ensure that the snapshot of the instance's volume is encrypted. You can create an encrypted snapshot using the `copy-snapshot` command.
+
+   ```sh
+   aws ec2 copy-snapshot --region <region> --source-region <source-region> --source-snapshot-id <source-snapshot-id> --encrypted --kms-key-id <kms-key-id>
+   ```
+
+2. **Register the AMI from the Encrypted Snapshot:**
+   Once you have the encrypted snapshot, you can register an AMI from it using the `register-image` command.
+
+   ```sh
+   aws ec2 register-image --name <ami-name> --block-device-mappings DeviceName=<device-name>,Ebs={SnapshotId=<encrypted-snapshot-id>}
+   ```
+
+3. **Launch Instances from Encrypted AMIs:**
+   When launching instances, ensure that you use the encrypted AMI. Use the `run-instances` command specifying the AMI ID.
+
+   ```sh
+   aws ec2 run-instances --image-id <encrypted-ami-id> --count 1 --instance-type <instance-type> --key-name <key-pair-name>
+   ```
+
+4. **Automate Encryption for Future Snapshots:**
+   To ensure that all future snapshots are encrypted by default, you can create a policy using AWS Identity and Access Management (IAM) or use AWS Config rules to enforce encryption.
+
+   ```sh
+   aws ec2 modify-ebs-default-kms-key-id --kms-key-id <kms-key-id>
+   ```
+
+By following these steps, you can ensure that your EC2 AMIs are encrypted, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 AMIs from being unencrypted in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3):**
+   - Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Enforce Encryption:**
+   - Write a Python script that will create an AMI with encryption enabled. This script will ensure that any new AMI created is encrypted.
+
+3. **Define the Encryption Function:**
+   - Use Boto3 to interact with AWS services. The script will create an AMI from an existing instance and ensure the AMI is encrypted.
+
+4. **Implement the Script:**
+   - Below is a sample Python script to create an encrypted AMI from an existing EC2 instance:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2_client = boto3.client('ec2')
+
+def create_encrypted_ami(instance_id, ami_name, kms_key_id):
+    try:
+        # Create an AMI from the instance
+        response = ec2_client.create_image(
+            InstanceId=instance_id,
+            Name=ami_name,
+            NoReboot=True
+        )
+        image_id = response['ImageId']
+        print(f"AMI {image_id} created successfully.")
+
+        # Wait for the AMI to be available
+        waiter = ec2_client.get_waiter('image_available')
+        waiter.wait(ImageIds=[image_id])
+        print(f"AMI {image_id} is now available.")
+
+        # Get the block device mappings of the AMI
+        image = ec2_client.describe_images(ImageIds=[image_id])['Images'][0]
+        block_device_mappings = image['BlockDeviceMappings']
+
+        # Encrypt each block device
+        for block_device in block_device_mappings:
+            if 'Ebs' in block_device:
+                snapshot_id = block_device['Ebs']['SnapshotId']
+                encrypted_snapshot = ec2_client.copy_snapshot(
+                    SourceSnapshotId=snapshot_id,
+                    SourceRegion='us-west-2',  # Change to your region
+                    Encrypted=True,
+                    KmsKeyId=kms_key_id
+                )
+                encrypted_snapshot_id = encrypted_snapshot['SnapshotId']
+                print(f"Snapshot {snapshot_id} encrypted as {encrypted_snapshot_id}.")
+
+                # Modify the block device mapping to use the encrypted snapshot
+                block_device['Ebs']['SnapshotId'] = encrypted_snapshot_id
+                block_device['Ebs']['DeleteOnTermination'] = True
+
+        # Register the new encrypted AMI
+        encrypted_ami = ec2_client.register_image(
+            Name=f"{ami_name}-encrypted",
+            BlockDeviceMappings=block_device_mappings,
+            RootDeviceName=image['RootDeviceName'],
+            VirtualizationType=image['VirtualizationType']
+        )
+        encrypted_image_id = encrypted_ami['ImageId']
+        print(f"Encrypted AMI {encrypted_image_id} registered successfully.")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+instance_id = 'i-0abcd1234efgh5678'  # Replace with your instance ID
+ami_name = 'my-encrypted-ami'
+kms_key_id = 'arn:aws:kms:us-west-2:123456789012:key/abcd1234-efgh-5678-ijkl-1234567890ab'  # Replace with your KMS key ARN
+
+create_encrypted_ami(instance_id, ami_name, kms_key_id)
+```
+
+### Key Points:
+1. **Initialize Boto3 Client:**
+   - Set up the Boto3 client to interact with EC2.
+
+2. **Create AMI:**
+   - Create an AMI from an existing instance.
+
+3. **Encrypt Snapshots:**
+   - Copy the snapshots of the AMI with encryption enabled using a KMS key.
+
+4. **Register Encrypted AMI:**
+   - Register a new AMI with the encrypted snapshots.
+
+This script ensures that any AMI created from an instance is encrypted, thus preventing unencrypted AMIs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

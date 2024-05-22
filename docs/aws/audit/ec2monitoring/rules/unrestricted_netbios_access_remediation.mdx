@@ -2,6 +2,143 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted NetBIOS access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instances that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - In the "Inbound rules" tab, click on the "Edit inbound rules" button.
+   - Look for any rules that allow unrestricted access (0.0.0.0/0 or ::/0) to ports 137-139 (NetBIOS).
+
+4. **Remove or Restrict NetBIOS Access:**
+   - Remove any inbound rules that allow unrestricted access to ports 137-139.
+   - If necessary, add more restrictive rules that only allow access from specific IP addresses or ranges that require NetBIOS access.
+
+By following these steps, you can ensure that NetBIOS access is not left unrestricted, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted NetBIOS access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the NetBIOS ports (137-139). Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance that has unrestricted NetBIOS access.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].SecurityGroups[*].GroupId' --output text
+   ```
+
+2. **Revoke Inbound Rules for NetBIOS Ports:**
+   Revoke any inbound rules that allow unrestricted access to NetBIOS ports (137-139).
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol udp --port 137 --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol udp --port 138 --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 139 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rules for NetBIOS Ports:**
+   If necessary, add more restrictive inbound rules for the NetBIOS ports, specifying only the trusted IP ranges.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol udp --port 137 --cidr <trusted-ip-range>
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol udp --port 138 --cidr <trusted-ip-range>
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 139 --cidr <trusted-ip-range>
+   ```
+
+4. **Verify the Security Group Rules:**
+   Verify that the security group rules have been updated correctly to ensure that unrestricted access to NetBIOS ports is no longer allowed.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+By following these steps, you can prevent unrestricted NetBIOS access in your EC2 instances using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted NetBIOS access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Identify Security Groups with Unrestricted NetBIOS Access**:
+   Write a Python script to identify security groups that allow unrestricted access to NetBIOS ports (137-139).
+
+4. **Modify Security Groups to Restrict NetBIOS Access**:
+   Update the identified security groups to restrict access to NetBIOS ports.
+
+Here is a sample Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Define the NetBIOS ports
+netbios_ports = [137, 138, 139]
+
+# Function to check if a security group has unrestricted NetBIOS access
+def has_unrestricted_netbios_access(security_group):
+    for permission in security_group['IpPermissions']:
+        if 'FromPort' in permission and 'ToPort' in permission:
+            if permission['FromPort'] in netbios_ports and permission['ToPort'] in netbios_ports:
+                for ip_range in permission['IpRanges']:
+                    if ip_range['CidrIp'] == '0.0.0.0/0':
+                        return True
+    return False
+
+# Describe all security groups
+response = ec2.describe_security_groups()
+
+# Iterate over each security group
+for sg in response['SecurityGroups']:
+    if has_unrestricted_netbios_access(sg):
+        print(f"Security Group {sg['GroupId']} has unrestricted NetBIOS access. Revoking permissions...")
+
+        # Revoke the unrestricted NetBIOS access
+        for permission in sg['IpPermissions']:
+            if 'FromPort' in permission and 'ToPort' in permission:
+                if permission['FromPort'] in netbios_ports and permission['ToPort'] in netbios_ports:
+                    ec2.revoke_security_group_ingress(
+                        GroupId=sg['GroupId'],
+                        IpProtocol=permission['IpProtocol'],
+                        FromPort=permission['FromPort'],
+                        ToPort=permission['ToPort'],
+                        CidrIp='0.0.0.0/0'
+                    )
+                    print(f"Revoked unrestricted NetBIOS access for Security Group {sg['GroupId']}")
+
+print("Completed checking and updating security groups.")
+```
+
+### Explanation:
+1. **Initialize Boto3 Client**: The script initializes a Boto3 client for EC2.
+2. **Define NetBIOS Ports**: The NetBIOS ports (137, 138, 139) are defined.
+3. **Check for Unrestricted Access**: The script defines a function to check if a security group has unrestricted access to NetBIOS ports.
+4. **Revoke Unrestricted Access**: The script iterates over all security groups, identifies those with unrestricted NetBIOS access, and revokes the permissions.
+
+This script ensures that no security group in your AWS account has unrestricted access to NetBIOS ports, thereby preventing potential security risks.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

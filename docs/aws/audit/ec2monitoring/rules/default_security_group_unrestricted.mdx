@@ -24,6 +24,140 @@ CISAWS, CBP, NIST, SOC2, PCIDSS, GDPR, AWSWAF, NISTCSF, FedRAMP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the Default Security Group from allowing unrestricted public traffic in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "EC2" to go to the EC2 Dashboard.
+
+2. **Access Security Groups:**
+   - In the left-hand navigation pane, under "Network & Security," click on "Security Groups."
+
+3. **Select the Default Security Group:**
+   - Locate and select the default security group for your VPC. The default security group typically has a name like "default."
+
+4. **Edit Inbound Rules:**
+   - With the default security group selected, click on the "Actions" button and choose "Edit inbound rules."
+   - Review the existing rules and ensure that no rules allow unrestricted access (i.e., 0.0.0.0/0 for IPv4 or ::/0 for IPv6) for critical ports (e.g., SSH on port 22, RDP on port 3389, HTTP on port 80, HTTPS on port 443).
+   - Modify or remove any rules that allow unrestricted public access to ensure that only specific IP addresses or ranges are permitted.
+
+By following these steps, you can prevent the default security group from allowing unrestricted public traffic, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the default security group from allowing unrestricted public traffic in EC2 using AWS CLI, follow these steps:
+
+1. **Describe the Default Security Group**:
+   First, identify the default security group for your VPC. Use the following command to describe the security groups and find the default one:
+   ```sh
+   aws ec2 describe-security-groups --filters Name=group-name,Values=default
+   ```
+
+2. **Revoke Inbound Rules**:
+   Revoke any inbound rules that allow unrestricted access (0.0.0.0/0 for IPv4 or ::/0 for IPv6). For example, to revoke an inbound rule for SSH (port 22) that allows access from any IP:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <default-security-group-id> --protocol tcp --port 22 --cidr 0.0.0.0/0
+   ```
+
+3. **Revoke Outbound Rules**:
+   Similarly, revoke any outbound rules that allow unrestricted access. For example, to revoke an outbound rule for HTTP (port 80) that allows access to any IP:
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id <default-security-group-id> --protocol tcp --port 80 --cidr 0.0.0.0/0
+   ```
+
+4. **Create Specific Rules**:
+   Add more restrictive rules to the default security group as needed. For example, to allow SSH access only from a specific IP address (e.g., 192.168.1.1):
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <default-security-group-id> --protocol tcp --port 22 --cidr 192.168.1.1/32
+   ```
+
+By following these steps, you can ensure that the default security group does not allow unrestricted public traffic.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the default security group in Amazon EC2 from allowing unrestricted public traffic using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 EC2 client to interact with the EC2 service.
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+   ```
+
+3. **Describe Default Security Group**:
+   Retrieve the default security group for your VPC. You need to identify the default security group by filtering based on the `GroupName` and `VpcId`.
+   ```python
+   def get_default_security_group(vpc_id):
+       response = ec2.describe_security_groups(
+           Filters=[
+               {'Name': 'group-name', 'Values': ['default']},
+               {'Name': 'vpc-id', 'Values': [vpc_id]}
+           ]
+       )
+       return response['SecurityGroups'][0] if response['SecurityGroups'] else None
+   ```
+
+4. **Revoke Unrestricted Ingress Rules**:
+   Revoke any ingress rules that allow unrestricted access (i.e., `0.0.0.0/0` for IPv4 or `::/0` for IPv6).
+   ```python
+   def revoke_unrestricted_ingress_rules(security_group_id):
+       response = ec2.describe_security_group_rules(
+           Filters=[
+               {'Name': 'group-id', 'Values': [security_group_id]}
+           ]
+       )
+       for rule in response['SecurityGroupRules']:
+           if rule['IsEgress'] is False:
+               if 'CidrIpv4' in rule and rule['CidrIpv4'] == '0.0.0.0/0':
+                   ec2.revoke_security_group_ingress(
+                       GroupId=security_group_id,
+                       IpPermissions=[
+                           {
+                               'IpProtocol': rule['IpProtocol'],
+                               'FromPort': rule['FromPort'],
+                               'ToPort': rule['ToPort'],
+                               'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+                           }
+                       ]
+                   )
+               elif 'CidrIpv6' in rule and rule['CidrIpv6'] == '::/0':
+                   ec2.revoke_security_group_ingress(
+                       GroupId=security_group_id,
+                       IpPermissions=[
+                           {
+                               'IpProtocol': rule['IpProtocol'],
+                               'FromPort': rule['FromPort'],
+                               'ToPort': rule['ToPort'],
+                               'Ipv6Ranges': [{'CidrIpv6': '::/0'}]
+                           }
+                       ]
+                   )
+
+# Example usage
+vpc_id = 'your-vpc-id'  # Replace with your VPC ID
+default_sg = get_default_security_group(vpc_id)
+if default_sg:
+    revoke_unrestricted_ingress_rules(default_sg['GroupId'])
+```
+
+This script will ensure that the default security group does not allow unrestricted public traffic by revoking any ingress rules that permit access from `0.0.0.0/0` or `::/0`.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
@@ -50,14 +184,14 @@ CISAWS, CBP, NIST, SOC2, PCIDSS, GDPR, AWSWAF, NISTCSF, FedRAMP
 2. List all the security groups: Use the following command to list all the security groups in your AWS account:
 
    ```
-   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   aws ec2 describe-security-groups --query `SecurityGroups[*].{Name:GroupName,ID:GroupId}`
    ```
    This command will return a list of all security groups along with their names and IDs.
 
 3. Check the inbound rules for each security group: For each security group, you need to check the inbound rules to see if they allow unrestricted public traffic. You can do this by running the following command:
 
    ```
-   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]'
+   aws ec2 describe-security-groups --group-ids `<security-group-id>` --query `SecurityGroups[*].IpPermissions[*]`
    ```
    Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
 

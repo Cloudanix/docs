@@ -24,6 +24,137 @@ PCIDSS, SOC2, GDPR, HITRUST, AWSWAF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted Telnet access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - In the "Inbound rules" tab, click on the "Edit inbound rules" button.
+
+4. **Remove Telnet Rule:**
+   - Look for any rule that allows inbound traffic on port 23 (the default port for Telnet).
+   - Remove or modify the rule to restrict access. Ideally, you should remove the rule entirely or restrict it to specific IP addresses if absolutely necessary.
+
+By following these steps, you can ensure that unrestricted Telnet access is not allowed, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted Telnet access on EC2 instances using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance. You can list all security groups and find the relevant one using the following command:
+   ```sh
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{ID:GroupId,Name:GroupName}"
+   ```
+
+2. **Check Existing Rules:**
+   Check the existing inbound rules for the identified security group to see if there are any rules allowing unrestricted Telnet access (port 23):
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions"
+   ```
+
+3. **Revoke Unrestricted Telnet Access:**
+   If you find any rules that allow unrestricted access to port 23, revoke them. For example, if there is a rule allowing access from 0.0.0.0/0 (any IP address), you can revoke it using:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 23 --cidr 0.0.0.0/0
+   ```
+
+4. **Add Restricted Telnet Access (if necessary):**
+   If Telnet access is required but should be restricted to specific IP addresses, you can add a more restrictive rule. For example, to allow access only from a specific IP address (e.g., 192.168.1.1), use:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 23 --cidr 192.168.1.1/32
+   ```
+
+By following these steps, you can ensure that Telnet access to your EC2 instances is not unrestricted, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted Telnet access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script to Check and Update Security Groups**:
+   Write a Python script to identify and update security groups that allow unrestricted Telnet access (port 23).
+
+4. **Script to Prevent Unrestricted Telnet Access**:
+   Here is a Python script to achieve this:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Describe all security groups
+   response = ec2.describe_security_groups()
+
+   for sg in response['SecurityGroups']:
+       group_id = sg['GroupId']
+       group_name = sg['GroupName']
+       ip_permissions = sg['IpPermissions']
+
+       for permission in ip_permissions:
+           from_port = permission.get('FromPort')
+           to_port = permission.get('ToPort')
+           ip_ranges = permission.get('IpRanges')
+
+           # Check if the security group allows unrestricted access to port 23 (Telnet)
+           if from_port == 23 and to_port == 23:
+               for ip_range in ip_ranges:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group {group_name} ({group_id}) allows unrestricted Telnet access. Revoking rule...")
+
+                       # Revoke the unrestricted Telnet access rule
+                       ec2.revoke_security_group_ingress(
+                           GroupId=group_id,
+                           IpProtocol='tcp',
+                           FromPort=23,
+                           ToPort=23,
+                           CidrIp='0.0.0.0/0'
+                       )
+                       print(f"Revoked unrestricted Telnet access for Security Group {group_name} ({group_id}).")
+
+   print("Completed checking and updating security groups.")
+   ```
+
+### Explanation:
+1. **Install Boto3 Library**:
+   - Ensure you have the Boto3 library installed to interact with AWS services.
+
+2. **Set Up AWS Credentials**:
+   - Configure your AWS credentials to allow the script to authenticate and interact with your AWS account.
+
+3. **Describe Security Groups**:
+   - Use the `describe_security_groups` method to retrieve all security groups in your account.
+
+4. **Check and Revoke Unrestricted Telnet Access**:
+   - Iterate through each security group and its permissions.
+   - Identify rules that allow unrestricted access to port 23 (Telnet).
+   - Revoke any rules that allow unrestricted Telnet access by calling the `revoke_security_group_ingress` method.
+
+By following these steps, you can prevent unrestricted Telnet access in your EC2 instances using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

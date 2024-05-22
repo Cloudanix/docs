@@ -24,6 +24,172 @@ CBP,SEBI
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having a Storage Gateway Recovery Point created in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Storage Gateway:**
+   - Sign in to the AWS Management Console.
+   - Open the Storage Gateway console at [https://console.aws.amazon.com/storagegateway/](https://console.aws.amazon.com/storagegateway/).
+
+2. **Select Your Gateway:**
+   - In the Storage Gateway console, choose the gateway for which you want to create a recovery point.
+   - Click on the gateway name to open its details page.
+
+3. **Create a Recovery Point:**
+   - In the gateway details page, navigate to the "Actions" dropdown menu.
+   - Select "Create recovery point" from the dropdown options.
+   - Follow the prompts to configure and create the recovery point.
+
+4. **Enable Automatic Backups:**
+   - To ensure that recovery points are created regularly, enable automatic backups.
+   - Go to the "Settings" tab of your gateway.
+   - Look for the backup configuration section and enable automatic backups, specifying the frequency and retention period as per your requirements.
+
+By following these steps, you can ensure that recovery points are regularly created for your Storage Gateway in EC2, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having a Storage Gateway Recovery Point created in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   Ensure you have a backup plan that includes the Storage Gateway. This plan will define when and how backups are created.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "MoveToColdStorageAfterDays": 30,
+                   "DeleteAfterDays": 365
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the Storage Gateway resource to the backup plan to ensure it is included in the scheduled backups.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <your-backup-plan-id> --backup-selection '{
+       "SelectionName": "MyBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:storagegateway:us-west-2:123456789012:gateway/sgw-12A3456B"
+       ]
+   }'
+   ```
+
+3. **Verify Backup Plan and Selection:**
+   Verify that the backup plan and selection have been created and assigned correctly.
+
+   ```sh
+   aws backup get-backup-plan --backup-plan-id <your-backup-plan-id>
+   aws backup get-backup-selection --backup-plan-id <your-backup-plan-id> --selection-id <your-selection-id>
+   ```
+
+4. **Enable AWS Backup Service:**
+   Ensure that the AWS Backup service is enabled for your account and region.
+
+   ```sh
+   aws backup start-backup-job --backup-vault-name Default --resource-arn arn:aws:storagegateway:us-west-2:123456789012:gateway/sgw-12A3456B --iam-role-arn arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole
+   ```
+
+By following these steps, you can ensure that a recovery point is created for your Storage Gateway in EC2, preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having a Storage Gateway Recovery Point created in EC2 using Python scripts, you can follow these steps:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Create a Python Script to Check and Create Recovery Points
+Here is a Python script that checks if a recovery point exists for a given Storage Gateway and creates one if it doesn't:
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+# Initialize the AWS Storage Gateway client
+client = boto3.client('storagegateway')
+
+# Function to check if a recovery point exists
+def check_recovery_point(gateway_arn):
+    try:
+        response = client.list_volume_recovery_points(GatewayARN=gateway_arn)
+        recovery_points = response.get('VolumeRecoveryPointInfos', [])
+        return len(recovery_points) > 0
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Error: {e}")
+        return False
+
+# Function to create a recovery point
+def create_recovery_point(gateway_arn, volume_arn):
+    try:
+        response = client.create_snapshot_from_volume_recovery_point(
+            GatewayARN=gateway_arn,
+            VolumeARN=volume_arn,
+            SnapshotDescription='Automated recovery point'
+        )
+        print(f"Recovery point created: {response['SnapshotId']}")
+    except Exception as e:
+        print(f"Error creating recovery point: {e}")
+
+# Main function to ensure recovery point exists
+def ensure_recovery_point(gateway_arn, volume_arn):
+    if not check_recovery_point(gateway_arn):
+        print("No recovery point found. Creating one...")
+        create_recovery_point(gateway_arn, volume_arn)
+    else:
+        print("Recovery point already exists.")
+
+# Example usage
+gateway_arn = 'arn:aws:storagegateway:us-west-2:123456789012:gateway/sgw-12A3456B'
+volume_arn = 'arn:aws:storagegateway:us-west-2:123456789012:volume/vol-12345678'
+ensure_recovery_point(gateway_arn, volume_arn)
+```
+
+### Step 4: Automate the Script Execution
+To ensure continuous compliance, you can automate the execution of this script using AWS Lambda or a cron job on an EC2 instance. Here’s a brief on how to set it up with AWS Lambda:
+
+1. **Create a Lambda Function:**
+   - Go to the AWS Lambda console.
+   - Click on "Create function".
+   - Choose "Author from scratch".
+   - Configure the function name, runtime (Python 3.x), and permissions.
+
+2. **Deploy the Script:**
+   - Upload the script as a .zip file or directly paste the code into the Lambda function editor.
+   - Ensure the Lambda function has the necessary IAM role with permissions to access Storage Gateway and create snapshots.
+
+3. **Set Up a CloudWatch Event:**
+   - Go to the CloudWatch console.
+   - Create a new rule to trigger the Lambda function on a schedule (e.g., daily).
+
+By following these steps, you can ensure that a Storage Gateway Recovery Point is always created in EC2, preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

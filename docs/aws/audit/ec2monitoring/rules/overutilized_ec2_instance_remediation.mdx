@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from being overutilized in AWS using the AWS Management Console, follow these steps:
+
+1. **Set Up CloudWatch Alarms:**
+   - Navigate to the **CloudWatch** service in the AWS Management Console.
+   - Create alarms for key metrics such as CPU utilization, memory usage, and disk I/O.
+   - Set thresholds that will trigger notifications when these metrics exceed acceptable levels.
+
+2. **Enable Auto Scaling:**
+   - Go to the **EC2** dashboard and select **Auto Scaling Groups**.
+   - Create an Auto Scaling group for your instances.
+   - Define scaling policies that will automatically add or remove instances based on the CloudWatch metrics.
+
+3. **Use Elastic Load Balancing (ELB):**
+   - Navigate to the **EC2** dashboard and select **Load Balancers**.
+   - Create a new load balancer and add your EC2 instances to it.
+   - This will distribute incoming traffic across multiple instances, preventing any single instance from becoming overutilized.
+
+4. **Regularly Review and Optimize Instances:**
+   - Periodically review the performance of your EC2 instances using the **AWS Cost Explorer** and **Trusted Advisor**.
+   - Identify instances that are consistently overutilized and consider resizing them to a larger instance type or optimizing your application to reduce resource consumption.
+
+By following these steps, you can proactively monitor and manage the utilization of your EC2 instances to prevent overutilization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from being overutilized using AWS CLI, you can follow these steps:
+
+1. **Set Up CloudWatch Alarms:**
+   - Create CloudWatch alarms to monitor CPU utilization, memory usage, and other relevant metrics. This will help you get notified when an instance is overutilized.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "HighCPUUtilization" --metric-name "CPUUtilization" --namespace "AWS/EC2" --statistic "Average" --period 300 --threshold 80 --comparison-operator "GreaterThanThreshold" --dimensions "Name=InstanceId,Value=i-1234567890abcdef0" --evaluation-periods 2 --alarm-actions "arn:aws:sns:us-west-2:123456789012:MyTopic"
+   ```
+
+2. **Auto Scaling Groups:**
+   - Use Auto Scaling Groups to automatically adjust the number of instances based on demand. This helps in distributing the load and preventing any single instance from being overutilized.
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name my-asg --instance-id i-1234567890abcdef0 --min-size 1 --max-size 10 --desired-capacity 2 --availability-zones "us-west-2a" "us-west-2b"
+   ```
+
+3. **Instance Types and Sizes:**
+   - Choose appropriate instance types and sizes based on the workload requirements. Use the AWS CLI to modify instance types if necessary.
+   ```sh
+   aws ec2 modify-instance-attribute --instance-id i-1234567890abcdef0 --instance-type "{\"Value\": \"t3.large\"}"
+   ```
+
+4. **Resource Tags and Monitoring:**
+   - Tag your instances and set up detailed monitoring to keep track of resource utilization. This helps in identifying overutilized instances quickly.
+   ```sh
+   aws ec2 create-tags --resources i-1234567890abcdef0 --tags Key=Environment,Value=Production Key=Owner,Value=Admin
+   aws cloudwatch enable-alarm-actions --alarm-names "HighCPUUtilization"
+   ```
+
+By following these steps, you can proactively prevent EC2 instances from being overutilized using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from being overutilized using Python scripts, you can leverage AWS SDK for Python (Boto3) to monitor and manage your EC2 instances. Here are four steps to help you achieve this:
+
+### 1. **Set Up Boto3 and AWS Credentials**
+
+First, ensure you have Boto3 installed and configured with your AWS credentials.
+
+```bash
+pip install boto3
+```
+
+Configure your AWS credentials:
+
+```bash
+aws configure
+```
+
+### 2. **Monitor EC2 Instance Metrics**
+
+Use CloudWatch to monitor the CPU utilization of your EC2 instances. You can set up a script to fetch these metrics periodically.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+cloudwatch = boto3.client('cloudwatch')
+
+def get_cpu_utilization(instance_id):
+    response = cloudwatch.get_metric_statistics(
+        Namespace='AWS/EC2',
+        MetricName='CPUUtilization',
+        Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
+        StartTime=datetime.utcnow() - timedelta(minutes=10),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    for point in response['Datapoints']:
+        return point['Average']
+    return 0
+
+instance_id = 'i-0abcd1234efgh5678'
+cpu_utilization = get_cpu_utilization(instance_id)
+print(f"CPU Utilization for {instance_id}: {cpu_utilization}%")
+```
+
+### 3. **Set Up Alarms for High Utilization**
+
+Create CloudWatch alarms to notify you when an instance's CPU utilization exceeds a certain threshold.
+
+```python
+def create_cpu_alarm(instance_id, threshold):
+    cloudwatch.put_metric_alarm(
+        AlarmName=f'HighCPUUtilization_{instance_id}',
+        MetricName='CPUUtilization',
+        Namespace='AWS/EC2',
+        Statistic='Average',
+        Period=300,
+        EvaluationPeriods=1,
+        Threshold=threshold,
+        ComparisonOperator='GreaterThanThreshold',
+        Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
+        AlarmActions=['arn:aws:sns:us-west-2:123456789012:MyTopic'],
+        AlarmDescription='Alarm when server CPU exceeds threshold',
+        ActionsEnabled=True
+    )
+
+create_cpu_alarm(instance_id, 80)
+```
+
+### 4. **Auto-Scaling Based on Utilization**
+
+Set up Auto Scaling to automatically adjust the number of instances based on CPU utilization.
+
+```python
+autoscaling = boto3.client('autoscaling')
+
+def create_auto_scaling_policy(asg_name, policy_name, adjustment_type, scaling_adjustment, cooldown):
+    autoscaling.put_scaling_policy(
+        AutoScalingGroupName=asg_name,
+        PolicyName=policy_name,
+        AdjustmentType=adjustment_type,
+        ScalingAdjustment=scaling_adjustment,
+        Cooldown=cooldown
+    )
+
+asg_name = 'my-auto-scaling-group'
+create_auto_scaling_policy(asg_name, 'ScaleUp', 'ChangeInCapacity', 1, 300)
+create_auto_scaling_policy(asg_name, 'ScaleDown', 'ChangeInCapacity', -1, 300)
+```
+
+By following these steps, you can effectively monitor and manage the utilization of your EC2 instances, preventing them from being overutilized.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

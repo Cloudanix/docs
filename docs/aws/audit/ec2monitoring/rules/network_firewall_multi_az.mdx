@@ -24,6 +24,156 @@ HIPAA,NIST,HITRUST,AWSWAF,SOC2,NISTCSF,PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent network firewalls from being deployed across multiple Availability Zones in EC2 using the AWS Management Console, follow these steps:
+
+1. **Designate Specific Availability Zones for Firewalls:**
+   - Navigate to the VPC Dashboard in the AWS Management Console.
+   - Select "Subnets" from the left-hand menu.
+   - Create or select subnets that are designated for firewall instances, ensuring that these subnets are in specific Availability Zones.
+   - Label these subnets clearly to indicate their purpose (e.g., "Firewall-Subnet-AZ1").
+
+2. **Launch Firewall Instances in Designated Subnets:**
+   - Go to the EC2 Dashboard.
+   - Click on "Launch Instance" and follow the steps to configure your instance.
+   - In the "Configure Instance" step, select the designated subnet for the firewall instance.
+   - Ensure that the subnet selected corresponds to the specific Availability Zone intended for firewall deployment.
+
+3. **Use Security Groups to Control Traffic:**
+   - Navigate to the "Security Groups" section in the EC2 Dashboard.
+   - Create or modify security groups to control the traffic to and from your firewall instances.
+   - Apply these security groups to the firewall instances to ensure that only authorized traffic is allowed.
+
+4. **Monitor and Audit Firewall Deployments:**
+   - Use AWS Config to create rules that monitor the deployment of firewall instances.
+   - Set up AWS Config rules to ensure that firewall instances are only deployed in the designated subnets and Availability Zones.
+   - Regularly review the AWS Config compliance reports to ensure adherence to the deployment strategy.
+
+By following these steps, you can ensure that network firewalls are deployed in a controlled and consistent manner across specific Availability Zones, reducing the risk of misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent network firewalls from being deployed across multiple Availability Zones in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group in a Specific Availability Zone:**
+   Ensure that your security group is created within a specific VPC that is associated with a single Availability Zone. This helps in controlling the network traffic within that specific zone.
+
+   ```sh
+   aws ec2 create-security-group --group-name my-security-group --description "My security group" --vpc-id vpc-12345678
+   ```
+
+2. **Configure Security Group Rules:**
+   Define inbound and outbound rules for the security group to control the traffic. This ensures that only the necessary traffic is allowed within the specific Availability Zone.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id sg-12345678 --protocol tcp --port 22 --cidr 203.0.113.0/24
+   aws ec2 authorize-security-group-egress --group-id sg-12345678 --protocol tcp --port 80 --cidr 0.0.0.0/0
+   ```
+
+3. **Launch Instances in a Specific Subnet:**
+   When launching EC2 instances, ensure they are placed in a subnet that is within the desired Availability Zone. This helps in maintaining the firewall rules within that zone.
+
+   ```sh
+   aws ec2 run-instances --image-id ami-12345678 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-12345678 --subnet-id subnet-12345678
+   ```
+
+4. **Use Network ACLs for Additional Control:**
+   Apply Network ACLs (Access Control Lists) to the subnets to provide an additional layer of security. This ensures that the traffic is controlled at the subnet level within the specific Availability Zone.
+
+   ```sh
+   aws ec2 create-network-acl --vpc-id vpc-12345678
+   aws ec2 create-network-acl-entry --network-acl-id acl-12345678 --rule-number 100 --protocol tcp --port-range From=80,To=80 --egress --cidr-block 0.0.0.0/0 --rule-action allow
+   ```
+
+By following these steps, you can ensure that your network firewalls and security configurations are properly managed within a single Availability Zone, preventing misconfigurations across multiple zones.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent network firewalls from being deployed across multiple Availability Zones (AZs) in Amazon EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that network firewalls are correctly configured within a single AZ:
+
+### Step 1: Install Boto3
+First, ensure that you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Create a Python Script to Check and Prevent Misconfigurations
+Here is a Python script that checks and ensures that network firewalls (Security Groups) are not deployed across multiple AZs:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2 = session.client('ec2')
+
+def get_instances():
+    # Retrieve all instances
+    response = ec2.describe_instances()
+    instances = []
+    for reservation in response['Reservations']:
+        for instance in reservation['Instances']:
+            instances.append(instance)
+    return instances
+
+def check_firewall_az(instance):
+    # Check the AZ of the instance
+    instance_az = instance['Placement']['AvailabilityZone']
+    
+    # Get the security groups associated with the instance
+    security_groups = instance['SecurityGroups']
+    
+    for sg in security_groups:
+        sg_id = sg['GroupId']
+        sg_details = ec2.describe_security_groups(GroupIds=[sg_id])
+        
+        for sg_detail in sg_details['SecurityGroups']:
+            # Check if the security group is associated with the same AZ
+            if sg_detail['VpcId'] != instance['VpcId']:
+                print(f"Security Group {sg_id} is not in the same AZ as the instance {instance['InstanceId']}")
+                # Here you can add logic to prevent this misconfiguration
+                # For example, you can remove the security group or alert the user
+
+def main():
+    instances = get_instances()
+    for instance in instances:
+        check_firewall_az(instance)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Step 4: Run the Script
+Execute the script to ensure that your network firewalls are not deployed across multiple AZs. This script will check each instance and its associated security groups to ensure they are within the same AZ.
+
+```bash
+python prevent_firewall_misconfig.py
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed using pip.
+2. **Configure AWS Credentials**: Set up your AWS credentials.
+3. **Create Python Script**: Write a Python script to check and prevent misconfigurations.
+4. **Run the Script**: Execute the script to enforce the configuration.
+
+This script provides a basic framework to prevent network firewalls from being deployed across multiple AZs. You can expand it to include more sophisticated checks and automated remediation actions as needed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

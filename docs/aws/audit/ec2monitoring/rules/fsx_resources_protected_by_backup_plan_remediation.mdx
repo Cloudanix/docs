@@ -2,6 +2,200 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of FSx not having a backup plan in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the FSx Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "FSx" and select "Amazon FSx" from the dropdown.
+
+2. **Select the File System:**
+   - In the Amazon FSx console, you will see a list of your file systems.
+   - Click on the file system for which you want to configure a backup plan.
+
+3. **Configure Backup Settings:**
+   - In the file system details page, look for the "Backup" section.
+   - Click on "Edit" or "Manage" backup settings.
+   - Enable automatic backups and set the backup frequency according to your requirements.
+
+4. **Review and Save:**
+   - Review the backup settings to ensure they meet your organization's data protection policies.
+   - Click "Save" or "Apply" to confirm the changes.
+
+By following these steps, you can ensure that your FSx file systems have a backup plan in place, thereby preventing potential data loss.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of FSx not having a backup plan in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, create a backup plan using the AWS Backup service. This plan will define the backup rules and schedules.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyFSxBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "MoveToColdStorageAfterDays": 30,
+                   "DeleteAfterDays": 365
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the FSx file system to the backup plan by creating a backup selection.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <your-backup-plan-id> --backup-selection '{
+       "SelectionName": "MyFSxBackupSelection",
+       "IamRoleArn": "arn:aws:iam::<your-account-id>:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:fsx:<region>:<account-id>:file-system/<fsx-id>"
+       ]
+   }'
+   ```
+
+3. **Enable Backup for FSx:**
+   Ensure that the FSx file system is configured to allow backups. This can be done by setting the `Backup` parameter when creating or modifying the FSx file system.
+
+   ```sh
+   aws fsx create-file-system --file-system-type WINDOWS --storage-capacity 300 --subnet-ids subnet-12345678 --windows-configuration '{
+       "ThroughputCapacity": 8,
+       "WeeklyMaintenanceStartTime": "1:05:00",
+       "DailyAutomaticBackupStartTime": "05:00",
+       "AutomaticBackupRetentionDays": 7,
+       "CopyTagsToBackups": true
+   }'
+   ```
+
+4. **Verify Backup Configuration:**
+   Verify that the backup plan and selection are correctly configured and associated with the FSx file system.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <your-backup-plan-id>
+   aws backup list-protected-resources
+   ```
+
+By following these steps, you can ensure that your FSx file systems have a proper backup plan in place, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of FSx (Amazon FSx) not having a backup plan in EC2 using Python scripts, you can follow these steps:
+
+### Step 1: Install Required Libraries
+Ensure you have the `boto3` library installed, which is the AWS SDK for Python. You can install it using pip if you haven't already.
+
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+```bash
+aws configure
+```
+
+### Step 3: Create a Python Script to Check and Create Backup Plans
+
+Here's a Python script that checks for existing FSx file systems and ensures they have a backup plan. If a backup plan does not exist, it creates one.
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+def ensure_fsx_backup():
+    try:
+        # Initialize a session using Amazon FSx
+        session = boto3.Session()
+        fsx_client = session.client('fsx')
+        backup_client = session.client('backup')
+
+        # List all FSx file systems
+        file_systems = fsx_client.describe_file_systems()
+        
+        for fs in file_systems['FileSystems']:
+            fs_id = fs['FileSystemId']
+            print(f"Checking backup plan for FSx FileSystem: {fs_id}")
+
+            # Check if a backup plan exists for the FSx file system
+            backup_plans = backup_client.list_backup_plans()
+            backup_plan_exists = False
+
+            for plan in backup_plans['BackupPlansList']:
+                plan_id = plan['BackupPlanId']
+                plan_details = backup_client.get_backup_plan(BackupPlanId=plan_id)
+                for rule in plan_details['BackupPlan']['Rules']:
+                    if 'ResourceType' in rule and rule['ResourceType'] == 'FSx':
+                        backup_plan_exists = True
+                        break
+
+            if not backup_plan_exists:
+                print(f"No backup plan found for FSx FileSystem: {fs_id}. Creating a new backup plan.")
+                # Create a backup plan
+                backup_plan = {
+                    'BackupPlanName': f'FSxBackupPlan-{fs_id}',
+                    'Rules': [
+                        {
+                            'RuleName': 'DailyBackup',
+                            'TargetBackupVaultName': 'Default',
+                            'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12:00 UTC
+                            'StartWindowMinutes': 60,
+                            'CompletionWindowMinutes': 180,
+                            'Lifecycle': {
+                                'MoveToColdStorageAfterDays': 30,
+                                'DeleteAfterDays': 365
+                            },
+                            'RecoveryPointTags': {
+                                'CreatedBy': 'FSxBackupScript'
+                            }
+                        }
+                    ]
+                }
+
+                response = backup_client.create_backup_plan(BackupPlan=backup_plan)
+                print(f"Backup plan created: {response['BackupPlanId']}")
+
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print("Error: AWS credentials not found or incomplete.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    ensure_fsx_backup()
+```
+
+### Step 4: Run the Script
+Execute the script to ensure all FSx file systems have a backup plan.
+
+```bash
+python ensure_fsx_backup.py
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure `boto3` is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create a Python Script**: Write a script to check and create backup plans for FSx file systems.
+4. **Run the Script**: Execute the script to enforce backup plans.
+
+This script will help you automate the process of ensuring that all FSx file systems have a backup plan, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

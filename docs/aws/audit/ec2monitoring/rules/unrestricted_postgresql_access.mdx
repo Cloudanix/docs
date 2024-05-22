@@ -24,6 +24,128 @@ SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted PostgreSQL access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - Go to the EC2 Dashboard.
+   - In the left-hand navigation pane, click on "Security Groups" under the "Network & Security" section.
+
+2. **Select the Relevant Security Group:**
+   - Identify and select the security group associated with your PostgreSQL instance.
+
+3. **Edit Inbound Rules:**
+   - Click on the "Inbound rules" tab.
+   - Click the "Edit inbound rules" button.
+
+4. **Restrict PostgreSQL Access:**
+   - Locate any rules that allow inbound traffic on port 5432 (the default PostgreSQL port).
+   - Modify the source to a specific IP address or range that should have access, rather than allowing 0.0.0.0/0 (which means unrestricted access).
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your PostgreSQL instance is not exposed to unrestricted access, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted PostgreSQL access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the PostgreSQL port (default is 5432). Here are the steps:
+
+1. **Identify the Security Group**:
+   First, identify the security group associated with your EC2 instance that allows PostgreSQL access.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <your-instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rule**:
+   Revoke any existing inbound rule that allows unrestricted access (0.0.0.0/0 or ::/0) to port 5432.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 5432 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rule**:
+   Add a more restrictive inbound rule to allow access only from specific IP addresses or CIDR blocks.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 5432 --cidr <your-allowed-cidr-block>
+   ```
+
+4. **Verify Security Group Rules**:
+   Verify that the security group rules have been updated correctly.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   ```
+
+By following these steps, you can ensure that PostgreSQL access is restricted to only trusted IP addresses, thereby preventing unrestricted access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted PostgreSQL access in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to find and modify security groups that allow unrestricted access to PostgreSQL (port 5432).
+
+4. **Implement the Script**:
+   Below is a sample Python script to prevent unrestricted PostgreSQL access:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Describe all security groups
+   response = ec2.describe_security_groups()
+
+   # Iterate over each security group
+   for sg in response['SecurityGroups']:
+       sg_id = sg['GroupId']
+       sg_name = sg['GroupName']
+       for permission in sg['IpPermissions']:
+           # Check if the permission is for PostgreSQL (port 5432)
+           if 'FromPort' in permission and permission['FromPort'] == 5432:
+               for ip_range in permission['IpRanges']:
+                   # Check if the IP range is 0.0.0.0/0 (unrestricted access)
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group {sg_name} ({sg_id}) has unrestricted PostgreSQL access. Revoking...")
+                       # Revoke the unrestricted access
+                       ec2.revoke_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIp=ip_range['CidrIp']
+                       )
+                       print(f"Revoked unrestricted PostgreSQL access from Security Group {sg_name} ({sg_id}).")
+   ```
+
+### Explanation:
+1. **Install Boto3 Library**: Ensure you have the necessary library to interact with AWS services.
+2. **Set Up AWS Credentials**: Configure your AWS credentials to allow the script to authenticate with AWS.
+3. **Create a Python Script to Modify Security Groups**: Write a script to identify and modify security groups that allow unrestricted access to PostgreSQL.
+4. **Implement the Script**: The script iterates over all security groups, checks for rules that allow access to port 5432 from any IP address (0.0.0.0/0), and revokes those rules to prevent unrestricted access.
+
+This script ensures that no security group in your AWS account allows unrestricted access to PostgreSQL, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

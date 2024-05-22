@@ -24,6 +24,145 @@ HIPAA, SOC2, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an EC2 instance from being in a public subnet using the AWS Management Console, follow these steps:
+
+1. **Create a Private Subnet:**
+   - Navigate to the **VPC Dashboard**.
+   - Select **Subnets** from the left-hand menu.
+   - Click on **Create Subnet**.
+   - Choose your VPC and specify the subnet details, ensuring that the subnet is configured to be private (i.e., it does not have a route to an Internet Gateway).
+
+2. **Modify Route Tables:**
+   - In the **VPC Dashboard**, select **Route Tables**.
+   - Ensure that the route table associated with your private subnet does not have a route to an Internet Gateway. Instead, it should have routes to a NAT Gateway or NAT Instance if internet access is required for the instances.
+
+3. **Launch EC2 Instance in Private Subnet:**
+   - Navigate to the **EC2 Dashboard**.
+   - Click on **Launch Instance**.
+   - In the **Network** section, select the VPC and the private subnet you created.
+   - Complete the instance configuration and launch the instance.
+
+4. **Security Group Configuration:**
+   - Ensure that the security group associated with the EC2 instance does not allow inbound traffic from the internet (0.0.0.0/0) unless absolutely necessary and properly controlled.
+   - Configure the security group to allow only necessary traffic from specific IP addresses or other security groups.
+
+By following these steps, you can ensure that your EC2 instances are not placed in a public subnet, thereby reducing the risk of unauthorized access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an EC2 instance from being in a public subnet using AWS CLI, you can follow these steps:
+
+1. **Create a VPC:**
+   Ensure you have a VPC where you can create private subnets. If you don't have one, create it using the following command:
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+2. **Create a Private Subnet:**
+   Create a subnet within the VPC that does not have an internet gateway attached, making it a private subnet.
+   ```sh
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24
+   ```
+
+3. **Launch EC2 Instance in Private Subnet:**
+   When launching an EC2 instance, specify the subnet ID of the private subnet created in the previous step.
+   ```sh
+   aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key-pair-name> --subnet-id <private-subnet-id>
+   ```
+
+4. **Ensure No Public IP Assignment:**
+   Ensure that the instance does not get a public IP address by setting the `--associate-public-ip-address` flag to `false`.
+   ```sh
+   aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key-pair-name> --subnet-id <private-subnet-id> --associate-public-ip-address false
+   ```
+
+By following these steps, you can ensure that your EC2 instance is launched in a private subnet, preventing it from being in a public subnet.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an EC2 instance from being launched in a public subnet using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+### 1. Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### 2. Identify Public Subnets
+Identify the public subnets in your VPC. Public subnets typically have a route to an Internet Gateway. You can use Boto3 to list subnets and their route tables.
+
+### 3. Create a Function to Check Subnet Type
+Create a function to check if a subnet is public or private.
+
+### 4. Launch EC2 Instance in a Private Subnet
+Use the function to ensure that your EC2 instance is launched in a private subnet.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+def is_public_subnet(subnet_id):
+    # Describe the subnet
+    subnet = ec2.describe_subnets(SubnetIds=[subnet_id])['Subnets'][0]
+    
+    # Get the route table associated with the subnet
+    route_tables = ec2.describe_route_tables(
+        Filters=[{'Name': 'association.subnet-id', 'Values': [subnet_id]}]
+    )['RouteTables']
+    
+    for route_table in route_tables:
+        for route in route_table['Routes']:
+            if 'GatewayId' in route and route['GatewayId'].startswith('igw-'):
+                return True
+    return False
+
+def launch_instance(subnet_id, image_id, instance_type):
+    if is_public_subnet(subnet_id):
+        raise ValueError("Cannot launch instance in a public subnet")
+    
+    # Launch the instance in a private subnet
+    instance = ec2.run_instances(
+        ImageId=image_id,
+        InstanceType=instance_type,
+        SubnetId=subnet_id,
+        MinCount=1,
+        MaxCount=1
+    )
+    return instance
+
+# Example usage
+private_subnet_id = 'subnet-0bb1c79de3EXAMPLE'  # Replace with your private subnet ID
+image_id = 'ami-0abcdef1234567890'  # Replace with your AMI ID
+instance_type = 't2.micro'  # Replace with your instance type
+
+try:
+    instance = launch_instance(private_subnet_id, image_id, instance_type)
+    print("Instance launched successfully:", instance)
+except ValueError as e:
+    print(e)
+```
+
+### Explanation:
+1. **Install Boto3**: Ensure Boto3 is installed to interact with AWS services.
+2. **Identify Public Subnets**: The `is_public_subnet` function checks if a subnet is public by examining its route table for an Internet Gateway.
+3. **Create a Function to Check Subnet Type**: The function `is_public_subnet` returns `True` if the subnet is public, otherwise `False`.
+4. **Launch EC2 Instance in a Private Subnet**: The `launch_instance` function raises an error if the subnet is public, ensuring that instances are only launched in private subnets.
+
+This script ensures that EC2 instances are not launched in public subnets, thereby preventing potential security risks associated with public exposure.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
