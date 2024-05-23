@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the RDS instance count from exceeding the limit in AWS using the AWS Management Console, follow these steps:
+
+1. **Monitor RDS Instance Usage:**
+   - Navigate to the Amazon RDS Dashboard in the AWS Management Console.
+   - Go to the "Instances" section to view all your RDS instances.
+   - Regularly monitor the number of RDS instances you have running to ensure they do not exceed your account's limit.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the Amazon CloudWatch Dashboard.
+   - Create a new alarm by selecting "Create Alarm."
+   - Choose the RDS namespace and select the metric for the number of DB instances.
+   - Set the threshold to trigger an alarm when the number of instances approaches your limit.
+
+3. **Implement IAM Policies:**
+   - Navigate to the IAM Dashboard.
+   - Create or modify IAM policies to restrict the creation of new RDS instances.
+   - Attach these policies to users or roles to control who can create new RDS instances.
+
+4. **Use AWS Service Quotas:**
+   - Go to the Service Quotas Dashboard.
+   - Search for "Amazon RDS" and find the quota for the maximum number of DB instances.
+   - Request a quota increase if necessary, but ensure you have a process to monitor and manage the usage to stay within the new limit.
+
+By following these steps, you can effectively monitor and control the number of RDS instances in your AWS account to prevent exceeding the limit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the RDS instance count from exceeding the limit using AWS CLI, you can follow these steps:
+
+1. **Check Current RDS Instance Count:**
+   Use the following command to list all your RDS instances and count them. This helps you monitor the current number of instances.
+
+   ```sh
+   aws rds describe-db-instances --query "DBInstances[*].DBInstanceIdentifier" --output text | wc -l
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create a CloudWatch alarm to monitor the number of RDS instances. This will notify you when the count approaches the limit.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RDSInstanceCountAlarm" \
+   --metric-name "DatabaseConnections" --namespace "AWS/RDS" \
+   --statistic "Sum" --period 300 --threshold 10 --comparison-operator "GreaterThanOrEqualToThreshold" \
+   --dimensions "Name=DBInstanceIdentifier,Value=<YourDBInstanceIdentifier>" \
+   --evaluation-periods 1 --alarm-actions <SNS_Topic_ARN>
+   ```
+
+3. **Automate Instance Count Check:**
+   Create a scheduled Lambda function that runs periodically to check the RDS instance count and take action if it exceeds a certain threshold. Use the following command to create a CloudWatch Events rule to trigger the Lambda function.
+
+   ```sh
+   aws events put-rule --schedule-expression "rate(1 hour)" --name "CheckRDSInstanceCountRule"
+   ```
+
+4. **Enforce Limits via IAM Policies:**
+   Apply IAM policies to restrict the creation of new RDS instances beyond a certain number. This can be done by creating a policy and attaching it to the relevant IAM users or roles.
+
+   ```sh
+   aws iam put-user-policy --user-name <UserName> --policy-name "LimitRDSInstanceCreation" --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "rds:CreateDBInstance",
+         "Resource": "*",
+         "Condition": {
+           "NumericGreaterThan": {
+             "rds:db-instance-count": "10"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+By following these steps, you can effectively monitor and control the number of RDS instances in your AWS environment using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the RDS instance count from exceeding a specified limit using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Configuration:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials and region.
+
+   ```bash
+   pip install boto3
+   ```
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon RDS
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   rds_client = session.client('rds')
+   ```
+
+2. **Define the Maximum Allowed RDS Instances:**
+   - Set a variable for the maximum number of RDS instances you want to allow.
+
+   ```python
+   MAX_RDS_INSTANCES = 10  # Set your limit here
+   ```
+
+3. **Check the Current Number of RDS Instances:**
+   - Use the `describe_db_instances` method to get the current count of RDS instances.
+
+   ```python
+   def get_rds_instance_count():
+       response = rds_client.describe_db_instances()
+       return len(response['DBInstances'])
+
+   current_rds_count = get_rds_instance_count()
+   print(f"Current RDS instance count: {current_rds_count}")
+   ```
+
+4. **Prevent Creation of New RDS Instances if Limit is Exceeded:**
+   - Implement a check before creating a new RDS instance to ensure the count does not exceed the limit.
+
+   ```python
+   def create_rds_instance():
+       if current_rds_count >= MAX_RDS_INSTANCES:
+           print("Cannot create new RDS instance. Limit exceeded.")
+           return
+       
+       # Add your RDS instance creation logic here
+       response = rds_client.create_db_instance(
+           DBInstanceIdentifier='mydbinstance',
+           AllocatedStorage=20,
+           DBName='mydatabase',
+           Engine='mysql',
+           MasterUsername='admin',
+           MasterUserPassword='password',
+           DBInstanceClass='db.t2.micro'
+       )
+       print("RDS instance created:", response)
+
+   create_rds_instance()
+   ```
+
+By following these steps, you can ensure that the number of RDS instances does not exceed the specified limit using a Python script. This script checks the current number of instances and prevents the creation of new ones if the limit is reached.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

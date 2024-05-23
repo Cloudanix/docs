@@ -2,6 +2,156 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from allowing unrestricted inbound and outbound access using the AWS Management Console, follow these steps:
+
+1. **Navigate to the RDS Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "RDS" to go to the Amazon RDS dashboard.
+
+2. **Modify the Security Group:**
+   - In the RDS dashboard, select "Databases" from the left-hand menu.
+   - Choose the RDS instance you want to configure.
+   - Scroll down to the "Connectivity & security" section and note the security group associated with the instance.
+   - Click on the security group link to open the Amazon EC2 console with the security group selected.
+
+3. **Edit Inbound Rules:**
+   - In the security group details, go to the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+   - Remove any rules that allow unrestricted access (i.e., rules with a source of `0.0.0.0/0` for IPv4 or `::/0` for IPv6).
+   - Add specific IP addresses or CIDR blocks that should have access to the RDS instance.
+
+4. **Edit Outbound Rules:**
+   - Switch to the "Outbound rules" tab.
+   - Click on the "Edit outbound rules" button.
+   - Remove any rules that allow unrestricted access (i.e., rules with a destination of `0.0.0.0/0` for IPv4 or `::/0` for IPv6).
+   - Add specific IP addresses or CIDR blocks that the RDS instance needs to communicate with.
+
+By following these steps, you can ensure that your RDS instances are not exposed to unrestricted inbound and outbound access, thereby enhancing the security of your database instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from allowing unrestricted inbound and outbound access using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group associated with the RDS instance:**
+   First, you need to find out which security group is associated with your RDS instance.
+
+   ```sh
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier,VpcSecurityGroups]' --output table
+   ```
+
+2. **Describe the Security Group to check current rules:**
+   Once you have the security group ID, describe the security group to see the current inbound and outbound rules.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+3. **Revoke Unrestricted Inbound Rules:**
+   Remove any inbound rules that allow unrestricted access (e.g., CIDR `0.0.0.0/0`).
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol <protocol> --port <port> --cidr 0.0.0.0/0
+   ```
+
+4. **Revoke Unrestricted Outbound Rules:**
+   Similarly, remove any outbound rules that allow unrestricted access.
+
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id <security-group-id> --protocol <protocol> --port <port> --cidr 0.0.0.0/0
+   ```
+
+By following these steps, you can ensure that your RDS instances do not allow unrestricted inbound and outbound access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from allowing unrestricted inbound and outbound access using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Security Group with Restricted Access**:
+   Create a security group that restricts inbound and outbound access to specific IP ranges or ports. This example restricts inbound access to a specific IP range and outbound access to a specific port.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.create_security_group(
+       GroupName='restricted-access-sg',
+       Description='Security group with restricted access for RDS',
+       VpcId='your-vpc-id'  # Replace with your VPC ID
+   )
+
+   security_group_id = response['GroupId']
+
+   # Restrict inbound access
+   ec2.authorize_security_group_ingress(
+       GroupId=security_group_id,
+       IpPermissions=[
+           {
+               'IpProtocol': 'tcp',
+               'FromPort': 3306,  # Example for MySQL
+               'ToPort': 3306,
+               'IpRanges': [{'CidrIp': '203.0.113.0/24'}]  # Replace with your IP range
+           }
+       ]
+   )
+
+   # Restrict outbound access
+   ec2.authorize_security_group_egress(
+       GroupId=security_group_id,
+       IpPermissions=[
+           {
+               'IpProtocol': 'tcp',
+               'FromPort': 80,
+               'ToPort': 80,
+               'IpRanges': [{'CidrIp': '0.0.0.0/0'}]  # Example to allow HTTP traffic
+           }
+       ]
+   )
+   ```
+
+3. **Modify RDS Instance to Use the New Security Group**:
+   Modify your existing RDS instance to use the newly created security group.
+
+   ```python
+   rds = boto3.client('rds')
+
+   response = rds.modify_db_instance(
+       DBInstanceIdentifier='your-rds-instance-id',  # Replace with your RDS instance ID
+       VpcSecurityGroupIds=[security_group_id],
+       ApplyImmediately=True
+   )
+   ```
+
+4. **Verify the Security Group Configuration**:
+   Verify that the security group is correctly associated with the RDS instance and that the rules are applied as expected.
+
+   ```python
+   response = rds.describe_db_instances(
+       DBInstanceIdentifier='your-rds-instance-id'  # Replace with your RDS instance ID
+   )
+
+   for instance in response['DBInstances']:
+       print(f"DB Instance: {instance['DBInstanceIdentifier']}")
+       for sg in instance['VpcSecurityGroups']:
+           print(f"Security Group: {sg['VpcSecurityGroupId']}")
+   ```
+
+By following these steps, you can ensure that your RDS instances do not allow unrestricted inbound and outbound access, thereby enhancing the security of your database instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

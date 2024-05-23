@@ -2,6 +2,196 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where Amazon Backup should be integrated with Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to Amazon RDS:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon RDS console at [https://console.aws.amazon.com/rds/](https://console.aws.amazon.com/rds/).
+
+2. **Modify the DB Instance:**
+   - In the navigation pane, choose "Databases" to view your DB instances.
+   - Select the DB instance that you want to configure for Amazon Backup integration.
+   - Choose the "Modify" button.
+
+3. **Enable Automated Backups:**
+   - In the "Backup" section, ensure that "Enable automated backups" is selected.
+   - Set the backup retention period to the desired number of days.
+
+4. **Configure Amazon Backup:**
+   - Open the AWS Backup console at [https://console.aws.amazon.com/backup/](https://console.aws.amazon.com/backup/).
+   - In the navigation pane, choose "Backup plans" and then choose "Create backup plan."
+   - Follow the steps to create a backup plan, ensuring that you include your RDS instances in the resources to be backed up.
+   - Assign the appropriate IAM role that has the necessary permissions to perform backups on your RDS instances.
+
+By following these steps, you can ensure that Amazon Backup is properly integrated with your Amazon RDS instances, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that Amazon Backup is integrated with Amazon RDS using the AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, create a backup plan that specifies the backup rules and schedules. This plan will be used to back up your RDS instances.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyRDSBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign your RDS instances to the backup plan by creating a backup selection. This will link your RDS instances to the backup plan.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <BackupPlanId> --backup-selection '{
+       "SelectionName": "MyRDSBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:rds:us-west-2:123456789012:db:mydatabase"
+       ]
+   }'
+   ```
+
+3. **Verify Backup Plan and Selection:**
+   Ensure that the backup plan and selection have been created and are correctly configured.
+
+   ```sh
+   aws backup get-backup-plan --backup-plan-id <BackupPlanId>
+   aws backup get-backup-selection --backup-plan-id <BackupPlanId> --selection-id <SelectionId>
+   ```
+
+4. **Enable Backup for RDS Instances:**
+   Ensure that the RDS instances have backup enabled and are configured to use the backup plan.
+
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier mydatabase --backup-retention-period 7 --apply-immediately
+   ```
+
+By following these steps, you can ensure that Amazon Backup is integrated with Amazon RDS using the AWS CLI. This will help in automating and managing backups for your RDS instances effectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where Amazon Backup should be integrated with Amazon RDS using Python scripts, you can follow these steps:
+
+1. **Install Required Libraries**:
+   Ensure you have the `boto3` library installed, which is the AWS SDK for Python. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+   ```bash
+   aws configure
+   ```
+
+   Alternatively, you can set environment variables:
+
+   ```bash
+   export AWS_ACCESS_KEY_ID='your_access_key_id'
+   export AWS_SECRET_ACCESS_KEY='your_secret_access_key'
+   export AWS_DEFAULT_REGION='your_preferred_region'
+   ```
+
+3. **Create a Python Script to Enable Amazon Backup for RDS**:
+   Write a Python script that uses the `boto3` library to enable Amazon Backup for your RDS instances.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon RDS
+   client = boto3.client('rds')
+
+   # List all RDS instances
+   response = client.describe_db_instances()
+
+   # Iterate over each RDS instance
+   for db_instance in response['DBInstances']:
+       db_instance_identifier = db_instance['DBInstanceIdentifier']
+       
+       # Enable backup for the RDS instance
+       client.modify_db_instance(
+           DBInstanceIdentifier=db_instance_identifier,
+           BackupRetentionPeriod=7  # Set the retention period as per your requirement
+       )
+       print(f"Backup enabled for RDS instance: {db_instance_identifier}")
+
+   # Initialize a session using AWS Backup
+   backup_client = boto3.client('backup')
+
+   # Create a backup plan
+   backup_plan = {
+       'BackupPlanName': 'RDSBackupPlan',
+       'Rules': [
+           {
+               'RuleName': 'DailyBackup',
+               'TargetBackupVaultName': 'Default',
+               'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12 PM UTC
+               'StartWindowMinutes': 60,
+               'CompletionWindowMinutes': 180,
+               'Lifecycle': {
+                   'MoveToColdStorageAfterDays': 30,
+                   'DeleteAfterDays': 365
+               },
+               'RecoveryPointTags': {
+                   'CreatedBy': 'BackupScript'
+               }
+           }
+       ]
+   }
+
+   # Create the backup plan
+   backup_plan_response = backup_client.create_backup_plan(
+       BackupPlan=backup_plan
+   )
+
+   backup_plan_id = backup_plan_response['BackupPlanId']
+   print(f"Backup plan created with ID: {backup_plan_id}")
+
+   # Assign the backup plan to the RDS instances
+   for db_instance in response['DBInstances']:
+       db_instance_arn = db_instance['DBInstanceArn']
+       backup_client.create_backup_selection(
+           BackupPlanId=backup_plan_id,
+           BackupSelection={
+               'SelectionName': f"BackupSelection-{db_instance['DBInstanceIdentifier']}",
+               'IamRoleArn': 'arn:aws:iam::your_account_id:role/service-role/AWSBackupDefaultServiceRole',
+               'Resources': [db_instance_arn]
+           }
+       )
+       print(f"Backup selection created for RDS instance: {db_instance['DBInstanceIdentifier']}")
+   ```
+
+4. **Run the Script**:
+   Execute the Python script to enable Amazon Backup for your RDS instances and create a backup plan.
+
+   ```bash
+   python enable_rds_backup.py
+   ```
+
+This script will ensure that Amazon Backup is integrated with your Amazon RDS instances by enabling backups and creating a backup plan with a daily schedule. Adjust the parameters such as `BackupRetentionPeriod`, `ScheduleExpression`, and `Lifecycle` as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

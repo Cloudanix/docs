@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the use of IOPS SSDs instead of General Purpose SSDs in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon RDS console at [https://console.aws.amazon.com/rds/](https://console.aws.amazon.com/rds/).
+
+2. **Modify DB Instance:**
+   - In the navigation pane, choose "Databases" to view your DB instances.
+   - Select the DB instance that you want to modify.
+   - Choose the "Modify" button.
+
+3. **Change Storage Type:**
+   - In the "Storage" section, find the "Storage type" dropdown.
+   - Select "General Purpose (SSD)" from the dropdown menu.
+
+4. **Apply Changes:**
+   - Scroll to the bottom of the page and choose "Continue".
+   - Review the changes and choose "Modify DB Instance" to apply the changes immediately or during the next maintenance window.
+
+By following these steps, you can ensure that General Purpose SSDs are used instead of IOPS SSDs for your RDS instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of IOPS SSDs instead of General Purpose SSDs in Amazon RDS using AWS CLI, you can follow these steps:
+
+1. **Create a Parameter Group with General Purpose SSD Storage Type:**
+   Create a new DB parameter group or modify an existing one to ensure that the storage type is set to General Purpose SSD (gp2).
+
+   ```sh
+   aws rds create-db-parameter-group \
+       --db-parameter-group-name my-gp2-parameter-group \
+       --db-parameter-group-family mysql8.0 \
+       --description "Parameter group for General Purpose SSD"
+   ```
+
+2. **Modify the DB Instance to Use the New Parameter Group:**
+   Apply the newly created parameter group to your RDS instance.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier mydbinstance \
+       --db-parameter-group-name my-gp2-parameter-group \
+       --apply-immediately
+   ```
+
+3. **Set the Storage Type to General Purpose SSD During DB Instance Creation:**
+   When creating a new RDS instance, specify the storage type as General Purpose SSD (gp2).
+
+   ```sh
+   aws rds create-db-instance \
+       --db-instance-identifier mynewdbinstance \
+       --db-instance-class db.t3.medium \
+       --engine mysql \
+       --allocated-storage 20 \
+       --storage-type gp2 \
+       --master-username admin \
+       --master-user-password password
+   ```
+
+4. **Automate Compliance with AWS Config Rules:**
+   Use AWS Config to ensure compliance by creating a custom rule that checks if the storage type is General Purpose SSD.
+
+   ```sh
+   aws configservice put-config-rule \
+       --config-rule file://config-rule.json
+   ```
+
+   Example `config-rule.json`:
+   ```json
+   {
+       "ConfigRuleName": "rds-general-purpose-ssd-check",
+       "Description": "Ensure RDS instances use General Purpose SSD storage",
+       "Scope": {
+           "ComplianceResourceTypes": [
+               "AWS::RDS::DBInstance"
+           ]
+       },
+       "Source": {
+           "Owner": "AWS",
+           "SourceIdentifier": "RDS_GENERAL_PURPOSE_SSD_STORAGE"
+       }
+   }
+   ```
+
+By following these steps, you can ensure that your RDS instances use General Purpose SSDs instead of IOPS SSDs.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the use of IOPS SSDs in RDS and ensure that only General Purpose SSDs are used, you can use Python scripts to enforce this policy. Below are the steps to achieve this:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Enforce General Purpose SSDs**
+
+Here is a Python script that checks existing RDS instances and ensures that new instances are created with General Purpose SSDs:
+
+```python
+import boto3
+
+# Initialize a session using Amazon RDS
+client = boto3.client('rds')
+
+# Function to check existing RDS instances
+def check_rds_storage_type():
+    response = client.describe_db_instances()
+    for db_instance in response['DBInstances']:
+        storage_type = db_instance['StorageType']
+        db_instance_id = db_instance['DBInstanceIdentifier']
+        if storage_type != 'gp2':
+            print(f"RDS instance {db_instance_id} is not using General Purpose SSD (gp2). Current storage type: {storage_type}")
+
+# Function to create a new RDS instance with General Purpose SSD
+def create_rds_instance(db_instance_identifier, db_instance_class, engine, master_username, master_user_password):
+    response = client.create_db_instance(
+        DBInstanceIdentifier=db_instance_identifier,
+        DBInstanceClass=db_instance_class,
+        Engine=engine,
+        MasterUsername=master_username,
+        MasterUserPassword=master_user_password,
+        AllocatedStorage=20,  # Example storage size
+        StorageType='gp2'  # Enforcing General Purpose SSD
+    )
+    print(f"Creating RDS instance {db_instance_identifier} with General Purpose SSD (gp2)")
+
+# Example usage
+check_rds_storage_type()
+create_rds_instance(
+    db_instance_identifier='mydbinstance',
+    db_instance_class='db.t2.micro',
+    engine='mysql',
+    master_username='admin',
+    master_user_password='password'
+)
+```
+
+### 3. **Automate the Script Execution**
+You can automate the execution of this script using a cron job or a scheduled task to ensure continuous compliance. For example, you can set up a cron job on a Linux server to run this script daily.
+
+### 4. **Integrate with CI/CD Pipeline**
+Integrate this script into your CI/CD pipeline to ensure that any new RDS instances created during the deployment process adhere to the storage type policy. This can be done by adding a step in your pipeline configuration to run the script before deploying the infrastructure.
+
+By following these steps, you can ensure that only General Purpose SSDs are used for your RDS instances, thereby preventing the use of IOPS SSDs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

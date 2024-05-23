@@ -2,6 +2,128 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent DocumentDB Cluster Snapshots from being public in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the RDS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the search bar, type "RDS" and select "RDS" from the dropdown to go to the Amazon RDS dashboard.
+
+2. **Access Snapshots:**
+   - In the left-hand navigation pane, click on "Snapshots" under the "Snapshots" section.
+
+3. **Modify Snapshot Settings:**
+   - Locate the DocumentDB cluster snapshot you want to check.
+   - Select the snapshot by clicking the checkbox next to it.
+   - Click on the "Actions" dropdown menu and select "Modify."
+
+4. **Ensure Snapshot is Private:**
+   - In the "Modify Snapshot" dialog, ensure that the "Public" option is not selected.
+   - Confirm the changes by clicking the "Save" or "Modify" button.
+
+By following these steps, you can ensure that your DocumentDB cluster snapshots are not publicly accessible, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent DocumentDB Cluster Snapshots from being public in Amazon RDS using the AWS CLI, you can follow these steps:
+
+1. **Describe Snapshots to Identify Public Snapshots:**
+   Use the `describe-db-cluster-snapshots` command to list all your DocumentDB cluster snapshots and identify any that are public.
+
+   ```sh
+   aws rds describe-db-cluster-snapshots --query 'DBClusterSnapshots[?PublicSnapshot==`true`].DBClusterSnapshotIdentifier'
+   ```
+
+2. **Modify Snapshot Attributes to Remove Public Access:**
+   For each public snapshot identified in the previous step, use the `modify-db-cluster-snapshot-attribute` command to remove the `all` attribute, which makes the snapshot public.
+
+   ```sh
+   aws rds modify-db-cluster-snapshot-attribute --db-cluster-snapshot-identifier <snapshot-identifier> --attribute-name restore --values-to-remove all
+   ```
+
+3. **Automate the Process with a Script:**
+   Create a script to automate the process of identifying and modifying public snapshots. Here is an example in Bash:
+
+   ```sh
+   #!/bin/bash
+
+   # Get all public DocumentDB cluster snapshots
+   public_snapshots=$(aws rds describe-db-cluster-snapshots --query 'DBClusterSnapshots[?PublicSnapshot==`true`].DBClusterSnapshotIdentifier' --output text)
+
+   # Loop through each public snapshot and remove public access
+   for snapshot in $public_snapshots; do
+       aws rds modify-db-cluster-snapshot-attribute --db-cluster-snapshot-identifier $snapshot --attribute-name restore --values-to-remove all
+       echo "Removed public access from snapshot: $snapshot"
+   done
+   ```
+
+4. **Verify Changes:**
+   After modifying the snapshot attributes, verify that there are no public snapshots remaining.
+
+   ```sh
+   aws rds describe-db-cluster-snapshots --query 'DBClusterSnapshots[?PublicSnapshot==`true`].DBClusterSnapshotIdentifier'
+   ```
+
+By following these steps, you can ensure that your DocumentDB cluster snapshots are not publicly accessible using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent DocumentDB Cluster Snapshots from being public in Amazon RDS using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for RDS.
+   ```python
+   import boto3
+
+   rds_client = boto3.client('rds')
+   ```
+
+3. **Describe DB Cluster Snapshots**:
+   Retrieve the list of all DB cluster snapshots.
+   ```python
+   def get_db_cluster_snapshots():
+       response = rds_client.describe_db_cluster_snapshots()
+       return response['DBClusterSnapshots']
+   ```
+
+4. **Check and Modify Snapshot Attributes**:
+   Check the attributes of each snapshot to ensure they are not public and modify them if necessary.
+   ```python
+   def ensure_snapshots_not_public():
+       snapshots = get_db_cluster_snapshots()
+       for snapshot in snapshots:
+           snapshot_arn = snapshot['DBClusterSnapshotArn']
+           attributes = rds_client.describe_db_cluster_snapshot_attributes(
+               DBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier']
+           )
+           for attribute in attributes['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']:
+               if attribute['AttributeName'] == 'restore' and 'all' in attribute['AttributeValues']:
+                   # Remove 'all' from the attribute values to make it private
+                   rds_client.modify_db_cluster_snapshot_attribute(
+                       DBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier'],
+                       AttributeName='restore',
+                       ValuesToRemove=['all']
+                   )
+                   print(f"Snapshot {snapshot['DBClusterSnapshotIdentifier']} is now private.")
+
+   ensure_snapshots_not_public()
+   ```
+
+This script will ensure that all DocumentDB cluster snapshots are not public by removing the 'all' value from the 'restore' attribute, which makes the snapshot private.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

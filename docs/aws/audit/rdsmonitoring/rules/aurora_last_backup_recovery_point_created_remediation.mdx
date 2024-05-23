@@ -2,6 +2,177 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Aurora DB Clusters from lacking a recovery point in RDS using the AWS Management Console, follow these steps:
+
+1. **Enable Automated Backups:**
+   - Navigate to the Amazon RDS console.
+   - In the navigation pane, choose "Databases."
+   - Select the Aurora DB cluster you want to configure.
+   - Choose the "Modify" button.
+   - In the "Backup" section, ensure that "Enable automated backups" is selected.
+   - Set the "Backup retention period" to a value greater than 0 days.
+   - Click "Continue" and then "Modify DB Cluster" to save the changes.
+
+2. **Configure Backup Window:**
+   - While still in the "Modify" section of your Aurora DB cluster, scroll down to the "Backup window" section.
+   - Specify a preferred backup window that aligns with your maintenance schedule to ensure backups do not interfere with peak usage times.
+   - Click "Continue" and then "Modify DB Cluster" to apply the changes.
+
+3. **Enable Multi-AZ Deployment:**
+   - In the "Modify" section of your Aurora DB cluster, look for the "Availability & durability" section.
+   - Ensure that "Multi-AZ deployment" is enabled to enhance data durability and availability.
+   - Click "Continue" and then "Modify DB Cluster" to save the changes.
+
+4. **Monitor Backup Status:**
+   - Regularly check the "Events" section in the RDS console to monitor the status of automated backups.
+   - Set up Amazon CloudWatch alarms to notify you of any backup failures or issues.
+
+By following these steps, you can ensure that your Aurora DB clusters have a recovery point, thereby enhancing data protection and availability.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Aurora DB Clusters from lacking a recovery point in RDS using AWS CLI, you can ensure that automated backups are enabled and configured correctly. Here are the steps to achieve this:
+
+1. **Enable Automated Backups:**
+   Ensure that automated backups are enabled for your Aurora DB cluster. This can be done by setting the `BackupRetentionPeriod` parameter to a value greater than 0.
+
+   ```sh
+   aws rds modify-db-cluster \
+       --db-cluster-identifier <your-db-cluster-identifier> \
+       --backup-retention-period <number-of-days> \
+       --apply-immediately
+   ```
+
+   Replace `<your-db-cluster-identifier>` with your actual DB cluster identifier and `<number-of-days>` with the desired number of days to retain backups (e.g., 7).
+
+2. **Configure Backup Window:**
+   Set a preferred backup window to ensure that backups are taken during a period of low database activity.
+
+   ```sh
+   aws rds modify-db-cluster \
+       --db-cluster-identifier <your-db-cluster-identifier> \
+       --preferred-backup-window <hh24:mi-hh24:mi> \
+       --apply-immediately
+   ```
+
+   Replace `<your-db-cluster-identifier>` with your actual DB cluster identifier and `<hh24:mi-hh24:mi>` with the desired backup window (e.g., `02:00-03:00`).
+
+3. **Enable Copying of Backups to Another Region (Optional but Recommended):**
+   To enhance disaster recovery, you can enable copying of automated backups to another AWS region.
+
+   ```sh
+   aws rds modify-db-cluster \
+       --db-cluster-identifier <your-db-cluster-identifier> \
+       --copy-tags-to-snapshot \
+       --apply-immediately
+   ```
+
+   Replace `<your-db-cluster-identifier>` with your actual DB cluster identifier.
+
+4. **Verify Backup Configuration:**
+   Verify that the backup settings are correctly applied to your Aurora DB cluster.
+
+   ```sh
+   aws rds describe-db-clusters \
+       --db-cluster-identifier <your-db-cluster-identifier>
+   ```
+
+   Check the output to ensure that `BackupRetentionPeriod` is set to the desired value and that other backup-related settings are correctly configured.
+
+By following these steps, you can ensure that your Aurora DB clusters have a recovery point in RDS, thereby preventing misconfigurations related to backup and recovery.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Aurora DB Clusters from lacking a recovery point in RDS using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that your Aurora DB Clusters have automated backups enabled, which will create recovery points:
+
+### Step 1: Install Boto3
+Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 RDS client to interact with the RDS service.
+```python
+import boto3
+
+rds_client = boto3.client('rds')
+```
+
+### Step 3: Describe Aurora DB Clusters
+Fetch the list of Aurora DB clusters to check their backup configurations.
+```python
+def describe_db_clusters():
+    response = rds_client.describe_db_clusters()
+    return response['DBClusters']
+
+db_clusters = describe_db_clusters()
+```
+
+### Step 4: Ensure Backup Retention Period is Set
+Loop through the DB clusters and ensure that the `BackupRetentionPeriod` is set to a value greater than 0.
+```python
+def ensure_backup_retention(db_clusters):
+    for cluster in db_clusters:
+        if cluster['Engine'].startswith('aurora'):
+            if cluster['BackupRetentionPeriod'] == 0:
+                print(f"Cluster {cluster['DBClusterIdentifier']} has no backup retention period set. Updating...")
+                rds_client.modify_db_cluster(
+                    DBClusterIdentifier=cluster['DBClusterIdentifier'],
+                    BackupRetentionPeriod=7  # Set to desired retention period
+                )
+            else:
+                print(f"Cluster {cluster['DBClusterIdentifier']} already has a backup retention period of {cluster['BackupRetentionPeriod']} days.")
+
+ensure_backup_retention(db_clusters)
+```
+
+### Full Script
+Here is the complete script combining all the steps:
+```python
+import boto3
+
+# Initialize Boto3 RDS client
+rds_client = boto3.client('rds')
+
+# Describe Aurora DB Clusters
+def describe_db_clusters():
+    response = rds_client.describe_db_clusters()
+    return response['DBClusters']
+
+# Ensure Backup Retention Period is Set
+def ensure_backup_retention(db_clusters):
+    for cluster in db_clusters:
+        if cluster['Engine'].startswith('aurora'):
+            if cluster['BackupRetentionPeriod'] == 0:
+                print(f"Cluster {cluster['DBClusterIdentifier']} has no backup retention period set. Updating...")
+                rds_client.modify_db_cluster(
+                    DBClusterIdentifier=cluster['DBClusterIdentifier'],
+                    BackupRetentionPeriod=7  # Set to desired retention period
+                )
+            else:
+                print(f"Cluster {cluster['DBClusterIdentifier']} already has a backup retention period of {cluster['BackupRetentionPeriod']} days.")
+
+# Main Execution
+db_clusters = describe_db_clusters()
+ensure_backup_retention(db_clusters)
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed in your Python environment.
+2. **Initialize Boto3 Client**: Set up the Boto3 RDS client.
+3. **Describe Aurora DB Clusters**: Fetch the list of Aurora DB clusters.
+4. **Ensure Backup Retention Period**: Check and set the `BackupRetentionPeriod` for each Aurora DB cluster to ensure recovery points are created.
+
+This script will help you automate the process of ensuring that all your Aurora DB clusters have a backup retention period set, thereby creating recovery points.
+</Accordion>
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

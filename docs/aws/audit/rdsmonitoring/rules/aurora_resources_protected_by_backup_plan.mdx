@@ -23,6 +23,154 @@ CBP,SEBI,RBI_MD_ITF,RBI_UCB
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Aurora DB Clusters from being unprotected by a backup plan in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Enable Automated Backups:**
+   - Open the **Amazon RDS console**.
+   - In the navigation pane, choose **Databases**.
+   - Select the Aurora DB cluster you want to configure.
+   - Choose the **Modify** button.
+   - In the **Backup** section, ensure that **Enable automated backups** is selected.
+   - Set the **Backup retention period** to a value greater than 0 days.
+
+2. **Configure Backup Window:**
+   - In the same **Modify** page, scroll down to the **Backup window** section.
+   - Specify a **Preferred backup window** that aligns with your maintenance and operational requirements. This ensures that backups are taken during a period of low activity.
+
+3. **Enable Multi-AZ Deployment (Optional but Recommended):**
+   - In the **Modify** page, under the **Availability & durability** section, consider enabling **Multi-AZ deployment**. This provides enhanced availability and durability for your database, ensuring that backups are taken from a standby instance, reducing the impact on the primary instance.
+
+4. **Apply Changes:**
+   - After configuring the backup settings, scroll to the bottom of the **Modify** page.
+   - Choose **Continue** and then **Apply immediately** or schedule the changes during the next maintenance window, depending on your preference.
+
+By following these steps, you ensure that your Aurora DB clusters are protected by a robust backup plan, minimizing the risk of data loss.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that Aurora DB Clusters are protected by a backup plan in Amazon RDS using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, you need to create a backup plan using AWS Backup. This plan will define the backup rules and schedules.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "AuroraBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "MoveToColdStorageAfterDays": 30,
+                   "DeleteAfterDays": 365
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the Aurora DB Cluster to the backup plan by creating a backup selection.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <BackupPlanId> --backup-selection '{
+       "SelectionName": "AuroraDBClusterSelection",
+       "IamRoleArn": "arn:aws:iam::<AccountId>:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:rds:<Region>:<AccountId>:cluster:<DBClusterIdentifier>"
+       ]
+   }'
+   ```
+
+3. **Enable Automated Backups:**
+   Ensure that automated backups are enabled for your Aurora DB Cluster.
+
+   ```sh
+   aws rds modify-db-cluster --db-cluster-identifier <DBClusterIdentifier> --backup-retention-period 7
+   ```
+
+4. **Verify Backup Configuration:**
+   Verify that the backup plan and selection are correctly configured and that the Aurora DB Cluster is included.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <BackupPlanId>
+   aws rds describe-db-clusters --db-cluster-identifier <DBClusterIdentifier>
+   ```
+
+By following these steps, you can ensure that your Aurora DB Clusters are protected by a backup plan using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Aurora DB Clusters from being unprotected by a backup plan in Amazon RDS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your Aurora DB Clusters are protected by a backup plan:
+
+### Step 1: Install Boto3
+First, ensure that you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Create a Python Script to Enable Backups
+Here is a Python script that will enable automated backups for your Aurora DB Clusters:
+
+```python
+import boto3
+
+# Initialize a session using Amazon RDS
+client = boto3.client('rds')
+
+def enable_backup_for_aurora_clusters():
+    # Describe all DB clusters
+    response = client.describe_db_clusters()
+    
+    for cluster in response['DBClusters']:
+        cluster_id = cluster['DBClusterIdentifier']
+        
+        # Check if the backup retention period is set to 0 (which means no backups)
+        if cluster['BackupRetentionPeriod'] == 0:
+            print(f"Enabling backup for DB Cluster: {cluster_id}")
+            
+            # Modify the DB cluster to enable backups
+            client.modify_db_cluster(
+                DBClusterIdentifier=cluster_id,
+                BackupRetentionPeriod=7  # Set the retention period to 7 days or any other value as needed
+            )
+        else:
+            print(f"DB Cluster {cluster_id} already has backups enabled with a retention period of {cluster['BackupRetentionPeriod']} days.")
+
+if __name__ == "__main__":
+    enable_backup_for_aurora_clusters()
+```
+
+### Step 4: Run the Script
+Execute the script to ensure that all your Aurora DB Clusters have automated backups enabled:
+```bash
+python enable_aurora_backups.py
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed using pip.
+2. **Configure AWS Credentials**: Set up your AWS credentials.
+3. **Create Python Script**: Write a Python script to enable backups for Aurora DB Clusters.
+4. **Run the Script**: Execute the script to apply the changes.
+
+By following these steps, you can ensure that your Aurora DB Clusters are protected by a backup plan using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

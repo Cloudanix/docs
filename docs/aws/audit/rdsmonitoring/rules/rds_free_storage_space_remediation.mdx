@@ -2,6 +2,203 @@
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS databases from running out of free storage space in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Storage Auto Scaling:**
+   - Navigate to the RDS Dashboard in the AWS Management Console.
+   - Select the RDS instance you want to configure.
+   - Click on the "Modify" button.
+   - In the "Storage" section, enable the "Enable storage autoscaling" option.
+   - Set the "Maximum storage threshold" to a value that suits your needs.
+   - Click "Continue" and then "Modify DB Instance" to apply the changes.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" in the left-hand menu, then click "Create Alarm."
+   - Select the "RDS" namespace and choose the "FreeStorageSpace" metric for your RDS instance.
+   - Set the threshold for the alarm (e.g., when free storage space is less than 20% of the total storage).
+   - Configure the actions to take when the alarm state is triggered, such as sending a notification to an SNS topic.
+
+3. **Regularly Monitor Storage Metrics:**
+   - In the RDS Dashboard, select your RDS instance.
+   - Click on the "Monitoring" tab to view storage-related metrics such as "FreeStorageSpace."
+   - Regularly check these metrics to ensure that your RDS instance has sufficient free storage space.
+
+4. **Implement Automated Backups and Snapshots:**
+   - In the RDS Dashboard, select your RDS instance.
+   - Click on the "Modify" button.
+   - In the "Backup" section, ensure that automated backups are enabled and set an appropriate backup retention period.
+   - Regularly take manual snapshots to ensure you have recent backups in case of storage issues.
+
+By following these steps, you can proactively manage and prevent your RDS databases from running out of free storage space using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS databases from running out of free storage space using AWS CLI, you can follow these steps:
+
+1. **Enable Storage Auto Scaling:**
+   Ensure that your RDS instance has storage auto-scaling enabled. This will automatically increase the storage size when it reaches a threshold.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier <your-db-instance-identifier> \
+       --storage-auto-scaling-enabled
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor the free storage space and notify you when it falls below a certain threshold.
+
+   ```sh
+   aws cloudwatch put-metric-alarm \
+       --alarm-name "RDSFreeStorageSpaceAlarm" \
+       --metric-name FreeStorageSpace \
+       --namespace AWS/RDS \
+       --statistic Average \
+       --period 300 \
+       --threshold <threshold-value-in-bytes> \
+       --comparison-operator LessThanThreshold \
+       --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> \
+       --evaluation-periods 1 \
+       --alarm-actions <sns-topic-arn>
+   ```
+
+3. **Modify Storage Type and Size:**
+   Ensure that your RDS instance has an appropriate storage type and size to handle your workload.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier <your-db-instance-identifier> \
+       --allocated-storage <new-storage-size-in-gb> \
+       --storage-type <storage-type>
+   ```
+
+4. **Enable Enhanced Monitoring:**
+   Enable enhanced monitoring to get more detailed metrics about your RDS instance, which can help in proactive management.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier <your-db-instance-identifier> \
+       --monitoring-interval 60 \
+       --monitoring-role-arn <iam-role-arn>
+   ```
+
+By following these steps, you can proactively manage and prevent your RDS databases from running out of free storage space using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS databases from running out of free storage space using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Monitoring Script**
+Create a Python script to monitor the free storage space of your RDS instances. This script will use CloudWatch to get the free storage space metrics and send alerts if the free storage space is below a certain threshold.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize boto3 clients
+rds_client = boto3.client('rds')
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Define the threshold for free storage space (in bytes)
+FREE_STORAGE_THRESHOLD = 10 * 1024 * 1024 * 1024  # 10 GB
+
+# Get the list of RDS instances
+rds_instances = rds_client.describe_db_instances()
+
+for instance in rds_instances['DBInstances']:
+    db_instance_identifier = instance['DBInstanceIdentifier']
+    
+    # Get CloudWatch metrics for free storage space
+    metrics = cloudwatch_client.get_metric_statistics(
+        Namespace='AWS/RDS',
+        MetricName='FreeStorageSpace',
+        Dimensions=[
+            {
+                'Name': 'DBInstanceIdentifier',
+                'Value': db_instance_identifier
+            },
+        ],
+        StartTime=datetime.utcnow() - timedelta(minutes=10),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    
+    # Check if the free storage space is below the threshold
+    if metrics['Datapoints']:
+        free_storage_space = metrics['Datapoints'][0]['Average']
+        if free_storage_space < FREE_STORAGE_THRESHOLD:
+            print(f"Warning: {db_instance_identifier} is running low on free storage space.")
+```
+
+### 3. **Automate Storage Scaling**
+To prevent running out of storage, you can automate the process of increasing the storage size when the free storage space is below the threshold.
+
+```python
+def increase_storage(db_instance_identifier, current_allocated_storage):
+    new_allocated_storage = current_allocated_storage + 20  # Increase by 20 GB
+    rds_client.modify_db_instance(
+        DBInstanceIdentifier=db_instance_identifier,
+        AllocatedStorage=new_allocated_storage,
+        ApplyImmediately=True
+    )
+    print(f"Storage for {db_instance_identifier} increased to {new_allocated_storage} GB.")
+
+for instance in rds_instances['DBInstances']:
+    db_instance_identifier = instance['DBInstanceIdentifier']
+    allocated_storage = instance['AllocatedStorage']
+    
+    # Get CloudWatch metrics for free storage space
+    metrics = cloudwatch_client.get_metric_statistics(
+        Namespace='AWS/RDS',
+        MetricName='FreeStorageSpace',
+        Dimensions=[
+            {
+                'Name': 'DBInstanceIdentifier',
+                'Value': db_instance_identifier
+            },
+        ],
+        StartTime=datetime.utcnow() - timedelta(minutes=10),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    
+    # Check if the free storage space is below the threshold
+    if metrics['Datapoints']:
+        free_storage_space = metrics['Datapoints'][0]['Average']
+        if free_storage_space < FREE_STORAGE_THRESHOLD:
+            print(f"Warning: {db_instance_identifier} is running low on free storage space.")
+            increase_storage(db_instance_identifier, allocated_storage)
+```
+
+### 4. **Schedule the Script**
+Use a scheduling tool like cron (on Unix-based systems) or Task Scheduler (on Windows) to run the script at regular intervals to ensure continuous monitoring and automatic scaling.
+
+For example, to run the script every hour using cron, you can add the following line to your crontab:
+
+```bash
+0 * * * * /usr/bin/python3 /path/to/your/script.py
+```
+
+By following these steps, you can effectively monitor and prevent your RDS databases from running out of free storage space using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

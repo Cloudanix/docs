@@ -2,6 +2,164 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Neptune Clusters Snapshots from being unencrypted in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Enable Default Encryption for New Snapshots:**
+   - Navigate to the Amazon RDS console.
+   - In the navigation pane, choose **Snapshots**.
+   - Click on **Snapshot Actions** and select **Modify Snapshot**.
+   - Ensure that the **Enable Encryption** option is selected for new snapshots.
+
+2. **Create Encrypted Snapshots:**
+   - When creating a new snapshot, ensure that the **Enable Encryption** option is selected.
+   - Navigate to the **Snapshots** section in the RDS console.
+   - Click on **Create Snapshot**.
+   - In the **Create DB Snapshot** dialog, ensure that the **Enable Encryption** checkbox is checked.
+
+3. **Use Encrypted DB Instances:**
+   - Ensure that the Neptune DB instances you are using are encrypted.
+   - Navigate to the **Databases** section in the RDS console.
+   - Select the DB instance you want to check.
+   - In the **Configuration** tab, verify that the **Storage encryption** is enabled.
+
+4. **Automate Snapshot Encryption:**
+   - Use AWS Backup to automate the creation of encrypted snapshots.
+   - Navigate to the **AWS Backup** console.
+   - Create a backup plan and ensure that the **Enable Encryption** option is selected for all backups.
+
+By following these steps, you can ensure that all Neptune Cluster snapshots are encrypted, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that Neptune Cluster Snapshots are encrypted in Amazon RDS using the AWS CLI, follow these steps:
+
+1. **Create an Encrypted Snapshot**:
+   When creating a snapshot, ensure that you specify the `--kms-key-id` parameter to encrypt the snapshot with a KMS key.
+
+   ```sh
+   aws rds create-db-cluster-snapshot \
+       --db-cluster-snapshot-identifier my-cluster-snapshot \
+       --db-cluster-identifier my-cluster \
+       --kms-key-id arn:aws:kms:region:account-id:key/key-id
+   ```
+
+2. **Copy an Existing Snapshot with Encryption**:
+   If you have an existing unencrypted snapshot, you can copy it and encrypt the new copy by specifying the `--kms-key-id` parameter.
+
+   ```sh
+   aws rds copy-db-cluster-snapshot \
+       --source-db-cluster-snapshot-identifier my-unencrypted-snapshot \
+       --target-db-cluster-snapshot-identifier my-encrypted-snapshot \
+       --kms-key-id arn:aws:kms:region:account-id:key/key-id
+   ```
+
+3. **Modify DB Cluster to Enable Snapshot Encryption**:
+   Ensure that the DB cluster is configured to use encryption for snapshots by modifying the cluster settings.
+
+   ```sh
+   aws rds modify-db-cluster \
+       --db-cluster-identifier my-cluster \
+       --storage-encrypted \
+       --kms-key-id arn:aws:kms:region:account-id:key/key-id
+   ```
+
+4. **Automate Snapshot Creation with Encryption**:
+   Use AWS CLI to create a scheduled task or Lambda function that automatically creates encrypted snapshots at regular intervals.
+
+   ```sh
+   aws events put-rule \
+       --name my-snapshot-schedule \
+       --schedule-expression "rate(24 hours)"
+
+   aws lambda create-function \
+       --function-name CreateEncryptedSnapshot \
+       --runtime python3.8 \
+       --role arn:aws:iam::account-id:role/lambda-execution-role \
+       --handler lambda_function.lambda_handler \
+       --zip-file fileb://function.zip
+
+   aws lambda add-permission \
+       --function-name CreateEncryptedSnapshot \
+       --statement-id my-snapshot-schedule \
+       --action 'lambda:InvokeFunction' \
+       --principal events.amazonaws.com \
+       --source-arn arn:aws:events:region:account-id:rule/my-snapshot-schedule
+
+   aws events put-targets \
+       --rule my-snapshot-schedule \
+       --targets "Id"="1","Arn"="arn:aws:lambda:region:account-id:function:CreateEncryptedSnapshot"
+   ```
+
+By following these steps, you can ensure that your Neptune Cluster Snapshots are encrypted, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Neptune Clusters Snapshots from being unencrypted in Amazon RDS using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that your Neptune Cluster Snapshots are encrypted:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables:
+   ```bash
+   aws configure
+   ```
+
+3. **Create a Python Script to Check and Enforce Encryption**:
+   Write a Python script that will check if the Neptune Cluster Snapshots are encrypted and enforce encryption if they are not.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon RDS
+   client = boto3.client('rds')
+
+   # Function to check and enforce encryption on Neptune Cluster Snapshots
+   def enforce_snapshot_encryption(cluster_identifier, kms_key_id):
+       # Describe DB cluster snapshots
+       response = client.describe_db_cluster_snapshots(
+           DBClusterIdentifier=cluster_identifier
+       )
+
+       for snapshot in response['DBClusterSnapshots']:
+           if not snapshot['StorageEncrypted']:
+               print(f"Snapshot {snapshot['DBClusterSnapshotIdentifier']} is not encrypted. Encrypting now...")
+               # Copy the snapshot with encryption
+               client.copy_db_cluster_snapshot(
+                   SourceDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier'],
+                   TargetDBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier'] + '-encrypted',
+                   KmsKeyId=kms_key_id,
+                   CopyTags=True
+               )
+               print(f"Snapshot {snapshot['DBClusterSnapshotIdentifier']} has been encrypted.")
+
+   # Replace with your Neptune Cluster Identifier and KMS Key ID
+   cluster_identifier = 'your-neptune-cluster-identifier'
+   kms_key_id = 'your-kms-key-id'
+
+   enforce_snapshot_encryption(cluster_identifier, kms_key_id)
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure that all existing Neptune Cluster Snapshots are encrypted. You can set this script to run periodically using a cron job or AWS Lambda to ensure ongoing compliance.
+
+   ```bash
+   python enforce_snapshot_encryption.py
+   ```
+
+By following these steps, you can ensure that your Neptune Cluster Snapshots in Amazon RDS are always encrypted, thereby preventing any misconfigurations related to unencrypted snapshots.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

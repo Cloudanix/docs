@@ -2,6 +2,167 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being underutilized in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Enhanced Monitoring:**
+   - Navigate to the RDS Dashboard in the AWS Management Console.
+   - Select the RDS instance you want to monitor.
+   - Click on the "Modify" button.
+   - In the "Monitoring" section, enable "Enhanced Monitoring" and set the granularity to a suitable level (e.g., 1 minute).
+   - Click "Continue" and then "Modify DB Instance" to apply the changes.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" and then "Create Alarm."
+   - Select the RDS metrics you want to monitor, such as CPU Utilization, Freeable Memory, and Database Connections.
+   - Set thresholds for these metrics to identify underutilization (e.g., CPU Utilization below 20% for a prolonged period).
+   - Configure actions to be taken when the alarm state is triggered, such as sending notifications via SNS.
+
+3. **Review and Right-Size Instances:**
+   - Regularly review the performance metrics of your RDS instances from the RDS Dashboard.
+   - Compare the current instance type and size with the actual resource usage.
+   - If an instance is consistently underutilized, consider resizing it to a smaller instance type using the "Modify" option.
+
+4. **Implement Auto Scaling:**
+   - For Aurora RDS instances, consider enabling Auto Scaling.
+   - Navigate to the RDS Dashboard and select your Aurora cluster.
+   - Click on "Modify" and scroll to the "Auto Scaling" section.
+   - Enable Auto Scaling for read replicas and configure the minimum and maximum capacity.
+   - This ensures that the number of read replicas adjusts automatically based on the workload, preventing underutilization.
+
+By following these steps, you can effectively monitor and manage the utilization of your RDS instances, ensuring they are appropriately sized for their workloads.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being underutilized in AWS using the AWS CLI, you can follow these steps:
+
+1. **Monitor RDS Instance Metrics:**
+   - Use the `aws cloudwatch get-metric-statistics` command to monitor key metrics such as CPUUtilization, DatabaseConnections, and FreeableMemory. This helps in identifying underutilized instances.
+   ```sh
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> --start-time <start-time> --end-time <end-time> --period 300 --statistics Average
+   ```
+
+2. **Enable Enhanced Monitoring:**
+   - Enable Enhanced Monitoring for your RDS instances to get more granular metrics. This can be done using the `aws rds modify-db-instance` command.
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> --monitoring-interval 60 --apply-immediately
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   - Create CloudWatch Alarms to notify you when an RDS instance is underutilized. Use the `aws cloudwatch put-metric-alarm` command.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RDS-Underutilized-Alarm" --metric-name CPUUtilization --namespace AWS/RDS --statistic Average --period 300 --threshold 10 --comparison-operator LessThanThreshold --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> --evaluation-periods 2 --alarm-actions <sns-topic-arn>
+   ```
+
+4. **Automate Instance Right-Sizing:**
+   - Use AWS Lambda and CloudWatch Events to automate the process of right-sizing underutilized RDS instances. Create a Lambda function that checks the utilization metrics and modifies the instance type if necessary. Use the `aws rds modify-db-instance` command within your Lambda function.
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> --db-instance-class <new-db-instance-class> --apply-immediately
+   ```
+
+By following these steps, you can effectively monitor and manage the utilization of your RDS instances, ensuring they are not underutilized.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being underutilized in AWS using Python scripts, you can follow these steps:
+
+1. **Monitor RDS Instance Metrics:**
+   Use AWS CloudWatch to monitor key metrics such as CPU utilization, memory usage, and IOPS. You can use the `boto3` library to interact with AWS services.
+
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+
+   def get_rds_metrics(instance_id):
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/RDS',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance_id
+               },
+           ],
+           StartTime=datetime.utcnow() - timedelta(days=1),
+           EndTime=datetime.utcnow(),
+           Period=3600,
+           Statistics=['Average']
+       )
+       return metrics['Datapoints']
+   ```
+
+2. **Set Up Alarms for Underutilization:**
+   Create CloudWatch alarms to notify you when an RDS instance is underutilized. This can be done using the `boto3` library.
+
+   ```python
+   def create_underutilization_alarm(instance_id):
+       cloudwatch.put_metric_alarm(
+           AlarmName=f'UnderutilizationAlarm-{instance_id}',
+           MetricName='CPUUtilization',
+           Namespace='AWS/RDS',
+           Statistic='Average',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance_id
+               },
+           ],
+           Period=3600,
+           EvaluationPeriods=1,
+           Threshold=20.0,  # Example threshold for underutilization
+           ComparisonOperator='LessThanThreshold',
+           AlarmActions=[
+               'arn:aws:sns:region:account-id:alarm-topic'  # Replace with your SNS topic ARN
+           ]
+       )
+   ```
+
+3. **Automate Instance Right-Sizing:**
+   Implement a script to automatically resize underutilized RDS instances. This can be done by modifying the instance class based on the utilization metrics.
+
+   ```python
+   rds = boto3.client('rds')
+
+   def resize_rds_instance(instance_id, new_instance_class):
+       rds.modify_db_instance(
+           DBInstanceIdentifier=instance_id,
+           DBInstanceClass=new_instance_class,
+           ApplyImmediately=True
+       )
+   ```
+
+4. **Schedule Regular Checks:**
+   Schedule the script to run at regular intervals (e.g., daily) to check for underutilized instances and take appropriate actions.
+
+   ```python
+   import schedule
+   import time
+
+   def check_and_resize_instances():
+       instances = ['instance-id-1', 'instance-id-2']  # Replace with your instance IDs
+       for instance_id in instances:
+           metrics = get_rds_metrics(instance_id)
+           if metrics and metrics[0]['Average'] < 20.0:  # Example threshold for underutilization
+               resize_rds_instance(instance_id, 'db.t3.small')  # Example new instance class
+
+   schedule.every().day.at("01:00").do(check_and_resize_instances)
+
+   while True:
+       schedule.run_pending()
+       time.sleep(1)
+   ```
+
+These steps will help you monitor, alert, and automatically resize underutilized RDS instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

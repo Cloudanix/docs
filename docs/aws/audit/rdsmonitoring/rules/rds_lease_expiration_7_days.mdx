@@ -24,6 +24,181 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the issue of not renewing RDS Reserved Instances before their expiration (7 days) in AWS using the AWS Management Console, follow these steps:
+
+1. **Set Up Billing Alerts:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Select **Budgets** from the left-hand menu.
+   - Create a new budget and set up an alert for when your Reserved Instances are about to expire. This will notify you in advance.
+
+2. **Enable RDS Reserved Instance Recommendations:**
+   - In the AWS Management Console, go to the **RDS Dashboard**.
+   - Select **Reserved Instances** from the left-hand menu.
+   - Enable recommendations to get insights on when to renew or purchase new Reserved Instances based on your usage patterns.
+
+3. **Monitor Reserved Instance Utilization:**
+   - Go to the **RDS Dashboard** in the AWS Management Console.
+   - Select **Reserved Instances**.
+   - Regularly monitor the utilization and expiration dates of your Reserved Instances to ensure you are aware of upcoming expirations.
+
+4. **Set Up CloudWatch Alarms:**
+   - Navigate to the **CloudWatch Dashboard** in the AWS Management Console.
+   - Create a new alarm based on the metric for Reserved Instance expiration.
+   - Configure the alarm to notify you via email or SMS when a Reserved Instance is within 7 days of expiration.
+
+By following these steps, you can proactively manage and renew your RDS Reserved Instances before they expire, ensuring continuous cost savings and resource availability.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of not renewing RDS Reserved Instances before their expiration (7 days) using AWS CLI, you can set up a monitoring and notification system to alert you when your Reserved Instances are about to expire. Here are the steps:
+
+1. **Create a CloudWatch Alarm for Reserved Instance Expiration:**
+   - Use AWS CloudWatch to create an alarm that triggers when a Reserved Instance is about to expire.
+   - CLI Command:
+     ```sh
+     aws cloudwatch put-metric-alarm --alarm-name "RDSReservedInstanceExpiration" \
+     --metric-name "ReservedInstanceExpiration" --namespace "AWS/RDS" \
+     --statistic "Minimum" --period 86400 --evaluation-periods 1 \
+     --threshold 7 --comparison-operator "LessThanOrEqualToThreshold" \
+     --alarm-actions "arn:aws:sns:region:account-id:topic-name"
+     ```
+
+2. **Subscribe to the SNS Topic for Notifications:**
+   - Ensure you have an SNS topic to receive notifications and subscribe your email or SMS to this topic.
+   - CLI Command:
+     ```sh
+     aws sns create-topic --name RDSReservedInstanceNotifications
+     aws sns subscribe --topic-arn arn:aws:sns:region:account-id:RDSReservedInstanceNotifications \
+     --protocol email --notification-endpoint your-email@example.com
+     ```
+
+3. **Enable Detailed Monitoring for RDS Instances:**
+   - Ensure that detailed monitoring is enabled for your RDS instances to get more granular metrics.
+   - CLI Command:
+     ```sh
+     aws rds modify-db-instance --db-instance-identifier your-db-instance-identifier \
+     --monitoring-interval 60 --apply-immediately
+     ```
+
+4. **Automate Renewal with a Lambda Function (Optional):**
+   - Create a Lambda function that automatically renews the Reserved Instances and trigger it via CloudWatch Events.
+   - CLI Command to create a CloudWatch Event Rule:
+     ```sh
+     aws events put-rule --name "RDSReservedInstanceRenewalRule" \
+     --schedule-expression "rate(1 day)"
+     ```
+   - Add the Lambda function as a target to this rule:
+     ```sh
+     aws events put-targets --rule "RDSReservedInstanceRenewalRule" \
+     --targets "Id"="1","Arn"="arn:aws:lambda:region:account-id:function:your-lambda-function"
+     ```
+
+By following these steps, you can set up a system to monitor and notify you about the expiration of RDS Reserved Instances, helping you to take timely action to renew them.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not renewing RDS Reserved Instances before their expiration (7 days) in AWS RDS using Python scripts, you can follow these steps:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+Ensure you have Boto3 installed and configured with the necessary permissions to access RDS resources.
+
+```bash
+pip install boto3
+```
+
+### Step 2: Create a Python Script to Check Reserved Instances
+Write a Python script to check the expiration dates of your RDS Reserved Instances.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon RDS
+client = boto3.client('rds')
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# Define the threshold for expiration (7 days)
+expiration_threshold = current_date + timedelta(days=7)
+
+# Describe reserved DB instances
+response = client.describe_reserved_db_instances()
+
+# Check for instances expiring within the threshold
+for reserved_instance in response['ReservedDBInstances']:
+    expiration_date = reserved_instance['StartTime'] + timedelta(seconds=reserved_instance['Duration'])
+    if expiration_date <= expiration_threshold:
+        print(f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} is expiring on {expiration_date}")
+        # Add logic to renew the instance or notify the responsible team
+```
+
+### Step 3: Automate the Script Execution
+Automate the execution of the script using AWS Lambda and CloudWatch Events to run the script periodically (e.g., daily).
+
+#### Create a Lambda Function
+1. Go to the AWS Lambda console.
+2. Create a new Lambda function.
+3. Use the Python runtime.
+4. Copy and paste the script into the Lambda function code editor.
+5. Set up the necessary IAM role with permissions to access RDS.
+
+#### Create a CloudWatch Event Rule
+1. Go to the CloudWatch console.
+2. Create a new rule.
+3. Set the event source to "Event Source" and choose "Schedule".
+4. Set the schedule to run daily.
+5. Add the Lambda function as the target.
+
+### Step 4: Notification and Action
+Integrate with AWS SNS or another notification service to alert the responsible team or trigger an automated renewal process.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon RDS and SNS
+rds_client = boto3.client('rds')
+sns_client = boto3.client('sns')
+
+# SNS Topic ARN
+sns_topic_arn = 'arn:aws:sns:region:account-id:topic-name'
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# Define the threshold for expiration (7 days)
+expiration_threshold = current_date + timedelta(days=7)
+
+# Describe reserved DB instances
+response = rds_client.describe_reserved_db_instances()
+
+# Check for instances expiring within the threshold
+for reserved_instance in response['ReservedDBInstances']:
+    expiration_date = reserved_instance['StartTime'] + timedelta(seconds=reserved_instance['Duration'])
+    if expiration_date <= expiration_threshold:
+        message = f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} is expiring on {expiration_date}"
+        print(message)
+        # Publish a notification to SNS
+        sns_client.publish(
+            TopicArn=sns_topic_arn,
+            Message=message,
+            Subject='RDS Reserved Instance Expiration Alert'
+        )
+```
+
+By following these steps, you can proactively monitor and prevent the misconfiguration of not renewing RDS Reserved Instances before their expiration using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
