@@ -2,6 +2,166 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 buckets from allowing public READ access using the AWS Management Console, follow these steps:
+
+1. **Open the S3 Console:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the S3 service by selecting "Services" and then "S3" under the "Storage" category.
+
+2. **Select the Bucket:**
+   - In the S3 console, you will see a list of your buckets. Click on the name of the bucket you want to configure.
+
+3. **Bucket Permissions:**
+   - Go to the "Permissions" tab of the selected bucket.
+   - Under the "Block public access (bucket settings)" section, click on the "Edit" button.
+
+4. **Block Public Access:**
+   - Ensure that all the options under "Block public access (bucket settings)" are checked:
+     - Block all public access
+     - Block public access to buckets and objects granted through new access control lists (ACLs)
+     - Block public access to buckets and objects granted through any access control lists (ACLs)
+     - Block public access to buckets and objects granted through new public bucket or access point policies
+     - Block public and cross-account access to buckets and objects through any public bucket or access point policies
+   - Click "Save changes" to apply the settings.
+
+By following these steps, you can ensure that your S3 buckets do not allow public READ access, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from allowing public READ access using the AWS CLI, you can follow these steps:
+
+1. **Check the Current Bucket Policy:**
+   First, you need to check the current bucket policy to see if it allows public READ access.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+2. **Block Public Access Settings:**
+   Use the `s3api` command to block all public access to the bucket.
+   ```sh
+   aws s3api put-public-access-block --bucket your-bucket-name --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   ```
+
+3. **Remove Public Access from ACL:**
+   Ensure that the bucket's ACL does not grant public READ access.
+   ```sh
+   aws s3api put-bucket-acl --bucket your-bucket-name --acl private
+   ```
+
+4. **Update Bucket Policy to Deny Public Access:**
+   If a bucket policy exists that allows public READ access, you need to update it to explicitly deny such access. Here is an example of a policy that denies public READ access:
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Principal": "*",
+         "Action": "s3:GetObject",
+         "Resource": "arn:aws:s3:::your-bucket-name/*",
+         "Condition": {
+           "Bool": {
+             "aws:SecureTransport": "false"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+By following these steps, you can ensure that your S3 bucket does not allow public READ access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing public READ access using Python scripts, you can use the AWS SDK for Python, known as Boto3. Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Check and Update Bucket Policies**:
+   Write a Python script that will iterate through your S3 buckets, check their policies, and update them to ensure they do not allow public READ access.
+
+4. **Implement the Script**:
+   Here is a sample Python script to prevent public READ access on all S3 buckets:
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   def block_public_access(bucket_name):
+       s3 = boto3.client('s3')
+       try:
+           # Get the current bucket policy
+           result = s3.get_bucket_policy(Bucket=bucket_name)
+           policy = result['Policy']
+       except ClientError as e:
+           if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+               policy = None
+           else:
+               print(f"Error getting policy for bucket {bucket_name}: {e}")
+               return
+
+       # Define a policy that blocks public READ access
+       block_public_policy = {
+           "Version": "2012-10-17",
+           "Statement": [
+               {
+                   "Effect": "Deny",
+                   "Principal": "*",
+                   "Action": "s3:GetObject",
+                   "Resource": f"arn:aws:s3:::{bucket_name}/*",
+                   "Condition": {
+                       "Bool": {
+                           "aws:SecureTransport": "false"
+                       }
+                   }
+               }
+           ]
+       }
+
+       # Apply the policy to the bucket
+       try:
+           s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(block_public_policy))
+           print(f"Updated policy for bucket {bucket_name} to block public READ access.")
+       except ClientError as e:
+           print(f"Error updating policy for bucket {bucket_name}: {e}")
+
+   def main():
+       s3 = boto3.client('s3')
+       try:
+           response = s3.list_buckets()
+           buckets = response['Buckets']
+           for bucket in buckets:
+               block_public_access(bucket['Name'])
+       except ClientError as e:
+           print(f"Error listing buckets: {e}")
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+### Explanation:
+1. **Install Boto3**: Ensure Boto3 is installed to interact with AWS services.
+2. **Set Up AWS Credentials**: Configure your AWS credentials to allow the script to authenticate with AWS.
+3. **Create a Python Script**: Write a script that checks and updates bucket policies.
+4. **Implement the Script**: The script lists all S3 buckets, retrieves their policies, and updates them to block public READ access.
+
+This script ensures that all S3 buckets in your account do not allow public READ access by applying a policy that denies `s3:GetObject` actions from any principal.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,156 @@
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 buckets from allowing public writes using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, you will see a list of your buckets. Click on the name of the bucket you want to configure.
+
+3. **Bucket Permissions:**
+   - Once inside the bucket, go to the "Permissions" tab.
+   - Under the "Block public access (bucket settings)" section, click on "Edit".
+
+4. **Block Public Access:**
+   - Ensure that the following options are checked:
+     - "Block all public access"
+     - "Block public access to buckets and objects granted through new access control lists (ACLs)"
+     - "Block public access to buckets and objects granted through any access control lists (ACLs)"
+     - "Block public access to buckets and objects granted through new public bucket or access point policies"
+   - Click "Save changes" to apply the settings.
+
+By following these steps, you can prevent public write access to your S3 buckets using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from allowing public writes using the AWS CLI, you can follow these steps:
+
+1. **Create a Bucket Policy to Deny Public Write Access:**
+   Use the `aws s3api put-bucket-policy` command to apply a policy that denies public write access to your S3 bucket.
+
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:PutObject",
+               "Resource": "arn:aws:s3:::your-bucket-name/*",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:PrincipalType": "Anonymous"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Block Public Access Settings:**
+   Use the `aws s3api put-public-access-block` command to block public access settings for the bucket.
+
+   ```sh
+   aws s3api put-public-access-block --bucket your-bucket-name --public-access-block-configuration '{
+       "BlockPublicAcls": true,
+       "IgnorePublicAcls": true,
+       "BlockPublicPolicy": true,
+       "RestrictPublicBuckets": true
+   }'
+   ```
+
+3. **Remove Existing Public Access Control Lists (ACLs):**
+   Use the `aws s3api put-bucket-acl` command to set the ACL to private, removing any public access.
+
+   ```sh
+   aws s3api put-bucket-acl --bucket your-bucket-name --acl private
+   ```
+
+4. **Verify Bucket Policy and ACLs:**
+   Use the `aws s3api get-bucket-policy` and `aws s3api get-bucket-acl` commands to verify that the bucket policy and ACLs are correctly configured to prevent public writes.
+
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   aws s3api get-bucket-acl --bucket your-bucket-name
+   ```
+
+By following these steps, you can ensure that your S3 bucket does not allow public write access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing public writes using Python scripts, you can use the AWS SDK for Python, known as Boto3. Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials.
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon S3
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   s3 = session.client('s3')
+   ```
+
+3. **List All S3 Buckets**:
+   Retrieve a list of all S3 buckets in your account.
+   ```python
+   response = s3.list_buckets()
+   buckets = [bucket['Name'] for bucket in response['Buckets']]
+   ```
+
+4. **Update Bucket Policies to Prevent Public Writes**:
+   Iterate through each bucket and update its policy to ensure it does not allow public writes.
+   ```python
+   for bucket in buckets:
+       try:
+           # Get the current bucket policy
+           policy = s3.get_bucket_policy(Bucket=bucket)
+           policy_statements = policy['Policy']['Statement']
+
+           # Check and update the policy statements
+           for statement in policy_statements:
+               if statement['Effect'] == 'Allow' and 's3:PutObject' in statement['Action']:
+                   if 'Principal' in statement and statement['Principal'] == '*':
+                       # Remove or update the statement to prevent public writes
+                       statement['Effect'] = 'Deny'
+
+           # Update the bucket policy
+           s3.put_bucket_policy(
+               Bucket=bucket,
+               Policy=json.dumps(policy)
+           )
+           print(f"Updated policy for bucket: {bucket}")
+
+       except s3.exceptions.NoSuchBucketPolicy:
+           print(f"No policy found for bucket: {bucket}")
+       except Exception as e:
+           print(f"Error updating policy for bucket {bucket}: {e}")
+   ```
+
+This script ensures that no S3 bucket in your account allows public write access by checking and updating the bucket policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

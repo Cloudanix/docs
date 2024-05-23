@@ -2,6 +2,144 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket from allowing READ_ACP access for authenticated users using the AWS Management Console, follow these steps:
+
+1. **Navigate to the S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, find and click on the name of the bucket you want to configure.
+
+3. **Access Bucket Permissions:**
+   - Once inside the bucket, click on the "Permissions" tab.
+   - Under the Permissions tab, review the "Bucket Policy" and "Access Control List (ACL)" sections.
+
+4. **Modify Bucket Policy and ACL:**
+   - **Bucket Policy:** Ensure that the bucket policy does not include any statements that grant `s3:GetBucketAcl` or `s3:GetObjectAcl` permissions to `Principal: "*"` or `Principal: "AWS": "*"` (which represents all authenticated users).
+   - **Access Control List (ACL):** Click on "Edit" under the ACL section and ensure that the "Access for other AWS accounts" does not grant READ_ACP permissions to "Any authenticated AWS user."
+
+By following these steps, you can ensure that your S3 bucket does not allow READ_ACP access to authenticated users, thereby enhancing the security of your bucket.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from allowing `READ_ACP` access for authenticated users using the AWS CLI, follow these steps:
+
+1. **Create a Bucket Policy JSON File:**
+   Create a JSON file (e.g., `bucket-policy.json`) that denies `READ_ACP` access to authenticated users. The policy should look something like this:
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:GetBucketAcl",
+               "Resource": "arn:aws:s3:::your-bucket-name",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:PrincipalType": "IAMUser"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+2. **Apply the Bucket Policy:**
+   Use the `aws s3api put-bucket-policy` command to apply the policy to your S3 bucket.
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy file://bucket-policy.json
+   ```
+
+3. **Verify the Bucket Policy:**
+   Ensure the policy has been applied correctly by retrieving the bucket policy using the `aws s3api get-bucket-policy` command.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+4. **Check Bucket ACL:**
+   Ensure that the bucket's ACL does not grant `READ_ACP` access to authenticated users by using the `aws s3api get-bucket-acl` command.
+   ```sh
+   aws s3api get-bucket-acl --bucket your-bucket-name
+   ```
+
+By following these steps, you can prevent S3 buckets from allowing `READ_ACP` access for authenticated users using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing `READ_ACP` access for authenticated users using Python scripts, you can use the AWS SDK for Python, known as `boto3`. Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have `boto3` installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the `boto3` client for S3.
+   ```python
+   import boto3
+
+   s3 = boto3.client('s3')
+   ```
+
+3. **Retrieve and Update Bucket Policy**:
+   Retrieve the current bucket policy, modify it to ensure `READ_ACP` access is not allowed for authenticated users, and then update the policy.
+
+   ```python
+   import json
+
+   bucket_name = 'your-bucket-name'
+
+   # Get the current bucket policy
+   try:
+       result = s3.get_bucket_policy(Bucket=bucket_name)
+       policy = json.loads(result['Policy'])
+   except s3.exceptions.NoSuchBucketPolicy:
+       policy = {
+           "Version": "2012-10-17",
+           "Statement": []
+       }
+
+   # Define the statement to deny READ_ACP access for authenticated users
+   deny_statement = {
+       "Effect": "Deny",
+       "Principal": {"AWS": "*"},
+       "Action": "s3:GetBucketAcl",
+       "Resource": f"arn:aws:s3:::{bucket_name}",
+       "Condition": {
+           "StringEquals": {
+               "aws:PrincipalType": "Account"
+           }
+       }
+   }
+
+   # Check if the deny statement already exists
+   if deny_statement not in policy['Statement']:
+       policy['Statement'].append(deny_statement)
+
+   # Update the bucket policy
+   s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+   ```
+
+4. **Verify the Policy**:
+   Verify that the policy has been updated correctly.
+   ```python
+   result = s3.get_bucket_policy(Bucket=bucket_name)
+   print(result['Policy'])
+   ```
+
+This script ensures that the S3 bucket policy denies `READ_ACP` access for authenticated users, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

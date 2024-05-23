@@ -24,6 +24,169 @@ NIST, AWSWAF, HITRUST, SOC2, NISTCSF, PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 buckets from being unencrypted with Customer-Provided CMKs (Customer Master Keys) in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 dashboard.
+
+2. **Select the Bucket:**
+   - In the S3 dashboard, locate and click on the name of the bucket you want to configure.
+
+3. **Enable Default Encryption:**
+   - In the bucket's settings, go to the "Properties" tab.
+   - Scroll down to the "Default encryption" section.
+   - Click on "Edit" and select "AWS-KMS" as the encryption method.
+   - Choose the Customer Master Key (CMK) you want to use from the dropdown menu or enter the ARN of the CMK.
+
+4. **Save Changes:**
+   - After selecting the appropriate CMK, click "Save changes" to apply the encryption settings to the bucket.
+
+By following these steps, you ensure that all objects stored in the S3 bucket are encrypted using the specified Customer-Provided CMK.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your S3 buckets are encrypted with Customer-Provided CMKs (Customer Master Keys) using the AWS CLI, follow these steps:
+
+1. **Create a Customer Master Key (CMK) in AWS KMS:**
+   First, you need to create a CMK in AWS Key Management Service (KMS) if you don't already have one.
+   ```sh
+   aws kms create-key --description "My CMK for S3 encryption"
+   ```
+
+2. **Get the Key ID or ARN of the CMK:**
+   Retrieve the Key ID or Amazon Resource Name (ARN) of the CMK you just created.
+   ```sh
+   aws kms list-keys
+   ```
+
+3. **Enable Default Encryption on the S3 Bucket:**
+   Apply the default encryption configuration to your S3 bucket using the CMK.
+   ```sh
+   aws s3api put-bucket-encryption --bucket your-bucket-name --server-side-encryption-configuration '{
+       "Rules": [
+           {
+               "ApplyServerSideEncryptionByDefault": {
+                   "SSEAlgorithm": "aws:kms",
+                   "KMSMasterKeyID": "your-cmk-key-id-or-arn"
+               }
+           }
+       ]
+   }'
+   ```
+
+4. **Verify the Encryption Configuration:**
+   Confirm that the encryption settings have been applied correctly to your S3 bucket.
+   ```sh
+   aws s3api get-bucket-encryption --bucket your-bucket-name
+   ```
+
+By following these steps, you can ensure that your S3 buckets are encrypted with Customer-Provided CMKs using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from being created without encryption using Customer-Provided CMKs (Customer Master Keys) in AWS, you can use Python scripts with the Boto3 library. Here are the steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a KMS Key**:
+   First, create a Customer Master Key (CMK) in AWS KMS (Key Management Service). This key will be used to encrypt your S3 buckets.
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+
+   response = kms_client.create_key(
+       Description='My CMK for S3 bucket encryption',
+       KeyUsage='ENCRYPT_DECRYPT',
+       Origin='AWS_KMS'
+   )
+
+   cmk_id = response['KeyMetadata']['KeyId']
+   print(f"Created CMK with ID: {cmk_id}")
+   ```
+
+3. **Create an S3 Bucket with Encryption**:
+   Use the created CMK to set up default encryption for your S3 bucket.
+   ```python
+   import boto3
+
+   s3_client = boto3.client('s3')
+
+   bucket_name = 'my-secure-bucket'
+
+   # Create the S3 bucket
+   s3_client.create_bucket(Bucket=bucket_name)
+
+   # Apply the bucket encryption using the CMK
+   encryption_configuration = {
+       'Rules': [
+           {
+               'ApplyServerSideEncryptionByDefault': {
+                   'SSEAlgorithm': 'aws:kms',
+                   'KMSMasterKeyID': cmk_id
+               }
+           }
+       ]
+   }
+
+   s3_client.put_bucket_encryption(
+       Bucket=bucket_name,
+       ServerSideEncryptionConfiguration=encryption_configuration
+   )
+
+   print(f"Bucket {bucket_name} created with encryption using CMK {cmk_id}")
+   ```
+
+4. **Enforce Bucket Policy to Require Encryption**:
+   To ensure that all objects uploaded to the bucket are encrypted with the specified CMK, you can enforce a bucket policy.
+   ```python
+   import json
+
+   bucket_policy = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Sid": "RequireKMSEncryption",
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:PutObject",
+               "Resource": f"arn:aws:s3:::{bucket_name}/*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "s3:x-amz-server-side-encryption": "aws:kms"
+                   },
+                   "StringNotEqualsIfExists": {
+                       "s3:x-amz-server-side-encryption-aws-kms-key-id": cmk_id
+                   }
+               }
+           }
+       ]
+   }
+
+   s3_client.put_bucket_policy(
+       Bucket=bucket_name,
+       Policy=json.dumps(bucket_policy)
+   )
+
+   print(f"Bucket policy applied to {bucket_name} to enforce encryption with CMK {cmk_id}")
+   ```
+
+By following these steps, you ensure that your S3 buckets are created with encryption using Customer-Provided CMKs and enforce policies to prevent misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,184 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Buckets from lacking Write Configuration (i.e., ensuring proper write permissions and configurations) using the AWS Management Console, follow these steps:
+
+1. **Enable Bucket Versioning:**
+   - Open the Amazon S3 console at [https://s3.console.aws.amazon.com/s3/](https://s3.console.aws.amazon.com/s3/).
+   - In the Buckets list, choose the name of the bucket that you want to enable versioning for.
+   - Choose the **Properties** tab.
+   - Under **Bucket Versioning**, choose **Edit**.
+   - Select **Enable** and then choose **Save changes**.
+
+2. **Enable Server Access Logging:**
+   - In the Amazon S3 console, choose the bucket you want to configure.
+   - Choose the **Properties** tab.
+   - Under **Server access logging**, choose **Edit**.
+   - Select **Enable logging**.
+   - Specify the target bucket and prefix for the logs, then choose **Save changes**.
+
+3. **Enable Default Encryption:**
+   - In the Amazon S3 console, choose the bucket you want to configure.
+   - Choose the **Properties** tab.
+   - Under **Default encryption**, choose **Edit**.
+   - Select **Enable** and choose the encryption type (SSE-S3 or SSE-KMS).
+   - Choose **Save changes**.
+
+4. **Set Up Bucket Policies and Permissions:**
+   - In the Amazon S3 console, choose the bucket you want to configure.
+   - Choose the **Permissions** tab.
+   - Under **Bucket Policy**, choose **Edit**.
+   - Add a policy that restricts write permissions to specific IAM users or roles, ensuring that only authorized entities can write to the bucket.
+   - Example policy snippet:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Principal": {
+             "AWS": "arn:aws:iam::account-id:user/username"
+           },
+           "Action": "s3:PutObject",
+           "Resource": "arn:aws:s3:::bucket-name/*"
+         }
+       ]
+     }
+     ```
+   - Choose **Save changes**.
+
+By following these steps, you can ensure that your S3 buckets have the necessary write configurations enabled to maintain security and compliance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from lacking Write Configuration (i.e., ensuring that logging is enabled) using AWS CLI, follow these steps:
+
+1. **Enable Server Access Logging for the S3 Bucket:**
+   Ensure that server access logging is enabled for the S3 bucket. This will log all requests made to the bucket.
+
+   ```sh
+   aws s3api put-bucket-logging --bucket <your-bucket-name> --bucket-logging-status '{
+     "LoggingEnabled": {
+       "TargetBucket": "<log-bucket-name>",
+       "TargetPrefix": "<log-prefix>"
+     }
+   }'
+   ```
+
+2. **Verify Bucket Logging Configuration:**
+   Check the logging configuration to ensure it has been set correctly.
+
+   ```sh
+   aws s3api get-bucket-logging --bucket <your-bucket-name>
+   ```
+
+3. **Set Bucket Policy to Enforce Logging:**
+   Apply a bucket policy that enforces logging by denying any `PutObject` requests that do not include the `x-amz-server-side-encryption` header.
+
+   ```sh
+   aws s3api put-bucket-policy --bucket <your-bucket-name> --policy '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Principal": "*",
+         "Action": "s3:PutObject",
+         "Resource": "arn:aws:s3:::<your-bucket-name>/*",
+         "Condition": {
+           "StringNotEquals": {
+             "s3:x-amz-server-side-encryption": "aws:kms"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+4. **Enable Versioning on the Bucket:**
+   Enable versioning to keep track of changes to objects in the bucket, which can help in auditing and recovery.
+
+   ```sh
+   aws s3api put-bucket-versioning --bucket <your-bucket-name> --versioning-configuration Status=Enabled
+   ```
+
+By following these steps, you can ensure that your S3 bucket has the necessary write configurations enabled to prevent misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from lacking Write Configuration (i.e., ensuring that proper write permissions and configurations are set) using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file with your access key and secret key.
+
+3. **Create a Python Script to Configure S3 Bucket Policies**:
+   Write a Python script to ensure that the S3 bucket has the correct write configuration. This includes setting the bucket policy to allow or restrict write permissions as needed.
+
+4. **Python Script Example**:
+   Below is an example Python script that sets a bucket policy to ensure proper write permissions:
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # Define the bucket name
+   bucket_name = 'your-bucket-name'
+
+   # Define the bucket policy
+   bucket_policy = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": "*",
+               "Action": "s3:PutObject",
+               "Resource": f"arn:aws:s3:::{bucket_name}/*"
+           }
+       ]
+   }
+
+   # Convert the policy to a JSON string
+   bucket_policy_json = json.dumps(bucket_policy)
+
+   # Apply the bucket policy
+   try:
+       s3.put_bucket_policy(Bucket=bucket_name, Policy=bucket_policy_json)
+       print(f"Bucket policy applied to {bucket_name}")
+   except ClientError as e:
+       print(f"Error applying bucket policy: {e}")
+
+   # Optionally, you can also set bucket ACLs to ensure proper write permissions
+   try:
+       s3.put_bucket_acl(Bucket=bucket_name, ACL='private')
+       print(f"Bucket ACL set to private for {bucket_name}")
+   except ClientError as e:
+       print(f"Error setting bucket ACL: {e}")
+   ```
+
+### Summary of Steps:
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Write Python Script**: Create a script to set the bucket policy and ACL.
+4. **Run the Script**: Execute the script to apply the configurations.
+
+This script ensures that the S3 bucket has a policy allowing write permissions and sets the ACL to private, which is a common best practice to prevent unauthorized access. Adjust the policy and ACL settings as per your specific requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

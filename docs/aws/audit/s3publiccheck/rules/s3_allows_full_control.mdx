@@ -24,6 +24,153 @@ CBP, HITRUST, AWSWAF, SOC2, NISTCSF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an S3 bucket from allowing public FULL_CONTROL access using the AWS Management Console, follow these steps:
+
+1. **Open the S3 Console:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the S3 service by searching for "S3" in the search bar and selecting it.
+
+2. **Select the Bucket:**
+   - In the S3 console, you will see a list of your buckets. Click on the name of the bucket you want to configure.
+
+3. **Bucket Permissions:**
+   - Go to the "Permissions" tab of the selected bucket.
+   - Under the "Bucket Policy" section, review the bucket policy to ensure it does not grant `FULL_CONTROL` access to the public (i.e., `Principal` set to `*` with `Action` set to `s3:*`).
+
+4. **Block Public Access:**
+   - In the "Permissions" tab, find the "Block public access (bucket settings)" section.
+   - Click on "Edit" and ensure that all options to block public access are checked:
+     - Block all public access
+     - Block public access to buckets and objects granted through new access control lists (ACLs)
+     - Block public access to buckets and objects granted through any access control lists (ACLs)
+     - Block public access to buckets and objects granted through new public bucket or access point policies
+   - Click "Save changes" to apply the settings.
+
+By following these steps, you can ensure that your S3 bucket does not allow public FULL_CONTROL access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an S3 bucket from allowing public FULL_CONTROL access using the AWS CLI, follow these steps:
+
+1. **Create a Bucket Policy to Deny Public FULL_CONTROL Access:**
+   Use the following JSON policy to deny any public access that grants FULL_CONTROL permissions. Save this policy to a file named `deny_public_full_control_policy.json`.
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:*",
+               "Resource": [
+                   "arn:aws:s3:::your-bucket-name",
+                   "arn:aws:s3:::your-bucket-name/*"
+               ],
+               "Condition": {
+                   "StringEquals": {
+                       "s3:x-amz-acl": "public-read-write"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+2. **Apply the Bucket Policy:**
+   Use the `aws s3api put-bucket-policy` command to apply the policy to your S3 bucket.
+
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy file://deny_public_full_control_policy.json
+   ```
+
+3. **Block Public Access Settings:**
+   Enable block public access settings for the bucket to prevent any public access configurations.
+
+   ```sh
+   aws s3api put-public-access-block --bucket your-bucket-name --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   ```
+
+4. **Verify the Bucket Policy and Public Access Block:**
+   Ensure that the bucket policy and public access block settings are correctly applied.
+
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   aws s3api get-public-access-block --bucket your-bucket-name
+   ```
+
+By following these steps, you can prevent your S3 bucket from allowing public FULL_CONTROL access using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an S3 bucket from allowing public FULL_CONTROL access using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Check and Update Bucket Policies**:
+   Write a Python script to check the bucket policy and update it to ensure it does not allow public FULL_CONTROL access.
+
+4. **Python Script**:
+   Here is a sample Python script to prevent public FULL_CONTROL access to an S3 bucket:
+
+   ```python
+   import boto3
+   import json
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # Replace 'your-bucket-name' with your actual bucket name
+   bucket_name = 'your-bucket-name'
+
+   # Get the current bucket policy
+   try:
+       result = s3.get_bucket_policy(Bucket=bucket_name)
+       policy = json.loads(result['Policy'])
+   except s3.exceptions.NoSuchBucketPolicy:
+       policy = {"Version": "2012-10-17", "Statement": []}
+
+   # Function to check if a statement allows public FULL_CONTROL access
+   def is_public_full_control(statement):
+       if statement['Effect'] == 'Allow' and 'Principal' in statement and statement['Principal'] == '*':
+           if 'Action' in statement and ('s3:*' in statement['Action'] or 's3:PutObjectAcl' in statement['Action']):
+               if 'Condition' not in statement or ('Condition' in statement and 'StringEquals' in statement['Condition'] and 's3:x-amz-acl' in statement['Condition']['StringEquals'] and statement['Condition']['StringEquals']['s3:x-amz-acl'] == 'public-read-write'):
+                   return True
+       return False
+
+   # Remove any statements that allow public FULL_CONTROL access
+   policy['Statement'] = [statement for statement in policy['Statement'] if not is_public_full_control(statement)]
+
+   # Update the bucket policy
+   s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+
+   print(f"Updated policy for bucket {bucket_name} to prevent public FULL_CONTROL access.")
+   ```
+
+### Explanation:
+1. **Install Boto3**: Ensure Boto3 is installed to interact with AWS services.
+2. **Set Up AWS Credentials**: Configure your AWS credentials to allow the script to authenticate with AWS.
+3. **Create a Python Script**: Write a script to fetch the current bucket policy, check for any statements that allow public FULL_CONTROL access, and remove those statements.
+4. **Python Script**: The script initializes the S3 client, retrieves the current bucket policy, checks for and removes any statements that allow public FULL_CONTROL access, and updates the bucket policy.
+
+By following these steps, you can ensure that your S3 bucket does not allow public FULL_CONTROL access using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

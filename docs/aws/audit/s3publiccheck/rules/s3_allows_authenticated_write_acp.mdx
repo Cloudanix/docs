@@ -24,6 +24,127 @@ CBP, PCIDSS, NIST
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket from allowing WRITE_ACP access to authenticated users using the AWS Management Console, follow these steps:
+
+1. **Navigate to the S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, find and click on the name of the bucket you want to configure.
+
+3. **Access Bucket Permissions:**
+   - Once inside the bucket, go to the "Permissions" tab.
+   - Under the "Permissions" tab, click on "Bucket Policy" or "Access Control List" (ACL) depending on where the WRITE_ACP permission might be set.
+
+4. **Review and Modify Permissions:**
+   - If using Bucket Policy: Ensure that the policy does not include a statement that grants `s3:PutBucketAcl` (WRITE_ACP) permission to `Principal: "*"` or any authenticated users.
+   - If using ACL: Ensure that the "Access for other AWS accounts" section does not grant WRITE_ACP permissions to "Authenticated Users group".
+
+By following these steps, you can ensure that your S3 bucket does not allow WRITE_ACP access to authenticated users, thereby enhancing the security of your bucket.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from allowing `WRITE_ACP` access to authenticated users using AWS CLI, follow these steps:
+
+1. **List the Bucket Policies**:
+   First, identify the bucket policies that might be allowing `WRITE_ACP` access to authenticated users.
+   ```sh
+   aws s3api get-bucket-policy --bucket <bucket-name>
+   ```
+
+2. **Modify the Bucket Policy**:
+   If the policy allows `WRITE_ACP` access to authenticated users, you need to modify it. Create a JSON file (e.g., `bucket-policy.json`) with the updated policy that removes or denies `WRITE_ACP` access to authenticated users.
+
+3. **Apply the Updated Policy**:
+   Use the following command to apply the updated policy to the bucket.
+   ```sh
+   aws s3api put-bucket-policy --bucket <bucket-name> --policy file://bucket-policy.json
+   ```
+
+4. **Verify the Policy**:
+   Ensure that the policy has been updated correctly by retrieving the bucket policy again.
+   ```sh
+   aws s3api get-bucket-policy --bucket <bucket-name>
+   ```
+
+By following these steps, you can prevent S3 buckets from allowing `WRITE_ACP` access to authenticated users using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing `WRITE_ACP` access to authenticated users using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for S3.
+   ```python
+   import boto3
+
+   s3 = boto3.client('s3')
+   ```
+
+3. **Retrieve and Update Bucket Policy**:
+   Retrieve the current bucket policy, modify it to ensure `WRITE_ACP` access is not granted to authenticated users, and then update the policy.
+
+   ```python
+   import json
+
+   bucket_name = 'your-bucket-name'
+
+   # Retrieve the current bucket policy
+   try:
+       result = s3.get_bucket_policy(Bucket=bucket_name)
+       policy = json.loads(result['Policy'])
+   except s3.exceptions.NoSuchBucketPolicy:
+       policy = {
+           "Version": "2012-10-17",
+           "Statement": []
+       }
+
+   # Define the statement to deny WRITE_ACP to authenticated users
+   deny_statement = {
+       "Effect": "Deny",
+       "Principal": "*",
+       "Action": "s3:PutBucketAcl",
+       "Resource": f"arn:aws:s3:::{bucket_name}",
+       "Condition": {
+           "StringEquals": {
+               "aws:PrincipalType": "Account"
+           }
+       }
+   }
+
+   # Check if the deny statement already exists
+   if deny_statement not in policy['Statement']:
+       policy['Statement'].append(deny_statement)
+
+   # Update the bucket policy
+   s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+   ```
+
+4. **Verify the Policy**:
+   Verify that the policy has been updated correctly.
+   ```python
+   result = s3.get_bucket_policy(Bucket=bucket_name)
+   print(result['Policy'])
+   ```
+
+This script ensures that the S3 bucket policy explicitly denies `WRITE_ACP` access to authenticated users, thereby preventing any misconfigurations related to this permission.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

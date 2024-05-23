@@ -24,6 +24,157 @@ NIST, PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket from allowing public WRITE_ACP (Write Access Control Policy) access using the AWS Management Console, follow these steps:
+
+1. **Navigate to the S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, find and click on the name of the bucket you want to configure.
+
+3. **Bucket Permissions:**
+   - Go to the "Permissions" tab.
+   - Under the "Block public access (bucket settings)" section, click on "Edit".
+   - Ensure that the option "Block public access to buckets and objects granted through new access control lists (ACLs)" is checked.
+   - Ensure that the option "Block public access to buckets and objects granted through any access control lists (ACLs)" is checked.
+   - Click "Save" to apply the changes.
+
+4. **Review and Edit Bucket Policy:**
+   - Still under the "Permissions" tab, scroll down to the "Bucket policy" section.
+   - Review the bucket policy to ensure it does not grant `s3:PutBucketAcl` permission to any public or unauthorized users.
+   - If necessary, edit the bucket policy to remove any statements that grant `s3:PutBucketAcl` permission to `Principal: "*"` or any other public entities.
+   - Click "Save" to apply the changes.
+
+By following these steps, you can ensure that your S3 bucket does not allow public WRITE_ACP access, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an S3 bucket from allowing public WRITE_ACP (Write Access Control Policy) access using the AWS CLI, follow these steps:
+
+1. **Create a Bucket Policy to Deny Public WRITE_ACP Access:**
+   Create a JSON file (e.g., `deny_public_write_acp.json`) with the following content to deny public WRITE_ACP access:
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:PutBucketAcl",
+               "Resource": "arn:aws:s3:::your-bucket-name",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:PrincipalType": "Anonymous"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+2. **Apply the Bucket Policy:**
+   Use the AWS CLI to apply the bucket policy to your S3 bucket:
+
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy file://deny_public_write_acp.json
+   ```
+
+3. **Block Public Access Settings:**
+   Enable block public access settings for the bucket to prevent public WRITE_ACP access:
+
+   ```sh
+   aws s3api put-public-access-block --bucket your-bucket-name --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   ```
+
+4. **Verify the Bucket Policy and Public Access Block:**
+   Verify that the bucket policy and public access block settings are correctly applied:
+
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   aws s3api get-public-access-block --bucket your-bucket-name
+   ```
+
+By following these steps, you can ensure that your S3 bucket does not allow public WRITE_ACP access using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing public WRITE_ACP (Write Access Control Policy) access using Python scripts, you can use the AWS SDK for Python, known as Boto3. Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for S3. This will allow you to interact with your S3 buckets.
+   ```python
+   import boto3
+
+   s3 = boto3.client('s3')
+   ```
+
+3. **Retrieve and Update Bucket ACL**:
+   Retrieve the current Access Control List (ACL) of the bucket and update it to remove any public WRITE_ACP permissions.
+   ```python
+   def remove_public_write_acp(bucket_name):
+       # Get the current ACL
+       acl = s3.get_bucket_acl(Bucket=bucket_name)
+       
+       # Iterate over the grants and remove public WRITE_ACP permissions
+       new_grants = []
+       for grant in acl['Grants']:
+           if grant['Permission'] == 'WRITE_ACP' and 'URI' in grant['Grantee'] and grant['Grantee']['URI'] == 'http://acs.amazonaws.com/groups/global/AllUsers':
+               continue  # Skip public WRITE_ACP grants
+           new_grants.append(grant)
+       
+       # Update the ACL with the new grants
+       s3.put_bucket_acl(
+           Bucket=bucket_name,
+           AccessControlPolicy={
+               'Grants': new_grants,
+               'Owner': acl['Owner']
+           }
+       )
+
+   # Example usage
+   bucket_name = 'your-bucket-name'
+   remove_public_write_acp(bucket_name)
+   ```
+
+4. **Automate the Script**:
+   Optionally, you can automate this script to run periodically or integrate it into your CI/CD pipeline to ensure that no S3 bucket has public WRITE_ACP access at any time.
+   ```python
+   import schedule
+   import time
+
+   def job():
+       # List all your buckets
+       response = s3.list_buckets()
+       for bucket in response['Buckets']:
+           remove_public_write_acp(bucket['Name'])
+
+   # Schedule the job to run every hour
+   schedule.every().hour.do(job)
+
+   while True:
+       schedule.run_pending()
+       time.sleep(1)
+   ```
+
+By following these steps, you can ensure that your S3 buckets do not allow public WRITE_ACP access, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
