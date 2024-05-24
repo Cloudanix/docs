@@ -274,125 +274,74 @@ for backup in response['Backups']:
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-To remediate the misconfiguration of FSx not having a backup plan for AWS EC2 using the AWS Management Console, follow these steps:
+1. Navigate to the AWS Backup console.
+2. Click on "Backup plans" from the navigation pane.
+3. Click on "Create backup plan".
+4. Configure the backup plan settings:
+   - Specify a name for the backup plan.
+   - Choose the frequency and timing for backups.
+   - Define the lifecycle settings for backups (e.g., retention period).
+   - Specify the resources to backup (select the EFS file systems).
+5. Save the backup plan.
 
-1. **Sign in to the AWS Management Console**: Go to https://aws.amazon.com/ and sign in to the AWS Management Console using your credentials.
-
-2. **Navigate to Amazon FSx service**: Click on the "Services" dropdown menu at the top of the console, then select "FSx" under the "Storage" category.
-
-3. **Select the FSx file system**: In the FSx console, select the FSx file system that you want to create a backup plan for by clicking on its name.
-
-4. **Create a Backup Plan**:
-   - In the left-hand navigation pane, click on "Backup" and then click on the "Backup plans" tab.
-   - Click on the "Create backup plan" button.
-   - Enter a name for the backup plan and configure the backup settings according to your requirements. This includes defining the backup frequency, retention period, and any lifecycle policies.
-   - Review the backup plan settings and click on the "Create" button to create the backup plan.
-
-5. **Assign the Backup Plan to the FSx file system**:
-   - After creating the backup plan, go back to the FSx file system details page.
-   - Click on the "Backup" tab and then click on the "Associate backup plan" button.
-   - Select the backup plan that you just created from the dropdown menu and click on the "Associate" button to assign the backup plan to the FSx file system.
-
-6. **Verify Backup Plan**:
-   - Once the backup plan is associated with the FSx file system, verify that the backup plan is active and running as expected.
-   - Monitor the backup status and ensure that backups are being taken according to the defined schedule.
-
-By following these steps, you will successfully remediate the misconfiguration of FSx not having a backup plan for your AWS EC2 instances using the AWS Management Console.
-
-#
 </Accordion>
 
 <Accordion title='Using CLI'>
-To remediate the misconfiguration of not having a backup plan for FSx on AWS EC2 using AWS CLI, you can follow these steps:
-
-1. **Install and Configure AWS CLI:**
-   If you haven't already installed and configured the AWS CLI, you can do so by following the instructions provided in the AWS documentation: [Installing the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) and [Configuring the AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html).
-
-2. **Enable Backup for FSx File Systems:**
-   You can enable backup for your FSx file systems using the AWS CLI by running the following command:
-   ```
-   aws fsx update-file-system --file-system-id fs-1234567890abcdef0 --backup-id backup-0abcdef1234567890 --windows-configuration AutomaticBackupRetentionDays=30,ThroughputCapacity=8
-   ```
-   Replace `fs-1234567890abcdef0` with the ID of your FSx file system and `backup-0abcdef1234567890` with the ID of the backup you want to associate with the file system. You can adjust the `AutomaticBackupRetentionDays` and `ThroughputCapacity` values as needed.
-
-3. **Verify Backup Configuration:**
-   To ensure that backup has been successfully enabled for your FSx file system, you can run the following command:
-   ```
-   aws fsx describe-file-systems --file-system-ids fs-1234567890abcdef0
-   ```
-   This command will provide detailed information about your FSx file system, including its backup configuration.
-
-4. **Automate Backup Scheduling (Optional):**
-   If you want to automate the scheduling of backups for your FSx file system, you can create a backup policy using the AWS CLI. Here is an example command to create a backup policy:
-   ```
-   aws fsx create-backup-policy --file-system-id fs-1234567890abcdef0 --daily-backup-start-time 01:00:00 --automatic-backup-retention-days 30
-   ```
-   This command will create a backup policy for the specified file system that triggers a daily backup at 01:00:00 UTC and retains the backups for 30 days.
-
-By following these steps, you can remediate the misconfiguration of not having a backup plan for FSx on AWS EC2 using the AWS CLI.
+```bash
+aws backup create-backup-plan --backup-plan-name <backup-plan-name> --backup-plan <backup-plan-definition>
+```
+Replace `<backup-plan-name>` with a name for the backup plan and `<backup-plan-definition>` with a JSON or YAML file containing the backup plan definition, including settings such as backup frequency, retention period, and resources to backup.
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the misconfiguration of not having a backup plan for FSx in AWS, you can create a backup plan using Python Boto3 library. Here are the step-by-step instructions to remediate this issue:
-
-1. Install Boto3 library:
-   ```bash
-   pip install boto3
-   ```
-
-2. Configure AWS credentials:
-   Ensure that you have configured your AWS credentials either by setting environment variables or using AWS CLI `aws configure` command.
-
-3. Use the following Python script to create a backup plan for FSx in AWS EC2:
-
 ```python
 import boto3
 
-def create_fsx_backup_plan(fsx_id, backup_name):
-    client = boto3.client('fsx')
+def remediate_efs_resources_backup_plan(file_system_arns, backup_vault_name):
+    # Initialize AWS Backup client
+    backup_client = boto3.client('backup')
 
-    response = client.create_backup_plan(
-        ClientRequestToken='string',
-        Name=backup_name,
-        Tags=[
-            {
-                'Key': 'Name',
-                'Value': backup_name
-            },
-        ],
+    # Create a backup plan for the specified EFS file systems
+    response = backup_client.create_backup_plan(
         BackupPlan={
-            'BackupPlanName': backup_name,
-            'BackupPlanRules': [
+            'BackupPlanName': 'YourBackupPlanName',
+            'BackupPlanRule': {
+                'RuleName': 'DefaultRule',
+                'TargetBackupVaultName': backup_vault_name,
+                'ScheduleExpression': 'cron(0 0 * * ? *)',  # Example: Daily backup at midnight
+                'StartWindowMinutes': 60,
+                'CompletionWindowMinutes': 60,
+            },
+            'AdvancedBackupSettings': [
                 {
-                    'RuleName': 'DailyBackup',
-                    'ScheduleExpression': 'cron(0 0 * * ? *)',
-                    'TargetBackupVault': 'string',
-                    'StartWindowMinutes': 60,
-                    'CompletionWindowMinutes': 60,
-                    'Lifecycle': {
-                        'DeleteAfterDays': 30
+                    'BackupOptions': {
+                        'WindowsVSS': False,
+                        'BackupMode': 'FULL',
+                        'FileSystemLifecycle': 'SYSTEM'
                     },
-                    'CopyActions': [
-                        {
-                            'DestinationBackupVault': 'string'
-                        },
-                    ]
-                },
+                    'ResourceType': 'EFS'
+                }
             ]
         }
     )
 
-    print("Backup plan created successfully with BackupPlanId:", response['BackupPlanId'])
+    print("Backup plan created successfully.")
 
-# Replace 'fsx_id' with your FSx file system ID and 'backup_name' with the desired backup plan name
-create_fsx_backup_plan('fs-1234567890abcdef0', 'MyBackupPlan')
+def main():
+    # Specify the ARNs of the EFS file systems to protect
+    file_system_arns = ['your-file-system-arn1', 'your-file-system-arn2']
+
+    # Specify the name of the backup vault
+    backup_vault_name = 'your-backup-vault-name'
+
+    # Remediate EFS resources by creating a backup plan
+    remediate_efs_resources_backup_plan(file_system_arns, backup_vault_name)
+
+if __name__ == "__main__":
+    main()
 ```
 
-4. Replace `'fsx_id'` with the FSx file system ID for which you want to create a backup plan, and `'backup_name'` with the desired name for the backup plan.
-
-5. Run the Python script to create the backup plan for the specified FSx file system.
-
-By following these steps and executing the Python script, you will be able to create a backup plan for FSx in AWS EC2, thereby remediating the misconfiguration of not having a backup plan.
+Replace `'your-file-system-arn1', 'your-file-system-arn2'` with the ARNs of the EFS file systems you want to protect, and `'your-backup-vault-name'` with the name of the backup vault where backups will be stored. This script creates a backup plan for the specified EFS file systems, ensuring they are protected by backups according to the specified schedule and retention policy. Adjust the backup plan settings as needed.
 </Accordion>
 
 </AccordionGroup>
