@@ -2,6 +2,156 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the issue of root account access keys needing rotation in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Navigate to IAM Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the navigation bar, select "Services" and then choose "IAM" to open the IAM Dashboard.
+
+2. **Access the Root Account Security Settings:**
+   - In the IAM Dashboard, click on the "Dashboard" link in the left-hand navigation pane.
+   - Look for the "Security Status" section and click on "Manage Security Credentials" under the "Root Account" heading.
+
+3. **Review Access Keys:**
+   - In the "Security Credentials" page, scroll down to the "Access keys" section.
+   - Check the status and last used date of any existing access keys for the root account.
+
+4. **Delete or Disable Root Access Keys:**
+   - If access keys are present, consider deleting or disabling them to prevent their use. Click on the "Delete" button next to each access key to remove it.
+   - Alternatively, if you need to keep the access keys, ensure they are rotated regularly by setting up a reminder or using an automated tool to manage key rotation.
+
+By following these steps, you can help ensure that root account access keys are managed securely and rotated as needed to maintain the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of root account access keys not being rotated in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create IAM User for Administrative Tasks:**
+   - Instead of using the root account for daily administrative tasks, create an IAM user with administrative privileges.
+   - Command:
+     ```sh
+     aws iam create-user --user-name AdminUser
+     ```
+
+2. **Attach Administrative Policies to the IAM User:**
+   - Attach the necessary policies to the IAM user to grant administrative privileges.
+   - Command:
+     ```sh
+     aws iam attach-user-policy --user-name AdminUser --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+     ```
+
+3. **Enable Multi-Factor Authentication (MFA) for the Root Account:**
+   - Ensure that MFA is enabled for the root account to add an extra layer of security.
+   - Command (Note: This step requires manual intervention to complete the MFA setup):
+     ```sh
+     aws iam enable-mfa-device --user-name root --serial-number <MFA_DEVICE_SERIAL> --authentication-code1 <MFA_CODE1> --authentication-code2 <MFA_CODE2>
+     ```
+
+4. **Delete Existing Root Access Keys:**
+   - Remove any existing access keys for the root account to prevent their use.
+   - Command:
+     ```sh
+     aws iam list-access-keys --user-name root
+     aws iam delete-access-key --user-name root --access-key-id <ACCESS_KEY_ID>
+     ```
+
+By following these steps, you can prevent the use of root account access keys and ensure that administrative tasks are performed using IAM users with appropriate permissions.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not rotating root account access keys in IAM using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Check Root Access Key Age:**
+   - Write a Python script that uses Boto3 to check the age of the root access keys. If the keys are older than a specified threshold (e.g., 90 days), the script can alert you or take action to rotate them.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   session = boto3.Session(profile_name='your-profile-name')
+   iam_client = session.client('iam')
+
+   # Define the threshold for key age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # Get the root account access keys
+   response = iam_client.list_access_keys(UserName='root')
+
+   for access_key in response['AccessKeyMetadata']:
+       access_key_id = access_key['AccessKeyId']
+       create_date = access_key['CreateDate']
+
+       # Check if the access key is older than the threshold
+       if create_date < threshold_date:
+           print(f"Access key {access_key_id} is older than {threshold_days} days and should be rotated.")
+           # Here you can add logic to alert or rotate the key
+   ```
+
+3. **Automate the Script Execution:**
+   - Schedule the script to run periodically (e.g., daily) using a task scheduler like cron (Linux) or Task Scheduler (Windows) to ensure continuous monitoring.
+
+   Example cron job to run the script daily at midnight:
+   ```bash
+   0 0 * * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+4. **Implement Key Rotation Logic (Optional):**
+   - If you want to automate the rotation process, you can extend the script to deactivate the old key and create a new one. Ensure you securely store the new key and update any systems that use it.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   session = boto3.Session(profile_name='your-profile-name')
+   iam_client = session.client('iam')
+
+   # Define the threshold for key age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # Get the root account access keys
+   response = iam_client.list_access_keys(UserName='root')
+
+   for access_key in response['AccessKeyMetadata']:
+       access_key_id = access_key['AccessKeyId']
+       create_date = access_key['CreateDate']
+
+       # Check if the access key is older than the threshold
+       if create_date < threshold_date:
+           print(f"Access key {access_key_id} is older than {threshold_days} days and should be rotated.")
+           
+           # Deactivate the old key
+           iam_client.update_access_key(UserName='root', AccessKeyId=access_key_id, Status='Inactive')
+           
+           # Create a new access key
+           new_key_response = iam_client.create_access_key(UserName='root')
+           new_access_key_id = new_key_response['AccessKey']['AccessKeyId']
+           new_secret_access_key = new_key_response['AccessKey']['SecretAccessKey']
+           
+           print(f"New access key created: {new_access_key_id}")
+           # Securely store the new access key and secret access key
+           # Update any systems that use the old key with the new key
+   ```
+
+By following these steps, you can effectively monitor and manage the rotation of root account access keys using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

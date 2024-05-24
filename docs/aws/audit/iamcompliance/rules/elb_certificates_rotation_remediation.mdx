@@ -2,6 +2,163 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of ELB (Elastic Load Balancer) certificates not being rotated in IAM (Identity and Access Management) using the AWS Management Console, follow these steps:
+
+1. **Monitor Certificate Expiration:**
+   - Navigate to the **AWS Certificate Manager (ACM)** in the AWS Management Console.
+   - Regularly check the expiration dates of your certificates.
+   - Set up CloudWatch Alarms to notify you before certificates expire.
+
+2. **Automate Certificate Renewal:**
+   - Use ACM to automatically renew certificates that are issued by ACM.
+   - For certificates not issued by ACM, set up a process to manually renew and upload the new certificates before the old ones expire.
+
+3. **Implement a Certificate Rotation Policy:**
+   - Establish a policy that defines the frequency of certificate rotation (e.g., every 90 days).
+   - Document and enforce this policy within your organization.
+
+4. **Use AWS Config Rules:**
+   - Enable AWS Config and create a custom rule to check the age of your certificates.
+   - Set the rule to trigger an alert or take action if a certificate is nearing its expiration date or has not been rotated within the defined period.
+
+By following these steps, you can ensure that your ELB certificates are regularly rotated and remain up-to-date, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of ELB certificates not being rotated in IAM using AWS CLI, you can follow these steps:
+
+1. **List All Server Certificates:**
+   Regularly list all server certificates to keep track of their expiration dates and ensure they are rotated before they expire.
+
+   ```sh
+   aws iam list-server-certificates
+   ```
+
+2. **Check Certificate Expiration Dates:**
+   Use the `get-server-certificate` command to check the expiration dates of each certificate. This helps in identifying certificates that are nearing expiration.
+
+   ```sh
+   aws iam get-server-certificate --server-certificate-name <certificate-name>
+   ```
+
+3. **Automate Certificate Rotation:**
+   Implement a script or use AWS CLI commands to automate the rotation of certificates. This can be done by uploading a new certificate and updating the ELB to use the new certificate.
+
+   ```sh
+   aws iam upload-server-certificate --server-certificate-name <new-certificate-name> --certificate-body file://<path-to-certificate-body> --private-key file://<path-to-private-key> --certificate-chain file://<path-to-certificate-chain>
+   ```
+
+4. **Update ELB with New Certificate:**
+   After uploading the new certificate, update the ELB to use the new certificate.
+
+   ```sh
+   aws elb set-load-balancer-listener-ssl-certificate --load-balancer-name <load-balancer-name> --load-balancer-port <port> --ssl-certificate-id <new-certificate-arn>
+   ```
+
+By following these steps, you can ensure that your ELB certificates are rotated regularly, preventing any misconfigurations related to expired certificates.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of ELB (Elastic Load Balancer) certificates not being rotated in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Script to List Certificates and Check Expiry Dates**
+You need a script that lists all the certificates and checks their expiry dates. This will help you identify certificates that need to be rotated.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your-profile-name')
+iam_client = session.client('iam')
+
+# Define the threshold for certificate rotation (e.g., 30 days before expiry)
+rotation_threshold = timedelta(days=30)
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# List all server certificates
+certificates = iam_client.list_server_certificates()
+
+for cert in certificates['ServerCertificateMetadataList']:
+    cert_name = cert['ServerCertificateName']
+    cert_arn = cert['Arn']
+    cert_expiry = cert['Expiration']
+
+    # Check if the certificate is nearing expiry
+    if cert_expiry - current_date <= rotation_threshold:
+        print(f"Certificate {cert_name} (ARN: {cert_arn}) is nearing expiry and should be rotated.")
+```
+
+### 3. **Automate Certificate Rotation**
+You can automate the rotation process by creating a new certificate and updating the ELB to use the new certificate. This example assumes you have the new certificate ready.
+
+```python
+import boto3
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your-profile-name')
+iam_client = session.client('iam')
+elb_client = session.client('elbv2')
+
+# Function to upload a new certificate
+def upload_new_certificate(cert_name, cert_body, private_key, cert_chain):
+    response = iam_client.upload_server_certificate(
+        ServerCertificateName=cert_name,
+        CertificateBody=cert_body,
+        PrivateKey=private_key,
+        CertificateChain=cert_chain
+    )
+    return response['ServerCertificateMetadata']['Arn']
+
+# Function to update ELB with the new certificate
+def update_elb_certificate(elb_arn, listener_arn, new_cert_arn):
+    response = elb_client.modify_listener(
+        ListenerArn=listener_arn,
+        Certificates=[
+            {
+                'CertificateArn': new_cert_arn
+            },
+        ]
+    )
+    return response
+
+# Example usage
+new_cert_arn = upload_new_certificate('new-cert-name', 'cert-body', 'private-key', 'cert-chain')
+update_elb_certificate('elb-arn', 'listener-arn', new_cert_arn)
+```
+
+### 4. **Schedule the Script to Run Periodically**
+To ensure continuous compliance, schedule the script to run periodically using a task scheduler like cron (Linux) or Task Scheduler (Windows).
+
+#### Example: Using cron (Linux)
+1. Open the crontab editor:
+    ```bash
+    crontab -e
+    ```
+2. Add a cron job to run the script daily:
+    ```bash
+    0 0 * * * /usr/bin/python3 /path/to/your/script.py
+    ```
+
+By following these steps, you can automate the process of checking and rotating ELB certificates in AWS IAM using Python scripts, ensuring that your certificates are always up-to-date and reducing the risk of misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

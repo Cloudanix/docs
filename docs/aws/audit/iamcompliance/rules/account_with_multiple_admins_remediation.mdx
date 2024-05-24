@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent having too many administrators in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Review IAM Users and Groups:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Click on "Users" to review the list of IAM users.
+   - Click on "Groups" to review the list of IAM groups.
+
+2. **Identify Admin Privileges:**
+   - For each user and group, check the attached policies.
+   - Look for policies that grant administrative privileges, such as `AdministratorAccess`.
+
+3. **Limit Admin Access:**
+   - Reduce the number of users and groups with the `AdministratorAccess` policy.
+   - Assign more restrictive policies that grant only the necessary permissions for specific tasks.
+
+4. **Implement Least Privilege Principle:**
+   - Create custom policies that provide only the permissions required for users to perform their job functions.
+   - Regularly review and update these policies to ensure they align with current needs and security best practices.
+
+By following these steps, you can effectively manage and limit the number of administrators in your AWS account, thereby enhancing security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent having too many administrators in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **List Current IAM Users and Their Policies:**
+   First, identify all IAM users and their attached policies to understand who has administrative privileges.
+   ```sh
+   aws iam list-users
+   aws iam list-attached-user-policies --user-name <user-name>
+   ```
+
+2. **Identify Users with Admin Access:**
+   Check which users have policies that grant administrative access. Look for policies like `AdministratorAccess`.
+   ```sh
+   aws iam get-policy --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+3. **Create a Least Privilege Policy:**
+   Create a custom policy that grants only the necessary permissions instead of full administrative access.
+   ```sh
+   aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+   ```
+
+4. **Attach the Least Privilege Policy and Detach Admin Policy:**
+   Attach the newly created least privilege policy to the necessary users and detach the `AdministratorAccess` policy.
+   ```sh
+   aws iam attach-user-policy --user-name <user-name> --policy-arn arn:aws:iam::<account-id>:policy/LeastPrivilegePolicy
+   aws iam detach-user-policy --user-name <user-name> --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+By following these steps, you can ensure that only necessary permissions are granted to IAM users, thereby reducing the number of administrators in your AWS account.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent having too many administrators in AWS IAM using Python scripts, you can follow these steps:
+
+1. **List All IAM Users and Their Policies**:
+   Use the `boto3` library to list all IAM users and their attached policies. This will help you identify users with administrative privileges.
+
+   ```python
+   import boto3
+
+   iam_client = boto3.client('iam')
+
+   def list_users():
+       users = iam_client.list_users()
+       return users['Users']
+
+   def list_user_policies(user_name):
+       policies = iam_client.list_attached_user_policies(UserName=user_name)
+       return policies['AttachedPolicies']
+
+   users = list_users()
+   for user in users:
+       user_name = user['UserName']
+       policies = list_user_policies(user_name)
+       print(f"User: {user_name}, Policies: {policies}")
+   ```
+
+2. **Identify Admin Policies**:
+   Check if the policies attached to users grant administrative privileges. Typically, the `AdministratorAccess` policy is used for admin privileges.
+
+   ```python
+   def is_admin_policy(policy_arn):
+       admin_policies = [
+           'arn:aws:iam::aws:policy/AdministratorAccess'
+       ]
+       return policy_arn in admin_policies
+
+   admin_users = []
+   for user in users:
+       user_name = user['UserName']
+       policies = list_user_policies(user_name)
+       for policy in policies:
+           if is_admin_policy(policy['PolicyArn']):
+               admin_users.append(user_name)
+               break
+
+   print(f"Admin Users: {admin_users}")
+   ```
+
+3. **Set a Limit on the Number of Admins**:
+   Define a threshold for the maximum number of admin users allowed. If the number of admin users exceeds this threshold, log a warning or take appropriate action.
+
+   ```python
+   MAX_ADMINS = 3
+
+   if len(admin_users) > MAX_ADMINS:
+       print(f"Warning: Too many admin users! Current count: {len(admin_users)}")
+   else:
+       print(f"Admin user count is within the limit: {len(admin_users)}")
+   ```
+
+4. **Automate the Monitoring Process**:
+   Schedule this script to run periodically using AWS Lambda and CloudWatch Events to ensure continuous monitoring and compliance.
+
+   ```python
+   import json
+   import logging
+
+   logger = logging.getLogger()
+   logger.setLevel(logging.INFO)
+
+   def lambda_handler(event, context):
+       users = list_users()
+       admin_users = []
+       for user in users:
+           user_name = user['UserName']
+           policies = list_user_policies(user_name)
+           for policy in policies:
+               if is_admin_policy(policy['PolicyArn']):
+                   admin_users.append(user_name)
+                   break
+
+       if len(admin_users) > MAX_ADMINS:
+           logger.warning(f"Too many admin users! Current count: {len(admin_users)}")
+       else:
+           logger.info(f"Admin user count is within the limit: {len(admin_users)}")
+
+       return {
+           'statusCode': 200,
+           'body': json.dumps('Script executed successfully')
+       }
+   ```
+
+By following these steps, you can effectively monitor and prevent having too many administrators in your AWS IAM setup using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,207 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent user accounts without any usage in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Monitor User Activity:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Go to the "Access Advisor" tab for each user to review their last accessed services and activities.
+   - Regularly check the "Last Activity" column to identify users who have not accessed any services for a specified period.
+
+2. **Set Up CloudWatch Alarms:**
+   - Create CloudWatch Alarms to monitor IAM user activity.
+   - Set up alarms to trigger notifications when there is no activity for a specified period.
+   - Use these alarms to identify inactive users promptly.
+
+3. **Enable Logging with CloudTrail:**
+   - Ensure AWS CloudTrail is enabled to log all IAM user activities.
+   - Regularly review CloudTrail logs to identify users with no activity.
+   - Use CloudTrail insights to detect unusual inactivity patterns.
+
+4. **Implement IAM Policies:**
+   - Create and attach IAM policies that enforce regular reviews of user activity.
+   - Use policies to mandate the removal or deactivation of users who have not logged in or performed any actions within a specified timeframe.
+   - Ensure compliance with these policies through regular audits and reviews.
+
+By following these steps, you can effectively monitor and manage IAM user accounts to ensure that inactive accounts are identified and addressed promptly.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent user accounts without any usage in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **List All IAM Users:**
+   Use the following command to list all IAM users in your AWS account. This will help you identify which users exist and need to be monitored for activity.
+
+   ```sh
+   aws iam list-users
+   ```
+
+2. **Monitor User Activity:**
+   Regularly check the last activity of each IAM user. You can use the following command to get the last used information for each user. This will help you identify users who have not used their credentials recently.
+
+   ```sh
+   aws iam get-user --user-name <username>
+   ```
+
+3. **Automate Inactive User Detection:**
+   Create a script to automate the detection of inactive users. You can use AWS CLI commands within a Python script to check the last activity of each user and flag those who have not been active for a specified period.
+
+   Example Python script snippet:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   iam = boto3.client('iam')
+   users = iam.list_users()['Users']
+
+   for user in users:
+       username = user['UserName']
+       last_used = iam.get_user(UserName=username)['User'].get('PasswordLastUsed', None)
+       if last_used:
+           last_used_date = last_used.replace(tzinfo=None)
+           if datetime.now() - last_used_date > timedelta(days=90):  # Example: 90 days of inactivity
+               print(f"User {username} has been inactive for more than 90 days.")
+   ```
+
+4. **Implement a Policy for Regular Review:**
+   Establish a policy to regularly review IAM users and their activity. This can be done by scheduling the above script to run periodically (e.g., using AWS Lambda and CloudWatch Events) to ensure continuous monitoring and prompt action on inactive users.
+
+   Example of scheduling a Lambda function using AWS CLI:
+   ```sh
+   aws events put-rule --schedule-expression "rate(7 days)" --name "InactiveUserCheck"
+   aws lambda add-permission --function-name <lambda-function-name> --statement-id <unique-id> --action 'lambda:InvokeFunction' --principal events.amazonaws.com --source-arn <rule-arn>
+   aws events put-targets --rule "InactiveUserCheck" --targets "Id"="<target-id>","Arn"="<lambda-function-arn>"
+   ```
+
+By following these steps, you can effectively prevent user accounts without any usage from remaining in your AWS IAM, ensuring better security and management of your cloud resources.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent user accounts without any usage in IAM from existing in AWS, Azure, and GCP using Python scripts, you can follow these steps:
+
+### AWS (Amazon Web Services)
+
+1. **List All IAM Users:**
+   Use the `boto3` library to list all IAM users.
+
+   ```python
+   import boto3
+
+   iam_client = boto3.client('iam')
+
+   def list_iam_users():
+       response = iam_client.list_users()
+       return response['Users']
+
+   users = list_iam_users()
+   ```
+
+2. **Check User Activity:**
+   Check the last activity of each user by examining their access keys and login profile.
+
+   ```python
+   from datetime import datetime, timedelta
+
+   def get_user_last_activity(user_name):
+       access_keys = iam_client.list_access_keys(UserName=user_name)['AccessKeyMetadata']
+       last_used = None
+       for key in access_keys:
+           key_last_used = iam_client.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])['AccessKeyLastUsed']
+           if 'LastUsedDate' in key_last_used:
+               if not last_used or key_last_used['LastUsedDate'] > last_used:
+                   last_used = key_last_used['LastUsedDate']
+       return last_used
+
+   for user in users:
+       last_activity = get_user_last_activity(user['UserName'])
+       if last_activity and last_activity < datetime.now() - timedelta(days=90):
+           print(f"User {user['UserName']} has not been active for 90 days.")
+   ```
+
+### Azure (Microsoft Azure)
+
+1. **List All Users:**
+   Use the `azure-identity` and `azure-graphrbac` libraries to list all users.
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.graphrbac import GraphRbacManagementClient
+
+   credential = DefaultAzureCredential()
+   client = GraphRbacManagementClient(credential, 'YOUR_TENANT_ID')
+
+   def list_users():
+       users = client.users.list()
+       return list(users)
+
+   users = list_users()
+   ```
+
+2. **Check User Activity:**
+   Check the last sign-in activity of each user.
+
+   ```python
+   from datetime import datetime, timedelta
+
+   def get_user_last_sign_in(user):
+       # Assuming you have a way to get the last sign-in date
+       # This might require additional API calls or logs
+       last_sign_in = user.sign_in_activity.last_sign_in_date_time
+       return last_sign_in
+
+   for user in users:
+       last_sign_in = get_user_last_sign_in(user)
+       if last_sign_in and last_sign_in < datetime.now() - timedelta(days=90):
+           print(f"User {user.user_principal_name} has not signed in for 90 days.")
+   ```
+
+### GCP (Google Cloud Platform)
+
+1. **List All Users:**
+   Use the `google-auth` and `google-api-python-client` libraries to list all users.
+
+   ```python
+   from google.oauth2 import service_account
+   from googleapiclient.discovery import build
+
+   credentials = service_account.Credentials.from_service_account_file('path/to/your/service-account-file.json')
+   service = build('admin', 'directory_v1', credentials=credentials)
+
+   def list_users():
+       results = service.users().list(customer='my_customer', maxResults=200, orderBy='email').execute()
+       return results.get('users', [])
+
+   users = list_users()
+   ```
+
+2. **Check User Activity:**
+   Check the last login time of each user.
+
+   ```python
+   from datetime import datetime, timedelta
+
+   def get_user_last_login(user):
+       last_login = user.get('lastLoginTime')
+       if last_login:
+           return datetime.strptime(last_login, '%Y-%m-%dT%H:%M:%S.%fZ')
+       return None
+
+   for user in users:
+       last_login = get_user_last_login(user)
+       if last_login and last_login < datetime.now() - timedelta(days=90):
+           print(f"User {user['primaryEmail']} has not logged in for 90 days.")
+   ```
+
+These scripts will help you identify users who have not been active for a specified period (e.g., 90 days). You can then take appropriate actions, such as notifying administrators or automatically deactivating these accounts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

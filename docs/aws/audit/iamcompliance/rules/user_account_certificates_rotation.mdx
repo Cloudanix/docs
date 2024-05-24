@@ -24,6 +24,173 @@ NIST
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of user account certificates not being rotated in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Enable IAM Access Analyzer:**
+   - Navigate to the IAM dashboard in the AWS Management Console.
+   - In the left-hand navigation pane, select "Access Analyzer."
+   - Click on "Create analyzer" and follow the prompts to enable IAM Access Analyzer. This tool helps you identify and mitigate security risks, including certificate rotation.
+
+2. **Set Up Certificate Expiration Alerts:**
+   - Go to the AWS Certificate Manager (ACM) in the AWS Management Console.
+   - Select the certificate you want to monitor.
+   - Configure CloudWatch Alarms to notify you before the certificate expires. This can be done by setting up a CloudWatch Event Rule that triggers an SNS notification.
+
+3. **Implement IAM Policies for Certificate Rotation:**
+   - Navigate to the IAM dashboard.
+   - In the left-hand navigation pane, select "Policies."
+   - Create a new policy that enforces certificate rotation by specifying conditions related to certificate age.
+   - Attach this policy to the relevant IAM users or roles.
+
+4. **Regularly Review and Rotate Certificates:**
+   - Periodically review the list of active certificates in the AWS Certificate Manager (ACM).
+   - Manually rotate certificates that are nearing expiration or have been in use for an extended period.
+   - Document and follow a regular schedule for certificate rotation to ensure compliance.
+
+By following these steps, you can proactively manage and rotate user account certificates, thereby preventing potential security risks associated with expired or outdated certificates.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of user account certificates not being rotated in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a Policy to Enforce Certificate Rotation:**
+   Create an IAM policy that enforces the rotation of user account certificates. This policy can be attached to IAM users or roles to ensure compliance.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceCertificateRotation --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "iam:UploadSigningCertificate",
+               "Resource": "*",
+               "Condition": {
+                   "DateGreaterThan": {
+                       "aws:CurrentTime": "2023-12-31T23:59:59Z"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Attach the Policy to IAM Users or Groups:**
+   Attach the created policy to the IAM users or groups that need to comply with the certificate rotation policy.
+
+   ```sh
+   aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/EnforceCertificateRotation
+   ```
+
+3. **Set Up a CloudWatch Rule to Monitor Certificate Age:**
+   Create a CloudWatch rule to monitor the age of IAM user certificates and trigger an alert or Lambda function if a certificate is older than a specified threshold.
+
+   ```sh
+   aws events put-rule --name "MonitorCertificateAge" --schedule-expression "rate(1 day)"
+   ```
+
+4. **Create a Lambda Function to Check and Notify:**
+   Create a Lambda function that checks the age of IAM user certificates and sends notifications if they are older than the allowed threshold. Ensure the Lambda function has the necessary permissions to access IAM and send notifications.
+
+   ```sh
+   aws lambda create-function --function-name CheckCertificateAge --runtime python3.8 --role arn:aws:iam::<account-id>:role/<lambda-execution-role> --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+By following these steps, you can enforce and monitor the rotation of user account certificates in AWS IAM using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not rotating user account certificates in IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List IAM Users and Their Certificates**
+You need to create a script that lists all IAM users and their associated certificates. This will help you identify which certificates need to be rotated.
+
+```python
+import boto3
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam_client = session.client('iam')
+
+# List all IAM users
+users = iam_client.list_users()
+
+for user in users['Users']:
+    user_name = user['UserName']
+    # List signing certificates for each user
+    certs = iam_client.list_signing_certificates(UserName=user_name)
+    for cert in certs['Certificates']:
+        print(f"User: {user_name}, Certificate ID: {cert['CertificateId']}, Status: {cert['Status']}, Upload Date: {cert['UploadDate']}")
+```
+
+### 3. **Automate Certificate Rotation**
+Create a script to automate the rotation of certificates. This script will deactivate old certificates and create new ones.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam_client = session.client('iam')
+
+# Define the rotation period (e.g., 90 days)
+rotation_period = timedelta(days=90)
+
+# List all IAM users
+users = iam_client.list_users()
+
+for user in users['Users']:
+    user_name = user['UserName']
+    # List signing certificates for each user
+    certs = iam_client.list_signing_certificates(UserName=user_name)
+    for cert in certs['Certificates']:
+        upload_date = cert['UploadDate'].replace(tzinfo=None)
+        if datetime.now() - upload_date > rotation_period:
+            # Deactivate the old certificate
+            iam_client.update_signing_certificate(
+                UserName=user_name,
+                CertificateId=cert['CertificateId'],
+                Status='Inactive'
+            )
+            # Create a new certificate
+            new_cert = iam_client.upload_signing_certificate(
+                UserName=user_name,
+                CertificateBody='new_certificate_body_here'
+            )
+            print(f"Rotated certificate for user: {user_name}, New Certificate ID: {new_cert['Certificate']['CertificateId']}")
+```
+
+### 4. **Schedule the Script to Run Periodically**
+Use a task scheduler like cron (Linux/macOS) or Task Scheduler (Windows) to run the script periodically, ensuring certificates are rotated regularly.
+
+#### Example for cron (Linux/macOS):
+1. Open the crontab editor:
+   ```bash
+   crontab -e
+   ```
+2. Add a cron job to run the script every 90 days:
+   ```bash
+   0 0 */90 * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+By following these steps, you can automate the process of rotating user account certificates in IAM using Python scripts, ensuring compliance and security.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

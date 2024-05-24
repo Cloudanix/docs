@@ -24,6 +24,177 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent having fewer than the minimum number of administrators in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Access IAM Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the IAM (Identity and Access Management) service by searching for "IAM" in the search bar and selecting it.
+
+2. **Review IAM Users:**
+   - In the IAM Dashboard, click on "Users" in the left-hand navigation pane.
+   - Review the list of users to identify those with administrative privileges. Look for users with the `AdministratorAccess` policy attached.
+
+3. **Check Group Memberships:**
+   - Click on "Groups" in the left-hand navigation pane.
+   - Review the groups to see if any have the `AdministratorAccess` policy attached.
+   - Ensure that there are enough users in these groups to meet your minimum requirement for administrators.
+
+4. **Add Additional Admins if Necessary:**
+   - If you find that you do not have the minimum number of administrators, you can add more users with administrative privileges.
+   - Click on "Add user" in the IAM Dashboard.
+   - Follow the prompts to create a new user and attach the `AdministratorAccess` policy to their account.
+
+By following these steps, you can ensure that your AWS account maintains the minimum number of administrators required for proper management and security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent having fewer than the minimum required number of IAM administrators in an AWS account using the AWS CLI, you can follow these steps:
+
+1. **List Current IAM Users with Admin Access:**
+   Use the following command to list all IAM users and their attached policies. This helps identify users with administrative privileges.
+   ```sh
+   aws iam list-users
+   ```
+
+2. **Check Attached Policies for Admin Access:**
+   For each user, check their attached policies to see if they have administrative access. The following command lists the policies attached to a specific user:
+   ```sh
+   aws iam list-attached-user-policies --user-name <user-name>
+   ```
+   Look for policies like `AdministratorAccess`.
+
+3. **Create New IAM Admin User (if needed):**
+   If you find that the number of admin users is below the required minimum, create a new IAM user and attach the `AdministratorAccess` policy. First, create the user:
+   ```sh
+   aws iam create-user --user-name <new-admin-user>
+   ```
+   Then attach the `AdministratorAccess` policy:
+   ```sh
+   aws iam attach-user-policy --user-name <new-admin-user> --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+4. **Automate Monitoring with a Script:**
+   To ensure continuous compliance, you can write a script that periodically checks the number of admin users and alerts you if it falls below the minimum threshold. Here is a simple example in Python:
+   ```python
+   import boto3
+
+   def check_admin_users(min_admins=2):
+       iam = boto3.client('iam')
+       users = iam.list_users()['Users']
+       admin_count = 0
+
+       for user in users:
+           policies = iam.list_attached_user_policies(UserName=user['UserName'])['AttachedPolicies']
+           for policy in policies:
+               if policy['PolicyArn'] == 'arn:aws:iam::aws:policy/AdministratorAccess':
+                   admin_count += 1
+                   break
+
+       if admin_count < min_admins:
+           print(f"Warning: Only {admin_count} admin users found. Minimum required is {min_admins}.")
+
+   check_admin_users()
+   ```
+
+By following these steps, you can ensure that your AWS account maintains the required minimum number of IAM administrators.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent having fewer than the minimum required number of administrators in AWS IAM using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Define the Minimum Number of Admins:**
+   - Set a variable to define the minimum number of administrators required in your AWS account.
+
+3. **List IAM Users and Check for Admins:**
+   - Use Boto3 to list all IAM users and check their attached policies to determine if they have administrative privileges.
+
+4. **Automate the Monitoring and Notification:**
+   - Create a script that runs periodically to check the number of admins and sends a notification if the number falls below the minimum threshold.
+
+Here is a sample Python script to achieve this:
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+# Define the minimum number of admins required
+MIN_ADMINS = 2
+
+def get_iam_users():
+    try:
+        iam_client = boto3.client('iam')
+        paginator = iam_client.get_paginator('list_users')
+        users = []
+        for response in paginator.paginate():
+            users.extend(response['Users'])
+        return users
+    except (NoCredentialsError, PartialCredentialsError) as e:
+        print(f"Error: {e}")
+        return []
+
+def is_admin(user_name):
+    try:
+        iam_client = boto3.client('iam')
+        attached_policies = iam_client.list_attached_user_policies(UserName=user_name)['AttachedPolicies']
+        for policy in attached_policies:
+            if policy['PolicyName'] == 'AdministratorAccess':
+                return True
+        return False
+    except Exception as e:
+        print(f"Error checking admin status for {user_name}: {e}")
+        return False
+
+def check_admins():
+    users = get_iam_users()
+    admin_count = 0
+    for user in users:
+        if is_admin(user['UserName']):
+            admin_count += 1
+    return admin_count
+
+def main():
+    admin_count = check_admins()
+    if admin_count < MIN_ADMINS:
+        print(f"Warning: The number of admins ({admin_count}) is below the minimum required ({MIN_ADMINS}).")
+        # Here you can add code to send a notification (e.g., email, SNS, etc.)
+
+if __name__ == "__main__":
+    main()
+```
+
+### Explanation:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - The script starts by importing the necessary libraries and setting up the Boto3 client to interact with AWS IAM.
+
+2. **Define the Minimum Number of Admins:**
+   - The `MIN_ADMINS` variable is set to the minimum number of administrators required.
+
+3. **List IAM Users and Check for Admins:**
+   - The `get_iam_users` function retrieves all IAM users.
+   - The `is_admin` function checks if a user has the `AdministratorAccess` policy attached.
+   - The `check_admins` function counts the number of users with administrative privileges.
+
+4. **Automate the Monitoring and Notification:**
+   - The `main` function checks the number of admins and prints a warning if the count is below the minimum required. You can extend this function to send notifications via email, SNS, or other methods.
+
+By running this script periodically (e.g., as a scheduled Lambda function or a cron job), you can ensure that your AWS account always has the required minimum number of administrators.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

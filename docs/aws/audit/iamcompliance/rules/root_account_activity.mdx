@@ -24,6 +24,189 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent root account activity from going unmonitored in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Enable CloudTrail for All Regions:**
+   - Go to the AWS Management Console.
+   - Navigate to the CloudTrail service.
+   - Create a new trail or edit an existing one.
+   - Ensure that the trail is enabled for all regions to capture all root account activities across your AWS environment.
+
+2. **Set Up CloudWatch Alarms for Root Account Usage:**
+   - Go to the CloudWatch service in the AWS Management Console.
+   - Create a new alarm.
+   - Set the metric to monitor root account usage (e.g., `AWS/CloudTrail` metric for `RootAccountUsage`).
+   - Configure the alarm to send notifications (e.g., via SNS) when root account activity is detected.
+
+3. **Enable AWS Config Rules:**
+   - Navigate to the AWS Config service in the AWS Management Console.
+   - Ensure that AWS Config is enabled and recording.
+   - Add a managed rule such as `root-account-mfa-enabled` to ensure that root account activity is monitored and that MFA is enabled for the root account.
+
+4. **Set Up SNS Notifications for Root Account Activity:**
+   - Go to the SNS (Simple Notification Service) in the AWS Management Console.
+   - Create a new SNS topic.
+   - Subscribe your email or SMS to the topic.
+   - Configure CloudTrail or CloudWatch to send notifications to this SNS topic whenever root account activity is detected.
+
+By following these steps, you can ensure that any activity involving the root account is closely monitored, helping to maintain the security and integrity of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not monitoring root account activity in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Enable CloudTrail for Logging:**
+   Ensure that AWS CloudTrail is enabled to log all activities, including those performed by the root account.
+   ```sh
+   aws cloudtrail create-trail --name my-trail --s3-bucket-name my-trail-bucket
+   aws cloudtrail start-logging --name my-trail
+   ```
+
+2. **Set Up CloudWatch Alarms for Root Account Usage:**
+   Create a CloudWatch alarm to monitor root account activity. First, create a metric filter to capture root account usage from CloudTrail logs.
+   ```sh
+   aws logs create-log-group --log-group-name CloudTrail/DefaultLogGroup
+   aws logs create-log-stream --log-group-name CloudTrail/DefaultLogGroup --log-stream-name RootAccountUsage
+   aws logs put-metric-filter --log-group-name CloudTrail/DefaultLogGroup --filter-name RootAccountUsageFilter --filter-pattern '{ $.userIdentity.type = "Root" }' --metric-transformations metricName=RootAccountUsage,metricNamespace=CloudTrailMetrics,metricValue=1
+   ```
+
+3. **Create CloudWatch Alarm:**
+   Create an alarm based on the metric filter to notify you when root account activity is detected.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name RootAccountUsageAlarm --metric-name RootAccountUsage --namespace CloudTrailMetrics --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:MySNSTopic
+   ```
+
+4. **Subscribe to SNS Topic for Notifications:**
+   Ensure you have an SNS topic to receive notifications and subscribe to it.
+   ```sh
+   aws sns create-topic --name MySNSTopic
+   aws sns subscribe --topic-arn arn:aws:sns:us-east-1:123456789012:MySNSTopic --protocol email --notification-endpoint myemail@example.com
+   ```
+
+By following these steps, you can effectively monitor root account activity in AWS IAM using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent root account activity from going unmonitored in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. Enable CloudTrail for Root Account Activity
+CloudTrail is a service that enables governance, compliance, and operational and risk auditing of your AWS account. By enabling CloudTrail, you can log, continuously monitor, and retain account activity related to actions across your AWS infrastructure.
+
+```python
+import boto3
+
+def enable_cloudtrail():
+    client = boto3.client('cloudtrail')
+    response = client.create_trail(
+        Name='RootAccountActivityTrail',
+        S3BucketName='your-s3-bucket-name',
+        IncludeGlobalServiceEvents=True,
+        IsMultiRegionTrail=True,
+        EnableLogFileValidation=True,
+        IsOrganizationTrail=False
+    )
+    client.start_logging(Name='RootAccountActivityTrail')
+    print("CloudTrail enabled and logging started for root account activity.")
+
+enable_cloudtrail()
+```
+
+### 2. Set Up CloudWatch Alarms for Root Account Activity
+CloudWatch can be used to set up alarms that notify you when specific actions are taken by the root account.
+
+```python
+import boto3
+
+def create_cloudwatch_alarm():
+    client = boto3.client('cloudwatch')
+    response = client.put_metric_alarm(
+        AlarmName='RootAccountActivityAlarm',
+        MetricName='RootAccountUsage',
+        Namespace='AWS/CloudTrail',
+        Statistic='Sum',
+        Period=300,
+        EvaluationPeriods=1,
+        Threshold=1,
+        ComparisonOperator='GreaterThanOrEqualToThreshold',
+        AlarmActions=[
+            'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+        ],
+        Dimensions=[
+            {
+                'Name': 'EventName',
+                'Value': 'ConsoleLogin'
+            },
+            {
+                'Name': 'UserIdentity.arn',
+                'Value': 'arn:aws:iam::your-account-id:root'
+            }
+        ]
+    )
+    print("CloudWatch alarm created for root account activity.")
+
+create_cloudwatch_alarm()
+```
+
+### 3. Enable Multi-Factor Authentication (MFA) for Root Account
+Enabling MFA adds an extra layer of security to your root account. This script ensures that MFA is enabled for the root account.
+
+```python
+import boto3
+
+def enable_mfa_for_root():
+    client = boto3.client('iam')
+    response = client.create_virtual_mfa_device(
+        VirtualMFADeviceName='root-account-mfa',
+        Path='/',
+    )
+    print("MFA device created for root account. Please manually associate it with the root account.")
+
+enable_mfa_for_root()
+```
+
+### 4. Restrict Root Account Usage
+Create an IAM policy that restricts the usage of the root account and apply it to all users.
+
+```python
+import boto3
+
+def create_restrict_root_policy():
+    client = boto3.client('iam')
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Action": "*",
+                "Resource": "*",
+                "Condition": {
+                    "StringEquals": {
+                        "aws:username": "root"
+                    }
+                }
+            }
+        ]
+    }
+    response = client.create_policy(
+        PolicyName='RestrictRootAccountUsage',
+        PolicyDocument=json.dumps(policy_document)
+    )
+    print("Policy created to restrict root account usage.")
+
+create_restrict_root_policy()
+```
+
+These steps will help you monitor and restrict root account activity, ensuring that any actions taken by the root account are logged, monitored, and controlled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
