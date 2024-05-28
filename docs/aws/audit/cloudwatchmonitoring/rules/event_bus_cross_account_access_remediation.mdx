@@ -2,6 +2,201 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EventBus from allowing cross-account access in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudWatch:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudWatch" and select it from the list of services.
+
+2. **Access Event Buses:**
+   - In the CloudWatch dashboard, on the left-hand side, click on "Events" or "EventBridge" (depending on the AWS region and interface updates).
+   - Select "Event buses" from the submenu.
+
+3. **Review Permissions:**
+   - Click on the name of the EventBus you want to review.
+   - Go to the "Permissions" tab to see the current permissions set for the EventBus.
+
+4. **Modify Policy:**
+   - If there are any policies that allow cross-account access, click on the "Edit" button.
+   - Remove or modify any statements that grant permissions to other AWS accounts.
+   - Ensure that only trusted accounts or specific IAM roles within your account have access.
+
+By following these steps, you can ensure that your EventBus does not allow cross-account access, thereby enhancing the security of your CloudWatch events.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an EventBus from allowing cross-account access in AWS CloudWatch using the AWS CLI, you can follow these steps:
+
+1. **Describe the Current EventBus Policy:**
+   First, you need to check the current policy attached to your EventBus to understand its current permissions.
+   ```sh
+   aws events describe-event-bus --name <EventBusName>
+   ```
+
+2. **Create a Secure Policy:**
+   Create a JSON file (e.g., `secure-policy.json`) with a policy that restricts cross-account access. Ensure that the policy only allows access from trusted accounts or specific IAM roles within your account.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::<YourAccountID>:root"
+         },
+         "Action": "events:PutEvents",
+         "Resource": "arn:aws:events:<Region>:<YourAccountID>:event-bus/<EventBusName>"
+       }
+     ]
+   }
+   ```
+
+3. **Apply the Secure Policy to the EventBus:**
+   Use the `put-permission` command to apply the new policy to your EventBus.
+   ```sh
+   aws events put-permission --event-bus-name <EventBusName> --policy file://secure-policy.json
+   ```
+
+4. **Verify the Policy Update:**
+   Finally, verify that the new policy has been applied correctly by describing the EventBus again.
+   ```sh
+   aws events describe-event-bus --name <EventBusName>
+   ```
+
+By following these steps, you can ensure that your EventBus does not allow cross-account access, thereby enhancing the security of your AWS CloudWatch setup.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of allowing cross-account access to an EventBus in AWS CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to manage CloudWatch EventBuses.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Describe EventBuses:**
+   Use Boto3 to list and describe the EventBuses in your account. This will help you identify any EventBuses that might have cross-account permissions.
+
+   ```python
+   import boto3
+
+   client = boto3.client('events')
+
+   def list_event_buses():
+       response = client.list_event_buses()
+       return response['EventBuses']
+
+   event_buses = list_event_buses()
+   for bus in event_buses:
+       print(bus['Name'])
+   ```
+
+3. **Check and Update EventBus Policy:**
+   Write a function to check the policy of each EventBus and ensure it does not allow cross-account access. If it does, update the policy to restrict access.
+
+   ```python
+   def get_event_bus_policy(event_bus_name):
+       try:
+           response = client.describe_event_bus(Name=event_bus_name)
+           return response.get('Policy', None)
+       except client.exceptions.ResourceNotFoundException:
+           return None
+
+   def update_event_bus_policy(event_bus_name):
+       policy = {
+           "Version": "2012-10-17",
+           "Statement": [
+               {
+                   "Effect": "Allow",
+                   "Principal": {
+                       "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"
+                   },
+                   "Action": "events:PutEvents",
+                   "Resource": f"arn:aws:events:YOUR_REGION:YOUR_ACCOUNT_ID:event-bus/{event_bus_name}"
+               }
+           ]
+       }
+       client.put_permission(
+           EventBusName=event_bus_name,
+           Action='events:PutEvents',
+           Principal='arn:aws:iam::YOUR_ACCOUNT_ID:root',
+           StatementId='ID-1'
+       )
+
+   for bus in event_buses:
+       policy = get_event_bus_policy(bus['Name'])
+       if policy:
+           # Check if the policy allows cross-account access
+           # If it does, update the policy
+           update_event_bus_policy(bus['Name'])
+   ```
+
+4. **Automate the Script Execution:**
+   Schedule the script to run periodically using a cron job or AWS Lambda to ensure continuous compliance.
+
+   ```python
+   import boto3
+   import json
+
+   client = boto3.client('events')
+
+   def list_event_buses():
+       response = client.list_event_buses()
+       return response['EventBuses']
+
+   def get_event_bus_policy(event_bus_name):
+       try:
+           response = client.describe_event_bus(Name=event_bus_name)
+           return response.get('Policy', None)
+       except client.exceptions.ResourceNotFoundException:
+           return None
+
+   def update_event_bus_policy(event_bus_name):
+       policy = {
+           "Version": "2012-10-17",
+           "Statement": [
+               {
+                   "Effect": "Allow",
+                   "Principal": {
+                       "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"
+                   },
+                   "Action": "events:PutEvents",
+                   "Resource": f"arn:aws:events:YOUR_REGION:YOUR_ACCOUNT_ID:event-bus/{event_bus_name}"
+               }
+           ]
+       }
+       client.put_permission(
+           EventBusName=event_bus_name,
+           Action='events:PutEvents',
+           Principal='arn:aws:iam::YOUR_ACCOUNT_ID:root',
+           StatementId='ID-1'
+       )
+
+   def main():
+       event_buses = list_event_buses()
+       for bus in event_buses:
+           policy = get_event_bus_policy(bus['Name'])
+           if policy:
+               # Check if the policy allows cross-account access
+               # If it does, update the policy
+               update_event_bus_policy(bus['Name'])
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+Replace `YOUR_ACCOUNT_ID` and `YOUR_REGION` with your actual AWS account ID and region. This script will help ensure that your EventBuses do not allow cross-account access by updating their policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

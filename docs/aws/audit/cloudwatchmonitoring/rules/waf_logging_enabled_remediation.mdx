@@ -2,6 +2,155 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of WAF (Web Application Firewall) logging not being enabled in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to WAF Console:**
+   - Sign in to the AWS Management Console.
+   - Open the WAF & Shield service by searching for "WAF" in the AWS Management Console search bar and selecting "WAF & Shield."
+
+2. **Select the Web ACL:**
+   - In the WAF console, navigate to the "Web ACLs" section.
+   - Select the Web ACL for which you want to enable logging.
+
+3. **Enable Logging:**
+   - In the Web ACL details page, find the "Logging and metrics" section.
+   - Click on the "Enable logging" button.
+
+4. **Configure Log Destination:**
+   - In the logging configuration page, select "CloudWatch Logs" as the log destination.
+   - Choose or create a CloudWatch Log Group where the logs will be stored.
+   - Save the configuration to enable logging.
+
+By following these steps, you ensure that WAF logs are properly sent to CloudWatch Logs, which helps in monitoring and troubleshooting your web application firewall rules.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that WAF (Web Application Firewall) logging is enabled in CloudWatch using AWS CLI, follow these steps:
+
+1. **Create a CloudWatch Log Group:**
+   First, create a CloudWatch log group where the WAF logs will be stored.
+   ```sh
+   aws logs create-log-group --log-group-name <log-group-name>
+   ```
+
+2. **Create an IAM Role for WAF Logging:**
+   Create an IAM role that grants WAF permission to write logs to CloudWatch. Save the following trust policy to a file named `trust-policy.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "waf.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }
+   ```
+   Then, create the role using the trust policy:
+   ```sh
+   aws iam create-role --role-name WAFLoggingRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+3. **Attach Policy to IAM Role:**
+   Attach a policy to the IAM role that allows it to write logs to CloudWatch. Save the following policy to a file named `waf-logging-policy.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "logs:CreateLogStream",
+           "logs:PutLogEvents"
+         ],
+         "Resource": "arn:aws:logs:<region>:<account-id>:log-group:<log-group-name>:*"
+       }
+     ]
+   }
+   ```
+   Then, attach the policy to the role:
+   ```sh
+   aws iam put-role-policy --role-name WAFLoggingRole --policy-name WAFLoggingPolicy --policy-document file://waf-logging-policy.json
+   ```
+
+4. **Enable WAF Logging:**
+   Finally, enable logging for your WAF web ACL. Replace `<web-acl-id>`, `<log-group-name>`, and `<role-arn>` with your specific values.
+   ```sh
+   aws wafv2 put-logging-configuration --logging-configuration ResourceArn=arn:aws:wafv2:<region>:<account-id>:regional/webacl/<web-acl-id>/12345678-1234-1234-1234-123456789012,LogDestinationConfigs=arn:aws:logs:<region>:<account-id>:log-group:<log-group-name>,RedactedFields=[]
+   ```
+
+By following these steps, you can ensure that WAF logging is enabled and properly configured to send logs to CloudWatch using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of WAF (Web Application Firewall) logging not being enabled in CloudWatch using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to ensure WAF logging is enabled:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Enable WAF Logging**:
+   Use the following Python script to enable WAF logging for a specific WebACL. This script assumes you have a CloudWatch Log Group already created.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon WAF
+   client = boto3.client('wafv2', region_name='us-east-1')  # Change the region as needed
+
+   # Define the WebACL ARN and the CloudWatch Log Group ARN
+   web_acl_arn = 'arn:aws:wafv2:us-east-1:123456789012:regional/webacl/name/ID'  # Replace with your WebACL ARN
+   log_group_arn = 'arn:aws:logs:us-east-1:123456789012:log-group:your-log-group'  # Replace with your Log Group ARN
+
+   # Enable logging configuration
+   response = client.put_logging_configuration(
+       LoggingConfiguration={
+           'ResourceArn': web_acl_arn,
+           'LogDestinationConfigs': [
+               log_group_arn,
+           ],
+           'RedactedFields': [
+               {
+                   'SingleHeader': {
+                       'Name': 'Authorization'
+                   }
+               },
+           ]
+       }
+   )
+
+   print("WAF Logging Configuration Response:", response)
+   ```
+
+4. **Verify Logging Configuration**:
+   After running the script, you can verify that the logging configuration has been applied by checking the CloudWatch Logs console or by using the following script to retrieve the logging configuration:
+
+   ```python
+   response = client.get_logging_configuration(
+       ResourceArn=web_acl_arn
+   )
+
+   print("Current WAF Logging Configuration:", response)
+   ```
+
+These steps will ensure that WAF logging is enabled in CloudWatch, helping you to prevent the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

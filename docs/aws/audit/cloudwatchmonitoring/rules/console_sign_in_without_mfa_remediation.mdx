@@ -2,6 +2,169 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS Console Sign In Without MFA Should Be Monitored in CloudWatch using the AWS Console, follow these steps:
+
+1. **Create a CloudWatch Log Group:**
+   - Navigate to the **CloudWatch** service in the AWS Management Console.
+   - In the left-hand menu, select **Logs**.
+   - Click on **Create log group** and provide a name for the log group (e.g., `MFA-SignIn-Logs`).
+
+2. **Enable CloudTrail Logging:**
+   - Go to the **CloudTrail** service in the AWS Management Console.
+   - In the left-hand menu, select **Trails**.
+   - If you don't have a trail, click on **Create trail**. If you already have a trail, select it.
+   - Ensure that **Management events** are enabled and that **Read/Write events** are set to **All**.
+   - Under **Storage location**, ensure that **Send to CloudWatch Logs** is enabled and select the log group you created earlier.
+
+3. **Create a CloudWatch Metric Filter:**
+   - In the CloudWatch console, go to **Logs** and select the log group you created.
+   - Click on **Create metric filter**.
+   - In the **Filter pattern** box, enter the following pattern to capture sign-in events without MFA:
+     ```
+     { $.eventName = "ConsoleLogin" && $.additionalEventData.MFAUsed != "Yes" }
+     ```
+   - Click on **Next** and provide a name for the filter (e.g., `NoMFAConsoleSignIn`).
+   - Define a metric namespace and metric name (e.g., `MFA/SignInFailures`).
+
+4. **Create a CloudWatch Alarm:**
+   - In the CloudWatch console, go to **Alarms** and click on **Create alarm**.
+   - Select the metric you created in the previous step.
+   - Configure the alarm to trigger when the metric value is greater than or equal to 1.
+   - Set up notifications (e.g., via SNS) to alert you when the alarm is triggered.
+
+By following these steps, you will have set up monitoring for AWS Console Sign-Ins without MFA using CloudWatch.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Console Sign In Without MFA from going unmonitored in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Log Group:**
+   First, create a CloudWatch log group where the logs will be stored.
+   ```sh
+   aws logs create-log-group --log-group-name /aws/cloudtrail/console-sign-in-without-mfa
+   ```
+
+2. **Create a CloudTrail Trail:**
+   Create a CloudTrail trail to capture management events, including console sign-ins.
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-cloudtrail-bucket --is-multi-region-trail
+   ```
+
+3. **Enable CloudTrail Logging:**
+   Start logging for the created CloudTrail trail.
+   ```sh
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+4. **Create a CloudWatch Metric Filter:**
+   Create a metric filter to monitor console sign-ins without MFA.
+   ```sh
+   aws logs put-metric-filter --log-group-name /aws/cloudtrail/console-sign-in-without-mfa \
+   --filter-name ConsoleSignInWithoutMFA \
+   --filter-pattern '{ ($.eventName = "ConsoleLogin") && ($.additionalEventData.MFAUsed != "Yes") }' \
+   --metric-transformations metricName=ConsoleSignInWithoutMFA,metricNamespace=CloudTrailMetrics,metricValue=1
+   ```
+
+By following these steps, you will set up monitoring for AWS Console Sign In Without MFA using CloudWatch and AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Console Sign In Without MFA from going unmonitored in CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Log Group
+Create a CloudWatch log group where the sign-in events will be logged.
+
+```python
+import boto3
+
+client = boto3.client('logs')
+
+response = client.create_log_group(
+    logGroupName='MFA_SignIn_Logs'
+)
+print(response)
+```
+
+### 3. Enable CloudTrail and Configure it to Log to CloudWatch
+Ensure CloudTrail is enabled and configured to log events to the CloudWatch log group created in the previous step.
+
+```python
+client = boto3.client('cloudtrail')
+
+response = client.create_trail(
+    Name='MFA_SignIn_Trail',
+    S3BucketName='your-s3-bucket-name',
+    CloudWatchLogsLogGroupArn='arn:aws:logs:your-region:your-account-id:log-group:MFA_SignIn_Logs',
+    CloudWatchLogsRoleArn='arn:aws:iam::your-account-id:role/CloudTrail_CloudWatchLogs_Role'
+)
+print(response)
+
+response = client.start_logging(
+    Name='MFA_SignIn_Trail'
+)
+print(response)
+```
+
+### 4. Create a CloudWatch Metric Filter and Alarm
+Create a metric filter to look for sign-in events without MFA and set up an alarm to notify you.
+
+```python
+import boto3
+
+logs_client = boto3.client('logs')
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Create Metric Filter
+response = logs_client.put_metric_filter(
+    logGroupName='MFA_SignIn_Logs',
+    filterName='SignInWithoutMFA',
+    filterPattern='{ ($.eventName = "ConsoleLogin") && ($.additionalEventData.MFAUsed != "Yes") }',
+    metricTransformations=[
+        {
+            'metricName': 'SignInWithoutMFA',
+            'metricNamespace': 'MFA_Monitoring',
+            'metricValue': '1'
+        },
+    ]
+)
+print(response)
+
+# Create Alarm
+response = cloudwatch_client.put_metric_alarm(
+    AlarmName='SignInWithoutMFAAlarm',
+    MetricName='SignInWithoutMFA',
+    Namespace='MFA_Monitoring',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+    ],
+    AlarmDescription='Alarm when there is a console sign-in without MFA',
+    ActionsEnabled=True
+)
+print(response)
+```
+
+These steps will help you monitor AWS Console Sign In Without MFA using CloudWatch and Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

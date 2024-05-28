@@ -2,6 +2,169 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS Organizations changes from going unnoticed, you can set up an alarm in Amazon CloudWatch using the AWS Management Console. Here are the steps to achieve this:
+
+1. **Create a CloudTrail Trail:**
+   - Navigate to the AWS Management Console.
+   - Go to the **CloudTrail** service.
+   - Click on **Create trail**.
+   - Provide a name for the trail and configure it to log management events.
+   - Ensure that the trail is enabled for all regions.
+   - Save the trail.
+
+2. **Create a CloudWatch Log Group:**
+   - In the AWS Management Console, go to the **CloudWatch** service.
+   - Click on **Logs** in the left-hand menu.
+   - Click on **Create log group**.
+   - Provide a name for the log group and create it.
+
+3. **Configure CloudTrail to Send Logs to CloudWatch:**
+   - Go back to the **CloudTrail** service in the AWS Management Console.
+   - Select the trail you created.
+   - In the **Trail settings**, enable **CloudWatch Logs**.
+   - Choose the log group you created earlier.
+   - Provide an IAM role that has the necessary permissions to publish logs to CloudWatch.
+
+4. **Create a CloudWatch Alarm:**
+   - In the AWS Management Console, go to the **CloudWatch** service.
+   - Click on **Alarms** in the left-hand menu.
+   - Click on **Create alarm**.
+   - Select **Select metric** and choose the log group you created.
+   - Configure the metric to filter for specific AWS Organizations API calls (e.g., `CreateAccount`, `DeleteAccount`, `InviteAccountToOrganization`, etc.).
+   - Set the conditions for the alarm (e.g., whenever the metric is greater than 0).
+   - Configure the alarm actions, such as sending a notification to an SNS topic or an email.
+   - Review and create the alarm.
+
+By following these steps, you will have set up a CloudWatch alarm to monitor changes in AWS Organizations, ensuring that any changes trigger an alert for further investigation.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Organizations changes from going unnoticed, you can set up an alarm in CloudWatch using the AWS CLI. Here are the steps to achieve this:
+
+1. **Create a CloudWatch Log Group:**
+   First, create a CloudWatch Log Group where the AWS Organizations logs will be stored.
+   ```sh
+   aws logs create-log-group --log-group-name /aws/organizations
+   ```
+
+2. **Create a Metric Filter:**
+   Create a metric filter to capture specific events related to AWS Organizations changes.
+   ```sh
+   aws logs put-metric-filter --log-group-name /aws/organizations \
+   --filter-name OrganizationsChangesFilter \
+   --filter-pattern '{ ($.eventSource = "organizations.amazonaws.com") && ($.eventName = "CreateOrganization" || $.eventName = "DeleteOrganization" || $.eventName = "UpdateOrganization") }' \
+   --metric-transformations metricName=OrganizationsChanges,metricNamespace=AWS/Organizations,metricValue=1
+   ```
+
+3. **Create a CloudWatch Alarm:**
+   Create an alarm based on the metric filter to notify you when there are changes in AWS Organizations.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name OrganizationsChangesAlarm \
+   --metric-name OrganizationsChanges \
+   --namespace AWS/Organizations \
+   --statistic Sum \
+   --period 300 \
+   --threshold 1 \
+   --comparison-operator GreaterThanOrEqualToThreshold \
+   --evaluation-periods 1 \
+   --alarm-actions arn:aws:sns:us-east-1:123456789012:YourSNSTopic
+   ```
+
+4. **Subscribe to the SNS Topic:**
+   Ensure you have an SNS topic and subscribe to it to receive notifications.
+   ```sh
+   aws sns subscribe --topic-arn arn:aws:sns:us-east-1:123456789012:YourSNSTopic \
+   --protocol email \
+   --notification-endpoint your-email@example.com
+   ```
+
+By following these steps, you will set up a CloudWatch alarm to monitor and notify you of any changes in AWS Organizations using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Organizations changes and set up an alarm in CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. If not, you can install it using pip:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Client
+Create a CloudWatch client using Boto3 in your Python script:
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+```
+
+### 3. Define the Metric Filter
+Define a metric filter to capture AWS Organizations changes. This involves creating a filter pattern that matches the specific events related to AWS Organizations changes.
+
+```python
+log_group_name = 'your-log-group-name'
+filter_name = 'OrganizationsChangesFilter'
+filter_pattern = '{ ($.eventSource = "organizations.amazonaws.com") && ($.eventName = "CreateOrganization" || $.eventName = "DeleteOrganization" || $.eventName = "InviteAccountToOrganization" || $.eventName = "LeaveOrganization" || $.eventName = "RemoveAccountFromOrganization") }'
+metric_namespace = 'YourNamespace'
+metric_name = 'OrganizationsChanges'
+
+logs = boto3.client('logs')
+
+logs.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName=filter_name,
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': metric_name,
+            'metricNamespace': metric_namespace,
+            'metricValue': '1'
+        }
+    ]
+)
+```
+
+### 4. Create a CloudWatch Alarm
+Create a CloudWatch alarm based on the metric filter you defined. This alarm will notify you when there are changes in AWS Organizations.
+
+```python
+alarm_name = 'OrganizationsChangesAlarm'
+alarm_description = 'Alarm for AWS Organizations changes'
+sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+
+cloudwatch.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription=alarm_description,
+    ActionsEnabled=True,
+    AlarmActions=[sns_topic_arn],
+    MetricName=metric_name,
+    Namespace=metric_namespace,
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold'
+)
+```
+
+### Summary
+1. **Set Up AWS SDK (Boto3)**: Install and import Boto3.
+2. **Create a CloudWatch Client**: Initialize the CloudWatch client.
+3. **Define the Metric Filter**: Create a metric filter to capture AWS Organizations changes.
+4. **Create a CloudWatch Alarm**: Set up an alarm to notify you of any changes.
+
+By following these steps, you can effectively monitor and prevent unauthorized changes to AWS Organizations using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

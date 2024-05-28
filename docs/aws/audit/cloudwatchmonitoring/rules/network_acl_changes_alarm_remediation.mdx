@@ -2,6 +2,160 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Network ACL Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Enable CloudTrail Logging:**
+   - Go to the AWS Management Console.
+   - Navigate to the CloudTrail service.
+   - Ensure that CloudTrail is enabled and configured to log all API calls. This will help in tracking any changes made to Network ACLs.
+
+2. **Create a CloudWatch Log Group:**
+   - Navigate to the CloudWatch service in the AWS Management Console.
+   - Go to the "Logs" section and create a new log group if one does not already exist for your VPC logs.
+
+3. **Set Up CloudWatch Alarms:**
+   - In the CloudWatch console, go to the "Alarms" section.
+   - Click on "Create Alarm" and select the metric filter for Network ACL changes from the log group created in the previous step.
+   - Configure the alarm to trigger based on the specific conditions you want to monitor (e.g., any changes to Network ACLs).
+
+4. **Configure SNS Notifications:**
+   - While setting up the CloudWatch alarm, configure an Amazon SNS topic to send notifications.
+   - Create a new SNS topic or use an existing one, and subscribe your email or other endpoints to this topic to receive alerts whenever the alarm is triggered.
+
+By following these steps, you can effectively monitor and prevent unauthorized or unintended changes to Network ACLs in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Network ACL Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for Network ACL Changes:**
+   Use the `put-metric-alarm` command to create an alarm that triggers when there are changes to Network ACLs.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "NetworkACLChangesAlarm" \
+   --metric-name "NetworkACLChanges" --namespace "AWS/EC2" \
+   --statistic "Sum" --period 300 --threshold 1 \
+   --comparison-operator "GreaterThanOrEqualToThreshold" \
+   --evaluation-periods 1 --alarm-actions "arn:aws:sns:region:account-id:topic-name" \
+   --dimensions Name=InstanceId,Value=i-1234567890abcdef0
+   ```
+
+2. **Enable CloudTrail Logging:**
+   Ensure CloudTrail is enabled to log API calls related to Network ACL changes. This is necessary for CloudWatch to monitor these changes.
+
+   ```sh
+   aws cloudtrail create-trail --name "MyTrail" --s3-bucket-name "my-bucket"
+   aws cloudtrail start-logging --name "MyTrail"
+   ```
+
+3. **Create a CloudWatch Event Rule:**
+   Create a rule to capture changes to Network ACLs and send them to CloudWatch.
+
+   ```sh
+   aws events put-rule --name "NetworkACLChangeRule" \
+   --event-pattern '{"source": ["aws.ec2"], "detail-type": ["AWS API Call via CloudTrail"], "detail": {"eventName": ["CreateNetworkAcl", "DeleteNetworkAcl", "ReplaceNetworkAclEntry", "ReplaceNetworkAclAssociation"]}}'
+   ```
+
+4. **Add Target to CloudWatch Event Rule:**
+   Add a target to the CloudWatch Event Rule to send notifications or take actions when the rule is triggered.
+
+   ```sh
+   aws events put-targets --rule "NetworkACLChangeRule" \
+   --targets "Id"="1","Arn"="arn:aws:sns:region:account-id:topic-name"
+   ```
+
+These steps will help you set up monitoring and alerting for Network ACL changes using AWS CLI, ensuring you are notified of any changes and can take appropriate action.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Network ACL (Access Control List) changes in AWS and set up an alarm in CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Alarm for Network ACL Changes
+You need to create a CloudWatch alarm that triggers when there are changes to Network ACLs. This involves setting up a CloudTrail to log API calls and then creating a CloudWatch alarm based on those logs.
+
+### 3. Enable CloudTrail
+Ensure CloudTrail is enabled to capture API calls related to Network ACL changes.
+
+```python
+import boto3
+
+client = boto3.client('cloudtrail')
+
+response = client.create_trail(
+    Name='MyTrail',
+    S3BucketName='my-cloudtrail-bucket',
+    IncludeGlobalServiceEvents=True,
+    IsMultiRegionTrail=True,
+    EnableLogFileValidation=True
+)
+
+client.start_logging(Name='MyTrail')
+```
+
+### 4. Create a CloudWatch Alarm
+Create a CloudWatch alarm that triggers when there are changes to Network ACLs. This involves setting up a metric filter and an alarm.
+
+```python
+import boto3
+
+logs_client = boto3.client('logs')
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Create a metric filter for Network ACL changes
+logs_client.put_metric_filter(
+    logGroupName='CloudTrail/DefaultLogGroup',
+    filterName='NetworkACLChanges',
+    filterPattern='{ ($.eventName = "CreateNetworkAcl") || ($.eventName = "DeleteNetworkAcl") || ($.eventName = "ReplaceNetworkAclEntry") || ($.eventName = "ReplaceNetworkAclAssociation") }',
+    metricTransformations=[
+        {
+            'metricName': 'NetworkACLChanges',
+            'metricNamespace': 'YourNamespace',
+            'metricValue': '1'
+        }
+    ]
+)
+
+# Create an alarm based on the metric filter
+cloudwatch_client.put_metric_alarm(
+    AlarmName='NetworkACLChangesAlarm',
+    MetricName='NetworkACLChanges',
+    Namespace='YourNamespace',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:us-east-1:123456789012:YourSNSTopic'
+    ],
+    AlarmDescription='Alarm when Network ACL changes are detected',
+    ActionsEnabled=True
+)
+```
+
+### Summary
+1. **Set Up AWS SDK (Boto3)**: Ensure Boto3 is installed.
+2. **Enable CloudTrail**: Create and start a CloudTrail to log API calls.
+3. **Create a Metric Filter**: Set up a metric filter in CloudWatch Logs to capture Network ACL changes.
+4. **Create a CloudWatch Alarm**: Create an alarm based on the metric filter to notify you of any changes.
+
+These steps will help you monitor and prevent unauthorized changes to Network ACLs by setting up an alarm that triggers when such changes are detected.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,161 @@ CISAWS, CBP, PCIDSS, SOC2, NIST, HIPAA, ISO27001, HITRUST, AWSWAF, NISTCSF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Root Account Usage Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Create a CloudWatch Alarm:**
+   - Open the **Amazon CloudWatch** console.
+   - In the navigation pane, click on **Alarms**, then click on the **Create Alarm** button.
+
+2. **Select Metric:**
+   - Click on **Select metric**.
+   - In the search bar, type **"RootAccountUsage"** and select the appropriate metric under the **AWS/CloudTrail** namespace.
+
+3. **Configure Alarm:**
+   - Set the conditions for the alarm. For example, set the threshold to trigger the alarm when the root account is used.
+   - Configure the period and other necessary settings according to your requirements.
+
+4. **Set Notification:**
+   - Choose an existing SNS topic or create a new one to receive notifications when the alarm state is triggered.
+   - Click on **Create Alarm** to finalize the setup.
+
+By following these steps, you can effectively monitor and get alerted on any usage of the root account, helping to prevent unauthorized or unintended actions.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Root Account Usage Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create an IAM User for Administrative Tasks:**
+   - First, create an IAM user with administrative privileges to avoid using the root account for daily tasks.
+   ```sh
+   aws iam create-user --user-name AdminUser
+   aws iam attach-user-policy --user-name AdminUser --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+2. **Enable CloudTrail to Log API Calls:**
+   - Ensure CloudTrail is enabled to log all API calls, including those made by the root account.
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-trail-bucket
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+3. **Create a CloudWatch Log Group:**
+   - Create a CloudWatch log group to store the CloudTrail logs.
+   ```sh
+   aws logs create-log-group --log-group-name CloudTrail/DefaultLogGroup
+   ```
+
+4. **Create a CloudWatch Alarm for Root Account Usage:**
+   - Create a CloudWatch alarm to monitor root account usage and send notifications.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name RootAccountUsageAlarm \
+   --metric-name RootAccountUsage --namespace AWS/CloudTrailMetrics \
+   --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold \
+   --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:MySNSTopic
+   ```
+
+By following these steps, you can set up monitoring and alarms to prevent the usage of the root account in AWS.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Root Account Usage Alarm in AWS CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) in Python:**
+   Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a CloudWatch Client:**
+   Initialize a CloudWatch client using Boto3 in your Python script.
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+   ```
+
+3. **Define the Alarm:**
+   Specify the parameters for the CloudWatch alarm that will monitor root account usage. This includes setting the metric, threshold, and actions to take when the alarm state changes.
+   ```python
+   alarm_name = 'RootAccountUsageAlarm'
+   metric_name = 'RootAccountUsage'
+   namespace = 'AWS/CloudTrail'
+   statistic = 'Sum'
+   period = 300  # 5 minutes
+   evaluation_periods = 1
+   threshold = 1
+   comparison_operator = 'GreaterThanOrEqualToThreshold'
+   alarm_actions = ['arn:aws:sns:region:account-id:your-sns-topic']  # Replace with your SNS topic ARN
+   ```
+
+4. **Create the Alarm:**
+   Use the `put_metric_alarm` method to create the alarm in CloudWatch.
+   ```python
+   response = cloudwatch.put_metric_alarm(
+       AlarmName=alarm_name,
+       MetricName=metric_name,
+       Namespace=namespace,
+       Statistic=statistic,
+       Period=period,
+       EvaluationPeriods=evaluation_periods,
+       Threshold=threshold,
+       ComparisonOperator=comparison_operator,
+       AlarmActions=alarm_actions,
+       AlarmDescription='Alarm when root account is used',
+       ActionsEnabled=True
+   )
+
+   print("Alarm created successfully:", response)
+   ```
+
+Here is the complete Python script:
+
+```python
+import boto3
+
+# Initialize CloudWatch client
+cloudwatch = boto3.client('cloudwatch')
+
+# Define alarm parameters
+alarm_name = 'RootAccountUsageAlarm'
+metric_name = 'RootAccountUsage'
+namespace = 'AWS/CloudTrail'
+statistic = 'Sum'
+period = 300  # 5 minutes
+evaluation_periods = 1
+threshold = 1
+comparison_operator = 'GreaterThanOrEqualToThreshold'
+alarm_actions = ['arn:aws:sns:region:account-id:your-sns-topic']  # Replace with your SNS topic ARN
+
+# Create the alarm
+response = cloudwatch.put_metric_alarm(
+    AlarmName=alarm_name,
+    MetricName=metric_name,
+    Namespace=namespace,
+    Statistic=statistic,
+    Period=period,
+    EvaluationPeriods=evaluation_periods,
+    Threshold=threshold,
+    ComparisonOperator=comparison_operator,
+    AlarmActions=alarm_actions,
+    AlarmDescription='Alarm when root account is used',
+    ActionsEnabled=True
+)
+
+print("Alarm created successfully:", response)
+```
+
+This script will create a CloudWatch alarm that triggers when the root account is used, helping you to monitor and prevent unauthorized root account usage.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
@@ -110,84 +265,64 @@ This script will return True if the Root Account Usage Alarm is set up and False
 
 </AccordionGroup>
 </Tab>
-
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-The Root Account Usage Alarm is an AWS Config Rule that checks whether the root account of your AWS account has been used within the last 90 days. If it has been used, it triggers an alarm. To remediate this issue, you can follow the below steps:
-
-1. Log in to the AWS Management Console.
-2. Go to the AWS Config service.
-3. Click on the Rules tab.
-4. Search for the Root Account Usage rule and click on it.
-5. Click on the Remediation action dropdown and select the "Remediate" option.
-6. In the Remediation action page, select the "Disable root user access keys" option.
-7. Click on the "Create remediation exception" checkbox.
-8. Click on the "Remediate" button to remediate the issue.
-
-This will disable the root user access keys, which will prevent the root account from being used. The remediation exception will ensure that the rule does not trigger again for the same issue.
-
-#
+   - Log in to the AWS Management Console.
+   - Navigate to CloudWatch.
+   - Identify the alarms related to "RootAccountUsageCount" and "RootAccountUsageEventCount" metrics under the "CloudTrailMetrics" namespace.
+   - Modify or create new alarms as necessary to ensure that alarms are triggered appropriately for root account usage.
 </Accordion>
 
 <Accordion title='Using CLI'>
-The Root Account Usage Alarm is triggered when the root account is used to perform any actions in AWS. This is a security risk as the root account has unrestricted access to all resources in the account. To remediate this misconfiguration, follow these steps:
-
-1. Create a new IAM user with administrative privileges.
-   - Use the AWS CLI command `aws iam create-user` to create a new user.
-   - Use the `aws iam create-access-key` command to generate an access key and secret key for the user.
-   - Use the `aws iam attach-user-policy` command to attach the `AdministratorAccess` policy to the user. This will give the user full administrative privileges.
-
-2. Enable multi-factor authentication (MFA) for the root account.
-   - Use the `aws iam create-virtual-mfa-device` command to create a virtual MFA device.
-   - Use the `aws iam enable-mfa-device` command to enable MFA for the root account.
-
-3. Remove the access keys for the root account.
-   - Use the `aws iam delete-access-key` command to delete the access keys for the root account.
-
-4. Create an AWS CloudWatch alarm to monitor root account usage.
-   - Use the AWS CLI command `aws cloudwatch put-metric-alarm` to create an alarm that will trigger if the root account is used to perform any actions in AWS.
-
-By following these steps, you will have created a new IAM user with administrative privileges, enabled MFA for the root account, removed the access keys for the root account, and created an alarm to monitor root account usage. This will help to secure your AWS account and reduce the risk of unauthorized access.
+- Use the AWS CLI `cloudwatch put-metric-alarm` command to create or modify alarms for the specified metrics and namespace.
+   - You can use the following CLI commands as a reference:
+     ```bash
+     aws cloudwatch put-metric-alarm --alarm-name RootAccountUsageCountAlarm --alarm-description "Alarm for Root Account Usage Count" --metric-name RootAccountUsageCount --namespace CloudTrailMetrics --comparison-operator GreaterThanOrEqualToThreshold --threshold 1 --evaluation-periods 1 --statistic Sum --period 300 --actions-enabled --alarm-actions <SNS topic ARN>
+     
+     aws cloudwatch put-metric-alarm --alarm-name RootAccountUsageEventCountAlarm --alarm-description "Alarm for Root Account Usage Event Count" --metric-name RootAccountUsageEventCount --namespace CloudTrailMetrics --comparison-operator GreaterThanOrEqualToThreshold --threshold 1 --evaluation-periods 1 --statistic Sum --period 300 --actions-enabled --alarm-actions <SNS topic ARN>
+     ```
+   - Replace `<SNS topic ARN>` with the ARN of the SNS topic where you want to receive alarm notifications.
 </Accordion>
 
 <Accordion title='Using Python'>
-The Root Account Usage Alarm is an AWS CloudWatch alarm that triggers when the root account is used to sign in to the AWS Management Console. This is considered a security risk, as the root account has full access to all AWS resources and should be used only for administrative tasks that cannot be performed by other IAM users.
+- You can use the Boto3 library in Python to interact with AWS services.
+   - Below is a sample Python script to create or modify alarms for the specified metrics and namespace:
+     ```python
+     import boto3
 
-To remediate this misconfiguration in AWS using Python, follow these steps:
+     def create_cloudwatch_alarm(metric_name, namespace, alarm_name, alarm_description, threshold, sns_topic_arn):
+         cloudwatch = boto3.client('cloudwatch')
+         cloudwatch.put_metric_alarm(
+             AlarmName=alarm_name,
+             AlarmDescription=alarm_description,
+             MetricName=metric_name,
+             Namespace=namespace,
+             ComparisonOperator='GreaterThanOrEqualToThreshold',
+             Threshold=threshold,
+             EvaluationPeriods=1,
+             Statistic='Sum',
+             Period=300,
+             ActionsEnabled=True,
+             AlarmActions=[sns_topic_arn]
+         )
 
-1. Create an AWS Lambda function using Python that will be triggered by the CloudWatch alarm.
+     sns_topic_arn = '<SNS topic ARN>'
+     create_cloudwatch_alarm('RootAccountUsageCount', 'CloudTrailMetrics', 'RootAccountUsageCountAlarm', 'Alarm for Root Account Usage Count', 1, sns_topic_arn)
+     create_cloudwatch_alarm('RootAccountUsageEventCount', 'CloudTrailMetrics', 'RootAccountUsageEventCountAlarm', 'Alarm for Root Account Usage Event Count', 1, sns_topic_arn)
+     ```
+   - Replace `<SNS topic ARN>` with the ARN of the SNS topic where you want to receive alarm notifications.
 
-2. In the Lambda function, use the AWS SDK for Python (Boto3) to disable the root account's access keys. This will prevent the root account from being used to sign in to the AWS Management Console.
+Ensure that you have the necessary permissions to create and modify CloudWatch alarms using the AWS CLI or Python script.
 
-Here's an example Python code snippet that disables the root account's access keys:
-
-```
-import boto3
-
-def disable_root_access_keys():
-    iam = boto3.client('iam')
-    response = iam.list_access_keys(UserName='root')
-    for access_key in response['AccessKeyMetadata']:
-        iam.update_access_key(
-            AccessKeyId=access_key['AccessKeyId'],
-            Status='Inactive',
-            UserName='root'
-        )
-```
-
-3. Save the Lambda function and configure the CloudWatch alarm to trigger it when the root account is used to sign in to the AWS Management Console.
-
-4. Test the remediation by signing in to the AWS Management Console using the root account. The CloudWatch alarm should trigger the Lambda function, which will disable the root account's access keys.
-
-Note: It's important to have a separate IAM user with administrative privileges for day-to-day operations, and to use the root account only for emergency situations.
 </Accordion>
 
 </AccordionGroup>
 </Tab>
 </Tabs>
+
 ### Additional Reading:
 
 - [https://aws.amazon.com/blogs/security/how-to-receive-notifications-when-your-aws-accounts-root-access-keys-are-used/](https://aws.amazon.com/blogs/security/how-to-receive-notifications-when-your-aws-accounts-root-access-keys-are-used/) 
