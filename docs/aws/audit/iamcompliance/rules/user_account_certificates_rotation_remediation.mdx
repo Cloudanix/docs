@@ -1,6 +1,92 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+   
+2. In the navigation pane, choose "Users". This will display a list of all the IAM users associated with the account.
+
+3. Click on the user name for which you want to check the certificate rotation. This will open the summary page for the selected user.
+
+4. In the user summary page, navigate to the "Security Credentials" tab. Here, you can see the signing certificates for the user. Check the creation date of the certificate. If the certificate is older than your organization's certificate rotation policy (for example, 90 days), then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all IAM users: Use the following command to list all IAM users in your AWS account:
+
+   ```
+   aws iam list-users
+   ```
+   This command will return a list of all IAM users in your AWS account.
+
+3. Get the login profile for each user: For each user returned in the previous step, run the following command to get their login profile:
+
+   ```
+   aws iam get-login-profile --user-name <username>
+   ```
+   Replace `<username>` with the name of the user. This command will return the login profile for the specified user, including the date when the password was last used.
+
+4. Check the password last used date: From the output of the previous command, check the `PasswordLastUsed` field. If this date is more than 90 days ago, the user's password has not been rotated in the last 90 days and is a potential misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+
+   ~/.aws/credentials:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+   ~/.aws/config:
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+3. Write a Python script to list all IAM users and their respective access keys:
+
+   ```python
+   import boto3
+   from datetime import datetime, timezone
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the pagination interface
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List all access keys
+           paginator = iam.get_paginator('list_access_keys')
+           for response in paginator.paginate(UserName=user['UserName']):
+               for key in response['AccessKeyMetadata']:
+                   print("User: {0}\nAccess Key: {1}\nStatus: {2}\nCreated On: {3}\n".format(
+                       user['UserName'],
+                       key['AccessKeyId'],
+                       key['Status'],
+                       key['CreateDate']
+                   ))
+   ```
+
+4. Analyze the output: The script will print out the username, access key, status, and creation date of each access key. If the creation date is older than 90 days, the key should be rotated. You can add additional logic to the script to automatically flag keys that are older than 90 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

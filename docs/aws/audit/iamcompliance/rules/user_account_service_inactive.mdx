@@ -23,6 +23,94 @@ CISAWS
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users". This will display a list of all the IAM users in your AWS account.
+
+3. Choose a user name from the list. This will open the summary page for the chosen user.
+
+4. In the "User Activity" section, you can see the "Last activity" information. This shows the last time the user accessed AWS services. If the "Last activity" shows "None", it means the user has not accessed any AWS services and is inactive.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all IAM users: Once AWS CLI is set up, you can list all IAM users in your AWS account by running the following command:
+   ```
+   aws iam list-users
+   ```
+   This command will return a JSON object containing details of all IAM users.
+
+3. Get IAM user's last activity date: For each user, you can get the last activity date by running the following command:
+   ```
+   aws iam get-user --user-name <username>
+   ```
+   Replace `<username>` with the name of the IAM user. This command will return a JSON object containing details of the specified IAM user, including the `PasswordLastUsed` field which indicates the date and time when the IAM user last used their password for AWS Management Console or AWS CLI operations.
+
+4. Check for inactivity: You can then check if the `PasswordLastUsed` date is older than your inactivity threshold (for example, 90 days). If it is, then the IAM user is considered inactive. You can do this check manually or write a script to automate the process.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a connection with AWS IAM:**
+   You need to import the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. After importing the necessary libraries, establish a connection with AWS IAM.
+
+   ```python
+   import boto3
+   import datetime
+   from dateutil.tz import tzutc
+
+   # Create IAM client
+   iam = boto3.client('iam')
+   ```
+
+2. **Fetch all the users:**
+   Use the `list_users()` function to fetch all the users. This function returns a list of IAM users for the AWS account.
+
+   ```python
+   # List all users
+   users = iam.list_users()
+   ```
+
+3. **Check the last activity of each user:**
+   For each user, fetch the access key details using the `list_access_keys()` function. This function returns metadata about the access keys associated with the specified IAM user. If the user has not used their access key for a certain period, flag them as inactive.
+
+   ```python
+   # Define the inactivity period (e.g., 90 days)
+   inactivity_period = datetime.timedelta(days=90)
+
+   for user in users['Users']:
+       access_keys = iam.list_access_keys(UserName=user['UserName'])
+
+       for key in access_keys['AccessKeyMetadata']:
+           last_used_response = iam.get_access_key_last_used(AccessKeyId=key['AccessKeyId'])
+           last_used_date = last_used_response['AccessKeyLastUsed']['LastUsedDate']
+
+           if (datetime.datetime.now(tzutc()) - last_used_date) > inactivity_period:
+               print(f"User {user['UserName']} is inactive.")
+   ```
+
+4. **Interpret the results:**
+   The script will print the usernames of all users who have not used their access keys for more than the specified inactivity period. If no such users are found, the script will not print anything. This script can be run periodically to monitor user activity and detect any inactive users.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
