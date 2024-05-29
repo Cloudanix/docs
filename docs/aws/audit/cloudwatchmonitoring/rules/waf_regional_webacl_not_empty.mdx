@@ -23,6 +23,280 @@ CBP,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the "WAF Regional Web ACL Should Not Be Empty" misconfiguration in AWS CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS WAF & Shield:**
+   - Open the AWS Management Console.
+   - In the Services menu, type "WAF" and select "WAF & Shield" from the list.
+
+2. **Create or Select a Web ACL:**
+   - If you don't have a Web ACL, click on "Create web ACL" and follow the prompts to create one.
+   - If you already have a Web ACL, select it from the list.
+
+3. **Add Rules to the Web ACL:**
+   - In the Web ACL details page, go to the "Rules" section.
+   - Click on "Add rules" and choose the rules you want to add. You can select from managed rule groups, your own rule groups, or create custom rules.
+   - Configure the rules as needed and click "Add rules" to include them in the Web ACL.
+
+4. **Save and Apply the Web ACL:**
+   - After adding the necessary rules, review the configuration.
+   - Click "Save" to apply the changes to the Web ACL.
+   - Ensure that the Web ACL is associated with the appropriate resources (e.g., CloudFront distributions, Application Load Balancers).
+
+By following these steps, you can ensure that your WAF Regional Web ACL is not empty, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of a WAF Regional Web ACL being empty in AWS using the AWS CLI, you need to ensure that you have rules associated with your Web ACL. Here are the steps to achieve this:
+
+1. **Create a WAF Rule:**
+   First, create a WAF rule that you can associate with your Web ACL. This example creates a rule that blocks requests from a specific IP set.
+
+   ```sh
+   aws wafv2 create-ip-set \
+       --name "example-ip-set" \
+       --scope REGIONAL \
+       --ip-address-version IPV4 \
+       --addresses "192.0.2.0/24" \
+       --region us-east-1
+   ```
+
+2. **Create a Web ACL:**
+   Create a Web ACL if you don't already have one. This example creates a Web ACL named "example-web-acl".
+
+   ```sh
+   aws wafv2 create-web-acl \
+       --name "example-web-acl" \
+       --scope REGIONAL \
+       --default-action Block={} \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName="example-metric" \
+       --region us-east-1
+   ```
+
+3. **Associate the Rule with the Web ACL:**
+   Update the Web ACL to include the rule you created. This example assumes you have the rule ID from the previous step.
+
+   ```sh
+   aws wafv2 update-web-acl \
+       --name "example-web-acl" \
+       --scope REGIONAL \
+       --default-action Block={} \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName="example-metric" \
+       --rules "Action={Block={}},Name=example-rule,Priority=1,Statement={IPSetReferenceStatement={ARN=arn:aws:wafv2:us-east-1:123456789012:regional/ipset/example-ip-set/12345678-1234-1234-1234-123456789012}},VisibilityConfig={SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=example-metric}" \
+       --region us-east-1
+   ```
+
+4. **Verify the Web ACL Configuration:**
+   Finally, verify that the Web ACL has the rule associated with it.
+
+   ```sh
+   aws wafv2 get-web-acl \
+       --name "example-web-acl" \
+       --scope REGIONAL \
+       --region us-east-1
+   ```
+
+By following these steps, you ensure that your WAF Regional Web ACL is not empty and has at least one rule associated with it, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of having an empty WAF (Web Application Firewall) Regional Web ACL (Access Control List) in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS WAF and CloudWatch.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a WAF Web ACL:**
+   Use Boto3 to create a WAF Web ACL if it doesn't already exist. This script checks for an existing Web ACL and creates one if necessary.
+
+   ```python
+   import boto3
+
+   waf_client = boto3.client('wafv2', region_name='us-east-1')  # Specify your region
+
+   def create_web_acl():
+       response = waf_client.create_web_acl(
+           Name='MyWebACL',
+           Scope='REGIONAL',
+           DefaultAction={'Allow': {}},
+           VisibilityConfig={
+               'SampledRequestsEnabled': True,
+               'CloudWatchMetricsEnabled': True,
+               'MetricName': 'MyWebACL'
+           },
+           Rules=[]
+       )
+       return response['Summary']['Id']
+
+   web_acl_id = create_web_acl()
+   print(f"Created Web ACL with ID: {web_acl_id}")
+   ```
+
+3. **Add Rules to the Web ACL:**
+   Ensure that the Web ACL is not empty by adding at least one rule. This example adds a simple rate-based rule.
+
+   ```python
+   def add_rate_based_rule(web_acl_id):
+       response = waf_client.update_web_acl(
+           Name='MyWebACL',
+           Scope='REGIONAL',
+           Id=web_acl_id,
+           DefaultAction={'Allow': {}},
+           VisibilityConfig={
+               'SampledRequestsEnabled': True,
+               'CloudWatchMetricsEnabled': True,
+               'MetricName': 'MyWebACL'
+           },
+           Rules=[
+               {
+                   'Name': 'RateLimitRule',
+                   'Priority': 1,
+                   'Statement': {
+                       'RateBasedStatement': {
+                           'Limit': 2000,
+                           'AggregateKeyType': 'IP'
+                       }
+                   },
+                   'Action': {'Block': {}},
+                   'VisibilityConfig': {
+                       'SampledRequestsEnabled': True,
+                       'CloudWatchMetricsEnabled': True,
+                       'MetricName': 'RateLimitRule'
+                   }
+               }
+           ]
+       )
+       return response
+
+   add_rate_based_rule(web_acl_id)
+   print("Added rate-based rule to Web ACL")
+   ```
+
+4. **Verify the Web ACL Configuration:**
+   Finally, verify that the Web ACL is configured correctly and is not empty.
+
+   ```python
+   def get_web_acl(web_acl_id):
+       response = waf_client.get_web_acl(
+           Name='MyWebACL',
+           Scope='REGIONAL',
+           Id=web_acl_id
+       )
+       return response
+
+   web_acl = get_web_acl(web_acl_id)
+   if web_acl['WebACL']['Rules']:
+       print("Web ACL is not empty and has the following rules:")
+       for rule in web_acl['WebACL']['Rules']:
+           print(f" - {rule['Name']}")
+   else:
+       print("Web ACL is empty")
+   ```
+
+By following these steps, you can ensure that your WAF Regional Web ACL is not empty, thus preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the AWS WAF & Shield service.
+
+2. In the navigation pane, choose "WebACLs". This will display a list of all your WebACLs.
+
+3. Click on the name of the WebACL that you want to check. This will open the details page for that WebACL.
+
+4. In the details page, check the "Rules" section. If this section is empty, then the WebACL is empty. If there are rules listed, then the WebACL is not empty.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all your WebACLs: Use the following AWS CLI command to list all your WebACLs in the AWS WAF Regional:
+
+   ```
+   aws waf-regional list-web-acls
+   ```
+   This command will return a list of WebACLs with their IDs.
+
+3. Get the details of each WebACL: For each WebACL ID returned in the previous step, run the following command to get the details of the WebACL:
+
+   ```
+   aws waf-regional get-web-acl --web-acl-id <WebACL_ID>
+   ```
+   Replace `<WebACL_ID>` with the ID of the WebACL you want to check. This command will return the details of the WebACL, including the rules associated with it.
+
+4. Check if the WebACL is empty: In the output of the previous command, look for the "Rules" field. If this field is empty or does not exist, then the WebACL is empty. If the "Rules" field contains one or more rules, then the WebACL is not empty.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if WAF Regional Web ACL is not empty in AWS CloudWatch using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Setup AWS SDK for Python (Boto3):**
+   First, you need to set up Boto3. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. **Initialize AWS WAF Client:**
+   After setting up Boto3, you can initialize the AWS WAF client in your Python script:
+   ```python
+   import boto3
+
+   client = boto3.client('waf-regional')
+   ```
+
+3. **List Web ACLs:**
+   Use the `list_web_acls` method to get a list of all Web ACLs:
+   ```python
+   response = client.list_web_acls(
+       Limit=123
+   )
+   ```
+   This will return a dictionary with information about all Web ACLs.
+
+4. **Check if Web ACLs are Empty:**
+   Iterate over the list of Web ACLs and use the `get_web_acl` method to get detailed information about each Web ACL. If the `Rules` list is empty, then the Web ACL is empty:
+   ```python
+   for web_acl in response['WebACLs']:
+       web_acl_id = web_acl['WebACLId']
+       web_acl_detail = client.get_web_acl(WebACLId=web_acl_id)
+       if not web_acl_detail['WebACL']['Rules']:
+           print(f"Web ACL {web_acl_id} is empty.")
+   ```
+   This will print out the IDs of all Web ACLs that are empty.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

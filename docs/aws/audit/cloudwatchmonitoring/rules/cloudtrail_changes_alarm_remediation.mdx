@@ -1,6 +1,233 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unauthorized changes to CloudTrail using CloudWatch in the AWS Management Console, follow these steps:
+
+1. **Create a CloudTrail Trail:**
+   - Navigate to the AWS Management Console.
+   - Go to the CloudTrail service.
+   - Click on "Create trail" and follow the prompts to set up a new trail that logs all management events.
+
+2. **Enable CloudWatch Logs for CloudTrail:**
+   - While creating or editing the CloudTrail trail, ensure that you enable CloudWatch Logs.
+   - Specify a new or existing CloudWatch Logs group where the CloudTrail logs will be sent.
+
+3. **Create a CloudWatch Alarm:**
+   - Navigate to the CloudWatch service in the AWS Management Console.
+   - Go to "Alarms" and click on "Create Alarm."
+   - Select the CloudWatch Logs group that you configured for CloudTrail.
+   - Set up a metric filter to monitor for specific API calls related to CloudTrail changes (e.g., `UpdateTrail`, `DeleteTrail`).
+   - Configure the alarm to trigger when these API calls are detected.
+
+4. **Set Up Notifications:**
+   - In the alarm creation process, configure actions to be taken when the alarm state is triggered.
+   - Set up an SNS topic to send notifications (e.g., email, SMS) to the relevant personnel or systems when the alarm is triggered.
+
+By following these steps, you can effectively monitor and prevent unauthorized changes to CloudTrail configurations using CloudWatch alarms.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unauthorized changes to CloudTrail using AWS CloudWatch alarms, you can set up a CloudWatch alarm to monitor CloudTrail configuration changes. Here are the steps to do this using AWS CLI:
+
+1. **Create a CloudWatch Log Group:**
+   First, create a CloudWatch log group where CloudTrail logs will be sent.
+   ```sh
+   aws logs create-log-group --log-group-name CloudTrail/LogGroup
+   ```
+
+2. **Create a CloudTrail Trail:**
+   Create a CloudTrail trail and configure it to send logs to the CloudWatch log group.
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-trail-bucket --cloud-watch-logs-log-group-arn arn:aws:logs:region:account-id:log-group:CloudTrail/LogGroup --cloud-watch-logs-role-arn arn:aws:iam::account-id:role/CloudTrail_CloudWatchLogs_Role
+   ```
+
+3. **Create a Metric Filter:**
+   Create a metric filter to monitor specific CloudTrail events (e.g., changes to CloudTrail configuration).
+   ```sh
+   aws logs put-metric-filter --log-group-name CloudTrail/LogGroup --filter-name CloudTrailChanges --filter-pattern '{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) }' --metric-transformations metricName=CloudTrailChanges,metricNamespace=CloudTrailMetrics,metricValue=1
+   ```
+
+4. **Create a CloudWatch Alarm:**
+   Create a CloudWatch alarm based on the metric filter to alert you when there are changes to CloudTrail.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name CloudTrailChangesAlarm --metric-name CloudTrailChanges --namespace CloudTrailMetrics --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --evaluation-periods 1 --alarm-actions arn:aws:sns:region:account-id:CloudTrailAlarmTopic
+   ```
+
+By following these steps, you can set up a CloudWatch alarm to monitor and alert you of any changes to CloudTrail configurations, helping to prevent unauthorized modifications.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unauthorized changes to CloudTrail configurations and ensure that you are alerted to any changes, you can set up a CloudWatch alarm using a Python script. Here are the steps to achieve this:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Create a CloudWatch Client
+Create a CloudWatch client using Boto3 in your Python script.
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+```
+
+### Step 3: Define the Metric Filter and Alarm
+Define the metric filter that will capture CloudTrail changes and create an alarm based on that metric.
+
+```python
+# Create a CloudWatch Logs client
+logs_client = boto3.client('logs')
+
+# Define the log group and filter pattern
+log_group_name = 'CloudTrail/DefaultLogGroup'
+filter_pattern = '{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) }'
+
+# Create the metric filter
+logs_client.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName='CloudTrailChangesFilter',
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': 'CloudTrailChanges',
+            'metricNamespace': 'CloudTrail',
+            'metricValue': '1'
+        }
+    ]
+)
+```
+
+### Step 4: Create the CloudWatch Alarm
+Create a CloudWatch alarm that triggers when the metric filter detects a change.
+
+```python
+# Define the alarm parameters
+alarm_name = 'CloudTrailChangesAlarm'
+namespace = 'CloudTrail'
+metric_name = 'CloudTrailChanges'
+alarm_description = 'Alarm when CloudTrail changes are detected'
+sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+
+# Create the alarm
+cloudwatch.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription=alarm_description,
+    ActionsEnabled=True,
+    AlarmActions=[sns_topic_arn],
+    MetricName=metric_name,
+    Namespace=namespace,
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold'
+)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and import Boto3.
+2. **Create a CloudWatch Client**: Initialize the CloudWatch client.
+3. **Define the Metric Filter**: Create a metric filter to capture CloudTrail changes.
+4. **Create the CloudWatch Alarm**: Set up an alarm to notify you when changes are detected.
+
+By following these steps, you can effectively monitor and prevent unauthorized changes to your CloudTrail configurations using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms". 
+
+3. In the "Alarms" dashboard, look for the alarm that monitors CloudTrail changes. This alarm is typically named something like "CloudTrail-Changes-Alarm". 
+
+4. Click on the alarm name to view its details. Here, you can check the alarm's status, its conditions, and the actions it will take when those conditions are met. If the alarm's status is "ALARM", it means that the changes in CloudTrail have triggered the conditions set for the alarm.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all CloudWatch alarms: Use the following AWS CLI command to list all the CloudWatch alarms in your AWS account:
+
+   ```
+   aws cloudwatch describe-alarms
+   ```
+
+   This command will return a list of all the CloudWatch alarms along with their details.
+
+3. Check for CloudTrail Changes Alarm: In the output of the above command, look for an alarm with the name "CloudTrail Changes". This alarm is used to monitor changes to CloudTrail. If this alarm is not present, it means that CloudTrail changes are not being monitored, which is a misconfiguration.
+
+4. Check the state of the CloudTrail Changes Alarm: If the CloudTrail Changes Alarm is present, check its state. The state of the alarm should be "OK" if there are no issues. If the state of the alarm is "ALARM", it means that changes have been detected in CloudTrail. You can check the state of the alarm using the following command:
+
+   ```
+   aws cloudwatch describe-alarms --alarm-names "CloudTrail Changes"
+   ```
+
+   In the output of this command, look for the "StateValue" field. If the value of this field is "ALARM", it means that changes have been detected in CloudTrail.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Install Boto3:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. To install boto3, use the following command:
+   ```
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:**
+   Before you can begin using Boto3, you should set up authentication credentials for your AWS account using either the AWS CLI or by creating the credential files yourself. The credentials should be placed in `~/.aws/credentials`. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the `default` profile, you can use the following format:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. **Python Script to Check CloudTrail Changes Alarm in Cloud Watch:**
+   Here is a simple Python script using Boto3 to check CloudTrail Changes Alarm in Cloud Watch:
+   ```python
+   import boto3
+
+   def check_cloudtrail_changes_alarm():
+       cloudwatch = boto3.client('cloudwatch')
+
+       # List all alarms
+       alarms = cloudwatch.describe_alarms()
+       
+       # Check for CloudTrail Changes Alarm
+       for alarm in alarms['MetricAlarms']:
+           if alarm['AlarmName'] == 'CloudTrail Changes':
+               print(f"Alarm: {alarm['AlarmName']} State: {alarm['StateValue']}")
+               break
+       else:
+           print("CloudTrail Changes Alarm not found.")
+
+   check_cloudtrail_changes_alarm()
+   ```
+   This script will list all the alarms and check if there is an alarm named 'CloudTrail Changes'. If it exists, it will print the state of the alarm. If it doesn't exist, it will print "CloudTrail Changes Alarm not found."
+
+4. **Run the Python Script:**
+   Save the above script in a file, say `check_alarm.py`, and run it using the command:
+   ```
+   python check_alarm.py
+   ```
+   This will print the state of the 'CloudTrail Changes' alarm if it exists, or "CloudTrail Changes Alarm not found." if it doesn't.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,270 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Authorization Failures Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Create an IAM Policy for CloudWatch Logs:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Create a new policy with permissions to write logs to CloudWatch. Ensure the policy includes actions like `logs:CreateLogGroup`, `logs:CreateLogStream`, and `logs:PutLogEvents`.
+   - Attach this policy to the IAM roles or users that require access to CloudWatch Logs.
+
+2. **Enable CloudTrail Logging:**
+   - Go to the CloudTrail service in the AWS Management Console.
+   - Create a new trail or use an existing one to enable logging of API calls.
+   - Ensure that the trail is configured to log events to an S3 bucket and optionally to CloudWatch Logs for real-time monitoring.
+
+3. **Set Up CloudWatch Alarms for Authorization Failures:**
+   - Navigate to the CloudWatch service in the AWS Management Console.
+   - Go to the Alarms section and create a new alarm.
+   - Select the metric namespace `AWS/CloudTrail` and choose the metric `EventCount` with the filter for `eventName` set to `ConsoleLogin` and `errorCode` set to `AccessDenied`.
+   - Configure the alarm to trigger when the threshold for authorization failures is breached.
+
+4. **Review and Update IAM Policies Regularly:**
+   - Periodically review IAM policies and roles to ensure they follow the principle of least privilege.
+   - Use AWS IAM Access Analyzer to identify and mitigate any overly permissive policies.
+   - Regularly audit and update policies to ensure they are aligned with current security best practices and organizational requirements.
+
+By following these steps, you can proactively prevent authorization failures and ensure that your CloudWatch setup is secure and effective.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Authorization Failures Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Policy for CloudWatch Access:**
+   Ensure that the IAM role or user has the necessary permissions to access CloudWatch. Create a policy that grants the required permissions.
+
+   ```sh
+   aws iam create-policy --policy-name CloudWatchFullAccess --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "cloudwatch:*",
+                   "logs:*",
+                   "sns:*"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }'
+   ```
+
+2. **Attach the IAM Policy to the IAM Role/User:**
+   Attach the created policy to the IAM role or user that will be accessing CloudWatch.
+
+   ```sh
+   aws iam attach-role-policy --role-name YourRoleName --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccess
+   ```
+
+   Or for a user:
+
+   ```sh
+   aws iam attach-user-policy --user-name YourUserName --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccess
+   ```
+
+3. **Create a CloudWatch Alarm:**
+   Create a CloudWatch alarm to monitor authorization failures. This example sets up an alarm for failed login attempts.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name AuthorizationFailuresAlarm --metric-name FailedLoginAttempts --namespace AWS/CloudTrail --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:YourSNSTopic
+   ```
+
+4. **Enable CloudTrail Logging:**
+   Ensure CloudTrail is enabled to log API calls, which can be used to monitor authorization failures.
+
+   ```sh
+   aws cloudtrail create-trail --name YourTrailName --s3-bucket-name YourS3BucketName
+   aws cloudtrail start-logging --name YourTrailName
+   ```
+
+By following these steps, you can prevent authorization failures in CloudWatch by ensuring proper permissions and monitoring mechanisms are in place.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Authorization Failures Alarm in AWS CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Client
+Initialize a CloudWatch client using Boto3.
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+```
+
+### 3. Define the Metric Filter
+Create a metric filter to capture authorization failures from CloudTrail logs.
+
+```python
+log_group_name = 'your-log-group-name'
+filter_name = 'AuthorizationFailuresFilter'
+filter_pattern = '{ ($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*") }'
+metric_namespace = 'YourNamespace'
+metric_name = 'AuthorizationFailures'
+metric_value = '1'
+
+response = cloudwatch.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName=filter_name,
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': metric_name,
+            'metricNamespace': metric_namespace,
+            'metricValue': metric_value
+        },
+    ]
+)
+print(response)
+```
+
+### 4. Create an Alarm for the Metric
+Set up an alarm to monitor the metric and notify you when authorization failures occur.
+
+```python
+alarm_name = 'AuthorizationFailuresAlarm'
+alarm_description = 'Alarm when there are authorization failures'
+metric_name = 'AuthorizationFailures'
+namespace = 'YourNamespace'
+statistic = 'Sum'
+period = 300  # 5 minutes
+threshold = 1
+comparison_operator = 'GreaterThanOrEqualToThreshold'
+evaluation_periods = 1
+alarm_actions = ['arn:aws:sns:your-region:your-account-id:your-sns-topic']
+
+response = cloudwatch.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription=alarm_description,
+    ActionsEnabled=True,
+    AlarmActions=alarm_actions,
+    MetricName=metric_name,
+    Namespace=namespace,
+    Statistic=statistic,
+    Period=period,
+    EvaluationPeriods=evaluation_periods,
+    Threshold=threshold,
+    ComparisonOperator=comparison_operator
+)
+print(response)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Create a CloudWatch Client**: Initialize the CloudWatch client.
+3. **Define the Metric Filter**: Create a metric filter to capture authorization failures.
+4. **Create an Alarm for the Metric**: Set up an alarm to monitor the metric and notify you.
+
+By following these steps, you can effectively prevent authorization failures in AWS CloudWatch using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms".
+
+3. In the "Alarms" dashboard, you can see a list of all the alarms that have been configured. Look for the "Authorization Failures" alarm in the list. If the state of the alarm is "ALARM", it means that the metric it is monitoring has breached the threshold.
+
+4. For more details, click on the alarm name. This will open a new page where you can see the details of the alarm, including its state, conditions, history, and the actions it is configured to perform when it changes state. You can also see a graph showing the metric data over time.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all CloudWatch alarms: Use the `describe-alarms` command to list all the alarms in your AWS account. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarms
+   ```
+
+   This command will return a list of all the alarms along with their details.
+
+3. Filter Authorization Failures Alarm: To specifically check for Authorization Failures Alarm, you can filter the output of the above command. You can do this by using the `--query` option in the command. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarms --query 'MetricAlarms[?AlarmName==`Authorization Failures`]'
+   ```
+
+   This command will return the details of the alarm named 'Authorization Failures'.
+
+4. Check the state of the alarm: To check the state of the alarm, you can use the `describe-alarm-state` command. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarm-state --alarm-name 'Authorization Failures'
+   ```
+
+   This command will return the state of the alarm. If the state is 'ALARM', it means that the alarm condition is met. If the state is 'INSUFFICIENT_DATA', it means that the alarm has just started, but it doesn't have enough data to determine the alarm state. If the state is 'OK', it means that the metric is within the defined threshold.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up the AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials either by setting up environment variables or by using the AWS CLI.
+
+2. **Import Boto3 and Initialize CloudWatch Client:**
+   Import the boto3 library in your Python script and initialize the CloudWatch client. Here's a sample script to do this:
+   ```python
+   import boto3
+
+   # Create CloudWatch client
+   cloudwatch = boto3.client('cloudwatch')
+   ```
+
+3. **Get Metric Statistics:**
+   Use the `get_metric_statistics` method to retrieve the data of the Authorization Failures metric. This method requires several parameters like `Namespace`, `MetricName`, `StartTime`, `EndTime`, `Period`, `Statistics`. Here's a sample script:
+   ```python
+   import datetime
+
+   response = cloudwatch.get_metric_statistics(
+       Namespace='AWS/Events',
+       MetricName='AuthorizationFailures',
+       Dimensions=[
+           {
+               'Name': 'RuleName',
+               'Value': 'MyRule'
+           },
+       ],
+       StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+       EndTime=datetime.datetime.utcnow(),
+       Period=300,
+       Statistics=[
+           'SampleCount',
+       ],
+   )
+   ```
+
+4. **Analyze the Response:**
+   The response from the `get_metric_statistics` method will contain the data points of the Authorization Failures metric. You can analyze these data points to detect any unusual activity. Here's a sample script to print the data points:
+   ```python
+   print(response['Datapoints'])
+   ```
+   If the `SampleCount` is greater than 0, it means there are authorization failures. You can set up an alert or take further actions based on your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

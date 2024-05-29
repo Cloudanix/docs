@@ -23,6 +23,281 @@ SOC2, HIPAA, ISO27001, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Internet Gateway Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudWatch:**
+   - Sign in to the AWS Management Console.
+   - Open the CloudWatch console by searching for "CloudWatch" in the AWS services search bar and selecting it.
+
+2. **Create a New Alarm:**
+   - In the CloudWatch console, click on "Alarms" in the left-hand navigation pane.
+   - Click the "Create alarm" button.
+
+3. **Select Metric:**
+   - Click on "Select metric" and navigate to the relevant metric for Internet Gateway changes. This might involve selecting the appropriate namespace and browsing through the available metrics.
+   - Choose the metric that tracks changes to Internet Gateways (e.g., API call metrics related to `CreateInternetGateway`, `DeleteInternetGateway`, etc.).
+
+4. **Configure Alarm Settings:**
+   - Set the conditions for the alarm, such as the threshold for the number of changes and the period over which these changes are measured.
+   - Configure the actions to take when the alarm state is triggered, such as sending a notification to an SNS topic or an email.
+   - Review and create the alarm.
+
+By following these steps, you can set up an alarm in CloudWatch to monitor and alert you on changes to Internet Gateways, helping to prevent unauthorized or unintended modifications.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Internet Gateway Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for Internet Gateway Changes:**
+   - First, you need to create a CloudWatch alarm that will monitor changes to your Internet Gateway. This involves setting up a metric filter and an alarm based on that filter.
+
+   ```sh
+   aws logs put-metric-filter --log-group-name <VPC_FLOW_LOG_GROUP_NAME> \
+   --filter-name "InternetGatewayChanges" \
+   --filter-pattern '{ ($.eventName = "AttachInternetGateway") || ($.eventName = "DetachInternetGateway") }' \
+   --metric-transformations metricName=InternetGatewayChanges,metricNamespace=VPC,metricValue=1
+   ```
+
+2. **Create an Alarm Based on the Metric Filter:**
+   - Once the metric filter is created, you need to create an alarm that will trigger when the metric filter detects an event.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "InternetGatewayChangesAlarm" \
+   --metric-name "InternetGatewayChanges" \
+   --namespace "VPC" \
+   --statistic "Sum" \
+   --period 300 \
+   --threshold 1 \
+   --comparison-operator "GreaterThanOrEqualToThreshold" \
+   --evaluation-periods 1 \
+   --alarm-actions <SNS_TOPIC_ARN>
+   ```
+
+3. **Set Up SNS Topic for Notifications:**
+   - Create an SNS topic to receive notifications when the alarm is triggered.
+
+   ```sh
+   aws sns create-topic --name "InternetGatewayChangesTopic"
+   ```
+
+   - Subscribe to the SNS topic to receive notifications.
+
+   ```sh
+   aws sns subscribe --topic-arn <SNS_TOPIC_ARN> --protocol email --notification-endpoint <YOUR_EMAIL>
+   ```
+
+4. **Enable CloudTrail to Log API Calls:**
+   - Ensure that CloudTrail is enabled to log API calls, as the metric filter relies on CloudTrail logs.
+
+   ```sh
+   aws cloudtrail create-trail --name "Default" --s3-bucket-name <YOUR_S3_BUCKET>
+   aws cloudtrail start-logging --name "Default"
+   ```
+
+By following these steps, you can set up a CloudWatch alarm to monitor and alert you on any changes to your Internet Gateway using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Internet Gateway Changes Alarm in AWS CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Client
+Create a CloudWatch client using Boto3 to interact with AWS CloudWatch.
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch', region_name='your-region')
+```
+
+### 3. Define the Metric Filter and Alarm
+Define the metric filter and the alarm that will monitor changes to the Internet Gateway.
+
+```python
+# Define the metric filter
+log_group_name = 'your-log-group-name'
+filter_name = 'InternetGatewayChangesFilter'
+filter_pattern = '{ ($.eventName = "AttachInternetGateway") || ($.eventName = "DetachInternetGateway") }'
+metric_name = 'InternetGatewayChanges'
+metric_namespace = 'YourNamespace'
+
+logs_client = boto3.client('logs', region_name='your-region')
+
+logs_client.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName=filter_name,
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': metric_name,
+            'metricNamespace': metric_namespace,
+            'metricValue': '1'
+        }
+    ]
+)
+```
+
+### 4. Create the Alarm
+Create an alarm based on the metric filter to alert you when changes to the Internet Gateway occur.
+
+```python
+alarm_name = 'InternetGatewayChangesAlarm'
+sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+
+cloudwatch.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription='Alarm when Internet Gateway changes occur',
+    ActionsEnabled=True,
+    AlarmActions=[sns_topic_arn],
+    MetricName=metric_name,
+    Namespace=metric_namespace,
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold'
+)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and import Boto3.
+2. **Create a CloudWatch Client**: Initialize the CloudWatch client.
+3. **Define the Metric Filter and Alarm**: Set up a metric filter to capture Internet Gateway changes.
+4. **Create the Alarm**: Create an alarm to notify you when the metric filter detects changes.
+
+By following these steps, you can effectively monitor and prevent unauthorized changes to your Internet Gateway in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms".
+
+3. In the "Alarms" dashboard, you can see all the alarms that have been set up. Look for the Internet Gateway Changes Alarm. If it's in the "ALARM" state, it means that the changes in the Internet Gateway have crossed the threshold that was set when the alarm was created.
+
+4. For more details about the alarm, click on the alarm name. This will open a new page where you can see the alarm's details, history, and the actions associated with it. The "History" tab will show all the state changes of the alarm and the reason for each state change.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI by using pip (Python package manager). Use the following command to install AWS CLI:
+
+   ```
+   pip install awscli
+   ```
+   After installing AWS CLI, you need to configure it with your AWS account credentials. Use the following command to configure AWS CLI:
+
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format. Enter the appropriate values for these fields.
+
+2. List all CloudWatch alarms: Use the following AWS CLI command to list all the CloudWatch alarms in your AWS account:
+
+   ```
+   aws cloudwatch describe-alarms
+   ```
+   This command will return a list of all the CloudWatch alarms in your AWS account. Look for the alarm that is set for Internet Gateway changes.
+
+3. Check the state of the alarm: Use the following AWS CLI command to check the state of the alarm:
+
+   ```
+   aws cloudwatch describe-alarm-history --alarm-name "your_alarm_name"
+   ```
+   Replace "your_alarm_name" with the name of the alarm that is set for Internet Gateway changes. This command will return the history of the alarm, including the state changes.
+
+4. Check the alarm actions: Use the following AWS CLI command to check the actions of the alarm:
+
+   ```
+   aws cloudwatch describe-alarms --alarm-names "your_alarm_name"
+   ```
+   Replace "your_alarm_name" with the name of the alarm that is set for Internet Gateway changes. This command will return the details of the alarm, including the actions that are set for the alarm.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Set up AWS SDK and Python Boto3**: First, you need to set up your AWS SDK and Python Boto3. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. **Configure AWS Credentials**: You need to configure your AWS credentials. You can configure your credentials via the AWS CLI, or by manually creating the file yourself. The default location for the file is `~/.aws/credentials`. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the `default` profile, you can use the following format:
+
+```python
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+```
+
+3. **Create a Python Script to Check Internet Gateway Changes**: You can use the `describe_internet_gateways` method provided by the Boto3 SDK to retrieve information about the internet gateways. Here is a simple script that lists all the internet gateways:
+
+```python
+import boto3
+
+def list_internet_gateways():
+    ec2 = boto3.resource('ec2')
+    for igw in ec2.internet_gateways.all():
+        print(igw.id)
+
+list_internet_gateways()
+```
+
+4. **Create a CloudWatch Alarm for Internet Gateway Changes**: You can use the `put_metric_alarm` method provided by the Boto3 SDK to create a CloudWatch alarm that triggers when changes are made to the internet gateways. Here is a simple script that creates such an alarm:
+
+```python
+import boto3
+
+def create_alarm():
+    cloudwatch = boto3.client('cloudwatch')
+    response = cloudwatch.put_metric_alarm(
+        AlarmName='InternetGatewayChanges',
+        ComparisonOperator='GreaterThanThreshold',
+        MetricName='InternetGatewayChanges',
+        Namespace='AWS/EC2',
+        Statistic='SampleCount',
+        Period=300,
+        EvaluationPeriods=1,
+        Threshold=1,
+        ActionsEnabled=True,
+        AlarmActions=[
+            'arn:aws:sns:us-west-2:123456789012:MyTopic'
+        ],
+        AlarmDescription='Alarm when internet gateway changes exceed 1',
+        Dimensions=[
+            {
+                'Name': 'InternetGatewayId',
+                'Value': 'igw-0123456789abcdef0'
+            },
+        ],
+        Unit='Count'
+    )
+
+create_alarm()
+```
+
+Please note that you need to replace `'arn:aws:sns:us-west-2:123456789012:MyTopic'` with the ARN of your SNS topic, and `'igw-0123456789abcdef0'` with the ID of your internet gateway. This script will create an alarm that sends a notification to the specified SNS topic when the number of changes to the specified internet gateway exceeds 1 within a 5-minute period.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

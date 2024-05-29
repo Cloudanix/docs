@@ -1,6 +1,291 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Route Table Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Create a CloudWatch Alarm for Route Table Changes:**
+   - Open the **Amazon CloudWatch** console.
+   - In the navigation pane, click on **Alarms**, then click on the **Create Alarm** button.
+   - Select the **Create metric alarm** option.
+   - Choose the **VPC** namespace and select the **RouteTableChanges** metric.
+   - Configure the alarm conditions, such as setting the threshold to trigger the alarm when there is a change in the route table.
+
+2. **Set Up Notifications:**
+   - In the same alarm creation process, configure the **Actions** section.
+   - Choose to send a notification to an **SNS topic** when the alarm state is triggered.
+   - If you don’t have an SNS topic, create one and subscribe your email or SMS to receive notifications.
+
+3. **Enable CloudTrail Logging:**
+   - Open the **AWS CloudTrail** console.
+   - Ensure that CloudTrail is enabled to log API calls and activities in your AWS account.
+   - Create a new trail if one does not exist, and configure it to log events to an S3 bucket for auditing purposes.
+
+4. **Implement IAM Policies:**
+   - Open the **IAM** console.
+   - Create or update IAM policies to restrict permissions for modifying route tables.
+   - Attach these policies to IAM users, groups, or roles to ensure that only authorized personnel can make changes to route tables.
+
+By following these steps, you can effectively monitor and prevent unauthorized or unintended changes to your route tables in AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Route Table Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for Route Table Changes:**
+   - First, you need to create a CloudWatch alarm that will monitor the route table changes. This can be done by creating a metric filter and then an alarm based on that filter.
+
+   ```sh
+   aws logs put-metric-filter --log-group-name <VPC_FLOW_LOG_GROUP_NAME> \
+   --filter-name "RouteTableChangesFilter" \
+   --filter-pattern '{ ($.eventName = "CreateRoute") || ($.eventName = "DeleteRoute") || ($.eventName = "ReplaceRoute") }' \
+   --metric-transformations metricName=RouteTableChanges,metricNamespace=VPC,metricValue=1
+   ```
+
+2. **Create the Alarm:**
+   - Now, create an alarm based on the metric filter you just created.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RouteTableChangesAlarm" \
+   --metric-name "RouteTableChanges" \
+   --namespace "VPC" \
+   --statistic "Sum" \
+   --period 300 \
+   --threshold 1 \
+   --comparison-operator "GreaterThanOrEqualToThreshold" \
+   --evaluation-periods 1 \
+   --alarm-actions <SNS_TOPIC_ARN> \
+   --ok-actions <SNS_TOPIC_ARN> \
+   --insufficient-data-actions <SNS_TOPIC_ARN>
+   ```
+
+3. **Set Up SNS Topic for Notifications:**
+   - Ensure you have an SNS topic set up to receive notifications when the alarm state changes. If you don't have one, create it:
+
+   ```sh
+   aws sns create-topic --name RouteTableChangesTopic
+   ```
+
+   - Subscribe to the SNS topic to receive notifications:
+
+   ```sh
+   aws sns subscribe --topic-arn <SNS_TOPIC_ARN> --protocol email --notification-endpoint <YOUR_EMAIL_ADDRESS>
+   ```
+
+4. **Enable CloudTrail Logging:**
+   - Ensure CloudTrail is enabled to log API calls, which is necessary for the metric filter to capture route table changes.
+
+   ```sh
+   aws cloudtrail create-trail --name <TRAIL_NAME> --s3-bucket-name <S3_BUCKET_NAME>
+   aws cloudtrail start-logging --name <TRAIL_NAME>
+   ```
+
+By following these steps, you will have set up a CloudWatch alarm to monitor and alert you on route table changes, helping to prevent unauthorized or unintended modifications.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Route Table Changes Alarm in AWS CloudWatch using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a CloudWatch Alarm for Route Table Changes
+You need to create a CloudWatch alarm that triggers when there are changes to the route tables. This involves setting up a CloudTrail to log API calls and then creating a CloudWatch alarm based on those logs.
+
+### 3. Enable CloudTrail for Route Table Changes
+Ensure CloudTrail is enabled to capture the necessary API calls related to route table changes.
+
+```python
+import boto3
+
+client = boto3.client('cloudtrail')
+
+response = client.create_trail(
+    Name='RouteTableChangesTrail',
+    S3BucketName='your-s3-bucket-name',
+    IncludeGlobalServiceEvents=True,
+    IsMultiRegionTrail=True,
+    EnableLogFileValidation=True,
+    TagsList=[
+        {
+            'Key': 'Name',
+            'Value': 'RouteTableChangesTrail'
+        },
+    ]
+)
+
+client.start_logging(Name='RouteTableChangesTrail')
+```
+
+### 4. Create a CloudWatch Alarm
+Create a CloudWatch alarm that monitors the CloudTrail logs for route table changes.
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+
+response = cloudwatch.put_metric_alarm(
+    AlarmName='RouteTableChangesAlarm',
+    AlarmDescription='Alarm when there are changes to route tables',
+    ActionsEnabled=True,
+    MetricName='EventCount',
+    Namespace='AWS/CloudTrail',
+    Statistic='Sum',
+    Dimensions=[
+        {
+            'Name': 'EventName',
+            'Value': 'CreateRouteTable'
+        },
+        {
+            'Name': 'EventName',
+            'Value': 'DeleteRouteTable'
+        },
+        {
+            'Name': 'EventName',
+            'Value': 'ReplaceRouteTableAssociation'
+        },
+        {
+            'Name': 'EventName',
+            'Value': 'ReplaceRoute'
+        }
+    ],
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:region:account-id:your-sns-topic'
+    ],
+    Tags=[
+        {
+            'Key': 'Name',
+            'Value': 'RouteTableChangesAlarm'
+        },
+    ]
+)
+```
+
+### Summary
+1. **Set Up AWS SDK (Boto3)**: Ensure Boto3 is installed.
+2. **Enable CloudTrail**: Create and start a CloudTrail to log route table changes.
+3. **Create CloudWatch Alarm**: Set up a CloudWatch alarm to monitor CloudTrail logs for route table changes.
+4. **Configure Alarm Actions**: Specify actions (like sending notifications) when the alarm is triggered.
+
+By following these steps, you can effectively monitor and prevent unauthorized or unintended changes to your route tables in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to your AWS Management Console and navigate to the CloudWatch service.
+
+2. In the CloudWatch dashboard, click on "Alarms" in the left-hand navigation pane.
+
+3. In the Alarms dashboard, you can see a list of all the alarms that have been configured. Look for the Route Table Changes Alarm in the list. If it's not there, it means it hasn't been set up.
+
+4. Click on the Route Table Changes Alarm to view its details. Here you can check its status, conditions, actions, and the history of its state changes. If the alarm is in the "ALARM" state, it means that the route table changes have exceeded the threshold set in the alarm's conditions.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the `describe-alarms` command to list all the alarms in your AWS account. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarms
+   ```
+   This command will return a list of all the alarms, including the Route Table Changes Alarm if it exists.
+
+3. To filter out the Route Table Changes Alarm, you can use the `--alarm-names` option followed by the name of the alarm. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarms --alarm-names "Route Table Changes Alarm"
+   ```
+   This command will return the details of the Route Table Changes Alarm if it exists.
+
+4. To check the state of the Route Table Changes Alarm, you can use the `--state-value` option followed by the state you want to check. The command is as follows:
+
+   ```
+   aws cloudwatch describe-alarms --state-value "ALARM"
+   ```
+   This command will return a list of all the alarms that are currently in the ALARM state, including the Route Table Changes Alarm if it is in the ALARM state.
+</Accordion>
+
+<Accordion title='Using Python'>
+To detect Route Table Changes Alarm in Cloud Watch using python scripts, you can follow these steps:
+
+1. **Install AWS SDK for Python (Boto3):**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:**
+   Before you can begin using Boto3, you should set up authentication credentials. You can do this by using the AWS CLI or by directly setting your AWS credentials in the following way:
+   ```
+   aws configure
+   AWS Access Key ID [None]: YOUR_ACCESS_KEY
+   AWS Secret Access Key [None]: YOUR_SECRET_KEY
+   Default region name [None]: YOUR_REGION_NAME
+   Default output format [None]: json
+   ```
+
+3. **Create a Python Script to Fetch CloudWatch Alarms:**
+   You can use the `describe_alarms` method of the CloudWatch client in Boto3 to fetch all the alarms. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_cloudwatch_alarms():
+       client = boto3.client('cloudwatch')
+       response = client.describe_alarms()
+       return response['MetricAlarms']
+
+   alarms = get_cloudwatch_alarms()
+   for alarm in alarms:
+       print(alarm['AlarmName'])
+   ```
+   This script will print the names of all the alarms in CloudWatch.
+
+4. **Filter Alarms for Route Table Changes:**
+   You can modify the above script to filter out the alarms related to Route Table changes. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_route_table_change_alarms():
+       client = boto3.client('cloudwatch')
+       response = client.describe_alarms()
+       alarms = response['MetricAlarms']
+       route_table_change_alarms = [alarm for alarm in alarms if 'RouteTable' in alarm['AlarmName']]
+       return route_table_change_alarms
+
+   alarms = get_route_table_change_alarms()
+   for alarm in alarms:
+       print(alarm['AlarmName'])
+   ```
+   This script will print the names of all the alarms related to Route Table changes.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

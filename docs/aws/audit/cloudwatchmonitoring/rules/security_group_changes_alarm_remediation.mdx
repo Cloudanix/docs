@@ -1,6 +1,255 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Security Group Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Create a CloudWatch Alarm:**
+   - Open the **Amazon CloudWatch** console.
+   - In the navigation pane, click on **Alarms**, then click on the **Create Alarm** button.
+   - Select the **Create metric alarm** option.
+
+2. **Select the Metric:**
+   - In the **Select metric** section, choose **Browse** and navigate to **VPC** metrics.
+   - Select the **SecurityGroupEventCount** metric, which tracks changes to security groups.
+
+3. **Configure the Alarm:**
+   - Set the **Conditions** for the alarm. For example, you can set the threshold type to **Static** and specify the threshold value that triggers the alarm (e.g., when the count of security group changes is greater than 0).
+   - Configure the **Additional settings** such as the period and evaluation periods according to your monitoring needs.
+
+4. **Set Notification and Actions:**
+   - In the **Notification** section, specify the actions to take when the alarm state is triggered. You can send notifications to an **SNS topic**, which can then notify administrators via email, SMS, or other means.
+   - Optionally, you can also set up **Auto Scaling actions** or **EC2 actions** if needed.
+
+By following these steps, you can effectively monitor and get alerted on any changes to your security groups, helping you to prevent unauthorized modifications.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Security Group Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for Security Group Changes:**
+   - First, ensure you have a CloudTrail trail that logs API calls related to security groups.
+   - Create a CloudWatch log group to store the CloudTrail logs if you haven't already.
+
+   ```sh
+   aws logs create-log-group --log-group-name SecurityGroupChangesLogGroup
+   ```
+
+2. **Create a Metric Filter for Security Group Changes:**
+   - Create a metric filter to capture security group changes from the CloudTrail logs.
+
+   ```sh
+   aws logs put-metric-filter --log-group-name SecurityGroupChangesLogGroup \
+   --filter-name SecurityGroupChangesFilter \
+   --filter-pattern '{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) }' \
+   --metric-transformations metricName=SecurityGroupChanges,metricNamespace=YourNamespace,metricValue=1
+   ```
+
+3. **Create a CloudWatch Alarm Based on the Metric:**
+   - Create an alarm that triggers when the metric filter detects a security group change.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name SecurityGroupChangesAlarm \
+   --metric-name SecurityGroupChanges \
+   --namespace YourNamespace \
+   --statistic Sum \
+   --period 300 \
+   --threshold 1 \
+   --comparison-operator GreaterThanOrEqualToThreshold \
+   --evaluation-periods 1 \
+   --alarm-actions arn:aws:sns:region:account-id:YourSNSTopic
+   ```
+
+4. **Subscribe to the Alarm Notifications:**
+   - Ensure you have an SNS topic to receive the alarm notifications and subscribe to it.
+
+   ```sh
+   aws sns create-topic --name YourSNSTopic
+   aws sns subscribe --topic-arn arn:aws:sns:region:account-id:YourSNSTopic --protocol email --notification-endpoint your-email@example.com
+   ```
+
+By following these steps, you will have set up a CloudWatch alarm to monitor and alert you on any changes to your security groups, helping to prevent unauthorized modifications.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unauthorized Security Group changes in AWS and set up an alarm in CloudWatch using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a CloudWatch Alarm for Security Group Changes**
+You need to create a CloudWatch alarm that triggers when there are changes to Security Groups. This involves setting up a CloudTrail to log API calls and then creating a CloudWatch alarm based on these logs.
+
+### 3. **Enable CloudTrail for Security Group Changes**
+Create a CloudTrail to log all API calls related to Security Groups. This can be done using Boto3:
+
+```python
+import boto3
+
+# Create a CloudTrail client
+cloudtrail_client = boto3.client('cloudtrail')
+
+# Create a trail
+response = cloudtrail_client.create_trail(
+    Name='SecurityGroupChangesTrail',
+    S3BucketName='your-s3-bucket-name',
+    IncludeGlobalServiceEvents=True,
+    IsMultiRegionTrail=True,
+    EnableLogFileValidation=True
+)
+
+# Start logging
+cloudtrail_client.start_logging(Name='SecurityGroupChangesTrail')
+```
+
+### 4. **Create a CloudWatch Alarm**
+Create a CloudWatch alarm that monitors the CloudTrail logs for specific Security Group changes:
+
+```python
+import boto3
+
+# Create a CloudWatch client
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Define the metric filter
+metric_filter = {
+    'filterName': 'SecurityGroupChangesFilter',
+    'logGroupName': 'CloudTrail/DefaultLogGroup',
+    'filterPattern': '{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupEgress) }',
+    'metricTransformations': [
+        {
+            'metricName': 'SecurityGroupChanges',
+            'metricNamespace': 'YourNamespace',
+            'metricValue': '1'
+        }
+    ]
+}
+
+# Create the metric filter
+cloudwatch_client.put_metric_filter(**metric_filter)
+
+# Create the alarm
+alarm = {
+    'AlarmName': 'SecurityGroupChangesAlarm',
+    'AlarmDescription': 'Alarm when security group changes are detected',
+    'ActionsEnabled': True,
+    'MetricName': 'SecurityGroupChanges',
+    'Namespace': 'YourNamespace',
+    'Statistic': 'Sum',
+    'Period': 300,
+    'EvaluationPeriods': 1,
+    'Threshold': 1,
+    'ComparisonOperator': 'GreaterThanOrEqualToThreshold',
+    'AlarmActions': ['arn:aws:sns:your-region:your-account-id:your-sns-topic'],
+    'OKActions': ['arn:aws:sns:your-region:your-account-id:your-sns-topic'],
+    'InsufficientDataActions': ['arn:aws:sns:your-region:your-account-id:your-sns-topic']
+}
+
+# Put the alarm
+cloudwatch_client.put_metric_alarm(**alarm)
+```
+
+### Summary
+1. **Install Boto3**: Ensure you have the AWS SDK for Python installed.
+2. **Enable CloudTrail**: Create and start a CloudTrail to log Security Group changes.
+3. **Create Metric Filter**: Set up a metric filter in CloudWatch to monitor CloudTrail logs for Security Group changes.
+4. **Create CloudWatch Alarm**: Create a CloudWatch alarm that triggers based on the metric filter.
+
+By following these steps, you can effectively monitor and prevent unauthorized Security Group changes in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms". 
+
+3. In the "Alarms" section, you can see all the alarms that have been set up. Look for the alarm that is set up to monitor Security Group changes. It could be named something like "SecurityGroupChangesAlarm".
+
+4. Click on the name of the alarm to view its details. In the "History" tab, you can see the state changes of the alarm. If the state is "ALARM", it means that the alarm condition is met. You can also see the reason for the state change. If there are any changes in the security group, it will be recorded here.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access CloudWatch.
+
+2. Once AWS CLI is installed and configured, you can use the following command to list all the alarms in CloudWatch:
+
+```bash
+aws cloudwatch describe-alarms
+```
+
+This command will return a list of all the alarms that are currently configured in CloudWatch. 
+
+3. To check for a specific alarm related to Security Group changes, you can filter the results using the `--alarm-names` option followed by the name of the alarm. For example:
+
+```bash
+aws cloudwatch describe-alarms --alarm-names "SecurityGroupChanges"
+```
+
+This command will return the details of the alarm named "SecurityGroupChanges". 
+
+4. If you want to check the state of this alarm, you can use the `--state-value` option followed by the state you want to check. For example, to check if the alarm is in the "ALARM" state, you can use the following command:
+
+```bash
+aws cloudwatch describe-alarms --state-value ALARM --alarm-names "SecurityGroupChanges"
+```
+
+This command will return the details of the alarm named "SecurityGroupChanges" if it is currently in the "ALARM" state. If the alarm is not in the "ALARM" state, the command will not return any results.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) in your environment. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and initialize the client for CloudWatch. You will need your AWS access key and secret access key, which you can get from the AWS Management Console.
+```python
+import boto3
+
+client = boto3.client(
+    'cloudwatch',
+    region_name='us-west-2',
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY'
+)
+```
+
+3. Use the `describe_alarms` function to get information about all the alarms in your AWS account. This function returns a dictionary that contains information about each alarm, including its name, state, and the actions that are taken when the alarm changes state.
+```python
+alarms = client.describe_alarms()
+for alarm in alarms['MetricAlarms']:
+    print('Name: ' + alarm['AlarmName'])
+    print('State: ' + alarm['StateValue'])
+    print('Actions: ' + str(alarm['AlarmActions']))
+```
+
+4. To specifically check for Security Group Changes Alarm, you can filter the alarms based on the alarm name or any other specific attribute related to the Security Group Changes Alarm.
+```python
+for alarm in alarms['MetricAlarms']:
+    if 'Security Group Changes' in alarm['AlarmName']:
+        print('Name: ' + alarm['AlarmName'])
+        print('State: ' + alarm['StateValue'])
+        print('Actions: ' + str(alarm['AlarmActions']))
+```
+This script will print the name, state, and actions of the Security Group Changes Alarm if it exists.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

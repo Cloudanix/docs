@@ -23,6 +23,274 @@ SOC2, HIPAA, ISO27001, AWSWAF, HITRUST, CISAWS, CBP, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent IAM Policy Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Create a CloudWatch Alarm for IAM Policy Changes:**
+   - Open the **Amazon CloudWatch** console.
+   - In the navigation pane, click on **Alarms**, then click **Create Alarm**.
+   - Select the **Create metric alarm** option.
+
+2. **Select the IAM Metric:**
+   - In the **Select metric** section, choose **Browse**.
+   - Navigate to **AWS/CloudTrail** and select the **Metric Name** related to IAM policy changes, such as `EventName` with values like `PutUserPolicy`, `PutGroupPolicy`, `PutRolePolicy`, `DeleteUserPolicy`, `DeleteGroupPolicy`, `DeleteRolePolicy`.
+
+3. **Configure the Alarm:**
+   - Set the **Conditions** for the alarm, such as the threshold value and the period for evaluation.
+   - For example, set the threshold to trigger the alarm if there is more than one IAM policy change within a specific period (e.g., 5 minutes).
+
+4. **Set Notification and Actions:**
+   - In the **Notification** section, specify the actions to take when the alarm state is triggered.
+   - Choose an existing SNS topic or create a new one to send notifications (e.g., email, SMS) to administrators or security teams.
+   - Optionally, you can add auto-remediation actions like invoking an AWS Lambda function to revert unauthorized changes.
+
+By following these steps, you can effectively monitor and get alerted on IAM policy changes, helping to prevent unauthorized or unintended modifications.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent IAM Policy Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for IAM Policy Changes:**
+   - First, you need to create a CloudWatch alarm that triggers when there are changes to IAM policies. This can be done by monitoring AWS CloudTrail logs for specific events related to IAM policy changes.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "IAMPolicyChangeAlarm" \
+   --metric-name "IAMPolicyChange" --namespace "AWS/CloudTrail" \
+   --statistic "Sum" --period 300 --threshold 1 --comparison-operator "GreaterThanOrEqualToThreshold" \
+   --evaluation-periods 1 --alarm-actions "arn:aws:sns:region:account-id:topic-name" \
+   --dimensions Name=EventName,Value=PutUserPolicy Name=EventName,Value=PutGroupPolicy Name=EventName,Value=PutRolePolicy
+   ```
+
+2. **Enable CloudTrail Logging:**
+   - Ensure that CloudTrail is enabled and configured to log IAM policy changes. This will allow CloudWatch to monitor these logs for any changes.
+
+   ```sh
+   aws cloudtrail create-trail --name "MyTrail" --s3-bucket-name "my-cloudtrail-bucket"
+   aws cloudtrail start-logging --name "MyTrail"
+   ```
+
+3. **Create an SNS Topic for Alarm Notifications:**
+   - Create an SNS topic to receive notifications when the CloudWatch alarm is triggered.
+
+   ```sh
+   aws sns create-topic --name "IAMPolicyChangeTopic"
+   ```
+
+4. **Subscribe to the SNS Topic:**
+   - Subscribe an email endpoint (or any other endpoint) to the SNS topic to receive notifications.
+
+   ```sh
+   aws sns subscribe --topic-arn "arn:aws:sns:region:account-id:IAMPolicyChangeTopic" \
+   --protocol email --notification-endpoint "your-email@example.com"
+   ```
+
+By following these steps, you can set up a CloudWatch alarm to monitor and alert you on IAM policy changes, helping to prevent unauthorized or unintended changes to IAM policies.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent IAM Policy Changes Alarm in CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) in Python:**
+   - Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a CloudWatch Alarm for IAM Policy Changes:**
+   - Use Boto3 to create a CloudWatch alarm that triggers when there are changes to IAM policies. This involves setting up a filter for CloudTrail logs that capture IAM policy changes and then creating an alarm based on those logs.
+
+3. **Enable CloudTrail Logging:**
+   - Ensure CloudTrail is enabled to log IAM policy changes. This is crucial as CloudWatch will use these logs to trigger alarms.
+
+4. **Python Script to Create the Alarm:**
+   - Below is a Python script that sets up a CloudWatch alarm for IAM policy changes:
+
+```python
+import boto3
+
+# Initialize boto3 clients
+cloudwatch = boto3.client('cloudwatch')
+logs = boto3.client('logs')
+cloudtrail = boto3.client('cloudtrail')
+
+# Create a CloudTrail trail if not already created
+trail_name = 'IAMPolicyChangeTrail'
+s3_bucket_name = 'your-s3-bucket-for-cloudtrail-logs'
+
+try:
+    cloudtrail.create_trail(
+        Name=trail_name,
+        S3BucketName=s3_bucket_name,
+        IncludeGlobalServiceEvents=True,
+        IsMultiRegionTrail=True
+    )
+    cloudtrail.start_logging(Name=trail_name)
+    print(f"CloudTrail {trail_name} created and logging started.")
+except cloudtrail.exceptions.TrailAlreadyExistsException:
+    print(f"CloudTrail {trail_name} already exists.")
+
+# Create a CloudWatch Logs metric filter for IAM policy changes
+log_group_name = 'CloudTrail/IAMPolicyChanges'
+filter_pattern = '{ ($.eventName = "PutUserPolicy") || ($.eventName = "PutGroupPolicy") || ($.eventName = "PutRolePolicy") || ($.eventName = "DeleteUserPolicy") || ($.eventName = "DeleteGroupPolicy") || ($.eventName = "DeleteRolePolicy") || ($.eventName = "AttachUserPolicy") || ($.eventName = "AttachGroupPolicy") || ($.eventName = "AttachRolePolicy") || ($.eventName = "DetachUserPolicy") || ($.eventName = "DetachGroupPolicy") || ($.eventName = "DetachRolePolicy") }'
+
+try:
+    logs.create_log_group(logGroupName=log_group_name)
+except logs.exceptions.ResourceAlreadyExistsException:
+    print(f"Log group {log_group_name} already exists.")
+
+logs.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName='IAMPolicyChangeFilter',
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': 'IAMPolicyChangeCount',
+            'metricNamespace': 'IAMPolicyChanges',
+            'metricValue': '1'
+        }
+    ]
+)
+
+# Create a CloudWatch alarm based on the metric filter
+cloudwatch.put_metric_alarm(
+    AlarmName='IAMPolicyChangeAlarm',
+    AlarmDescription='Alarm for IAM policy changes',
+    ActionsEnabled=True,
+    MetricName='IAMPolicyChangeCount',
+    Namespace='IAMPolicyChanges',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:region:account-id:your-sns-topic'  # Replace with your SNS topic ARN
+    ]
+)
+
+print("CloudWatch alarm for IAM policy changes created.")
+```
+
+### Explanation:
+1. **Set Up AWS SDK (Boto3) in Python:**
+   - Install and import Boto3 to interact with AWS services.
+
+2. **Create a CloudWatch Alarm for IAM Policy Changes:**
+   - Define the necessary parameters and create a CloudWatch alarm that monitors IAM policy changes.
+
+3. **Enable CloudTrail Logging:**
+   - Ensure CloudTrail is enabled to log IAM policy changes, which are necessary for CloudWatch to trigger alarms.
+
+4. **Python Script to Create the Alarm:**
+   - The script sets up CloudTrail, creates a CloudWatch Logs metric filter for IAM policy changes, and then creates a CloudWatch alarm based on that metric filter.
+
+By following these steps, you can effectively monitor and prevent unauthorized IAM policy changes using CloudWatch alarms and Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms".
+
+3. In the "Alarms" dashboard, you can see a list of all the alarms that have been configured. Look for the IAM Policy Changes Alarm. If it's in the 'OK' state, it means there are no recent changes. If it's in the 'ALARM' state, it means a change has been detected.
+
+4. To view more details about the alarm, click on the alarm name. In the details section, you can see the metric name, the threshold, and the actions that will be taken when the alarm state changes. You can also see the history of the alarm state changes and the corresponding timestamps.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI using pip (Python package manager) by running the command `pip install awscli`. After installation, you can configure it by running `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List existing CloudWatch alarms: You can use the `describe-alarms` command to list all the existing CloudWatch alarms. The command is as follows:
+   ```
+   aws cloudwatch describe-alarms
+   ```
+   This command will return a list of all the alarms along with their details.
+
+3. Check for IAM Policy Changes Alarm: You can filter the list of alarms to find the IAM Policy Changes Alarm. You can do this by piping the output of the `describe-alarms` command to a `grep` command as follows:
+   ```
+   aws cloudwatch describe-alarms | grep "IAM Policy Changes Alarm"
+   ```
+   This command will return the details of the IAM Policy Changes Alarm if it exists.
+
+4. Check the state of the alarm: You can check the state of the IAM Policy Changes Alarm by looking at the `StateValue` field in the output of the previous command. If the `StateValue` is `ALARM`, it means that there have been changes to IAM policies. If the `StateValue` is `OK`, it means that there have been no changes to IAM policies.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up the AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials either by setting up environment variables or by using the AWS CLI.
+
+2. **Create a Python Script to Fetch CloudWatch Alarms:**
+   You can use the `describe_alarms` method provided by the CloudWatch client in boto3 to fetch all the alarms. Here is a sample script:
+
+   ```python
+   import boto3
+
+   def get_cloudwatch_alarms():
+       client = boto3.client('cloudwatch')
+       response = client.describe_alarms()
+       return response['MetricAlarms']
+
+   alarms = get_cloudwatch_alarms()
+   for alarm in alarms:
+       print(alarm['AlarmName'])
+   ```
+   This script will print the names of all the alarms configured in CloudWatch.
+
+3. **Filter IAM Policy Changes Alarms:**
+   Now, you need to filter out the alarms related to IAM Policy Changes. You can do this by checking the `MetricName` and `Namespace` of each alarm. Here is the updated script:
+
+   ```python
+   import boto3
+
+   def get_cloudwatch_alarms():
+       client = boto3.client('cloudwatch')
+       response = client.describe_alarms()
+       return response['MetricAlarms']
+
+   alarms = get_cloudwatch_alarms()
+   for alarm in alarms:
+       if alarm['Namespace'] == 'AWS/IAM' and alarm['MetricName'] == 'PolicyChanges':
+           print(alarm['AlarmName'])
+   ```
+   This script will print the names of the alarms related to IAM Policy Changes.
+
+4. **Check the State of the Alarms:**
+   Finally, you can check the state of each alarm to see if it's in the `ALARM` state. Here is the final script:
+
+   ```python
+   import boto3
+
+   def get_cloudwatch_alarms():
+       client = boto3.client('cloudwatch')
+       response = client.describe_alarms()
+       return response['MetricAlarms']
+
+   alarms = get_cloudwatch_alarms()
+   for alarm in alarms:
+       if alarm['Namespace'] == 'AWS/IAM' and alarm['MetricName'] == 'PolicyChanges':
+           print(f"Alarm Name: {alarm['AlarmName']}, State: {alarm['StateValue']}")
+   ```
+   This script will print the names and states of the alarms related to IAM Policy Changes. If the state is `ALARM`, it means that there has been a change in IAM policies.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

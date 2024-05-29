@@ -23,6 +23,272 @@ HIPAA, ISO27001, CISAWS, CBP, NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the "CMK Disabled or Scheduled for Deletion" alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Enable Key Rotation and Monitoring:**
+   - Navigate to the AWS Key Management Service (KMS) console.
+   - Select the Customer Master Key (CMK) you want to manage.
+   - Ensure that key rotation is enabled for the CMK to automatically rotate the key annually.
+   - Set up CloudWatch alarms to monitor the status of your CMKs. Go to the CloudWatch console, create a new alarm, and select the KMS metrics to monitor the status of your keys.
+
+2. **Set Up CloudWatch Alarms:**
+   - In the CloudWatch console, click on "Alarms" and then "Create Alarm."
+   - Choose the KMS namespace and select the metric for "DisabledKeys" or "PendingDeletionKeys."
+   - Configure the alarm to trigger when the metric indicates that a key is disabled or scheduled for deletion.
+
+3. **Notification Configuration:**
+   - While setting up the alarm, configure actions to notify you when the alarm state is triggered.
+   - You can set up notifications via Amazon SNS (Simple Notification Service) to send alerts to email, SMS, or other endpoints.
+
+4. **Regular Audits and Reviews:**
+   - Regularly review the status of your CMKs in the KMS console.
+   - Ensure that no keys are unintentionally disabled or scheduled for deletion.
+   - Implement a policy for periodic audits to verify the configuration and status of your CMKs.
+
+By following these steps, you can proactively monitor and prevent the disabling or deletion of your CMKs, ensuring that your encryption keys remain available and secure.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent a Customer Master Key (CMK) from being disabled or scheduled for deletion in AWS CloudWatch using the AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Alarm for CMK State:**
+   - First, you need to create a CloudWatch alarm that monitors the state of your CMK. This can be done by creating a metric filter and an alarm based on that filter.
+
+   ```sh
+   aws logs put-metric-filter \
+       --log-group-name <log-group-name> \
+       --filter-name "CMKStateFilter" \
+       --filter-pattern '{ $.eventName = "DisableKey" || $.eventName = "ScheduleKeyDeletion" }' \
+       --metric-transformations \
+           metricName=CMKStateChange,metricNamespace=YourNamespace,metricValue=1
+   ```
+
+2. **Create the Alarm:**
+   - Next, create an alarm that triggers when the metric value is greater than 0, indicating that a CMK has been disabled or scheduled for deletion.
+
+   ```sh
+   aws cloudwatch put-metric-alarm \
+       --alarm-name "CMKStateChangeAlarm" \
+       --alarm-description "Alarm when CMK is disabled or scheduled for deletion" \
+       --metric-name CMKStateChange \
+       --namespace YourNamespace \
+       --statistic Sum \
+       --period 300 \
+       --threshold 0 \
+       --comparison-operator GreaterThanThreshold \
+       --evaluation-periods 1 \
+       --alarm-actions <sns-topic-arn> \
+       --ok-actions <sns-topic-arn>
+   ```
+
+3. **Subscribe to the Alarm Notifications:**
+   - Ensure that you have an SNS topic to which the alarm can send notifications. Subscribe your email or other endpoints to this SNS topic to receive alerts.
+
+   ```sh
+   aws sns subscribe \
+       --topic-arn <sns-topic-arn> \
+       --protocol email \
+       --notification-endpoint <your-email@example.com>
+   ```
+
+4. **Enable CloudTrail Logging:**
+   - Ensure that CloudTrail is enabled to log API calls, as the metric filter relies on CloudTrail logs to detect changes in the CMK state.
+
+   ```sh
+   aws cloudtrail create-trail \
+       --name <trail-name> \
+       --s3-bucket-name <s3-bucket-name>
+   
+   aws cloudtrail start-logging \
+       --name <trail-name>
+   ```
+
+By following these steps, you can set up a CloudWatch alarm to monitor and alert you if a CMK is disabled or scheduled for deletion, helping you to prevent such misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent a Customer Master Key (CMK) from being disabled or scheduled for deletion in AWS CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS KMS and CloudWatch.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a CloudWatch Alarm:**
+   Use Boto3 to create a CloudWatch alarm that monitors the status of your CMK. This alarm will trigger if the CMK is disabled or scheduled for deletion.
+
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+
+   response = cloudwatch.put_metric_alarm(
+       AlarmName='CMK_Disabled_or_Deletion_Scheduled',
+       MetricName='KeyState',
+       Namespace='AWS/KMS',
+       Statistic='Average',
+       Period=300,
+       EvaluationPeriods=1,
+       Threshold=1,
+       ComparisonOperator='GreaterThanOrEqualToThreshold',
+       Dimensions=[
+           {
+               'Name': 'KeyId',
+               'Value': 'your-cmk-id'
+           },
+       ],
+       AlarmActions=[
+           'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+       ],
+       OKActions=[
+           'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+       ],
+       AlarmDescription='Alarm when CMK is disabled or scheduled for deletion',
+       ActionsEnabled=True
+   )
+
+   print("Alarm created:", response)
+   ```
+
+3. **Monitor CMK Status:**
+   Regularly check the status of your CMK using Boto3 to ensure it is not disabled or scheduled for deletion.
+
+   ```python
+   kms = boto3.client('kms')
+
+   def check_cmk_status(key_id):
+       response = kms.describe_key(KeyId=key_id)
+       key_state = response['KeyMetadata']['KeyState']
+       if key_state in ['Disabled', 'PendingDeletion']:
+           print(f"Alert: CMK {key_id} is {key_state}")
+       else:
+           print(f"CMK {key_id} is in {key_state} state")
+
+   check_cmk_status('your-cmk-id')
+   ```
+
+4. **Automate the Monitoring:**
+   Use AWS Lambda to automate the monitoring process. Create a Lambda function that runs the above script periodically (e.g., every 5 minutes) using CloudWatch Events.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       kms = boto3.client('kms')
+       key_id = 'your-cmk-id'
+
+       response = kms.describe_key(KeyId=key_id)
+       key_state = response['KeyMetadata']['KeyState']
+       if key_state in ['Disabled', 'PendingDeletion']:
+           print(f"Alert: CMK {key_id} is {key_state}")
+       else:
+           print(f"CMK {key_id} is in {key_state} state")
+
+   # Set up CloudWatch Event to trigger this Lambda function every 5 minutes
+   ```
+
+By following these steps, you can effectively prevent and monitor the status of your CMK to ensure it is not disabled or scheduled for deletion, using Python scripts and AWS services.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms".
+
+3. In the "Alarms" dashboard, you can see all the alarms that have been set up. Look for the CMK Disabled or Scheduled for Deletion Alarm. If it's not there, it means it hasn't been set up.
+
+4. To confirm the status of the alarm, click on the alarm name. In the "Alarm details" section, you can see the state of the alarm. If the state is "INSUFFICIENT_DATA", it means the alarm has not been triggered. If the state is "ALARM", it means the alarm has been triggered. If the state is "OK", it means the alarm is set up correctly and the condition it's monitoring is within the defined threshold.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all CloudWatch alarms: Use the following AWS CLI command to list all the CloudWatch alarms in your AWS account:
+
+   ```
+   aws cloudwatch describe-alarms
+   ```
+   This command will return a list of all the alarms along with their details.
+
+3. Filter CMK Disabled or Scheduled for Deletion alarms: You can filter the list of alarms to only show the ones related to CMK Disabled or Scheduled for Deletion. This can be done by using the `--query` parameter in the AWS CLI command:
+
+   ```
+   aws cloudwatch describe-alarms --query 'MetricAlarms[?AlarmName==`CMK Disabled` || AlarmName==`CMK Scheduled for Deletion`]'
+   ```
+   This command will return a list of alarms with the names 'CMK Disabled' or 'CMK Scheduled for Deletion'.
+
+4. Check the state of the alarms: The state of the alarms can tell you whether the CMK is disabled or scheduled for deletion. You can check the state of the alarms by looking at the 'StateValue' field in the output of the previous command. If the 'StateValue' is 'ALARM', it means that the CMK is either disabled or scheduled for deletion.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Use the CloudWatch client from the session to list all the alarms:
+
+```python
+cloudwatch = session.client('cloudwatch')
+
+def list_alarms():
+    alarms = cloudwatch.describe_alarms()
+    return alarms['MetricAlarms']
+```
+
+4. Check each alarm to see if it's for a CMK that's disabled or scheduled for deletion:
+
+```python
+def check_cmk_alarms():
+    alarms = list_alarms()
+    for alarm in alarms:
+        if 'CMK' in alarm['AlarmName'] and ('Disabled' in alarm['AlarmName'] or 'ScheduledForDeletion' in alarm['AlarmName']):
+            print(f"Alarm {alarm['AlarmName']} is set for a CMK that's disabled or scheduled for deletion.")
+```
+
+This script will print out the names of any alarms that are set for a CMK that's either disabled or scheduled for deletion. Note that this script assumes that the alarm names include the string 'CMK' and either 'Disabled' or 'ScheduledForDeletion'. If your alarm names are different, you'll need to adjust the script accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

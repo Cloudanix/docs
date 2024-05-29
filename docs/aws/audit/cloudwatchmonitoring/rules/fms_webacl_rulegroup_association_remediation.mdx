@@ -1,6 +1,216 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "FMS Web ACL Should Have Rule Group Association" in AWS CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS WAF & Shield Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "WAF & Shield" and select "WAF & Shield" from the dropdown.
+
+2. **Create or Select a Web ACL:**
+   - If you already have a Web ACL, select it from the list.
+   - If you need to create a new Web ACL, click on "Create web ACL" and follow the prompts to set it up.
+
+3. **Add Rule Groups to the Web ACL:**
+   - Within the Web ACL configuration, navigate to the "Rules" section.
+   - Click on "Add rules" and then select "Add rule group."
+   - Choose an existing rule group or create a new one, and then add it to the Web ACL.
+
+4. **Save and Apply the Configuration:**
+   - After adding the rule group, review the configuration.
+   - Click "Save" to apply the changes to the Web ACL.
+   - Ensure that the Web ACL is associated with the appropriate resources (e.g., CloudFront distributions, API Gateway stages, or Application Load Balancers).
+
+By following these steps, you can ensure that your FMS Web ACL has the necessary rule group associations to prevent misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration "FMS Web ACL Should Have Rule Group Association" in AWS using the AWS CLI, you need to ensure that your AWS Firewall Manager (FMS) Web Access Control List (Web ACL) has the appropriate rule group associations. Here are the steps to achieve this:
+
+1. **Create a Rule Group:**
+   First, create a rule group if you don't already have one. This rule group will contain the rules you want to associate with your Web ACL.
+   ```sh
+   aws wafv2 create-rule-group \
+       --name my-rule-group \
+       --scope REGIONAL \
+       --capacity 100 \
+       --rules file://rules.json \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=my-rule-group-metric \
+       --region us-west-2
+   ```
+
+2. **List Existing Web ACLs:**
+   List your existing Web ACLs to identify the one you want to associate with the rule group.
+   ```sh
+   aws wafv2 list-web-acls \
+       --scope REGIONAL \
+       --region us-west-2
+   ```
+
+3. **Update Web ACL to Associate Rule Group:**
+   Update the Web ACL to include the rule group association. You will need the Web ACL ARN and the rule group ARN from the previous steps.
+   ```sh
+   aws wafv2 update-web-acl \
+       --name my-web-acl \
+       --scope REGIONAL \
+       --id <web-acl-id> \
+       --default-action Allow={} \
+       --rules file://web-acl-rules.json \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=my-web-acl-metric \
+       --region us-west-2
+   ```
+
+4. **Verify the Association:**
+   Verify that the rule group has been successfully associated with the Web ACL.
+   ```sh
+   aws wafv2 get-web-acl \
+       --name my-web-acl \
+       --scope REGIONAL \
+       --id <web-acl-id> \
+       --region us-west-2
+   ```
+
+In these steps, replace placeholders like `my-rule-group`, `my-web-acl`, `<web-acl-id>`, and file paths with your actual values. The `rules.json` and `web-acl-rules.json` files should contain the appropriate rule definitions in JSON format.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration "FMS Web ACL Should Have Rule Group Association" in CloudWatch using Python scripts, you can follow these steps:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Create a Boto3 Session
+Create a Boto3 session to interact with AWS services. This will allow you to authenticate and make API calls.
+
+```python
+import boto3
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+### Step 3: Define the Web ACL and Rule Group
+Define the Web ACL and the Rule Group that you want to associate. You need to specify the Web ACL ID and the Rule Group ID.
+
+```python
+# Define the Web ACL and Rule Group
+web_acl_id = 'YOUR_WEB_ACL_ID'
+rule_group_id = 'YOUR_RULE_GROUP_ID'
+```
+
+### Step 4: Associate the Rule Group with the Web ACL
+Use the `wafv2` client to associate the Rule Group with the Web ACL. This ensures that the Web ACL has the necessary Rule Group association.
+
+```python
+# Create a WAFv2 client
+wafv2_client = session.client('wafv2')
+
+# Get the current Web ACL configuration
+response = wafv2_client.get_web_acl(
+    Name='YOUR_WEB_ACL_NAME',
+    Scope='REGIONAL',  # or 'CLOUDFRONT' depending on your use case
+    Id=web_acl_id
+)
+
+# Extract the current rules
+current_rules = response['WebACL']['Rules']
+
+# Define the new rule group association
+new_rule_group = {
+    'Name': 'YOUR_RULE_GROUP_NAME',
+    'Priority': 1,  # Set the priority of the rule group
+    'Statement': {
+        'RuleGroupReferenceStatement': {
+            'ARN': f'arn:aws:wafv2:{session.region_name}:{session.client("sts").get_caller_identity()["Account"]}:regional/rulegroup/{rule_group_id}'
+        }
+    },
+    'Action': {
+        'Allow': {}  # or 'Block' depending on your use case
+    },
+    'VisibilityConfig': {
+        'SampledRequestsEnabled': True,
+        'CloudWatchMetricsEnabled': True,
+        'MetricName': 'YOUR_METRIC_NAME'
+    }
+}
+
+# Add the new rule group to the current rules
+current_rules.append(new_rule_group)
+
+# Update the Web ACL with the new rules
+wafv2_client.update_web_acl(
+    Name='YOUR_WEB_ACL_NAME',
+    Scope='REGIONAL',  # or 'CLOUDFRONT'
+    Id=web_acl_id,
+    LockToken=response['LockToken'],
+    DefaultAction=response['WebACL']['DefaultAction'],
+    Rules=current_rules,
+    VisibilityConfig=response['WebACL']['VisibilityConfig']
+)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Create a Boto3 Session**: Authenticate using your AWS credentials.
+3. **Define the Web ACL and Rule Group**: Specify the Web ACL ID and Rule Group ID.
+4. **Associate the Rule Group with the Web ACL**: Use the `wafv2` client to update the Web ACL with the new Rule Group association.
+
+By following these steps, you can ensure that your FMS Web ACL has the necessary Rule Group association, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the AWS WAF & Shield service.
+
+2. In the navigation pane, select "Web ACLs". This will display a list of all the Web ACLs that are currently configured in your AWS account.
+
+3. Click on the name of the Web ACL that you want to check. This will open the details page for that Web ACL.
+
+4. In the details page, look for the "Rules" section. If there is a Rule Group associated with the Web ACL, it will be listed here. If there is no Rule Group listed, then the Web ACL does not have a Rule Group association.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the WebACLs in your account:
+
+   ```
+   aws wafv2 list-web-acls --scope REGIONAL
+   ```
+
+   This command will return a list of WebACLs. Note down the ARN of the WebACL for which you want to check the rule group association.
+
+3. Now, use the following command to get the details of the WebACL:
+
+   ```
+   aws wafv2 get-web-acl --scope REGIONAL --arn "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID"
+   ```
+
+   Replace "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID" with the ARN of your WebACL. This command will return the details of the WebACL including the associated rule groups.
+
+4. Check the output of the above command. If the "Rules" section contains a "RuleGroupReferenceStatement", it means that the WebACL has a rule group association. If not, it means that the WebACL does not have a rule group association.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

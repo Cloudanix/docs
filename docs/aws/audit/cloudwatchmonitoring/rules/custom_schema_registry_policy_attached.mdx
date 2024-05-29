@@ -23,6 +23,204 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using CLI'>
+To prevent Resource Policy Attachment in a Custom Schema Registry in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create a Policy with Least Privilege**:
+   Ensure that you create a policy that grants only the necessary permissions to users or roles. This minimizes the risk of unauthorized resource policy attachments.
+
+   ```sh
+   aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+   ```
+
+2. **Attach the Policy to a User or Role**:
+   Attach the least privilege policy to the specific user or role that requires access. This ensures that only authorized entities can perform actions on the schema registry.
+
+   ```sh
+   aws iam attach-user-policy --user-name YourUserName --policy-arn arn:aws:iam::aws:policy/LeastPrivilegePolicy
+   ```
+
+   or for a role:
+
+   ```sh
+   aws iam attach-role-policy --role-name YourRoleName --policy-arn arn:aws:iam::aws:policy/LeastPrivilegePolicy
+   ```
+
+3. **Use Service Control Policies (SCPs) in AWS Organizations**:
+   If you are using AWS Organizations, you can create and attach an SCP to your organizational units (OUs) to restrict the ability to attach resource policies to schema registries.
+
+   ```sh
+   aws organizations create-policy --content file://scp_policy.json --description "Deny resource policy attachment to schema registries" --name "DenySchemaRegistryPolicyAttachment" --type SERVICE_CONTROL_POLICY
+   ```
+
+   Then attach the SCP to the appropriate OU:
+
+   ```sh
+   aws organizations attach-policy --policy-id p-12345678 --target-id ou-1234-5678
+   ```
+
+4. **Enable CloudTrail and Monitor Logs**:
+   Enable AWS CloudTrail to log all API calls related to schema registries. This helps in monitoring and auditing any unauthorized attempts to attach resource policies.
+
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-trail-bucket
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+By following these steps, you can prevent unauthorized resource policy attachments in a Custom Schema Registry in CloudWatch using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Resource Policy Attachment in a Custom Schema Registry in CloudWatch using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+### Step 1: Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+### Step 3: Create a Python Script
+Create a Python script to prevent the attachment of resource policies to a custom schema registry.
+
+### Step 4: Implement the Script
+Here is a sample Python script to prevent resource policy attachment:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+# Initialize a session using Amazon EventBridge (CloudWatch Events)
+client = boto3.client('schemas')
+
+# Define the schema registry name
+schema_registry_name = 'your-schema-registry-name'
+
+def prevent_resource_policy_attachment():
+    try:
+        # List all resource policies attached to the schema registry
+        response = client.list_resource_policies(
+            RegistryName=schema_registry_name
+        )
+        
+        # If there are any policies, delete them
+        for policy in response.get('Policies', []):
+            client.delete_resource_policy(
+                RegistryName=schema_registry_name,
+                PolicyName=policy['PolicyName']
+            )
+        print(f"All resource policies have been removed from the schema registry: {schema_registry_name}")
+        
+    except ClientError as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    prevent_resource_policy_attachment()
+```
+
+### Explanation:
+1. **Initialize Boto3 Client**: The script initializes a Boto3 client for the Amazon EventBridge (CloudWatch Events) service.
+2. **List Resource Policies**: It lists all resource policies attached to the specified schema registry.
+3. **Delete Resource Policies**: If any policies are found, it deletes them to ensure no resource policies are attached.
+4. **Error Handling**: The script includes basic error handling to catch and print any errors that occur during the process.
+
+By running this script, you can ensure that no resource policies are attached to your custom schema registry in CloudWatch, thereby preventing potential misconfigurations.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the AWS Glue service.
+2. In the AWS Glue service, click on "Registries" in the left-hand navigation pane. This will display a list of all the registries in your AWS account.
+3. Click on the name of the registry you want to check. This will open the details page for that registry.
+4. On the details page, look for the "Resource Policy" section. If a policy is attached, it will be displayed here. If no policy is attached, the section will be blank.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can use the `get-resource-policies` command to retrieve the resource policies attached to your schema registry. The command would look something like this:
+
+   ```
+   aws schemas get-resource-policies --registry-name <your-registry-name>
+   ```
+   Replace `<your-registry-name>` with the name of your schema registry.
+
+3. The output of this command will be a JSON object that contains all the resource policies attached to your schema registry. You can inspect this JSON object to check for any misconfigurations. 
+
+4. If you want to automate this process, you can write a Python script that uses the `boto3` library to interact with AWS. The script would use the `get_resource_policies` method of the `Schemas` client to retrieve the resource policies. Here is a sample script:
+
+   ```python
+   import boto3
+
+   # Create a client
+   client = boto3.client('schemas')
+
+   # Get the resource policies
+   response = client.get_resource_policies(RegistryName='<your-registry-name>')
+
+   # Print the resource policies
+   print(response['ResourcePolicies'])
+   ```
+   Replace `<your-registry-name>` with the name of your schema registry. This script will print the resource policies attached to your schema registry.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing Python scripts to interact with AWS, you need to install the necessary libraries. The primary library you need is boto3, which is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can set them in your environment variables:
+
+   ```python
+   import os
+   os.environ["AWS_ACCESS_KEY_ID"] = "your_access_key"
+   os.environ["AWS_SECRET_ACCESS_KEY"] = "your_secret_key"
+   ```
+
+3. Write a Python script to list all the policies attached to your AWS resources. Here's a simple script that lists all the policies attached to your S3 buckets:
+
+   ```python
+   import boto3
+
+   # Create a session using your AWS credentials
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+   )
+
+   # Create an S3 resource object using the session
+   s3 = session.resource('s3')
+
+   # List all the buckets
+   for bucket in s3.buckets.all():
+       # Get the bucket policy
+       policy = s3.BucketPolicy(bucket.name)
+       try:
+           # Print the policy
+           print(policy.policy)
+       except Exception as e:
+           print(f"No policy attached to {bucket.name}")
+   ```
+
+4. Analyze the output: The script will print the policies attached to each of your S3 buckets. You can analyze these policies to check if they are misconfigured. For example, you might want to check if any policies are granting public access to your buckets. If the script prints "No policy attached to [bucket name]", that means there is no policy attached to that bucket, which might be a misconfiguration if you expect a policy to be attached.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

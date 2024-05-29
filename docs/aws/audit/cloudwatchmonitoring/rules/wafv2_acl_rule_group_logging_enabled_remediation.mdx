@@ -1,6 +1,259 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of WAFv2 WebACL Rule Group Logging not being enabled in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Navigate to WAF and Shield Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "WAF" and select "WAF & Shield" from the dropdown.
+
+2. **Select the WebACL:**
+   - In the AWS WAF & Shield dashboard, click on "Web ACLs" in the left-hand navigation pane.
+   - Select the WebACL for which you want to enable logging.
+
+3. **Enable Logging:**
+   - In the WebACL details page, scroll down to the "Logging and metrics" section.
+   - Click on the "Edit" button next to "Logging".
+
+4. **Configure CloudWatch Log Group:**
+   - In the logging configuration page, select "Enable logging".
+   - Choose an existing CloudWatch Log Group or create a new one.
+   - Click "Save" to apply the changes.
+
+By following these steps, you ensure that logging is enabled for your WAFv2 WebACL Rule Group, which helps in monitoring and troubleshooting web application firewall rules.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having WAFv2 WebACL Rule Group Logging enabled in CloudWatch using AWS CLI, follow these steps:
+
+1. **Create a CloudWatch Log Group:**
+   Ensure you have a CloudWatch Log Group where the WAF logs will be stored. If you don't have one, create it using the following command:
+   ```sh
+   aws logs create-log-group --log-group-name <your-log-group-name>
+   ```
+
+2. **Create an IAM Role for WAF Logging:**
+   Create an IAM role that grants AWS WAF permission to write logs to CloudWatch. Use the following command to create a role with the necessary trust policy:
+   ```sh
+   aws iam create-role --role-name WAFLoggingRole --assume-role-policy-document file://trust-policy.json
+   ```
+   The `trust-policy.json` should contain:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "waf.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }
+   ```
+
+3. **Attach the Required Policy to the IAM Role:**
+   Attach a policy to the IAM role that allows it to write logs to CloudWatch. Use the following command:
+   ```sh
+   aws iam put-role-policy --role-name WAFLoggingRole --policy-name WAFLoggingPolicy --policy-document file://waf-logging-policy.json
+   ```
+   The `waf-logging-policy.json` should contain:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "logs:CreateLogStream",
+           "logs:PutLogEvents"
+         ],
+         "Resource": "arn:aws:logs:<region>:<account-id>:log-group:<your-log-group-name>:*"
+       }
+     ]
+   }
+   ```
+
+4. **Enable Logging for the WebACL:**
+   Finally, enable logging for your WAFv2 WebACL using the following command:
+   ```sh
+   aws wafv2 put-logging-configuration --resource-arn arn:aws:wafv2:<region>:<account-id>:global/webacl/<webacl-name>/<webacl-id> --logging-configuration LogDestinationConfigs=["arn:aws:logs:<region>:<account-id>:log-group:<your-log-group-name>"],RedactedFields=[]
+   ```
+
+Replace `<your-log-group-name>`, `<region>`, `<account-id>`, `<webacl-name>`, and `<webacl-id>` with your specific values. This will ensure that WAFv2 WebACL Rule Group Logging is enabled in CloudWatch.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having WAFv2 WebACL Rule Group Logging enabled in CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have the AWS SDK for Python (Boto3) installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Client for WAFv2 and CloudWatch Logs:**
+   Initialize the Boto3 client for WAFv2 and CloudWatch Logs.
+   ```python
+   import boto3
+
+   wafv2_client = boto3.client('wafv2')
+   logs_client = boto3.client('logs')
+   ```
+
+3. **Create or Identify a CloudWatch Log Group:**
+   Ensure you have a CloudWatch Log Group where the WAF logs will be sent. If it doesn't exist, create it.
+   ```python
+   log_group_name = '/aws/waf/logs'
+
+   try:
+       logs_client.create_log_group(logGroupName=log_group_name)
+       print(f"Log group {log_group_name} created.")
+   except logs_client.exceptions.ResourceAlreadyExistsException:
+       print(f"Log group {log_group_name} already exists.")
+   ```
+
+4. **Enable Logging for WAFv2 WebACL:**
+   Enable logging for the WAFv2 WebACL by associating it with the CloudWatch Log Group.
+   ```python
+   web_acl_arn = 'arn:aws:wafv2:region:account-id:regional/webacl/web-acl-name/web-acl-id'
+
+   logging_configuration = {
+       'ResourceArn': web_acl_arn,
+       'LogDestinationConfigs': [f'arn:aws:logs:region:account-id:log-group:{log_group_name}'],
+       'RedactedFields': []
+   }
+
+   try:
+       wafv2_client.put_logging_configuration(LoggingConfiguration=logging_configuration)
+       print(f"Logging enabled for WebACL {web_acl_arn}.")
+   except Exception as e:
+       print(f"Error enabling logging for WebACL {web_acl_arn}: {e}")
+   ```
+
+By following these steps, you ensure that logging is enabled for your WAFv2 WebACL Rule Group in CloudWatch, thus preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the AWS WAF & Shield service.
+
+2. In the navigation pane, select "WebACLs". This will display a list of all your WebACLs.
+
+3. Click on the name of the WebACL that you want to check. This will open the details page for that WebACL.
+
+4. In the details page, look for the "Logging" section. If logging is enabled, you will see a "Logging configuration" with the name of the CloudWatch Logs group where logs are being sent. If this section is not present or if it says "Logging is off", then logging is not enabled for this WebACL Rule Group.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the available WebACLs in your AWS account. You can do this by using the following AWS CLI command:
+
+```bash
+aws wafv2 list-web-acls --scope REGIONAL
+```
+This command will return a list of WebACLs in your account. Note down the ARN of the WebACL you want to check.
+
+2. Next, you need to get the details of the specific WebACL. You can do this by using the following AWS CLI command:
+
+```bash
+aws wafv2 get-web-acl --scope REGIONAL --arn "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID"
+```
+Replace "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID" with the ARN of your WebACL. This command will return the details of the WebACL.
+
+3. Now, you need to check if the logging configuration is enabled for this WebACL. In the output of the previous command, look for the "LoggingConfiguration" field. If this field is present and the "LogDestinationConfigs" field inside it is not empty, then logging is enabled for this WebACL.
+
+4. If you want to check the details of the logging configuration, you can use the following AWS CLI command:
+
+```bash
+aws wafv2 describe-logging-configuration --resource-arn "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID"
+```
+Replace "arn:aws:wafv2:region:account-id:regional/webacl/WebACLName/ID" with the ARN of your WebACL. This command will return the details of the logging configuration for this WebACL.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if WAFv2 WebACL Rule Group Logging is enabled in Cloud Watch using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Set up AWS SDK for Python (Boto3):**
+   First, you need to set up Boto3. Install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. **Create a Python script to list all WebACLs:**
+   Use the `list_web_acls` method to get a list of all WebACLs. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('wafv2')
+
+   response = client.list_web_acls(
+       Scope='REGIONAL',
+   )
+
+   for webacl in response['WebACLs']:
+       print(webacl['Name'])
+   ```
+   This script will print the names of all WebACLs in the region.
+
+3. **Create a Python script to get the details of each WebACL:**
+   Use the `get_web_acl` method to get the details of each WebACL. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('wafv2')
+
+   response = client.get_web_acl(
+       Name='string',
+       Scope='REGIONAL',
+       Id='string',
+   )
+
+   print(response['WebACL'])
+   ```
+   Replace 'string' with the name and ID of the WebACL you want to check. This script will print the details of the specified WebACL.
+
+4. **Check if logging is enabled:**
+   In the details of the WebACL, look for the `LoggingConfiguration` field. If this field is present and the `LogDestinationConfigs` field is not empty, then logging is enabled. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('wafv2')
+
+   response = client.get_web_acl(
+       Name='string',
+       Scope='REGIONAL',
+       Id='string',
+   )
+
+   if 'LoggingConfiguration' in response['WebACL']:
+       if response['WebACL']['LoggingConfiguration']['LogDestinationConfigs']:
+           print('Logging is enabled')
+       else:
+           print('Logging is not enabled')
+   else:
+       print('Logging is not enabled')
+   ```
+   Replace 'string' with the name and ID of the WebACL you want to check. This script will print whether logging is enabled for the specified WebACL.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

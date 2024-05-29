@@ -1,6 +1,250 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket Changes Alarm in CloudWatch using the AWS Management Console, follow these steps:
+
+1. **Enable CloudTrail Logging:**
+   - Go to the AWS Management Console.
+   - Navigate to the CloudTrail service.
+   - Create a new trail or use an existing one to log S3 bucket changes.
+   - Ensure that the trail is configured to log both management and data events for S3.
+
+2. **Create a CloudWatch Log Group:**
+   - Navigate to the CloudWatch service in the AWS Management Console.
+   - Go to the "Logs" section and create a new log group if one does not already exist for your S3 bucket logs.
+
+3. **Set Up CloudWatch Metric Filter:**
+   - In the CloudWatch console, go to the "Logs" section and select the log group created for S3 bucket logs.
+   - Create a metric filter to search for specific S3 bucket change events (e.g., PutBucketPolicy, DeleteBucket, etc.).
+   - Define the filter pattern to match the events you want to monitor and create a new metric based on this filter.
+
+4. **Create a CloudWatch Alarm:**
+   - Navigate to the "Alarms" section in the CloudWatch console.
+   - Create a new alarm and select the metric created from the metric filter.
+   - Configure the alarm to trigger based on your desired threshold (e.g., any occurrence of the event).
+   - Set up notifications (e.g., via SNS) to alert you when the alarm is triggered.
+
+By following these steps, you can effectively monitor and prevent unauthorized or unintended changes to your S3 buckets using CloudWatch alarms.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 Bucket Changes Alarm in CloudWatch using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Role with Necessary Permissions:**
+   Ensure you have an IAM role with the necessary permissions to create CloudWatch alarms and access S3 bucket metrics.
+
+   ```sh
+   aws iam create-role --role-name CloudWatchS3Role --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name CloudWatchS3Role --policy-arn arn:aws:iam::aws:policy/CloudWatchFullAccess
+   aws iam attach-role-policy --role-name CloudWatchS3Role --policy-arn arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+   ```
+
+2. **Enable S3 Bucket Metrics:**
+   Enable the necessary metrics for your S3 bucket to monitor changes. This can be done by enabling the bucket-level metrics.
+
+   ```sh
+   aws s3api put-bucket-metrics-configuration --bucket your-bucket-name --id EntireBucket --metrics-configuration '{"Id": "EntireBucket"}'
+   ```
+
+3. **Create a CloudWatch Alarm:**
+   Create a CloudWatch alarm to monitor the S3 bucket changes. This example sets an alarm for the `NumberOfObjects` metric.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name S3BucketChangesAlarm --metric-name NumberOfObjects --namespace AWS/S3 --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanThreshold --evaluation-periods 1 --alarm-actions arn:aws:sns:region:account-id:your-sns-topic --dimensions Name=BucketName,Value=your-bucket-name
+   ```
+
+4. **Verify the Alarm Configuration:**
+   Verify that the CloudWatch alarm has been created and is configured correctly.
+
+   ```sh
+   aws cloudwatch describe-alarms --alarm-names S3BucketChangesAlarm
+   ```
+
+By following these steps, you can set up a CloudWatch alarm to monitor changes in your S3 bucket using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 Bucket Changes Alarm in CloudWatch using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a CloudWatch Alarm for S3 Bucket Changes:**
+   - Use Boto3 to create a CloudWatch alarm that triggers on specific S3 bucket changes. This involves setting up a metric filter and an alarm.
+
+3. **Define the Metric Filter:**
+   - Create a metric filter to capture S3 bucket changes from CloudTrail logs.
+
+4. **Create the CloudWatch Alarm:**
+   - Use the metric filter to create a CloudWatch alarm that triggers when the filter pattern is matched.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize boto3 clients
+cloudwatch_logs_client = boto3.client('logs')
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Define variables
+log_group_name = 'your-cloudtrail-log-group'
+filter_name = 'S3BucketChangesFilter'
+filter_pattern = '{ ($.eventName = CreateBucket) || ($.eventName = DeleteBucket) || ($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) || ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) || ($.eventName = PutBucketTagging) || ($.eventName = PutBucketVersioning) || ($.eventName = PutBucketWebsite) }'
+metric_namespace = 'S3BucketChanges'
+metric_name = 'S3BucketChangeCount'
+alarm_name = 'S3BucketChangesAlarm'
+alarm_description = 'Alarm when S3 bucket changes are detected'
+alarm_threshold = 1
+
+# Create a metric filter
+cloudwatch_logs_client.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName=filter_name,
+    filterPattern=filter_pattern,
+    metricTransformations=[
+        {
+            'metricName': metric_name,
+            'metricNamespace': metric_namespace,
+            'metricValue': '1'
+        }
+    ]
+)
+
+# Create a CloudWatch alarm
+cloudwatch_client.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription=alarm_description,
+    ActionsEnabled=True,
+    MetricName=metric_name,
+    Namespace=metric_namespace,
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=alarm_threshold,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+    ],
+    OKActions=[
+        'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+    ],
+    InsufficientDataActions=[
+        'arn:aws:sns:your-region:your-account-id:your-sns-topic'
+    ]
+)
+
+print("CloudWatch alarm for S3 bucket changes has been created successfully.")
+```
+
+### Explanation:
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure Boto3 is installed and configured with appropriate AWS credentials.
+
+2. **Define the Metric Filter:**
+   - The `filter_pattern` captures specific S3 bucket change events from CloudTrail logs.
+
+3. **Create the Metric Filter:**
+   - The `put_metric_filter` method creates a metric filter in CloudWatch Logs.
+
+4. **Create the CloudWatch Alarm:**
+   - The `put_metric_alarm` method creates a CloudWatch alarm based on the metric filter.
+
+By following these steps, you can prevent S3 bucket changes by setting up an alarm that notifies you whenever such changes occur.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to your AWS Management Console and navigate to the CloudWatch service. 
+
+2. In the CloudWatch dashboard, click on "Alarms" in the left-hand navigation pane. 
+
+3. In the Alarms dashboard, you can see a list of all the alarms that have been configured. Look for the S3 Bucket Changes Alarm in the list. If the alarm is in the "ALARM" state, it means that the changes in the S3 bucket have triggered the alarm.
+
+4. For more details about the alarm, click on the alarm name. This will open a new page where you can see the alarm details, including the metric name, the threshold that triggers the alarm, the state of the alarm, and the actions that are taken when the alarm state changes.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI using pip (Python package manager) by running the command `pip install awscli`. After installation, you can configure it by running `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List existing CloudWatch alarms: You can use the `describe-alarms` command to list all the existing CloudWatch alarms. The command is as follows:
+   ```
+   aws cloudwatch describe-alarms
+   ```
+   This command will return a list of all the alarms along with their details.
+
+3. Check for S3 Bucket Changes Alarm: In the list of alarms, look for the alarm that is set up to monitor changes to your S3 bucket. The name of the alarm will depend on what you named it when you set it up. If the alarm is not present, it means it has not been set up.
+
+4. Check the state of the alarm: If the alarm is present, you can check its state using the `describe-alarm-state` command. Replace `<alarm-name>` with the name of your alarm:
+   ```
+   aws cloudwatch describe-alarm-state --alarm-name <alarm-name>
+   ```
+   This command will return the state of the alarm. If the state is "ALARM", it means changes have been detected in your S3 bucket. If the state is "OK", it means no changes have been detected.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Install Boto3:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. To install boto3, use the pip command:
+
+   ```python
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:**
+   Before you can begin using Boto3, you should set up authentication credentials. You can do this by using the AWS CLI and then configure it. If you have the AWS CLI installed, then you can use it to configure your credentials file:
+
+   ```bash
+   aws configure
+   ```
+
+3. **Python Script to Check S3 Bucket Changes Alarm in Cloud Watch:**
+   Here is a simple Python script using Boto3 to check if there is an alarm set for S3 bucket changes in CloudWatch:
+
+   ```python
+   import boto3
+
+   def check_s3_bucket_changes_alarm():
+       cloudwatch = boto3.client('cloudwatch')
+
+       # List all alarms
+       alarms = cloudwatch.describe_alarms()
+
+       # Check if there is an alarm for S3 bucket changes
+       for alarm in alarms['MetricAlarms']:
+           if 'S3' in alarm['Namespace'] and 'BucketSizeBytes' in alarm['MetricName']:
+               print(f"Alarm for S3 bucket changes exists: {alarm['AlarmName']}")
+               return
+
+       print("No alarm for S3 bucket changes found.")
+
+   check_s3_bucket_changes_alarm()
+   ```
+
+4. **Run the Python Script:**
+   Save the above script in a file, say `check_s3_alarm.py`, and run it using Python:
+
+   ```bash
+   python check_s3_alarm.py
+   ```
+
+   This script will print the name of the alarm if it exists, otherwise it will print "No alarm for S3 bucket changes found."
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,241 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent WAF Global Rule Groups from being empty in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS WAF Console:**
+   - Sign in to the AWS Management Console.
+   - Open the AWS WAF console at [AWS WAF Console](https://console.aws.amazon.com/wafv2/home).
+
+2. **Select the Appropriate Web ACL:**
+   - In the AWS WAF console, select "Web ACLs" from the navigation pane.
+   - Choose the Web ACL that you want to configure.
+
+3. **Add Rules to the Rule Group:**
+   - Within the selected Web ACL, go to the "Rules" tab.
+   - Click on "Add rules" and then select "Add managed rule groups" or "Add my own rules and rule groups."
+   - Choose the rule group you want to add rules to and then click "Next."
+
+4. **Configure and Save the Rules:**
+   - Configure the rules as needed (e.g., setting conditions, actions).
+   - Ensure that at least one rule is added to the rule group.
+   - Click "Save" to apply the changes.
+
+By following these steps, you ensure that your WAF Global Rule Groups are not empty, thereby maintaining the security posture of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent WAF Global Rule Groups from being empty in AWS using the AWS CLI, you can follow these steps:
+
+1. **Create a WAF Rule Group:**
+   First, create a WAF Rule Group if you don't already have one. This will serve as a container for your rules.
+
+   ```sh
+   aws wafv2 create-rule-group \
+       --name "MyRuleGroup" \
+       --scope "CLOUDFRONT" \
+       --capacity 100 \
+       --region us-east-1 \
+       --rules '[]' \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName="MyRuleGroupMetric"
+   ```
+
+2. **Create a WAF Rule:**
+   Create a WAF rule that you will add to your rule group. This example creates a simple rate-based rule.
+
+   ```sh
+   aws wafv2 create-rule \
+       --name "RateLimitRule" \
+       --scope "CLOUDFRONT" \
+       --region us-east-1 \
+       --statement '{"RateBasedStatement":{"Limit":2000,"AggregateKeyType":"IP"}}' \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName="RateLimitRuleMetric"
+   ```
+
+3. **Update the Rule Group to Include the Rule:**
+   Add the created rule to your rule group to ensure it is not empty.
+
+   ```sh
+   aws wafv2 update-rule-group \
+       --name "MyRuleGroup" \
+       --scope "CLOUDFRONT" \
+       --region us-east-1 \
+       --rules '[{"Name":"RateLimitRule","Priority":1,"Statement":{"RateBasedStatement":{"Limit":2000,"AggregateKeyType":"IP"}},"Action":{"Block":{}},"VisibilityConfig":{"SampledRequestsEnabled":true,"CloudWatchMetricsEnabled":true,"MetricName":"RateLimitRuleMetric"}}]' \
+       --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName="MyRuleGroupMetric"
+   ```
+
+4. **Associate the Rule Group with a Web ACL:**
+   Finally, associate the rule group with a Web ACL to apply the rules.
+
+   ```sh
+   aws wafv2 associate-web-acl \
+       --web-acl-arn "arn:aws:wafv2:us-east-1:123456789012:global/webacl/MyWebACL" \
+       --resource-arn "arn:aws:cloudfront::123456789012:distribution/EDFDVBD6EXAMPLE"
+   ```
+
+By following these steps, you ensure that your WAF Global Rule Groups are not empty, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent WAF Global Rule Groups from being empty in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your WAF Global Rule Groups are not empty:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for WAF.
+   ```python
+   import boto3
+
+   client = boto3.client('waf')
+   ```
+
+3. **List Rule Groups**:
+   Fetch the list of all WAF Global Rule Groups.
+   ```python
+   response = client.list_rule_groups()
+   rule_groups = response['RuleGroups']
+   ```
+
+4. **Check and Add Rules to Empty Rule Groups**:
+   Iterate through each rule group and check if it is empty. If it is, add a default rule to it.
+   ```python
+   for rule_group in rule_groups:
+       rule_group_id = rule_group['RuleGroupId']
+       
+       # Get the details of the rule group
+       rule_group_details = client.get_rule_group(RuleGroupId=rule_group_id)
+       rules = rule_group_details['RuleGroup']['Rules']
+       
+       # Check if the rule group is empty
+       if not rules:
+           # Add a default rule to the rule group
+           default_rule = {
+               'Action': {'Type': 'BLOCK'},
+               'Priority': 1,
+               'RuleId': 'example-rule-id',  # Replace with a valid RuleId
+               'Type': 'REGULAR'
+           }
+           
+           # Update the rule group with the default rule
+           client.update_rule_group(
+               RuleGroupId=rule_group_id,
+               Updates=[
+                   {
+                       'Action': 'INSERT',
+                       'ActivatedRule': default_rule
+                   }
+               ],
+               ChangeToken=client.get_change_token()['ChangeToken']
+           )
+           print(f"Added default rule to rule group {rule_group_id}")
+```
+
+### Summary of Steps:
+1. **Install Boto3 Library**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the WAF client.
+3. **List Rule Groups**: Retrieve all WAF Global Rule Groups.
+4. **Check and Add Rules to Empty Rule Groups**: Verify if rule groups are empty and add a default rule if necessary.
+
+This script ensures that no WAF Global Rule Group remains empty by adding a default rule if it finds any empty rule groups. Make sure to replace `'example-rule-id'` with a valid RuleId that you have created or intend to use.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the AWS WAF & Shield console at https://console.aws.amazon.com/wafv2/.
+
+2. In the navigation pane, choose "WebACLs". This will show you a list of all your WebACLs.
+
+3. Select the WebACL that you want to check. This will open the details page for that WebACL.
+
+4. In the "Rules" section, check if there are any global rule groups that are empty. If a rule group is empty, it means that it doesn't contain any rules. This is a misconfiguration because an empty rule group doesn't provide any protection.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all the WebACLs: Use the following AWS CLI command to list all the WebACLs in your AWS account:
+
+   ```
+   aws wafv2 list-web-acls --scope REGIONAL
+   ```
+   This command will return a list of WebACLs along with their Ids and ARNs.
+
+3. Get the details of each WebACL: For each WebACL, use the following AWS CLI command to get its details:
+
+   ```
+   aws wafv2 get-web-acl --scope REGIONAL --id `<WebACLId>` --name `<WebACLName>` --region `<Region>`
+   ```
+   Replace `<WebACLId>`, `<WebACLName>`, and `<Region>` with the actual Id, Name, and Region of the WebACL. This command will return the details of the WebACL including its rules.
+
+4. Check if the Global Rule Group is empty: In the output of the previous command, look for the `Rules` field. If the `Rules` field is empty or does not contain a `RuleGroupReferenceStatement`, then the Global Rule Group is empty.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if WAF Global Rule Groups are not empty in AWS CloudWatch using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Set up your environment:**
+   Before you start, make sure you have Python and Boto3 installed in your environment. You also need to configure your AWS credentials. You can do this by using the AWS CLI and running `aws configure`.
+
+2. **Import necessary libraries and create a WAF client:**
+   In your Python script, you need to import Boto3 and create a WAF client. Here's how you can do it:
+
+   ```python
+   import boto3
+
+   # Create WAF client
+   waf = boto3.client('waf')
+   ```
+
+3. **List all the WebACLs:**
+   You can use the `list_web_acls()` function to get all the WebACLs. Here's how you can do it:
+
+   ```python
+   # List all WebACLs
+   web_acls = waf.list_web_acls(Limit=100)
+   ```
+
+4. **Check if Rule Groups are not empty:**
+   For each WebACL, you can get the details using `get_web_acl()` function and check if the Rule Groups are not empty. Here's how you can do it:
+
+   ```python
+   # Check if Rule Groups are not empty
+   for web_acl in web_acls['WebACLs']:
+       web_acl_id = web_acl['WebACLId']
+       web_acl_details = waf.get_web_acl(WebACLId=web_acl_id)
+       rules = web_acl_details['WebACL']['Rules']
+       if not rules:
+           print(f"WebACL {web_acl_id} has no rules.")
+   ```
+
+This script will print the IDs of all WebACLs that have no rules. If the script doesn't print anything, it means all your WAF Global Rule Groups are not empty.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
