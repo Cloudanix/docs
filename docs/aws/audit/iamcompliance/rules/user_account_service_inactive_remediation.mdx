@@ -2,6 +2,175 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent User Account Service Inactivity in IAM using the AWS Management Console, follow these steps:
+
+1. **Enable IAM Access Analyzer:**
+   - Navigate to the IAM dashboard in the AWS Management Console.
+   - In the left-hand navigation pane, select "Access Analyzer."
+   - Click on "Create analyzer" and follow the prompts to enable IAM Access Analyzer. This tool helps you identify inactive IAM users and roles.
+
+2. **Set Up Password Policy:**
+   - In the IAM dashboard, select "Account settings" from the left-hand navigation pane.
+   - Under "Password policy," configure settings such as password expiration and password reuse prevention. This ensures that users must periodically update their passwords, reducing the risk of inactive accounts.
+
+3. **Enable CloudTrail Logging:**
+   - Go to the CloudTrail dashboard in the AWS Management Console.
+   - Click on "Create trail" and follow the prompts to enable logging for all regions.
+   - Ensure that CloudTrail is configured to log IAM actions. This helps you monitor user activity and identify inactive accounts.
+
+4. **Set Up Automated Notifications:**
+   - Navigate to the CloudWatch dashboard in the AWS Management Console.
+   - Create a new rule to monitor IAM user activity.
+   - Set up an alarm to trigger an SNS (Simple Notification Service) notification if a user account has been inactive for a specified period. This allows you to take proactive measures to address inactivity.
+
+By following these steps, you can effectively monitor and manage user account activity in AWS IAM, reducing the risk of inactive accounts.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent User Account Service Inactivity in IAM using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Policy to Enforce Password Rotation:**
+   Ensure that users are required to change their passwords regularly to prevent inactivity. Create a policy that enforces password rotation.
+
+   ```sh
+   aws iam create-account-password-policy \
+       --minimum-password-length 12 \
+       --require-symbols \
+       --require-numbers \
+       --require-uppercase-characters \
+       --require-lowercase-characters \
+       --allow-users-to-change-password \
+       --max-password-age 90 \
+       --password-reuse-prevention 5
+   ```
+
+2. **Enable MFA for IAM Users:**
+   Require Multi-Factor Authentication (MFA) for all IAM users to ensure that accounts are actively used and secured.
+
+   ```sh
+   aws iam create-virtual-mfa-device --virtual-mfa-device-name MyVirtualMFADevice
+   aws iam enable-mfa-device --user-name MyUserName --serial-number arn:aws:iam::123456789012:mfa/MyVirtualMFADevice --authentication-code1 123456 --authentication-code2 654321
+   ```
+
+3. **Set Up CloudWatch Alarms for Inactive Users:**
+   Create CloudWatch alarms to monitor and alert you when users have not logged in for a specified period.
+
+   ```sh
+   aws cloudwatch put-metric-alarm \
+       --alarm-name InactiveUserAlarm \
+       --metric-name UserLogin \
+       --namespace AWS/IAM \
+       --statistic Sum \
+       --period 86400 \
+       --threshold 1 \
+       --comparison-operator LessThanThreshold \
+       --dimensions Name=UserName,Value=MyUserName \
+       --evaluation-periods 30 \
+       --alarm-actions arn:aws:sns:us-east-1:123456789012:MySNSTopic
+   ```
+
+4. **Automate Inactive User Deactivation:**
+   Use a Lambda function to automatically deactivate users who have been inactive for a specified period. This requires setting up a Lambda function and a CloudWatch event rule to trigger it.
+
+   ```sh
+   aws lambda create-function \
+       --function-name DeactivateInactiveUsers \
+       --runtime python3.8 \
+       --role arn:aws:iam::123456789012:role/MyLambdaRole \
+       --handler lambda_function.lambda_handler \
+       --zip-file fileb://function.zip
+
+   aws events put-rule \
+       --name InactiveUserCheck \
+       --schedule-expression "rate(1 day)"
+
+   aws events put-targets \
+       --rule InactiveUserCheck \
+       --targets "Id"="1","Arn"="arn:aws:lambda:us-east-1:123456789012:function:DeactivateInactiveUsers"
+   ```
+
+These steps will help you prevent user account service inactivity by enforcing password policies, enabling MFA, monitoring user activity, and automating the deactivation of inactive users.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent User Account Service Inactivity in IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Script to List Inactive Users**
+Create a Python script to list users who have been inactive for a specified period. This script will help you identify inactive users.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+iam = boto3.client('iam')
+
+# Define the inactivity period (e.g., 90 days)
+inactivity_period = 90
+threshold_date = datetime.now() - timedelta(days=inactivity_period)
+
+# List all IAM users
+users = iam.list_users()
+
+# Check for inactive users
+inactive_users = []
+for user in users['Users']:
+    if 'PasswordLastUsed' in user:
+        last_used = user['PasswordLastUsed']
+        if last_used < threshold_date:
+            inactive_users.append(user['UserName'])
+
+print("Inactive users:", inactive_users)
+```
+
+### 3. **Automate Deactivation of Inactive Users**
+Modify the script to deactivate users who have been inactive for the specified period. This can be done by disabling their login profile and access keys.
+
+```python
+for user in inactive_users:
+    # Deactivate login profile
+    try:
+        iam.delete_login_profile(UserName=user)
+        print(f"Deleted login profile for user: {user}")
+    except iam.exceptions.NoSuchEntityException:
+        print(f"No login profile found for user: {user}")
+
+    # Deactivate access keys
+    access_keys = iam.list_access_keys(UserName=user)
+    for key in access_keys['AccessKeyMetadata']:
+        iam.update_access_key(UserName=user, AccessKeyId=key['AccessKeyId'], Status='Inactive')
+        print(f"Deactivated access key {key['AccessKeyId']} for user: {user}")
+```
+
+### 4. **Schedule the Script to Run Periodically**
+Use a scheduling tool like cron (on Unix-based systems) or Task Scheduler (on Windows) to run the script periodically. This ensures that inactive users are regularly identified and deactivated.
+
+#### Example Cron Job (Unix-based systems):
+```bash
+# Open the crontab file
+crontab -e
+
+# Add the following line to run the script every day at midnight
+0 0 * * * /usr/bin/python3 /path/to/your/script.py
+```
+
+By following these steps, you can automate the process of identifying and deactivating inactive IAM users using Python scripts, thereby preventing user account service inactivity in AWS IAM.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

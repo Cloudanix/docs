@@ -2,6 +2,221 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in AWS Identity and Access Management (IAM) using the AWS Management Console, follow these steps:
+
+1. **Navigate to IAM Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top navigation bar, select "Services" and then choose "IAM" under the "Security, Identity, & Compliance" section.
+
+2. **Select Users:**
+   - In the IAM dashboard, click on "Users" in the left-hand navigation pane.
+   - This will display a list of all IAM users in your AWS account.
+
+3. **Enable MFA for Each User:**
+   - Click on the username of the user for whom you want to enable MFA.
+   - In the user details page, select the "Security credentials" tab.
+   - Under the "Multi-factor authentication (MFA)" section, click on the "Manage" button.
+   - Follow the on-screen instructions to assign and activate an MFA device for the user. This typically involves scanning a QR code with an MFA app (like Google Authenticator) and entering the generated code to verify.
+
+4. **Enforce MFA Policy:**
+   - To ensure that all users have MFA enabled, you can create an IAM policy that requires MFA for specific actions.
+   - Go to the "Policies" section in the IAM dashboard.
+   - Click on "Create policy" and use the JSON editor to define a policy that requires MFA. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": "*",
+           "Resource": "*",
+           "Condition": {
+             "BoolIfExists": {
+               "aws:MultiFactorAuthPresent": "false"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Attach this policy to all IAM users or groups to enforce MFA.
+
+By following these steps, you can ensure that MFA is enabled for all IAM user accounts, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in AWS IAM using the AWS CLI, follow these steps:
+
+1. **Create an MFA Device for the User:**
+   First, you need to create an MFA device for the user. This can be a virtual MFA device or a hardware MFA device. Here, we'll use a virtual MFA device.
+
+   ```sh
+   aws iam create-virtual-mfa-device --virtual-mfa-device-name <VirtualMFADeviceName> --outfile /path/to/qr-code.png
+   ```
+
+   This command will create a virtual MFA device and output a QR code that can be scanned by an MFA application (like Google Authenticator).
+
+2. **Enable MFA for the User:**
+   Once the virtual MFA device is created, you need to enable it for the user by associating it with the user account. You will need two consecutive MFA codes from the MFA device.
+
+   ```sh
+   aws iam enable-mfa-device --user-name <UserName> --serial-number arn:aws:iam::<AccountID>:mfa/<VirtualMFADeviceName> --authentication-code1 <MFA_Code1> --authentication-code2 <MFA_Code2>
+   ```
+
+3. **Update User's Login Profile to Require MFA:**
+   Ensure that the user's login profile is updated to require MFA. This can be done by setting up an IAM policy that enforces MFA.
+
+   ```sh
+   aws iam put-user-policy --user-name <UserName> --policy-name MFARequired --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "*",
+         "Resource": "*",
+         "Condition": {
+           "BoolIfExists": {
+             "aws:MultiFactorAuthPresent": "false"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+4. **Verify MFA Device Association:**
+   Finally, verify that the MFA device is correctly associated with the user.
+
+   ```sh
+   aws iam list-mfa-devices --user-name <UserName>
+   ```
+
+   This command will list all MFA devices associated with the specified user, allowing you to confirm that the MFA device is properly set up.
+
+By following these steps, you can ensure that MFA is enabled on user accounts in AWS IAM using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in IAM using Python scripts, you can follow these steps for AWS, Azure, and GCP:
+
+### AWS
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed, which is the AWS SDK for Python.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Enable MFA**:
+   Use the following script to enforce MFA on IAM user accounts. This script lists all users and attaches an MFA device to each user if not already attached.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon IAM
+   iam_client = boto3.client('iam')
+
+   # List all IAM users
+   users = iam_client.list_users()
+
+   for user in users['Users']:
+       user_name = user['UserName']
+       mfa_devices = iam_client.list_mfa_devices(UserName=user_name)
+
+       if not mfa_devices['MFADevices']:
+           # Create a virtual MFA device
+           mfa_device = iam_client.create_virtual_mfa_device(VirtualMFADeviceName=f'{user_name}_mfa')
+
+           # Enable MFA for the user
+           iam_client.enable_mfa_device(
+               UserName=user_name,
+               SerialNumber=mfa_device['VirtualMFADevice']['SerialNumber'],
+               AuthenticationCode1='123456',  # Replace with actual MFA code
+               AuthenticationCode2='789012'   # Replace with actual MFA code
+           )
+
+           print(f'MFA enabled for user: {user_name}')
+       else:
+           print(f'MFA already enabled for user: {user_name}')
+   ```
+
+### Azure
+
+1. **Install Azure SDK for Python**:
+   Ensure you have the Azure Identity and Management libraries installed.
+   ```bash
+   pip install azure-identity azure-mgmt-authorization
+   ```
+
+2. **Create a Python Script to Enforce MFA**:
+   Use the following script to enforce MFA on Azure user accounts. This script assumes you have the necessary permissions to manage user settings.
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.authorization import AuthorizationManagementClient
+
+   # Initialize credentials and client
+   credential = DefaultAzureCredential()
+   client = AuthorizationManagementClient(credential, '<subscription_id>')
+
+   # List all users and enforce MFA
+   users = client.users.list()
+
+   for user in users:
+       # Check if MFA is enabled (this is a simplified example)
+       if not user.additional_properties.get('mfaEnabled'):
+           # Enforce MFA (this is a placeholder, actual implementation may vary)
+           user.additional_properties['mfaEnabled'] = True
+           client.users.create_or_update(user.object_id, user)
+           print(f'MFA enforced for user: {user.display_name}')
+       else:
+           print(f'MFA already enabled for user: {user.display_name}')
+   ```
+
+### GCP
+
+1. **Install Google Cloud SDK**:
+   Ensure you have the Google Cloud SDK installed.
+   ```bash
+   pip install google-auth google-api-python-client
+   ```
+
+2. **Create a Python Script to Enforce MFA**:
+   Use the following script to enforce MFA on GCP user accounts. This script assumes you have the necessary permissions to manage user settings.
+
+   ```python
+   from google.oauth2 import service_account
+   from googleapiclient.discovery import build
+
+   # Initialize credentials and service
+   credentials = service_account.Credentials.from_service_account_file('path/to/your/service-account-file.json')
+   service = build('admin', 'directory_v1', credentials=credentials)
+
+   # List all users and enforce MFA
+   results = service.users().list(customer='my_customer', maxResults=200).execute()
+   users = results.get('users', [])
+
+   for user in users:
+       # Check if MFA is enabled (this is a simplified example)
+       if not user.get('isEnrolledIn2Sv'):
+           # Enforce MFA (this is a placeholder, actual implementation may vary)
+           user['isEnrolledIn2Sv'] = True
+           service.users().update(userKey=user['id'], body=user).execute()
+           print(f'MFA enforced for user: {user["primaryEmail"]}')
+       else:
+           print(f'MFA already enabled for user: {user["primaryEmail"]}')
+   ```
+
+These scripts provide a basic framework to enforce MFA on user accounts in AWS, Azure, and GCP. You may need to adjust the scripts based on your specific requirements and environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

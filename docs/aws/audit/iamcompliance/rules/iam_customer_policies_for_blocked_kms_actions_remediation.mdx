@@ -2,6 +2,207 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent blocked KMS actions in IAM policies using the AWS Management Console, follow these steps:
+
+1. **Navigate to IAM Policies:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Policies" under the "Access management" section.
+
+2. **Create or Edit a Policy:**
+   - To create a new policy, click on the "Create policy" button.
+   - To edit an existing policy, find the policy you want to modify and click on its name, then click the "Edit policy" button.
+
+3. **Add KMS Permissions:**
+   - In the policy editor, switch to the "JSON" tab.
+   - Ensure that the policy includes the necessary KMS actions (e.g., `kms:Encrypt`, `kms:Decrypt`, `kms:GenerateDataKey`) and does not include any actions that should be blocked.
+   - Example JSON snippet:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "kms:Encrypt",
+             "kms:Decrypt",
+             "kms:GenerateDataKey"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+
+4. **Review and Save:**
+   - After adding the necessary permissions, click on the "Review policy" button.
+   - Provide a name and description for the policy if creating a new one.
+   - Click on the "Create policy" or "Save changes" button to apply the policy.
+
+By following these steps, you can ensure that your IAM policies are correctly configured to allow necessary KMS actions while preventing any blocked actions.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent blocked KMS actions in IAM policies using AWS CLI, you need to ensure that your IAM policies are correctly configured to allow necessary KMS actions and deny any inappropriate ones. Here are the steps to achieve this:
+
+1. **Create a JSON Policy Document:**
+   - First, create a JSON policy document that specifies the allowed and denied KMS actions. Save this document locally, for example, as `kms_policy.json`.
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "kms:Encrypt",
+           "kms:Decrypt",
+           "kms:GenerateDataKey"
+         ],
+         "Resource": "*"
+       },
+       {
+         "Effect": "Deny",
+         "Action": [
+           "kms:DeleteKey",
+           "kms:ScheduleKeyDeletion"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+2. **Create or Update the IAM Policy:**
+   - Use the AWS CLI to create a new IAM policy or update an existing one with the JSON policy document.
+
+   ```sh
+   aws iam create-policy --policy-name MyKMSPolicy --policy-document file://kms_policy.json
+   ```
+
+   If you need to update an existing policy, use:
+
+   ```sh
+   aws iam update-policy --policy-arn arn:aws:iam::aws:policy/MyKMSPolicy --policy-document file://kms_policy.json
+   ```
+
+3. **Attach the Policy to IAM Users, Groups, or Roles:**
+   - Attach the newly created or updated policy to the relevant IAM users, groups, or roles.
+
+   ```sh
+   aws iam attach-user-policy --user-name MyUser --policy-arn arn:aws:iam::aws:policy/MyKMSPolicy
+   ```
+
+   Similarly, for groups or roles:
+
+   ```sh
+   aws iam attach-group-policy --group-name MyGroup --policy-arn arn:aws:iam::aws:policy/MyKMSPolicy
+   ```
+
+   ```sh
+   aws iam attach-role-policy --role-name MyRole --policy-arn arn:aws:iam::aws:policy/MyKMSPolicy
+   ```
+
+4. **Verify the Policy Attachment:**
+   - Verify that the policy has been correctly attached to the IAM users, groups, or roles.
+
+   ```sh
+   aws iam list-attached-user-policies --user-name MyUser
+   ```
+
+   Similarly, for groups or roles:
+
+   ```sh
+   aws iam list-attached-group-policies --group-name MyGroup
+   ```
+
+   ```sh
+   aws iam list-attached-role-policies --role-name MyRole
+   ```
+
+By following these steps, you can ensure that your IAM policies are configured to allow necessary KMS actions while blocking potentially harmful ones.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent blocked KMS actions in IAM policies using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that KMS actions are properly set in IAM policies:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for IAM and KMS.
+   ```python
+   import boto3
+
+   iam_client = boto3.client('iam')
+   kms_client = boto3.client('kms')
+   ```
+
+3. **Retrieve and Update IAM Policies**:
+   Retrieve the IAM policies and check for KMS actions. If they are not set correctly, update the policy.
+   ```python
+   def get_iam_policies():
+       paginator = iam_client.get_paginator('list_policies')
+       for response in paginator.paginate(Scope='Local'):
+           for policy in response['Policies']:
+               policy_arn = policy['Arn']
+               policy_version = iam_client.get_policy_version(
+                   PolicyArn=policy_arn,
+                   VersionId=policy['DefaultVersionId']
+               )
+               yield policy_arn, policy_version['PolicyVersion']['Document']
+
+   def update_policy(policy_arn, policy_document):
+       # Add or modify the KMS actions in the policy document as needed
+       # Example: Adding a statement to allow KMS actions
+       kms_statement = {
+           "Effect": "Allow",
+           "Action": [
+               "kms:Encrypt",
+               "kms:Decrypt",
+               "kms:GenerateDataKey"
+           ],
+           "Resource": "*"
+       }
+       policy_document['Statement'].append(kms_statement)
+       
+       # Update the policy with the new document
+       iam_client.create_policy_version(
+           PolicyArn=policy_arn,
+           PolicyDocument=json.dumps(policy_document),
+           SetAsDefault=True
+       )
+
+   for policy_arn, policy_document in get_iam_policies():
+       update_policy(policy_arn, policy_document)
+   ```
+
+4. **Validate the Changes**:
+   Ensure that the changes have been applied correctly by validating the updated policies.
+   ```python
+   def validate_policies():
+       for policy_arn, policy_document in get_iam_policies():
+           for statement in policy_document['Statement']:
+               if 'kms:' in statement['Action']:
+                   print(f"KMS actions are correctly set in policy: {policy_arn}")
+               else:
+                   print(f"KMS actions are missing in policy: {policy_arn}")
+
+   validate_policies()
+   ```
+
+This script will help you ensure that KMS actions are properly set in IAM policies by retrieving existing policies, updating them if necessary, and validating the changes.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

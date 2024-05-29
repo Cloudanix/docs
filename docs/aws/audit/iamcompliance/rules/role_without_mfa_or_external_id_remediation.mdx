@@ -2,6 +2,205 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where the root account should have Multi-Factor Authentication (MFA) and an external ID set in AWS Identity and Access Management (IAM) using the AWS Management Console, follow these steps:
+
+1. **Enable MFA for the Root Account:**
+   - Sign in to the AWS Management Console using your root account credentials.
+   - Navigate to the **IAM** dashboard.
+   - In the left navigation pane, select **Dashboard**.
+   - Under **Security Status**, find the section labeled **Activate MFA on your root account** and click on **Manage MFA**.
+   - Follow the on-screen instructions to enable MFA for the root account. You can choose between a virtual MFA device, a U2F security key, or other supported MFA devices.
+
+2. **Create an External ID for Cross-Account Access:**
+   - Go to the **IAM** dashboard.
+   - In the left navigation pane, select **Roles**.
+   - Click on **Create role**.
+   - Select **Another AWS account** as the type of trusted entity.
+   - Enter the Account ID of the external account that will assume this role.
+   - In the **Options** section, enter a unique **External ID**. This ID should be shared with the external account that will assume the role.
+   - Click **Next: Permissions** to attach the necessary policies and complete the role creation process.
+
+3. **Review and Update IAM Policies:**
+   - In the IAM dashboard, navigate to **Policies** in the left navigation pane.
+   - Review existing policies to ensure they do not grant excessive permissions to the root account.
+   - Update policies as necessary to follow the principle of least privilege.
+
+4. **Monitor and Audit IAM Activities:**
+   - Enable AWS CloudTrail to log all API calls made in your AWS account.
+   - Regularly review CloudTrail logs to monitor activities performed by the root account.
+   - Set up AWS Config rules to continuously monitor and alert on any changes to the root account's MFA status or IAM roles.
+
+By following these steps, you can ensure that the root account in your AWS environment is secured with MFA and that an external ID is set for cross-account access, thereby reducing the risk of unauthorized access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the root account should have Multi-Factor Authentication (MFA) and an External ID set in AWS Identity and Access Management (IAM) using AWS CLI, follow these steps:
+
+1. **Enable MFA on the Root Account:**
+   - First, list the MFA devices associated with the root account to ensure none are already configured:
+     ```sh
+     aws iam list-mfa-devices --user-name root
+     ```
+   - If no MFA devices are listed, you can enable MFA by creating a virtual MFA device and associating it with the root account. First, create the virtual MFA device:
+     ```sh
+     aws iam create-virtual-mfa-device --virtual-mfa-device-name root-account-mfa --outfile /path/to/root-account-mfa.png
+     ```
+   - Then, enable the MFA device for the root account. You will need the authentication codes from the virtual MFA device:
+     ```sh
+     aws iam enable-mfa-device --user-name root --serial-number arn:aws:iam::account-id:mfa/root-account-mfa --authentication-code1 123456 --authentication-code2 654321
+     ```
+
+2. **Set an External ID for IAM Roles:**
+   - Identify the IAM role that requires an external ID. List the roles to find the specific role:
+     ```sh
+     aws iam list-roles
+     ```
+   - Update the trust policy of the IAM role to include an external ID. First, get the current trust policy:
+     ```sh
+     aws iam get-role --role-name YourRoleName
+     ```
+   - Modify the trust policy JSON to include the `sts:ExternalId` condition. Here is an example of a trust policy with an external ID:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Principal": {
+             "AWS": "arn:aws:iam::account-id:root"
+           },
+           "Action": "sts:AssumeRole",
+           "Condition": {
+             "StringEquals": {
+               "sts:ExternalId": "YourExternalID"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Update the role with the modified trust policy:
+     ```sh
+     aws iam update-assume-role-policy --role-name YourRoleName --policy-document file://path/to/modified-trust-policy.json
+     ```
+
+3. **Verify MFA and External ID Configuration:**
+   - Verify that the MFA device is enabled for the root account:
+     ```sh
+     aws iam list-mfa-devices --user-name root
+     ```
+   - Verify the trust policy of the IAM role to ensure the external ID is set correctly:
+     ```sh
+     aws iam get-role --role-name YourRoleName
+     ```
+
+4. **Automate Checks Using AWS CLI Scripts:**
+   - Create a script to periodically check and ensure that MFA is enabled and the external ID is set. Here is a simple example in Bash:
+     ```sh
+     #!/bin/bash
+
+     # Check MFA for root account
+     MFA_DEVICES=$(aws iam list-mfa-devices --user-name root)
+     if [ -z "$MFA_DEVICES" ]; then
+       echo "MFA is not enabled for the root account."
+     else
+       echo "MFA is enabled for the root account."
+     fi
+
+     # Check External ID for a specific role
+     ROLE_NAME="YourRoleName"
+     TRUST_POLICY=$(aws iam get-role --role-name $ROLE_NAME)
+     if echo $TRUST_POLICY | grep -q "sts:ExternalId"; then
+       echo "External ID is set for the role $ROLE_NAME."
+     else
+       echo "External ID is not set for the role $ROLE_NAME."
+     fi
+     ```
+
+By following these steps, you can ensure that the root account has MFA enabled and that IAM roles have an external ID set, thereby preventing the misconfiguration using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the root account should have Multi-Factor Authentication (MFA) and an External ID set in IAM using Python scripts, you can follow these steps:
+
+### 1. **Install Required Libraries**
+Ensure you have the necessary libraries installed. You will need `boto3` for AWS, `azure-identity` and `azure-mgmt-resource` for Azure, and `google-auth` and `google-api-python-client` for GCP.
+
+```bash
+pip install boto3 azure-identity azure-mgmt-resource google-auth google-api-python-client
+```
+
+### 2. **AWS: Enforce MFA on Root Account**
+
+```python
+import boto3
+
+def enforce_mfa_on_root():
+    iam_client = boto3.client('iam')
+    
+    # List MFA devices for the root account
+    mfa_devices = iam_client.list_mfa_devices(UserName='root')
+    
+    if not mfa_devices['MFADevices']:
+        print("Root account does not have MFA enabled. Please enable MFA.")
+    else:
+        print("Root account has MFA enabled.")
+
+enforce_mfa_on_root()
+```
+
+### 3. **Azure: Enforce MFA on Root Account**
+
+Azure does not have a direct equivalent of a "root" account, but you can enforce MFA for all users in the directory.
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.resource import ResourceManagementClient
+
+def enforce_mfa_on_root():
+    credential = DefaultAzureCredential()
+    client = ResourceManagementClient(credential, '<subscription_id>')
+    
+    # This is a placeholder for enforcing MFA. Azure AD Conditional Access policies should be used.
+    print("Ensure that Conditional Access policies enforce MFA for all users.")
+
+enforce_mfa_on_root()
+```
+
+### 4. **GCP: Enforce MFA on Root Account**
+
+GCP also does not have a direct equivalent of a "root" account, but you can enforce MFA for all users in the organization.
+
+```python
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+def enforce_mfa_on_root():
+    credentials = service_account.Credentials.from_service_account_file('path/to/your/service-account-file.json')
+    service = build('admin', 'directory_v1', credentials=credentials)
+    
+    # This is a placeholder for enforcing MFA. GCP Identity Platform should be used.
+    print("Ensure that Identity Platform enforces MFA for all users.")
+
+enforce_mfa_on_root()
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure you have the necessary Python libraries installed.
+2. **AWS**: Use `boto3` to check and enforce MFA on the root account.
+3. **Azure**: Use `azure-identity` and `azure-mgmt-resource` to ensure Conditional Access policies enforce MFA.
+4. **GCP**: Use `google-auth` and `google-api-python-client` to ensure Identity Platform enforces MFA.
+
+These scripts provide a basic framework to check and enforce MFA on root accounts or equivalent in AWS, Azure, and GCP. For a complete solution, you would need to integrate these checks into your CI/CD pipeline or monitoring system.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

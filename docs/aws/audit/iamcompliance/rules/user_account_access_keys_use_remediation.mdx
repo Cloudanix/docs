@@ -2,6 +2,170 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent inactive user account access keys in IAM using the AWS Management Console, follow these steps:
+
+1. **Enable Access Key Rotation Policy:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Go to "Policies" and create a new policy or modify an existing one.
+   - Define a policy that enforces access key rotation, ensuring that keys older than a specified period (e.g., 90 days) are rotated or deactivated.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard.
+   - Create a new alarm that monitors IAM access key usage.
+   - Set the alarm to trigger if an access key has not been used within a specified period (e.g., 30 days).
+   - Configure notifications to alert administrators when the alarm is triggered.
+
+3. **Enable IAM Credential Reports:**
+   - In the IAM Dashboard, go to "Credential Report."
+   - Generate a credential report to review the status of all IAM users' access keys.
+   - Schedule regular reviews of this report to identify and take action on inactive access keys.
+
+4. **Implement IAM Access Analyzer:**
+   - Navigate to the IAM Dashboard and select "Access Analyzer."
+   - Enable Access Analyzer to continuously monitor and analyze permissions granted using access keys.
+   - Review findings and take action to remove or deactivate any unnecessary or inactive access keys.
+
+By following these steps, you can proactively manage and prevent inactive user account access keys in AWS IAM.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent inactive user account access keys in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **List All IAM Users**:
+   First, list all IAM users to identify which users have access keys.
+   ```sh
+   aws iam list-users
+   ```
+
+2. **List Access Keys for Each User**:
+   For each user, list their access keys to check their status and last used date.
+   ```sh
+   aws iam list-access-keys --user-name <username>
+   ```
+
+3. **Monitor Access Key Usage**:
+   Regularly monitor the usage of access keys to identify inactive keys. You can use the following command to get the last used date of each access key.
+   ```sh
+   aws iam get-access-key-last-used --access-key-id <access-key-id>
+   ```
+
+4. **Automate Inactive Key Deactivation**:
+   Create a script to automate the deactivation of access keys that have not been used for a specified period. Here is a basic example in Python:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   iam = boto3.client('iam')
+
+   # Define the inactivity period (e.g., 90 days)
+   inactivity_period = timedelta(days=90)
+
+   # Get the list of all IAM users
+   users = iam.list_users()['Users']
+
+   for user in users:
+       user_name = user['UserName']
+       access_keys = iam.list_access_keys(UserName=user_name)['AccessKeyMetadata']
+       
+       for key in access_keys:
+           access_key_id = key['AccessKeyId']
+           last_used_response = iam.get_access_key_last_used(AccessKeyId=access_key_id)
+           last_used_date = last_used_response['AccessKeyLastUsed'].get('LastUsedDate')
+           
+           if last_used_date:
+               if datetime.now(last_used_date.tzinfo) - last_used_date > inactivity_period:
+                   # Deactivate the inactive access key
+                   iam.update_access_key(UserName=user_name, AccessKeyId=access_key_id, Status='Inactive')
+           else:
+               # If the key has never been used, consider it inactive
+               iam.update_access_key(UserName=user_name, AccessKeyId=access_key_id, Status='Inactive')
+   ```
+
+By following these steps, you can ensure that inactive access keys are identified and deactivated, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent inactive user account access keys in IAM using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Authentication:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   iam_client = session.client('iam')
+   ```
+
+2. **Define the Inactivity Period:**
+   - Set the period of inactivity after which access keys should be considered inactive.
+
+   ```python
+   INACTIVITY_PERIOD_DAYS = 90
+   ```
+
+3. **List All Users and Their Access Keys:**
+   - Retrieve all IAM users and their associated access keys.
+
+   ```python
+   def list_users_and_keys():
+       users = iam_client.list_users()
+       user_keys = {}
+       for user in users['Users']:
+           username = user['UserName']
+           access_keys = iam_client.list_access_keys(UserName=username)
+           user_keys[username] = access_keys['AccessKeyMetadata']
+       return user_keys
+   ```
+
+4. **Check Last Used Date and Deactivate Inactive Keys:**
+   - Check the last used date of each access key and deactivate keys that have been inactive for the defined period.
+
+   ```python
+   def deactivate_inactive_keys(user_keys):
+       for username, keys in user_keys.items():
+           for key in keys:
+               access_key_id = key['AccessKeyId']
+               last_used_response = iam_client.get_access_key_last_used(AccessKeyId=access_key_id)
+               last_used_date = last_used_response['AccessKeyLastUsed'].get('LastUsedDate')
+
+               if last_used_date:
+                   days_inactive = (datetime.now() - last_used_date.replace(tzinfo=None)).days
+                   if days_inactive > INACTIVITY_PERIOD_DAYS:
+                       print(f"Deactivating key {access_key_id} for user {username} due to {days_inactive} days of inactivity.")
+                       iam_client.update_access_key(UserName=username, AccessKeyId=access_key_id, Status='Inactive')
+               else:
+                   print(f"Deactivating key {access_key_id} for user {username} as it has never been used.")
+                   iam_client.update_access_key(UserName=username, AccessKeyId=access_key_id, Status='Inactive')
+
+   if __name__ == "__main__":
+       user_keys = list_users_and_keys()
+       deactivate_inactive_keys(user_keys)
+   ```
+
+This script will help you identify and deactivate inactive access keys for IAM users in AWS. Make sure to run this script periodically to ensure that inactive keys are consistently deactivated.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

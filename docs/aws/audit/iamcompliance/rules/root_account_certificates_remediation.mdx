@@ -2,6 +2,163 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent certificates from being tied to the root account in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Create an IAM User for Certificate Management:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Click on "Users" in the left-hand menu.
+   - Click the "Add user" button.
+   - Enter a username and select "Programmatic access" for access type.
+   - Click "Next: Permissions" and attach the necessary policies for certificate management (e.g., `AWSCertificateManagerFullAccess`).
+
+2. **Generate and Use Certificates with IAM User:**
+   - Ensure that any new certificates are generated and managed using the IAM user created specifically for this purpose.
+   - Navigate to the AWS Certificate Manager (ACM) in the AWS Management Console.
+   - Use the IAM user credentials to request and manage certificates.
+
+3. **Review and Remove Root Account Certificates:**
+   - Navigate to the IAM Dashboard.
+   - Click on "Users" and select the root account.
+   - Check for any certificates associated with the root account and remove them if found.
+
+4. **Enable Multi-Factor Authentication (MFA) for Root Account:**
+   - Navigate to the IAM Dashboard.
+   - Click on "Dashboard" in the left-hand menu.
+   - Under "Security Status," find "Activate MFA on your root account" and follow the steps to enable MFA.
+   - This adds an additional layer of security, ensuring that the root account is not used for day-to-day operations, including certificate management.
+
+By following these steps, you can ensure that certificates are not tied to the root account, enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent certificates from being tied to the root account in AWS IAM using the AWS CLI, follow these steps:
+
+1. **Create an IAM User for Certificate Management:**
+   - Create a new IAM user specifically for managing certificates.
+   ```sh
+   aws iam create-user --user-name CertificateManager
+   ```
+
+2. **Attach a Policy to the IAM User:**
+   - Attach a policy to the IAM user that grants the necessary permissions for managing certificates.
+   ```sh
+   aws iam attach-user-policy --user-name CertificateManager --policy-arn arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess
+   ```
+
+3. **Generate Access Keys for the IAM User:**
+   - Generate access keys for the IAM user to use for certificate management.
+   ```sh
+   aws iam create-access-key --user-name CertificateManager
+   ```
+
+4. **Use the IAM User for Certificate Operations:**
+   - Configure your AWS CLI to use the IAM user's credentials for certificate operations.
+   ```sh
+   aws configure
+   # Enter the access key and secret key for the CertificateManager user
+   ```
+
+By following these steps, you ensure that certificates are managed by a dedicated IAM user rather than the root account, enhancing security and reducing the risk of misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent certificates from being tied to the root account in IAM using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and example scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python script to check and prevent certificates tied to the root account**:
+   ```python
+   import boto3
+
+   def check_root_certificates():
+       iam_client = boto3.client('iam')
+       response = iam_client.list_server_certificates()
+       root_account_id = boto3.client('sts').get_caller_identity().get('Account')
+
+       for cert in response['ServerCertificateMetadataList']:
+           if cert['Arn'].split(':')[4] == root_account_id:
+               print(f"Certificate {cert['ServerCertificateName']} is tied to the root account. Please reassign it to a specific IAM user or role.")
+
+   if __name__ == "__main__":
+       check_root_certificates()
+   ```
+
+### Azure (Using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-identity azure-mgmt-keyvault
+   ```
+
+2. **Create a Python script to check and prevent certificates tied to the root account**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.keyvault import KeyVaultManagementClient
+
+   def check_root_certificates(subscription_id):
+       credential = DefaultAzureCredential()
+       kv_client = KeyVaultManagementClient(credential, subscription_id)
+       vaults = kv_client.vaults.list()
+
+       for vault in vaults:
+           certificates = kv_client.certificates.list(vault.name, vault.resource_group_name)
+           for cert in certificates:
+               if cert.properties.issuer_name == 'Self':
+                   print(f"Certificate {cert.name} in vault {vault.name} is tied to the root account. Please reassign it to a specific user or service principal.")
+
+   if __name__ == "__main__":
+       subscription_id = 'your-subscription-id'
+       check_root_certificates(subscription_id)
+   ```
+
+### GCP (Using Google Cloud Client Libraries)
+
+1. **Install Google Cloud Client Libraries**:
+   ```bash
+   pip install google-cloud-iam
+   ```
+
+2. **Create a Python script to check and prevent certificates tied to the root account**:
+   ```python
+   from google.cloud import iam_credentials_v1
+   from google.oauth2 import service_account
+
+   def check_root_certificates():
+       credentials = service_account.Credentials.from_service_account_file('path-to-your-service-account-file.json')
+       client = iam_credentials_v1.IAMCredentialsClient(credentials=credentials)
+       project_id = 'your-project-id'
+       service_accounts = client.list_service_accounts(name=f'projects/{project_id}')
+
+       for sa in service_accounts.accounts:
+           if sa.email.endswith('iam.gserviceaccount.com'):
+               print(f"Service account {sa.email} has certificates tied to it. Please reassign them to a specific user or service account.")
+
+   if __name__ == "__main__":
+       check_root_certificates()
+   ```
+
+### Summary
+
+1. **Install the necessary SDKs for your cloud provider**.
+2. **Create a Python script to list certificates and check if they are tied to the root account**.
+3. **Print a warning message if any certificates are found to be tied to the root account**.
+4. **Run the script to ensure no certificates are tied to the root account**.
+
+These scripts will help you identify and prevent certificates from being tied to the root account in AWS, Azure, and GCP.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
