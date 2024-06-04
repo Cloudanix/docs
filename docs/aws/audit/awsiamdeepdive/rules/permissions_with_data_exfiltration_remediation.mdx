@@ -1,6 +1,99 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to AWS Management Console: First, you need to log in to your AWS Management Console. Make sure you have the necessary permissions to access IAM (Identity and Access Management) services.
+
+2. Navigate to IAM Dashboard: Once you are logged in, navigate to the IAM dashboard. You can do this by clicking on "Services" at the top of the console and then selecting "IAM" under the "Security, Identity, & Compliance" category.
+
+3. Review IAM Policies: In the IAM dashboard, click on "Policies" in the left navigation pane. Here, you can see all the policies that are currently in use. Look for any policies that grant permissions to external AWS accounts or public IPs. This could potentially lead to data exfiltration.
+
+4. Check IAM Roles: Go back to the IAM dashboard and click on "Roles". Review each role and its associated policies. If a role has more permissions than necessary or is associated with suspicious policies, it could be a potential security risk.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Check IAM Policies:** The first step is to check the IAM policies attached to your AWS resources. You can use the AWS CLI command `aws iam list-policies` to list all the IAM policies. Look for policies that grant permissions to actions like `s3:GetObject`, `dynamodb:GetItem`, `rds:DownloadDBLogFilePortion`, etc. These actions can potentially lead to data exfiltration.
+
+2. **Check IAM Roles:** The next step is to check the IAM roles. Use the AWS CLI command `aws iam list-roles` to list all the IAM roles. Look for roles that are attached to the policies identified in the previous step. These roles can potentially be used to perform actions that lead to data exfiltration.
+
+3. **Check IAM Users:** Similarly, check the IAM users using the AWS CLI command `aws iam list-users`. Look for users that are attached to the policies identified in the first step. These users can potentially perform actions that lead to data exfiltration.
+
+4. **Check Access Keys:** Finally, check the access keys of the IAM users. Use the AWS CLI command `aws iam list-access-keys --user-name <username>` to list the access keys of a user. If these keys are compromised, they can be used to perform actions that lead to data exfiltration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Check for overly permissive IAM policies:** AWS IAM policies define permissions for an action regardless of the method that you use to perform the operation. If the policies are overly permissive, they can lead to data exfiltration. You can use the AWS SDK for Python (Boto3) to list all the IAM policies and check if any of them are overly permissive. Here is a sample script:
+
+```python
+import boto3
+
+# Create IAM client
+iam = boto3.client('iam')
+
+# List policies
+response = iam.list_policies(Scope='All')
+for policy in response['Policies']:
+    print(policy['Arn'])
+```
+
+2. **Check for public S3 buckets:** Public S3 buckets can lead to data exfiltration if they contain sensitive data. You can use Boto3 to list all the S3 buckets and check their ACLs (Access Control Lists) to see if any of them are public. Here is a sample script:
+
+```python
+import boto3
+
+# Create S3 client
+s3 = boto3.client('s3')
+
+# List buckets
+response = s3.list_buckets()
+for bucket in response['Buckets']:
+    acl = s3.get_bucket_acl(Bucket=bucket['Name'])
+    for grant in acl['Grants']:
+        if grant['Grantee']['Type'] == 'Group' and 'AllUsers' in grant['Grantee']['URI']:
+            print(bucket['Name'])
+```
+
+3. **Check for open security groups:** Open security groups can also lead to data exfiltration. You can use Boto3 to describe all the security groups and check if any of them have overly permissive inbound rules. Here is a sample script:
+
+```python
+import boto3
+
+# Create EC2 client
+ec2 = boto3.client('ec2')
+
+# Describe security groups
+response = ec2.describe_security_groups()
+for group in response['SecurityGroups']:
+    for permission in group['IpPermissions']:
+        if '0.0.0.0/0' in str(permission):
+            print(group['GroupName'])
+```
+
+4. **Check for IAM users with admin privileges:** IAM users with admin privileges can perform any action on any AWS service, which can lead to data exfiltration. You can use Boto3 to list all the IAM users and check their attached policies. Here is a sample script:
+
+```python
+import boto3
+
+# Create IAM client
+iam = boto3.client('iam')
+
+# List users
+response = iam.list_users()
+for user in response['Users']:
+    policies = iam.list_attached_user_policies(UserName=user['UserName'])
+    for policy in policies['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            print(user['UserName'])
+```
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

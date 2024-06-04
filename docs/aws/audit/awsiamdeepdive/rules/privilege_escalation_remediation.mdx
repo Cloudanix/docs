@@ -1,6 +1,84 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to AWS Management Console: First, you need to log in to your AWS Management Console. Make sure you have the necessary permissions to access IAM (Identity and Access Management) services.
+
+2. Navigate to IAM Dashboard: Once you are logged in, navigate to the IAM dashboard by clicking on "Services" at the top of the console and then selecting "IAM" under the "Security, Identity, & Compliance" category.
+
+3. Check User Policies: In the IAM dashboard, click on "Users" in the left navigation pane. This will display a list of all IAM users in your account. Click on a user to view their details. In the user details page, click on the "Permissions" tab. Here, you can see all the policies attached to the user. Look for policies that grant "iam:PassRole" and "iam:CreateUser" permissions. These permissions can potentially be used for privilege escalation.
+
+4. Check Role Trust Policies: Go back to the IAM dashboard and click on "Roles" in the left navigation pane. This will display a list of all IAM roles in your account. Click on a role to view its details. In the role details page, click on the "Trust relationships" tab. Here, you can see the trust policy of the role. Look for policies that allow external entities (like users from another AWS account) to assume the role. If the role has high-level permissions, this can potentially be used for privilege escalation.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start detecting privilege escalation, you need to have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). The command to install AWS CLI is `pip install awscli`. After installing, you need to configure it using `aws configure` command. You will be asked to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. **List IAM Users**: The first step in detecting privilege escalation is to list all the IAM users. You can do this using the following AWS CLI command: `aws iam list-users`. This command will return a list of all IAM users in your AWS account.
+
+3. **Check User Policies**: The next step is to check the policies attached to each user. You can do this using the following AWS CLI command: `aws iam list-user-policies --user-name <username>`. Replace `<username>` with the name of the user. This command will return a list of all policies attached to the specified user.
+
+4. **Check Policy Details**: If any of the policies returned in the previous step have "Allow" effect and "iam:PassRole" action, then there is a potential for privilege escalation. You can check the details of each policy using the following AWS CLI command: `aws iam get-user-policy --user-name <username> --policy-name <policyname>`. Replace `<username>` with the name of the user and `<policyname>` with the name of the policy. This command will return the details of the specified policy. If the policy has "Allow" effect and "iam:PassRole" action, then the user has the potential to escalate their privileges.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK for Python (Boto3):**
+   First, you need to set up AWS SDK for Python (Boto3) on your local machine. This will allow you to interact with AWS services using Python. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials either by setting up environment variables or by using the AWS CLI.
+
+2. **List IAM Users:**
+   Use the `list_users` method to retrieve all IAM users in your AWS account. This will return a list of user objects, which include the user's name, ID, and ARN.
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users
+   response = iam.list_users()
+   for user in response['Users']:
+       print('User: {0}\nUserID: {1}\nARN: {2}\n'.format(
+           user['UserName'], user['UserId'], user['Arn']))
+   ```
+
+3. **Check User Policies:**
+   For each user, check the attached policies using the `list_attached_user_policies` method. This will return a list of policy objects, which include the policy's name and ARN.
+   ```python
+   # List policies for a specific user
+   response = iam.list_attached_user_policies(UserName='username')
+   for policy in response['AttachedPolicies']:
+       print('PolicyName: {0}\nPolicyArn: {1}\n'.format(
+           policy['PolicyName'], policy['PolicyArn']))
+   ```
+
+4. **Detect Privilege Escalation:**
+   For each policy, retrieve the policy document using the `get_policy_version` method and parse it to check for privilege escalation. This involves checking if the policy allows actions that can lead to privilege escalation, such as `iam:PutUserPolicy`, `iam:AddUserToGroup`, and `iam:PassRole`.
+   ```python
+   # Get policy version
+   response = iam.get_policy_version(
+       PolicyArn='policy_arn',
+       VersionId='version_id'
+   )
+   # Parse policy document
+   policy_document = response['PolicyVersion']['Document']
+   # Check for privilege escalation
+   for statement in policy_document['Statement']:
+       if 'Action' in statement:
+           if 'iam:PutUserPolicy' in statement['Action'] or 'iam:AddUserToGroup' in statement['Action'] or 'iam:PassRole' in statement['Action']:
+               print('Potential privilege escalation detected in policy: {0}'.format(policy['PolicyName']))
+   ```
+   Note: This is a simplified example and real-world scenarios may require more complex checks.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
