@@ -23,6 +23,234 @@ CBP,RBI_MD_ITF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent misconfigurations related to Autoscaling Groups Health Checks in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "EC2" to go to the EC2 Dashboard.
+
+2. **Access Auto Scaling Groups:**
+   - In the left-hand navigation pane, under "Auto Scaling," click on "Auto Scaling Groups."
+
+3. **Select the Auto Scaling Group:**
+   - From the list of Auto Scaling Groups, select the one you want to configure.
+   - Click on the group name to open its details.
+
+4. **Configure Health Checks:**
+   - In the Auto Scaling Group details, go to the "Details" tab.
+   - Click the "Edit" button.
+   - Ensure that the "Health Check Type" is set to both "EC2" and "ELB" (if applicable).
+   - Set an appropriate "Health Check Grace Period" to allow instances time to start up before health checks begin.
+   - Click "Update" to save the changes.
+
+By following these steps, you can ensure that your Auto Scaling Groups are properly configured to perform health checks, thereby preventing potential misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfigurations related to Autoscaling Groups Health Checks in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create or Update an Auto Scaling Group with Health Check Type:**
+   Ensure that the Auto Scaling group is configured to use both EC2 and ELB health checks. This can be done when creating or updating the Auto Scaling group.
+
+   ```sh
+   aws autoscaling create-auto-scaling-group \
+     --auto-scaling-group-name my-asg \
+     --launch-configuration-name my-launch-config \
+     --min-size 1 \
+     --max-size 5 \
+     --desired-capacity 2 \
+     --vpc-zone-identifier subnet-12345678 \
+     --health-check-type ELB \
+     --health-check-grace-period 300
+   ```
+
+   Or, if updating an existing Auto Scaling group:
+
+   ```sh
+   aws autoscaling update-auto-scaling-group \
+     --auto-scaling-group-name my-asg \
+     --health-check-type ELB \
+     --health-check-grace-period 300
+   ```
+
+2. **Verify Health Check Configuration:**
+   After creating or updating the Auto Scaling group, verify that the health check type is correctly set.
+
+   ```sh
+   aws autoscaling describe-auto-scaling-groups \
+     --auto-scaling-group-names my-asg \
+     --query 'AutoScalingGroups[*].{HealthCheckType:HealthCheckType,HealthCheckGracePeriod:HealthCheckGracePeriod}'
+   ```
+
+3. **Set Up Notifications for Health Check Failures:**
+   Configure notifications to alert you when instances fail health checks. This can help in proactive monitoring and quick remediation.
+
+   ```sh
+   aws autoscaling put-notification-configuration \
+     --auto-scaling-group-name my-asg \
+     --topic-arn arn:aws:sns:us-west-2:123456789012:my-sns-topic \
+     --notification-types autoscaling:EC2_INSTANCE_TERMINATE,autoscaling:EC2_INSTANCE_LAUNCH
+   ```
+
+4. **Regularly Review and Update Health Check Settings:**
+   Periodically review the health check settings to ensure they are still appropriate for your application and update them if necessary.
+
+   ```sh
+   aws autoscaling describe-auto-scaling-groups \
+     --query 'AutoScalingGroups[*].{AutoScalingGroupName:AutoScalingGroupName,HealthCheckType:HealthCheckType,HealthCheckGracePeriod:HealthCheckGracePeriod}'
+   ```
+
+By following these steps, you can ensure that your Auto Scaling groups in AWS EC2 are properly configured to use health checks, thereby preventing potential misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to Autoscaling Groups Health Checks in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that health checks are properly configured for your Auto Scaling groups:
+
+### Step 1: Install Boto3
+First, ensure that you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+### Step 3: Create a Python Script to Check and Configure Health Checks
+Here's a Python script that checks and configures health checks for your Auto Scaling groups:
+
+```python
+import boto3
+
+def configure_health_checks(asg_name, health_check_type='EC2', health_check_grace_period=300):
+    # Create a session using your AWS credentials
+    session = boto3.Session()
+    
+    # Create an Auto Scaling client
+    asg_client = session.client('autoscaling')
+    
+    # Describe the Auto Scaling group to get its current configuration
+    response = asg_client.describe_auto_scaling_groups(
+        AutoScalingGroupNames=[asg_name]
+    )
+    
+    if not response['AutoScalingGroups']:
+        print(f"No Auto Scaling group found with name {asg_name}")
+        return
+    
+    asg = response['AutoScalingGroups'][0]
+    
+    # Check current health check configuration
+    current_health_check_type = asg['HealthCheckType']
+    current_health_check_grace_period = asg['HealthCheckGracePeriod']
+    
+    if current_health_check_type != health_check_type or current_health_check_grace_period != health_check_grace_period:
+        # Update the Auto Scaling group with the desired health check configuration
+        asg_client.update_auto_scaling_group(
+            AutoScalingGroupName=asg_name,
+            HealthCheckType=health_check_type,
+            HealthCheckGracePeriod=health_check_grace_period
+        )
+        print(f"Updated health check configuration for Auto Scaling group {asg_name}")
+    else:
+        print(f"Health check configuration for Auto Scaling group {asg_name} is already correct")
+
+# Example usage
+configure_health_checks('my-auto-scaling-group', health_check_type='ELB', health_check_grace_period=300)
+```
+
+### Step 4: Run the Script
+Run the script to ensure that your Auto Scaling groups have the correct health check configuration. You can schedule this script to run periodically using a cron job or a similar scheduling tool to ensure continuous compliance.
+
+```bash
+python configure_health_checks.py
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create a Python Script**: Write a script to check and configure health checks for Auto Scaling groups.
+4. **Run the Script**: Execute the script to enforce the desired configuration.
+
+By following these steps, you can prevent misconfigurations related to Autoscaling Groups Health Checks in EC2 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose 'Auto Scaling groups' under the 'AUTO SCALING' section.
+
+3. Select the Auto Scaling group that you want to check. 
+
+4. In the 'Details' tab, check the 'Health checks' section. It should be set to 'ELB' or 'EC2' and the 'Health check grace period' should be configured appropriately. If these are not set, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all Auto Scaling groups: Use the following command to list all the Auto Scaling groups in your AWS account:
+
+   ```
+   aws autoscaling describe-auto-scaling-groups
+   ```
+
+   This command will return a JSON object that contains information about all the Auto Scaling groups in your account.
+
+3. Check the Health Check settings: In the returned JSON object, look for the `HealthCheckType` and `HealthCheckGracePeriod` attributes. The `HealthCheckType` attribute indicates the type of health check used for the instances in the group. It should be set to `ELB` if you want Elastic Load Balancing to determine the health status of your instances. The `HealthCheckGracePeriod` attribute indicates the length of time that Auto Scaling waits before checking the health status of an instance.
+
+4. Analyze the output: If the `HealthCheckType` is not set to `ELB` or the `HealthCheckGracePeriod` is not set to a sufficient length of time, then your Auto Scaling group is not properly configured to check the health of its instances.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create an EC2 resource object using the session object. Then, iterate over all your Auto Scaling groups and check the health check type:
+
+```python
+autoscaling = session.client('autoscaling')
+
+response = autoscaling.describe_auto_scaling_groups()
+
+for group in response['AutoScalingGroups']:
+    if group['HealthCheckType'] != 'ELB':
+        print(f"Auto Scaling Group {group['AutoScalingGroupName']} is misconfigured. Health checks are not enabled.")
+```
+
+4. This script will print out the names of all Auto Scaling groups where health checks are not enabled. If no such groups are found, the script will not output anything. 
+
+Remember to replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS credentials and the region you're working in.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,63 +23,320 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Storage Gateway Volume Last Backup Recovery Point Should Be Created Within Specified Duration" in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Backup:**
+   - Sign in to the AWS Management Console.
+   - Open the AWS Backup console by searching for "AWS Backup" in the search bar.
+
+2. **Create a Backup Plan:**
+   - In the AWS Backup console, click on "Backup plans" in the left-hand menu.
+   - Click on "Create backup plan."
+   - Choose to either start with a template or build a new plan from scratch.
+   - Define the backup rules, specifying the frequency and duration to ensure that backups are created within the required time frame.
+
+3. **Assign Resources to the Backup Plan:**
+   - After creating the backup plan, go to the "Assign resources" section.
+   - Select the resources you want to back up, such as EC2 instances or Storage Gateway volumes.
+   - Assign these resources to the backup plan you created.
+
+4. **Monitor Backup Jobs:**
+   - Regularly monitor the backup jobs to ensure they are running as expected.
+   - Go to the "Backup jobs" section in the AWS Backup console to view the status of your backup jobs.
+   - Set up notifications or CloudWatch alarms to alert you if backups are not created within the specified duration.
+
+By following these steps, you can ensure that your Storage Gateway volumes have recent backup recovery points created within the specified duration, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the Storage Gateway Volume Last Backup Recovery Point should be created within a specified duration in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   Ensure you have a backup plan that specifies the backup frequency and retention rules. This will help in automating the backup process.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the Storage Gateway volumes to the backup plan to ensure they are backed up according to the specified schedule.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection '{
+       "SelectionName": "MyBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:ec2:region:account-id:volume/volume-id"
+       ]
+   }'
+   ```
+
+3. **Monitor Backup Jobs:**
+   Regularly monitor the backup jobs to ensure they are completing successfully and within the specified duration.
+
+   ```sh
+   aws backup list-backup-jobs --by-resource-arn arn:aws:ec2:region:account-id:volume/volume-id
+   ```
+
+4. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to notify you if backups are not created within the specified duration.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "BackupNotCreated" --metric-name "BackupJobsCompleted" --namespace "AWS/Backup" --statistic "Sum" --period 86400 --threshold 1 --comparison-operator "LessThanThreshold" --dimensions Name=BackupVaultName,Value=Default --evaluation-periods 1 --alarm-actions arn:aws:sns:region:account-id:my-sns-topic
+   ```
+
+By following these steps, you can ensure that your Storage Gateway volumes are backed up regularly and within the specified duration, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the Storage Gateway Volume Last Backup Recovery Point should be created within a specified duration in AWS EC2 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Configure AWS Credentials**
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### 3. **Create a Python Script to Monitor Backup Recovery Points**
+Write a Python script that uses Boto3 to check the last backup recovery point for your Storage Gateway volumes and ensure they are within the specified duration.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+# Initialize the Storage Gateway client
+storagegateway_client = session.client('storagegateway')
+
+# Define the specified duration (e.g., 24 hours)
+specified_duration = timedelta(hours=24)
+
+def check_backup_recovery_points():
+    # List all gateways
+    gateways = storagegateway_client.list_gateways()
+    
+    for gateway in gateways['Gateways']:
+        gateway_arn = gateway['GatewayARN']
+        
+        # List all volumes for the gateway
+        volumes = storagegateway_client.list_volumes(GatewayARN=gateway_arn)
+        
+        for volume in volumes['VolumeInfos']:
+            volume_arn = volume['VolumeARN']
+            
+            # Describe the volume to get the last recovery point
+            volume_details = storagegateway_client.describe_cached_iscsi_volumes(
+                VolumeARNs=[volume_arn]
+            )
+            
+            for volume_info in volume_details['CachediSCSIVolumes']:
+                last_backup_time = volume_info['VolumeRecoveryPointTime']
+                last_backup_time = datetime.strptime(last_backup_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+                
+                # Check if the last backup is within the specified duration
+                if datetime.utcnow() - last_backup_time > specified_duration:
+                    print(f"Volume {volume_arn} has not been backed up within the specified duration.")
+                else:
+                    print(f"Volume {volume_arn} is compliant with the backup policy.")
+
+if __name__ == "__main__":
+    check_backup_recovery_points()
+```
+
+### 4. **Automate the Script Execution**
+To ensure continuous compliance, automate the execution of the script using a scheduling tool like cron (for Unix-based systems) or Task Scheduler (for Windows).
+
+#### Example: Using cron to run the script every hour
+1. Open the crontab editor:
+    ```bash
+    crontab -e
+    ```
+2. Add the following line to schedule the script to run every hour:
+    ```bash
+    0 * * * * /usr/bin/python3 /path/to/your/script.py
+    ```
+
+By following these steps, you can prevent the misconfiguration by ensuring that the Storage Gateway Volume Last Backup Recovery Point is created within the specified duration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Storage Gateway service. 
+3. In the navigation pane, select "Volumes". This will display a list of all your storage gateway volumes.
+4. For each volume, check the "Last Backup" column. This will show the date and time of the last backup recovery point. Compare this with your specified duration to determine if a backup recovery point has been created within the required timeframe.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the volumes of the AWS Storage Gateway using the following command:
+
+   ```
+   aws storagegateway list-volumes --gateway-arn <your-gateway-arn>
+   ```
+
+   Replace `<your-gateway-arn>` with the ARN of your gateway. This command will return a list of all volumes attached to the specified gateway.
+
+3. For each volume, you can get the list of recovery points using the following command:
+
+   ```
+   aws storagegateway list-volume-recovery-points --gateway-arn <your-gateway-arn> --volume-arn <your-volume-arn>
+   ```
+
+   Replace `<your-gateway-arn>` with the ARN of your gateway and `<your-volume-arn>` with the ARN of the volume. This command will return a list of all recovery points for the specified volume.
+
+4. Finally, you can check the date of the last recovery point and compare it with the current date. If the difference is more than the specified duration, then the volume is misconfigured. You can do this comparison using a Python script or any other scripting language you are comfortable with.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Boto3 allows you to directly create, update, and delete AWS resources from your Python scripts.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a client for 'storagegateway' service and list all the volumes using the 'list_volumes' method. For each volume, get the recovery points using the 'list_volume_recovery_points' method.
+
+```python
+storagegateway_client = session.client('storagegateway')
+
+try:
+    volumes = storagegateway_client.list_volumes()['VolumeInfos']
+except NoCredentialsError:
+    print("No AWS credentials found.")
+    exit()
+
+for volume in volumes:
+    recovery_points = storagegateway_client.list_volume_recovery_points(
+        GatewayARN=volume['GatewayARN']
+    )['VolumeRecoveryPointInfos']
+```
+
+4. Check the time of the last recovery point for each volume. If it's older than the specified duration, print a warning message.
+
+```python
+from datetime import datetime, timedelta
+
+specified_duration = timedelta(days=7)  # Change this to your specified duration
+
+for recovery_point in recovery_points:
+    last_recovery_point_time = recovery_point['VolumeRecoveryPointTime']
+    last_recovery_point_time = datetime.strptime(last_recovery_point_time, '%Y-%m-%dT%H:%M:%S.%fZ')
+
+    if datetime.now() - last_recovery_point_time > specified_duration:
+        print(f"Warning: Last backup recovery point for volume {volume['VolumeId']} was created more than {specified_duration} ago.")
+```
+
+This script will help you detect if the last backup recovery point for any Storage Gateway volume in EC2 was created more than the specified duration ago.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-To remediate the misconfiguration of not having Recovery Points created for RDS in AWS using the AWS Management Console, follow these steps:
+To ensure that the last backup recovery point for Storage Gateway volumes is created within the specified duration, follow these steps using the AWS Management Console:
 
-1. **Login to AWS Console**: Go to the AWS Management Console (https://aws.amazon.com/console/) and log in to your AWS account.
+1. **Access the AWS Management Console**: Go to the AWS Management Console at https://aws.amazon.com/ and log in with your credentials.
 
-2. **Navigate to RDS Service**: Click on the 'Services' dropdown menu at the top left corner of the console, then select 'RDS' under the 'Database' section.
+2. **Navigate to AWS Storage Gateway**: Click on the "Services" dropdown menu at the top of the console, then select "Storage Gateway" under the "Storage" section.
 
-3. **Select the RDS Instance**: In the RDS dashboard, select the RDS instance for which you want to enable Recovery Points by clicking on the checkbox next to the instance name.
+3. **Select Volumes**: In the Storage Gateway dashboard, click on "Volumes" from the left-hand navigation pane.
 
-4. **Enable Automated Backups**: Click on the 'Modify' button at the top of the dashboard to modify the settings of the selected RDS instance.
+4. **Identify Volumes with No Recent Recovery Points**: Review the list of volumes and identify those that do not have a recent backup recovery point created within the specified duration.
 
-5. **Configure Backup Settings**: Scroll down to the 'Backup' section of the Modify DB Instance page. Here, you will find the 'Backup retention period' setting. Set the desired number of days for which you want to retain automated backups. This will ensure that recovery points are created and retained for the specified period.
+5. **Take Manual Backup**: For each volume identified, manually initiate a backup to create a new recovery point within the specified duration.
+   
+6. **Monitor Backups**: Regularly monitor the backup status and ensure that new recovery points are created within the specified duration for all volumes.
 
-6. **Enable Automated Backups**: Make sure that the 'Backup retention period' is set to a value greater than 0 to enable automated backups for the RDS instance.
-
-7. **Save Changes**: Scroll down to the bottom of the page and click on the 'Continue' button, review the changes, and then click on the 'Modify DB Instance' button to save the changes.
-
-8. **Verify Configuration**: Once the modification is completed, go back to the RDS dashboard and check the 'Backup' section of the RDS instance to ensure that automated backups are enabled and the backup retention period is set as per your configuration.
-
-By following these steps, you have successfully enabled the creation of Recovery Points for the RDS instance in AWS, ensuring that automated backups are taken at regular intervals as per the specified retention period.
-
-#
+By following these steps, you can ensure that the last backup recovery point for Storage Gateway volumes is created within the specified duration using the AWS Management Console.
 </Accordion>
 
 <Accordion title='Using CLI'>
-To remediate the misconfiguration of not having RDS Recovery Point created for AWS RDS using AWS CLI, you can follow these steps:
+To remediate the misconfiguration of Storage Gateway volumes not having recovery points created within the specified duration in AWS using AWS CLI, you can follow these steps:
 
-Step 1: Open your terminal or command prompt and ensure that you have AWS CLI installed and configured with the necessary permissions to work with RDS.
+1. **Identify the Storage Gateway Volumes**:
+   - Use the `list-gateways` command to list all Storage Gateways in your account.
+     ```bash
+     aws storagegateway list-gateways
+     ```
 
-Step 2: Run the following AWS CLI command to modify the RDS instance to enable automated backups and set the backup retention period. Replace `your-rds-instance-identifier` with the actual identifier of your RDS instance and `7` with the desired backup retention period in days.
+2. **Create a Recovery Point for the Volume**:
+   - Use the `start-gateway` command to create a recovery point for the Storage Gateway volume.
+     ```bash
+     aws storagegateway start-gateway --gateway-arn <gateway-arn> --volume-arn <volume-arn>
+     ```
+   - Replace `<gateway-arn>` with the ARN of your Storage Gateway and `<volume-arn>` with the ARN of the volume for which you want to create a recovery point.
 
-```bash
-aws rds modify-db-instance --db-instance-identifier your-rds-instance-identifier --backup-retention-period 7 --apply-immediately
-```
+3. **Verify Backup Status**:
+   - Use the `describe-scheduled-filesystem-operations` command to check the status of the backup operation.
+     ```bash
+     aws storagegateway describe-scheduled-filesystem-operations --gateway-arn <gateway-arn> --volume-arn <volume-arn>
+     ```
+   - Replace `<gateway-arn>` with the ARN of your Storage Gateway and `<volume-arn>` with the ARN of the volume.
 
-Step 3: Check the status of the modification by running the following command:
-
-```bash
-aws rds describe-db-instances --db-instance-identifier your-rds-instance-identifier --query 'DBInstances[*].[DBInstanceIdentifier,DBInstanceStatus]'
-```
-
-Step 4: Once the modification is complete and the RDS instance status is available, automated backups will be enabled, and recovery points will be created based on the specified retention period.
-
-By following these steps, you can remediate the misconfiguration of not having RDS Recovery Point created for AWS RDS using AWS CLI.
+By following these steps, you can remediate the misconfiguration of Storage Gateway volumes not having recovery points created within the specified duration in AWS using AWS CLI.
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the misconfiguration of not having RDS Recovery Point created for AWS RDS instances, you can use Python and AWS Boto3 library to create a manual snapshot of the RDS instance. Here are the step-by-step instructions to remediate this issue:
+To remediate the misconfiguration of Storage Gateway volumes not having recovery points created within the specified duration in AWS using Python, you can follow these steps:
 
-1. Install Boto3 library:
-Ensure you have the Boto3 library installed. You can install it using pip:
-```bash
-pip install boto3
+1. **Install Boto3**: Boto3 is the Amazon Web Services (AWS) SDK for Python. You can install it using pip:
+   ```bash
+   pip install boto3
 ```
 
 2. Configure AWS credentials:
@@ -88,41 +345,38 @@ Make sure you have AWS credentials configured on your system. You can set it up 
 aws configure
 ```
 
-3. Write Python script to create a manual snapshot:
-Create a Python script (e.g., create_rds_snapshot.py) with the following code snippet:
+3. **Create a Python script**: Create a Python script with the following code to create a recovery point for the Storage Gateway volume.
 
 ```python
 import boto3
 
-# Define the AWS region and RDS instance identifier
-region = 'your_aws_region'
-instance_identifier = 'your_rds_instance_identifier'
+# Initialize the Boto3 client for Storage Gateway
+storage_gateway_client = boto3.client('storagegateway', region_name='your_aws_region')
 
-# Create a boto3 client for RDS
-rds_client = boto3.client('rds', region_name=region)
+# Specify the ARN of the Storage Gateway volume
+volume_arn = 'your_volume_arn'
 
-# Create a manual snapshot for the RDS instance
-response = rds_client.create_db_snapshot(
-    DBSnapshotIdentifier='manual-snapshot-' + instance_identifier,
-    DBInstanceIdentifier=instance_identifier
+# Create a recovery point for the volume
+response = storage_gateway_client.start_gateway_recovery_point_creation(
+    GatewayARN='your_gateway_arn',
+    VolumeARN=volume_arn
 )
 
-print("Manual snapshot created successfully: ", response)
+print("Recovery point creation initiated for volume with ARN:", volume_arn)
+
 ```
 
-4. Run the Python script:
-Execute the Python script using the following command:
-```bash
-python create_rds_snapshot.py
-```
+Replace placeholders: Replace 'your_aws_region' with the AWS region where your Storage Gateway is located, 'your_volume_arn' with the ARN of your Storage Gateway volume, and 'your_gateway_arn' with the ARN of your Storage Gateway.
 
-5. Verify the manual snapshot:
-Go to the AWS Management Console, navigate to the RDS service, select your RDS instance, and check if the manual snapshot was created successfully.
+4. **Run the Python Script**:
+   - Execute the Python script in your local environment or on an EC2 instance with appropriate IAM roles that have permissions to modify Storage Gateway configurations.
+     ```bash
+     python your_script.py
+     ```
 
-By following these steps, you can remediate the misconfiguration of not having RDS Recovery Point created for AWS RDS instances using Python and Boto3 library.
+By following these steps, you can remediate the misconfiguration of Storage Gateway volumes not having recovery points created within the specified duration in AWS using Python.
 </Accordion>
 
 </AccordionGroup>
 </Tab>
 </Tabs>
-.

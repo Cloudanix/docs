@@ -23,6 +23,223 @@ CBP,RBI_MD_ITF,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Internet Gateways from being attached to unauthorized Virtual Private Clouds (VPCs) in Amazon EC2 using the AWS Management Console, follow these steps:
+
+1. **Create and Enforce IAM Policies:**
+   - Navigate to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Create a custom IAM policy that restricts the creation and attachment of Internet Gateways to only authorized VPCs.
+   - Attach this policy to the IAM roles or users who have permissions to manage VPCs and Internet Gateways.
+
+2. **Tagging and Resource Groups:**
+   - Implement a tagging strategy for your VPCs to clearly identify authorized VPCs.
+   - Use tags such as `Environment: Production` or `Owner: NetworkTeam` to distinguish authorized VPCs.
+   - Create Resource Groups based on these tags to easily manage and monitor authorized VPCs.
+
+3. **AWS Config Rules:**
+   - Navigate to the AWS Config service in the AWS Management Console.
+   - Create a custom AWS Config rule to check that Internet Gateways are only attached to authorized VPCs.
+   - Set up notifications or automated remediation actions if the rule is violated.
+
+4. **Regular Audits and Monitoring:**
+   - Use AWS CloudTrail to log and monitor all API calls related to Internet Gateways and VPCs.
+   - Set up CloudWatch Alarms to alert you when an Internet Gateway is attached to an unauthorized VPC.
+   - Regularly review the CloudTrail logs and CloudWatch Alarms to ensure compliance with your security policies.
+
+By following these steps, you can effectively prevent Internet Gateways from being attached to unauthorized VPCs in your AWS environment using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Internet Gateways from being attached to unauthorized Virtual Private Clouds (VPCs) in Amazon EC2 using AWS CLI, you can follow these steps:
+
+1. **List All Internet Gateways and Their Attachments:**
+   First, identify all the Internet Gateways (IGWs) and their associated VPCs to ensure you have a clear understanding of the current attachments.
+   ```sh
+   aws ec2 describe-internet-gateways --query 'InternetGateways[*].{ID:InternetGatewayId,Attachments:Attachments}'
+   ```
+
+2. **Tag Authorized VPCs:**
+   Tag the VPCs that are authorized to have Internet Gateways attached. This helps in identifying and managing authorized VPCs.
+   ```sh
+   aws ec2 create-tags --resources vpc-12345678 --tags Key=Authorized,Value=True
+   ```
+
+3. **Create a Policy to Restrict IGW Attachments:**
+   Create an IAM policy that restricts the attachment of Internet Gateways to only those VPCs that are tagged as authorized.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "ec2:AttachInternetGateway",
+         "Resource": "*",
+         "Condition": {
+           "StringNotEquals": {
+             "ec2:ResourceTag/Authorized": "True"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+4. **Attach the Policy to Relevant IAM Roles/Users:**
+   Attach the created policy to the IAM roles or users that manage VPCs and Internet Gateways to enforce the restriction.
+   ```sh
+   aws iam put-user-policy --user-name YourUserName --policy-name RestrictIGWAttachment --policy-document file://policy.json
+   ```
+
+By following these steps, you can ensure that Internet Gateways are only attached to authorized VPCs, thereby preventing unauthorized configurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Internet Gateways from being attached to unauthorized Virtual Private Clouds (VPCs) in AWS EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Define Authorized VPCs:**
+   - Create a list of authorized VPC IDs that are allowed to have Internet Gateways attached.
+
+3. **Script to Check and Prevent Unauthorized Attachments:**
+   - Write a Python script that checks the current Internet Gateways and ensures they are only attached to authorized VPCs. If an unauthorized attachment is detected, the script can detach the Internet Gateway.
+
+4. **Automate and Monitor:**
+   - Set up a regular execution of the script using AWS Lambda or a cron job to ensure continuous compliance.
+
+Here is a sample Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# List of authorized VPC IDs
+authorized_vpcs = ['vpc-12345678', 'vpc-87654321']
+
+def check_internet_gateways():
+    # Describe all Internet Gateways
+    response = ec2.describe_internet_gateways()
+    
+    for igw in response['InternetGateways']:
+        for attachment in igw['Attachments']:
+            vpc_id = attachment['VpcId']
+            if vpc_id not in authorized_vpcs:
+                print(f"Internet Gateway {igw['InternetGatewayId']} is attached to unauthorized VPC {vpc_id}.")
+                # Detach the Internet Gateway from the unauthorized VPC
+                ec2.detach_internet_gateway(
+                    InternetGatewayId=igw['InternetGatewayId'],
+                    VpcId=vpc_id
+                )
+                print(f"Detached Internet Gateway {igw['InternetGatewayId']} from VPC {vpc_id}.")
+
+if __name__ == "__main__":
+    check_internet_gateways()
+```
+
+### Steps Summary:
+1. **Set Up AWS SDK for Python (Boto3):** Install and configure Boto3.
+2. **Define Authorized VPCs:** Maintain a list of authorized VPC IDs.
+3. **Script to Check and Prevent Unauthorized Attachments:** Write a script to check and detach unauthorized Internet Gateway attachments.
+4. **Automate and Monitor:** Use AWS Lambda or a cron job to run the script regularly for continuous compliance.
+
+This script ensures that Internet Gateways are only attached to authorized VPCs and detaches them if they are not.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the VPC Dashboard by selecting "Services" from the top menu, then choosing "VPC" under the "Networking & Content Delivery" category.
+3. In the VPC Dashboard, select "Internet Gateways" from the left-hand menu. This will display a list of all Internet Gateways in your AWS environment.
+4. For each Internet Gateway, check the "VPC" column. This column displays the ID of the VPC to which the Internet Gateway is attached. Cross-verify this ID with your list of authorized VPCs to ensure that the Internet Gateway is attached to an authorized VPC. If the VPC ID does not match any in your list of authorized VPCs, then this is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can start using it to interact with AWS services.
+
+2. To list all the Internet Gateways in your AWS account, use the following command:
+
+   ```
+   aws ec2 describe-internet-gateways
+   ```
+   This command will return a JSON output with details about all the Internet Gateways in your account.
+
+3. To list all the VPCs in your AWS account, use the following command:
+
+   ```
+   aws ec2 describe-vpcs
+   ```
+   This command will return a JSON output with details about all the VPCs in your account.
+
+4. Now, you need to check if each Internet Gateway is attached to an authorized VPC. You can do this by comparing the 'Attachments' field in the output of the 'describe-internet-gateways' command with the 'VpcId' field in the output of the 'describe-vpcs' command. If an Internet Gateway is attached to a VPC that is not in the list of authorized VPCs, then it is a misconfiguration. You can use a Python script to automate this comparison process.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it. You can do this by creating a new session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+2. List all Internet Gateways: Use the `describe_internet_gateways` method to retrieve all the internet gateways in your AWS account.
+
+```python
+ec2 = session.resource('ec2')
+response = ec2.meta.client.describe_internet_gateways()
+```
+
+3. Check the attachment status of each Internet Gateway: For each Internet Gateway, check if it is attached to a VPC. If it is, check if the VPC is authorized.
+
+```python
+for gateway in response['InternetGateways']:
+    for attachment in gateway['Attachments']:
+        if attachment['State'] == 'available':
+            print(f"Internet Gateway {gateway['InternetGatewayId']} is attached to VPC {attachment['VpcId']}")
+```
+
+4. Validate the VPC: If the Internet Gateway is attached to a VPC, validate if the VPC is authorized. This step depends on your specific rules for authorizing a VPC. For example, you might have a list of authorized VPC IDs, and you can check if the VPC ID of the attachment is in this list.
+
+```python
+authorized_vpcs = ['vpc-1a2b3c4d', 'vpc-5e6f7g8h']  # example list
+for gateway in response['InternetGateways']:
+    for attachment in gateway['Attachments']:
+        if attachment['State'] == 'available':
+            if attachment['VpcId'] not in authorized_vpcs:
+                print(f"Internet Gateway {gateway['InternetGatewayId']} is attached to unauthorized VPC {attachment['VpcId']}")
+```
+
+This script will print out the IDs of all Internet Gateways that are attached to unauthorized VPCs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,189 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 Hop Limit Check in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the top navigation bar, select "Services" and then choose "EC2" under the "Compute" section.
+
+2. **Select the Instance:**
+   - In the EC2 Dashboard, click on "Instances" in the left-hand menu.
+   - Select the instance for which you want to configure the hop limit.
+
+3. **Modify Instance Metadata Options:**
+   - With the instance selected, click on the "Actions" button at the top of the page.
+   - Choose "Instance Settings" and then "Modify Instance Metadata Options."
+
+4. **Set Hop Limit:**
+   - In the "Modify Instance Metadata Options" dialog, find the "Hop limit" field.
+   - Set the hop limit to a value that suits your security requirements (e.g., 1 to restrict access to the instance itself).
+   - Click "Save" to apply the changes.
+
+By following these steps, you can configure the hop limit for your EC2 instance to prevent unauthorized access through intermediate hops.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 Hop Limit Check misconfiguration using AWS CLI, you need to ensure that the hop limit for your EC2 instances is set correctly. Here are the steps to do this:
+
+1. **Describe the Instances to Check Current Hop Limit:**
+   First, you need to check the current hop limit settings for your EC2 instances. Use the following command to describe your instances and check the hop limit:
+
+   ```sh
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,HopLimit:MetadataOptions.HttpPutResponseHopLimit}' --output table
+   ```
+
+2. **Modify the Hop Limit for an Instance:**
+   If you find that the hop limit is not set correctly, you can modify it using the `modify-instance-metadata-options` command. Replace `<instance-id>` with your actual instance ID and set the desired hop limit (e.g., 2):
+
+   ```sh
+   aws ec2 modify-instance-metadata-options --instance-id <instance-id> --http-put-response-hop-limit 2
+   ```
+
+3. **Verify the Changes:**
+   After modifying the hop limit, verify that the changes have been applied correctly by describing the instance again:
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,HopLimit:MetadataOptions.HttpPutResponseHopLimit}' --output table
+   ```
+
+4. **Automate the Process for Multiple Instances:**
+   If you need to apply this change to multiple instances, you can use a loop in a shell script. For example, to set the hop limit for all instances in a specific region:
+
+   ```sh
+   INSTANCE_IDS=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId' --output text)
+   for INSTANCE_ID in $INSTANCE_IDS; do
+       aws ec2 modify-instance-metadata-options --instance-id $INSTANCE_ID --http-put-response-hop-limit 2
+   done
+   ```
+
+By following these steps, you can ensure that the hop limit for your EC2 instances is set correctly, thereby preventing the EC2 Hop Limit Check misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 Hop Limit Check misconfiguration using Python scripts, you can follow these steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed, which is the AWS SDK for Python. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script to Configure Hop Limit**:
+   Write a Python script to configure the hop limit for your EC2 instances. The hop limit is controlled by the `InstanceMetadataOptions` parameter.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Define the instance ID and the desired hop limit
+   instance_id = 'i-0abcd1234efgh5678'  # Replace with your instance ID
+   hop_limit = 1  # Set the desired hop limit
+
+   # Modify the instance metadata options
+   response = ec2.modify_instance_metadata_options(
+       InstanceId=instance_id,
+       HttpPutResponseHopLimit=hop_limit
+   )
+
+   print(response)
+   ```
+
+4. **Run the Script**:
+   Execute the script to apply the hop limit configuration to your EC2 instance.
+
+   ```bash
+   python configure_hop_limit.py
+   ```
+
+By following these steps, you can prevent EC2 Hop Limit Check misconfiguration using a Python script. This ensures that the hop limit is set correctly, enhancing the security of your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon VPC console at https://console.aws.amazon.com/vpc/.
+
+2. In the navigation pane, choose 'Your VPCs'.
+
+3. Select the VPC you want to check and then click on 'Actions'.
+
+4. In the dropdown menu, click on 'Edit Tenancy' and check the current setting. If it is set to 'default', it means that the EC2 instances in this VPC can be either dedicated instances or shared instances. If it is set to 'dedicated', it means that all EC2 instances launched in this VPC are dedicated instances, regardless of the tenancy assigned at the instance level.
+
+5. To check the hop limit, go to the 'Route Tables' section in the VPC dashboard. Select the route table associated with your VPC and click on the 'Routes' tab. Here, you can see the hop limit for each route in your VPC. The hop limit for an IPv6 route must be 1 to prevent IP packets from being forwarded beyond the VPC.
+
+Note: The hop limit cannot be checked directly from the AWS console. It is a property of the IP packets themselves and is used to prevent IP packets from circulating indefinitely due to routing errors. The hop limit is decremented by 1 each time the packet is forwarded by a router. When the hop limit reaches 0, the packet is discarded and an ICMPv6 Time Exceeded message is sent back to the sender.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI using pip (Python package manager) by running the command `pip install awscli`. After installation, you can configure it by running `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all VPCs: To check the EC2 hop limit, you need to first list all the VPCs in your AWS account. You can do this by running the command `aws ec2 describe-vpcs`. This will return a JSON output with details of all the VPCs.
+
+3. List all route tables: Next, you need to list all the route tables associated with each VPC. You can do this by running the command `aws ec2 describe-route-tables --filters Name=vpc-id,Values=<VPC_ID>`. Replace `<VPC_ID>` with the ID of the VPC you want to check. This will return a JSON output with details of all the route tables associated with the specified VPC.
+
+4. Check hop limit: Finally, you can check the hop limit for each route in the route tables. In the JSON output from the previous step, look for the `Routes` key. This is an array of routes, and each route has a `DestinationCidrBlock` and `GatewayId`. If the `GatewayId` is set to `local`, then the hop limit for that route is 1. If the `GatewayId` is set to the ID of an internet gateway, then the hop limit for that route is 100.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing your Python script, you need to install the necessary libraries. The Boto3 library is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. Write the Python script: Now you can write a Python script to check the EC2 Hop Limit. Here is a simple script that lists all EC2 instances and their Source/Dest check attribute:
+
+   ```python
+   import boto3
+
+   def check_hop_limit():
+       ec2 = boto3.resource('ec2')
+       for instance in ec2.instances.all():
+           print('ID: {}, SourceDestCheck: {}'.format(instance.id, instance.source_dest_check))
+
+   if __name__ == '__main__':
+       check_hop_limit()
+   ```
+
+   This script uses the Boto3 EC2 resource to get all EC2 instances and then prints their ID and Source/Dest check attribute. If the Source/Dest check attribute is False, it means that the instance is configured to perform network address translation (NAT) for traffic that is not addressed to it, which could be a misconfiguration if not intended.
+
+4. Run the Python script: Finally, you can run the Python script using the Python interpreter:
+
+   ```bash
+   python check_hop_limit.py
+   ```
+
+   This will print the ID and Source/Dest check attribute of all EC2 instances. You can then review this information to detect any misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

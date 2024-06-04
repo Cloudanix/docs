@@ -23,6 +23,298 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of SSM (AWS Systems Manager) Session Length being too long in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Systems Manager:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Systems Manager" and select it from the dropdown.
+
+2. **Access Session Manager Settings:**
+   - In the left-hand navigation pane, under the "Node Management" section, click on "Session Manager."
+
+3. **Modify Session Preferences:**
+   - Click on the "Preferences" tab.
+   - If you haven't set preferences before, click on "Create" to create a new preference. If you have existing preferences, click on "Edit" to modify them.
+
+4. **Set Session Timeout:**
+   - In the "Session timeout" section, specify the desired session length. Ensure that the session length is set to a minimum value that aligns with your security policies.
+   - Click "Save" to apply the changes.
+
+By following these steps, you can ensure that the SSM session length is configured to a minimum value, enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of SSM (AWS Systems Manager) session length being too long in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create or Update an SSM Session Manager Preferences Document:**
+   - First, you need to create or update an SSM document that specifies the session preferences, including the maximum session duration.
+   - Use the following command to create a new document or update an existing one:
+
+     ```sh
+     aws ssm create-document \
+       --name "SSM-SessionManager-Preferences" \
+       --document-type "Session" \
+       --content '{
+         "schemaVersion": "1.0",
+         "description": "SSM Session Manager Preferences",
+         "sessionPreferences": {
+           "idleSessionTimeout": "PT1H"  # Set the desired session length, e.g., 1 hour
+         }
+       }' \
+       --document-format "JSON"
+     ```
+
+2. **Attach the SSM Document to the Instance Profile:**
+   - Ensure that the instance profile associated with your EC2 instances has the necessary permissions to use the SSM document.
+   - Use the following command to attach the document to the instance profile:
+
+     ```sh
+     aws iam put-role-policy \
+       --role-name YourInstanceProfileRoleName \
+       --policy-name SSM-SessionManager-Preferences-Policy \
+       --policy-document '{
+         "Version": "2012-10-17",
+         "Statement": [
+           {
+             "Effect": "Allow",
+             "Action": [
+               "ssm:StartSession",
+               "ssm:TerminateSession",
+               "ssm:ResumeSession"
+             ],
+             "Resource": "*"
+           },
+           {
+             "Effect": "Allow",
+             "Action": "ssm:GetDocument",
+             "Resource": "arn:aws:ssm:region:account-id:document/SSM-SessionManager-Preferences"
+           }
+         ]
+       }'
+     ```
+
+3. **Update the SSM Agent Configuration on EC2 Instances:**
+   - Ensure that the SSM Agent on your EC2 instances is configured to use the session preferences document.
+   - Use the following command to update the SSM Agent configuration:
+
+     ```sh
+     aws ssm send-command \
+       --instance-ids "i-0123456789abcdef0" \
+       --document-name "AWS-ConfigureAWSPackage" \
+       --parameters '{"action":["Install"],"installationType":["Uninstall and reinstall"],"name":["AmazonCloudWatchAgent"]}'
+     ```
+
+4. **Verify the Configuration:**
+   - Verify that the SSM session preferences have been applied correctly by starting a session and checking the session timeout.
+   - Use the following command to start a session and observe the timeout behavior:
+
+     ```sh
+     aws ssm start-session --target "i-0123456789abcdef0"
+     ```
+
+By following these steps, you can ensure that the SSM session length is configured to a minimum duration, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of SSM (AWS Systems Manager) Session Length being too long in EC2 instances using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Configure SSM Session Manager:**
+   - Use Boto3 to interact with AWS Systems Manager and set the session length. Below is a sample script to set the session length to a minimum value (e.g., 1 hour).
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon SSM
+   ssm_client = boto3.client('ssm')
+
+   # Define the minimum session length in seconds (e.g., 1 hour = 3600 seconds)
+   minimum_session_length = 3600
+
+   # Update the SSM Session Manager preferences
+   response = ssm_client.update_document(
+       Name='SSM-SessionManagerRunShell',
+       DocumentVersion='$LATEST',
+       DocumentFormat='JSON',
+       Content={
+           "schemaVersion": "2.2",
+           "description": "SSM Session Manager Run Shell",
+           "sessionType": "Standard_Stream",
+           "parameters": {
+               "maxSessionDuration": {
+                   "type": "String",
+                   "default": str(minimum_session_length),
+                   "description": "The maximum session duration in seconds."
+               }
+           }
+       }
+   )
+
+   print("SSM Session Manager preferences updated successfully.")
+   ```
+
+3. **Validate the Configuration:**
+   - Ensure that the configuration has been applied correctly by retrieving the document and checking the session length.
+
+   ```python
+   response = ssm_client.get_document(
+       Name='SSM-SessionManagerRunShell',
+       DocumentVersion='$LATEST'
+   )
+
+   document_content = response['Content']
+   print("Current SSM Session Manager configuration:")
+   print(document_content)
+   ```
+
+4. **Automate the Script Execution:**
+   - To ensure that the session length remains compliant, you can automate the execution of this script using AWS Lambda or a scheduled task (e.g., using AWS CloudWatch Events or AWS EventBridge).
+
+   ```python
+   import boto3
+   import json
+
+   def lambda_handler(event, context):
+       ssm_client = boto3.client('ssm')
+
+       minimum_session_length = 3600
+
+       response = ssm_client.update_document(
+           Name='SSM-SessionManagerRunShell',
+           DocumentVersion='$LATEST',
+           DocumentFormat='JSON',
+           Content=json.dumps({
+               "schemaVersion": "2.2",
+               "description": "SSM Session Manager Run Shell",
+               "sessionType": "Standard_Stream",
+               "parameters": {
+                   "maxSessionDuration": {
+                       "type": "String",
+                       "default": str(minimum_session_length),
+                       "description": "The maximum session duration in seconds."
+                   }
+               }
+           })
+       )
+
+       return {
+           'statusCode': 200,
+           'body': json.dumps('SSM Session Manager preferences updated successfully.')
+       }
+   ```
+
+By following these steps, you can ensure that the SSM Session Length is set to a minimum value, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Systems Manager home page.
+
+2. In the navigation pane, choose Session Manager. This will open the Session Manager dashboard.
+
+3. In the Session Manager dashboard, select Preferences from the left-hand side menu. This will open the Preferences page where you can view and edit your Session Manager preferences.
+
+4. In the Preferences page, look for the Session expiration field. This field indicates the maximum length of time that a session can remain active. If the session length is not set to a minimum (as per your organization's security policy), then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all SSM documents: You can list all the SSM documents in your AWS account by running the following command:
+   ```
+   aws ssm list-documents
+   ```
+   This command will return a list of all SSM documents along with their details.
+
+3. Describe SSM document: To check the session length of a specific SSM document, you need to describe it using the following command:
+   ```
+   aws ssm describe-document --name "document-name"
+   ```
+   Replace "document-name" with the name of the SSM document you want to check. This command will return the details of the specified SSM document.
+
+4. Check Session Length: In the output of the previous command, look for the "SessionDuration" field. This field indicates the maximum length of time that a session can run on the specified SSM document. If the value of this field is less than the minimum required session length, then it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) in your environment. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary libraries and establish a session with AWS using your access keys.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Use the `describe_instances` method to get a list of all EC2 instances. Then, for each instance, use the `describe_instance_attribute` method to get the `UserData` attribute, which contains the SSM session length.
+
+```python
+ec2 = session.resource('ec2')
+
+for instance in ec2.instances.all():
+    response = ec2.describe_instance_attribute(
+        InstanceId=instance.id,
+        Attribute='userData'
+    )
+    ssm_session_length = response['UserData']
+    print(f'Instance ID: {instance.id}, SSM Session Length: {ssm_session_length}')
+```
+
+4. Now, you can check if the SSM session length is less than the minimum required length. If it is, print a warning message.
+
+```python
+min_length = 60  # replace with your minimum required length
+
+for instance in ec2.instances.all():
+    response = ec2.describe_instance_attribute(
+        InstanceId=instance.id,
+        Attribute='userData'
+    )
+    ssm_session_length = response['UserData']
+    if ssm_session_length < min_length:
+        print(f'WARNING: Instance {instance.id} has SSM session length {ssm_session_length}, which is less than the minimum required length {min_length}.')
+```
+
+Please note that you need to replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, and `'us-west-2'` with your actual AWS access key, secret key, and region respectively. Also, replace `60` with your actual minimum required SSM session length.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

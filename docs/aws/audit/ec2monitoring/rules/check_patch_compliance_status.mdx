@@ -23,6 +23,319 @@ CBP,RBI_MD_ITF,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where patch installation should be done on Systems Manager in EC2 using the AWS Console, follow these steps:
+
+1. **Enable AWS Systems Manager**:
+   - Navigate to the AWS Management Console.
+   - Go to the **Systems Manager** service.
+   - Ensure that Systems Manager is enabled for your account and region.
+
+2. **Attach IAM Role to EC2 Instances**:
+   - Go to the **EC2 Dashboard**.
+   - Select the EC2 instances that you want to manage with Systems Manager.
+   - Click on **Actions** > **Instance Settings** > **Attach/Replace IAM Role**.
+   - Attach an IAM role that has the `AmazonSSMManagedInstanceCore` policy.
+
+3. **Install SSM Agent**:
+   - Ensure that the SSM Agent is installed on your EC2 instances. For Amazon Linux, Ubuntu, and Windows instances, the SSM Agent is pre-installed on some AMIs. For other instances, you may need to manually install the SSM Agent.
+   - You can verify the installation by checking the instance's system logs or by running a command through the Systems Manager Run Command.
+
+4. **Configure Patch Manager**:
+   - In the Systems Manager console, navigate to **Patch Manager**.
+   - Create a patch baseline that defines which patches should be approved for installation.
+   - Associate the patch baseline with your EC2 instances by creating a patch group and assigning the patch baseline to that group.
+
+By following these steps, you ensure that your EC2 instances are properly configured to use AWS Systems Manager for patch management, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having patch installation done on Systems Manager in EC2 using AWS CLI, you can follow these steps:
+
+1. **Attach the IAM Role to EC2 Instances:**
+   Ensure that your EC2 instances have the appropriate IAM role attached that grants permissions to Systems Manager. The role should have the `AmazonSSMManagedInstanceCore` policy attached.
+
+   ```sh
+   aws ec2 associate-iam-instance-profile --instance-id i-1234567890abcdef0 --iam-instance-profile Name=SSMRole
+   ```
+
+2. **Install the SSM Agent:**
+   Ensure that the SSM Agent is installed on your EC2 instances. Most Amazon Machine Images (AMIs) have the SSM Agent pre-installed, but you can manually install it if necessary.
+
+   ```sh
+   sudo yum install -y amazon-ssm-agent
+   sudo systemctl enable amazon-ssm-agent
+   sudo systemctl start amazon-ssm-agent
+   ```
+
+3. **Register the Instance with Systems Manager:**
+   Ensure that your EC2 instances are registered with Systems Manager. This can be done by running the following command on the instance:
+
+   ```sh
+   sudo amazon-ssm-agent -register
+   ```
+
+4. **Create a Patch Baseline and Associate it with the Instance:**
+   Create a patch baseline and associate it with your EC2 instances to ensure they receive the necessary patches.
+
+   ```sh
+   aws ssm create-patch-baseline --name "MyPatchBaseline" --operating-system AMAZON_LINUX_2 --approval-rule-patch-basis "OS" --approved-patches-compliance-level CRITICAL
+   aws ssm register-patch-baseline-for-patch-group --baseline-id pb-1234567890abcdef0 --patch-group "MyPatchGroup"
+   ```
+
+By following these steps, you can ensure that patch installation is managed through Systems Manager for your EC2 instances, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having patch installation done on Systems Manager in EC2 instances using Python scripts, you can follow these steps:
+
+### 1. **Ensure EC2 Instances are Managed by Systems Manager**
+
+First, ensure that your EC2 instances are managed by AWS Systems Manager. This involves attaching the necessary IAM role to your instances.
+
+```python
+import boto3
+
+# Create an IAM client
+iam_client = boto3.client('iam')
+
+# Create a role with the necessary policies
+role_name = 'SSMManagedInstanceRole'
+assume_role_policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+
+# Create the role
+iam_client.create_role(
+    RoleName=role_name,
+    AssumeRolePolicyDocument=json.dumps(assume_role_policy_document)
+)
+
+# Attach the AmazonSSMManagedInstanceCore policy to the role
+iam_client.attach_role_policy(
+    RoleName=role_name,
+    PolicyArn='arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+)
+```
+
+### 2. **Attach IAM Role to EC2 Instances**
+
+Attach the IAM role created in the previous step to your EC2 instances.
+
+```python
+import boto3
+
+# Create an EC2 client
+ec2_client = boto3.client('ec2')
+
+# Attach the IAM role to the instance
+instance_id = 'i-0abcd1234efgh5678'  # Replace with your instance ID
+iam_instance_profile = {
+    'Name': 'SSMManagedInstanceRole'
+}
+
+ec2_client.associate_iam_instance_profile(
+    IamInstanceProfile=iam_instance_profile,
+    InstanceId=instance_id
+)
+```
+
+### 3. **Ensure SSM Agent is Installed and Running**
+
+Ensure that the SSM Agent is installed and running on your EC2 instances. This can be done by using the Systems Manager to send a command to install the agent if it's not already installed.
+
+```python
+import boto3
+
+# Create an SSM client
+ssm_client = boto3.client('ssm')
+
+# Send a command to install the SSM Agent
+instance_ids = ['i-0abcd1234efgh5678']  # Replace with your instance IDs
+commands = [
+    'sudo yum install -y amazon-ssm-agent',
+    'sudo systemctl enable amazon-ssm-agent',
+    'sudo systemctl start amazon-ssm-agent'
+]
+
+ssm_client.send_command(
+    InstanceIds=instance_ids,
+    DocumentName='AWS-RunShellScript',
+    Parameters={'commands': commands}
+)
+```
+
+### 4. **Automate Patch Management**
+
+Use Systems Manager Patch Manager to automate patch management for your EC2 instances.
+
+```python
+import boto3
+
+# Create an SSM client
+ssm_client = boto3.client('ssm')
+
+# Define the patch baseline and patch group
+patch_baseline_id = 'pb-0123456789abcdef0'  # Replace with your patch baseline ID
+patch_group = 'MyPatchGroup'
+
+# Register the patch group with the patch baseline
+ssm_client.register_patch_baseline_for_patch_group(
+    BaselineId=patch_baseline_id,
+    PatchGroup=patch_group
+)
+
+# Create a maintenance window for patching
+maintenance_window_id = ssm_client.create_maintenance_window(
+    Name='MyPatchWindow',
+    Schedule='cron(0 3 ? * SUN *)',  # Every Sunday at 3 AM
+    Duration=4,
+    Cutoff=1,
+    AllowUnassociatedTargets=True
+)['WindowId']
+
+# Register a target (your instances) with the maintenance window
+ssm_client.register_target_with_maintenance_window(
+    WindowId=maintenance_window_id,
+    Targets=[
+        {
+            'Key': 'tag:PatchGroup',
+            'Values': [patch_group]
+        }
+    ]
+)
+
+# Register a task (patching) with the maintenance window
+ssm_client.register_task_with_maintenance_window(
+    WindowId=maintenance_window_id,
+    Targets=[
+        {
+            'Key': 'tag:PatchGroup',
+            'Values': [patch_group]
+        }
+    ],
+    TaskArn='AWS-RunPatchBaseline',
+    ServiceRoleArn='arn:aws:iam::123456789012:role/MyMaintenanceWindowRole',  # Replace with your role ARN
+    TaskType='RUN_COMMAND',
+    TaskInvocationParameters={
+        'RunCommand': {
+            'DocumentName': 'AWS-RunPatchBaseline',
+            'Parameters': {
+                'Operation': ['Install']
+            }
+        }
+    },
+    Priority=1,
+    MaxConcurrency='1',
+    MaxErrors='1'
+)
+```
+
+By following these steps, you can ensure that your EC2 instances are properly managed by Systems Manager and that patch installation is automated, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard. 
+
+2. In the navigation pane, under "Systems Manager Services", click on "Managed Instances". This will display a list of all your instances that are being managed by Systems Manager.
+
+3. For each instance, check the "Last Ping Time" column. This column shows the last time the instance communicated with Systems Manager. If the time is recent, it means that the instance is actively being managed and should have the latest patches installed.
+
+4. To confirm if the patches are installed, click on the instance ID to open its details page. Under the "Inventory" tab, you can see a list of all the software installed on the instance, including patches. Check if the required patches are listed there.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure the AWS CLI on your local system. You can download it from the official AWS website and configure it using the "aws configure" command. You will need to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-instance-information" command to list all your EC2 instances managed by Systems Manager. The command is as follows:
+
+   ```
+   aws ssm describe-instance-information
+   ```
+
+3. To check if a specific patch has been installed on an instance, you can use the "describe-patch-state" command. You will need to provide the instance ID and the patch ID. The command is as follows:
+
+   ```
+   aws ssm describe-patch-state --instance-id <instance-id> --patch-group <patch-id>
+   ```
+
+4. If the patch is not installed, the command will return an empty result. If the patch is installed, the command will return information about the patch, including its installation date and status.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3):** First, you need to set up AWS SDK (Boto3) for Python. This allows Python to interact with AWS services. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:** Next, you need to configure your AWS credentials. You can do this by creating the credentials file yourself:
+
+   ```python
+   aws configure
+   ```
+
+   Then input your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+3. **Create a Python Script to Check Patch Installation:** Now, you can create a Python script that uses Boto3 to interact with the AWS Systems Manager. This script will list all instances and check if the latest patches have been installed.
+
+   ```python
+   import boto3
+
+   # Create a session using your AWS credentials
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+
+   # Create an SSM client
+   ssm = session.client('ssm')
+
+   # List all instances
+   instances = ssm.describe_instance_information()
+
+   # Check each instance for patch compliance
+   for instance in instances['InstanceInformationList']:
+       instance_id = instance['InstanceId']
+       response = ssm.describe_instance_patch_states(InstanceIds=[instance_id])
+       for patch_state in response['InstancePatchStates']:
+           if patch_state['PatchGroup'] != 'Installed':
+               print(f"Instance {instance_id} is not up to date.")
+   ```
+
+4. **Run the Python Script:** Finally, you can run the Python script. If there are any instances that are not up to date, the script will print out their instance IDs. This allows you to easily identify which instances need to be patched.
+
+   ```python
+   python check_patch.py
+   ```
+
+Please replace 'YOUR_ACCESS_KEY' and 'YOUR_SECRET_KEY' with your actual AWS access key and secret key.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

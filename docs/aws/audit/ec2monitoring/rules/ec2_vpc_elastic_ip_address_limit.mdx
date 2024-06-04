@@ -23,6 +23,208 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the EC2-VPC Elastic IP Address limit from being reached in AWS using the AWS Management Console, follow these steps:
+
+1. **Monitor Elastic IP Usage:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Click on **Elastic IPs** under the **Network & Security** section.
+   - Regularly review the list of allocated Elastic IP addresses to ensure that they are being used efficiently and release any that are no longer needed.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the **CloudWatch Dashboard**.
+   - Click on **Alarms** and then **Create Alarm**.
+   - Select the **EC2** namespace and choose the **Elastic IPs** metric.
+   - Set up an alarm to notify you when the number of allocated Elastic IPs approaches the limit.
+
+3. **Implement IAM Policies:**
+   - Navigate to the **IAM Dashboard**.
+   - Click on **Policies** and then **Create Policy**.
+   - Define a policy that restricts the creation of new Elastic IPs to only necessary users or roles.
+   - Attach this policy to the appropriate IAM users or groups to control who can allocate new Elastic IPs.
+
+4. **Use Elastic IP Address Pooling:**
+   - Consider using Elastic IP address pooling to manage and share Elastic IP addresses across multiple accounts or regions.
+   - This can be done by setting up a centralized account to manage Elastic IPs and sharing them with other accounts using AWS Resource Access Manager (RAM).
+
+By following these steps, you can effectively monitor and manage your Elastic IP address usage, preventing the limit from being reached.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent reaching the Elastic IP address limit in EC2 using AWS CLI, you can follow these steps:
+
+1. **Monitor Elastic IP Usage:**
+   Regularly check the number of Elastic IPs allocated in your account to ensure you are not approaching the limit.
+
+   ```sh
+   aws ec2 describe-addresses --query 'Addresses[*].{PublicIp:PublicIp,InstanceId:InstanceId}'
+   ```
+
+2. **Release Unused Elastic IPs:**
+   Identify and release any Elastic IPs that are not associated with running instances or are not in use.
+
+   ```sh
+   aws ec2 release-address --allocation-id <allocation-id>
+   ```
+
+3. **Allocate Elastic IPs Only When Necessary:**
+   Allocate new Elastic IPs only when absolutely necessary to avoid hitting the limit.
+
+   ```sh
+   aws ec2 allocate-address --domain vpc
+   ```
+
+4. **Automate Elastic IP Management:**
+   Use automation scripts to periodically check and release unused Elastic IPs. This can be done using a Python script with Boto3 (AWS SDK for Python).
+
+   Example Python script snippet:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # Describe all Elastic IPs
+   addresses = ec2.describe_addresses()
+
+   # Release unused Elastic IPs
+   for address in addresses['Addresses']:
+       if 'InstanceId' not in address:
+           ec2.release_address(AllocationId=address['AllocationId'])
+           print(f"Released Elastic IP: {address['PublicIp']}")
+   ```
+
+By following these steps, you can effectively manage and prevent reaching the Elastic IP address limit in your AWS account.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent reaching the Elastic IP address limit in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3):**
+   - Ensure you have the AWS SDK for Python (Boto3) installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Initialize Boto3 Client:**
+   - Initialize the Boto3 client for EC2 in your Python script:
+     ```python
+     import boto3
+
+     ec2_client = boto3.client('ec2')
+     ```
+
+3. **Monitor Elastic IP Usage:**
+   - Create a function to monitor the number of Elastic IPs currently in use and compare it with the limit:
+     ```python
+     def check_elastic_ip_usage():
+         response = ec2_client.describe_addresses()
+         elastic_ips = response['Addresses']
+         current_ip_count = len(elastic_ips)
+         
+         # Assuming the default limit is 5, you can adjust this as needed
+         elastic_ip_limit = 5
+         
+         if current_ip_count >= elastic_ip_limit:
+             print("Warning: Elastic IP address limit is about to be reached.")
+             return False
+         else:
+             print(f"Current Elastic IP count: {current_ip_count}")
+             return True
+     ```
+
+4. **Automate Elastic IP Allocation:**
+   - Before allocating a new Elastic IP, check the current usage to ensure you don't exceed the limit:
+     ```python
+     def allocate_elastic_ip():
+         if check_elastic_ip_usage():
+             response = ec2_client.allocate_address(Domain='vpc')
+             print(f"Allocated new Elastic IP: {response['PublicIp']}")
+         else:
+             print("Cannot allocate new Elastic IP. Limit reached.")
+     
+     # Example usage
+     allocate_elastic_ip()
+     ```
+
+By following these steps, you can automate the monitoring and allocation of Elastic IPs to ensure you do not exceed the limit set by AWS. This script will help you proactively manage your Elastic IP usage and prevent misconfigurations related to reaching the limit.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under "NETWORK & SECURITY", click on "Elastic IPs".
+
+3. Here, you can see the list of all Elastic IPs currently allocated to your AWS account in the selected region.
+
+4. To check the limit, you need to go to the AWS Service Quotas console at https://console.aws.amazon.com/servicequotas/. In the navigation pane, under "Service Quotas", click on "Amazon Elastic Compute Cloud (Amazon EC2)". Here, you can see the limit for "VPC Elastic IP addresses" for your account. Compare this limit with the number of Elastic IPs you saw in the EC2 console. If the number is close to the limit, then you are at risk of reaching the limit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all Elastic IPs: Use the AWS CLI command `aws ec2 describe-addresses` to list all the Elastic IP addresses associated with your AWS account. This command will return a JSON output with details of all the Elastic IPs.
+
+3. Count the number of Elastic IPs: You can use a tool like `jq` to parse the JSON output and count the number of Elastic IPs. The command would look something like this: `aws ec2 describe-addresses | jq '.Addresses | length'`. This will return the total number of Elastic IPs associated with your AWS account.
+
+4. Compare with the limit: AWS has a default limit of 5 Elastic IPs per region for each AWS account. If the number returned in the previous step is close to or at this limit, then you are at risk of reaching the EC2-VPC Elastic IP address limit.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) in your environment. You can do this using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by setting the following environment variables:
+
+   ```
+   AWS_ACCESS_KEY_ID='your_access_key'
+   AWS_SECRET_ACCESS_KEY='your_secret_key'
+   ```
+
+3. Write a Python script to check the Elastic IP limit:
+
+   ```python
+   import boto3
+
+   def check_eip_limit():
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_account_attributes(AttributeNames=['vpc-max-elastic-ips'])
+       eip_limit = int(response['AccountAttributes'][0]['AttributeValues'][0]['AttributeValue'])
+       response = ec2.describe_addresses()
+       eip_used = len(response['Addresses'])
+       if eip_used >= eip_limit:
+           print("Elastic IP limit reached")
+       else:
+           print(f"Elastic IP limit not reached. {eip_limit - eip_used} IPs remaining.")
+
+   check_eip_limit()
+   ```
+
+4. Run the script: You can run the script using the Python interpreter. The script will print a message indicating whether the Elastic IP limit has been reached or not.
+
+   ```
+   python check_eip_limit.py
+   ```
+
+This script works by first retrieving the maximum number of Elastic IPs that can be allocated for your VPCs (vpc-max-elastic-ips) and then counting the number of Elastic IPs currently allocated. If the number of allocated IPs is greater than or equal to the limit, it prints a warning message.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

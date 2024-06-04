@@ -1,6 +1,273 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the issue of AMI (Amazon Machine Image) age exceeding the configured age in EC2 using the AWS Management Console, follow these steps:
+
+1. **Set Up AWS Config Rule:**
+   - Navigate to the AWS Management Console.
+   - Go to the **AWS Config** service.
+   - Click on **Rules** in the left-hand menu.
+   - Click on **Add rule**.
+   - Search for and select the **`ec2-managedinstance-ami-compliance`** rule.
+   - Configure the rule to specify the maximum allowed age for AMIs.
+
+2. **Create an AMI Lifecycle Policy:**
+   - Navigate to the **EC2 Dashboard**.
+   - In the left-hand menu, under **Elastic Block Store**, click on **Lifecycle Manager**.
+   - Click on **Create lifecycle policy**.
+   - Select **AMI** as the policy type.
+   - Define the policy to automatically delete AMIs older than the configured age.
+
+3. **Enable Notifications for AMI Age:**
+   - Go to the **Simple Notification Service (SNS)** in the AWS Management Console.
+   - Create an SNS topic for AMI age notifications.
+   - Subscribe to the topic with your email or other communication channels.
+   - Configure the AWS Config rule to send notifications to this SNS topic when an AMI exceeds the configured age.
+
+4. **Regularly Review AMI Inventory:**
+   - Periodically review your AMI inventory in the **EC2 Dashboard**.
+   - Go to **Images** > **AMIs**.
+   - Sort the AMIs by creation date and manually verify that no AMIs exceed the configured age.
+
+By following these steps, you can ensure that your AMIs do not exceed the configured age, helping to maintain compliance and manage resources effectively.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of AMI (Amazon Machine Image) age exceeding the configured age in EC2 using AWS CLI, you can follow these steps:
+
+1. **Set Up a Policy to Enforce AMI Age Limits:**
+   Create an AWS Config rule to check the age of AMIs. AWS Config can continuously monitor and record your AWS resource configurations and help you automate the evaluation of recorded configurations against desired configurations.
+
+   ```sh
+   aws configservice put-config-rule --config-rule file://ami-age-rule.json
+   ```
+
+   Example `ami-age-rule.json`:
+   ```json
+   {
+     "ConfigRuleName": "ami-age-check",
+     "Description": "Check if AMI age does not exceed the configured age",
+     "Scope": {
+       "ComplianceResourceTypes": [
+         "AWS::EC2::Image"
+       ]
+     },
+     "Source": {
+       "Owner": "AWS",
+       "SourceIdentifier": "APPROVED_AMI_COMPLIANCE"
+     },
+     "InputParameters": "{\"maxAmiAgeInDays\":\"30\"}"
+   }
+   ```
+
+2. **Automate AMI Creation and Deletion:**
+   Use AWS CLI to create a lifecycle policy for AMIs to ensure that old AMIs are automatically deleted after a certain period.
+
+   ```sh
+   aws ec2 create-lifecycle-policy --cli-input-json file://ami-lifecycle-policy.json
+   ```
+
+   Example `ami-lifecycle-policy.json`:
+   ```json
+   {
+     "Description": "AMI lifecycle policy to delete AMIs older than 30 days",
+     "State": "ENABLED",
+     "PolicyDetails": {
+       "ResourceTypes": ["IMAGE"],
+       "TargetTags": [{"Key": "ami-lifecycle", "Value": "true"}],
+       "Schedules": [
+         {
+           "Name": "DeleteOldAMIs",
+           "CreateRule": {
+             "Interval": 1,
+             "IntervalUnit": "DAYS"
+           },
+           "RetainRule": {
+             "Count": 30
+           }
+         }
+       ]
+     }
+   }
+   ```
+
+3. **Tagging AMIs for Lifecycle Management:**
+   Ensure that AMIs are tagged appropriately so that the lifecycle policy can identify and manage them.
+
+   ```sh
+   aws ec2 create-tags --resources ami-12345678 --tags Key=ami-lifecycle,Value=true
+   ```
+
+4. **Regularly Monitor and Audit AMIs:**
+   Use AWS CLI to list and review AMIs regularly to ensure compliance with the configured age policy.
+
+   ```sh
+   aws ec2 describe-images --owners self --query 'Images[?CreationDate<`2022-01-01`].{ID:ImageId,Name:Name,CreationDate:CreationDate}'
+   ```
+
+By following these steps, you can prevent AMI age from exceeding the configured age in EC2 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the AMI (Amazon Machine Image) age should not exceed the configured age in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Install Boto3 if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Define the Maximum Allowed Age:**
+   - Set a variable for the maximum allowed age of AMIs in days. For example, let's assume the maximum allowed age is 30 days.
+
+3. **List and Filter AMIs:**
+   - Use Boto3 to list all AMIs and filter them based on their creation date.
+
+4. **Automate the Deletion of Old AMIs:**
+   - Write a script to delete AMIs that exceed the configured age.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon EC2
+ec2_client = boto3.client('ec2')
+
+# Define the maximum allowed age for AMIs (in days)
+MAX_AMI_AGE_DAYS = 30
+
+# Calculate the cutoff date
+cutoff_date = datetime.utcnow() - timedelta(days=MAX_AMI_AGE_DAYS)
+
+# Describe all AMIs owned by the account
+response = ec2_client.describe_images(Owners=['self'])
+
+# Iterate over each AMI
+for image in response['Images']:
+    creation_date = image['CreationDate']
+    creation_date = datetime.strptime(creation_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+    
+    # Check if the AMI is older than the cutoff date
+    if creation_date < cutoff_date:
+        ami_id = image['ImageId']
+        print(f"AMI {ami_id} is older than {MAX_AMI_AGE_DAYS} days and should be deleted.")
+        
+        # Uncomment the following line to delete the AMI
+        # ec2_client.deregister_image(ImageId=ami_id)
+```
+
+### Explanation:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - The script starts by importing the necessary libraries and initializing a Boto3 EC2 client.
+
+2. **Define the Maximum Allowed Age:**
+   - The `MAX_AMI_AGE_DAYS` variable is set to the maximum allowed age for AMIs, which is 30 days in this example.
+
+3. **List and Filter AMIs:**
+   - The script retrieves all AMIs owned by the account using `describe_images` and iterates over each AMI to check its creation date.
+
+4. **Automate the Deletion of Old AMIs:**
+   - If an AMI is older than the cutoff date, the script prints a message indicating that the AMI should be deleted. The actual deletion line is commented out for safety, but you can uncomment it to enable automatic deletion.
+
+By running this script periodically (e.g., as a scheduled job), you can ensure that AMIs do not exceed the configured age, thus preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, click on "AMIs" under the "Images" section in the left-hand navigation pane.
+3. Here, you will see a list of all the AMIs available in your account. Each AMI has a "Creation Date" associated with it.
+4. To check if the AMI age exceeds the configured age, compare the "Creation Date" of each AMI with the current date. If the difference exceeds the configured age, then the AMI has a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by using the command `pip install awscli`. After installation, you need to configure it with your AWS account using `aws configure` command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all AMIs: Use the following command to list all the AMIs available in your account. This command will return a JSON object containing all the AMIs.
+   ```
+   aws ec2 describe-images --owners self
+   ```
+
+3. Extract the creation date: From the JSON object returned in the previous step, you can extract the creation date of each AMI using the `jq` command. The following command will return the creation date of each AMI.
+   ```
+   aws ec2 describe-images --owners self | jq -r '.Images[] | .CreationDate'
+   ```
+
+4. Compare the creation date with the current date: Now, you can compare the creation date of each AMI with the current date to check if the AMI age exceeds the configured age. You can do this using a simple script. Here is an example of how you can do it in Python.
+   ```python
+   import datetime
+   import subprocess
+
+   # Get the current date
+   current_date = datetime.datetime.now()
+
+   # Get the creation date of each AMI
+   command = "aws ec2 describe-images --owners self | jq -r '.Images[] | .CreationDate'"
+   creation_dates = subprocess.check_output(command, shell=True)
+
+   # Compare the creation date with the current date
+   for creation_date in creation_dates.split('\n'):
+       creation_date = datetime.datetime.strptime(creation_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+       age = (current_date - creation_date).days
+       if age > configured_age:
+           print("AMI age exceeds the configured age")
+   ```
+   Replace `configured_age` with the age you have configured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'region_name' with your AWS credentials and the region you want to check.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create an EC2 resource object using the session from step 2. Then, get all the AMIs owned by your account.
+
+```python
+ec2_resource = session.resource('ec2')
+images = ec2_resource.images.filter(Owners=['self'])
+```
+
+4. Iterate over the images and check the creation date of each AMI. If the creation date is older than the configured age, print the AMI ID. Replace 'configured_age' with the maximum age you want for your AMIs.
+
+```python
+for image in images:
+    creation_date = image.creation_date
+    creation_date = datetime.strptime(creation_date, "%Y-%m-%dT%H:%M:%S.%fZ")
+    if creation_date < datetime.now() - timedelta(days=configured_age):
+        print(f"AMI {image.id} is older than the configured age.")
+```
+
+This script will print the IDs of all AMIs that are older than the configured age.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

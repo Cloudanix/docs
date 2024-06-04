@@ -1,6 +1,275 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from being associated with multiple security groups using the AWS Management Console, follow these steps:
+
+1. **Review Security Group Assignments:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Select **Instances** from the left-hand menu.
+   - Click on the instance you want to review.
+   - In the instance details pane, check the **Security Groups** section to see the list of associated security groups.
+
+2. **Limit Security Group Associations:**
+   - If an instance has multiple security groups, decide which single security group should be associated with the instance.
+   - Click on the **Actions** button, then select **Networking** > **Change Security Groups**.
+   - Deselect the unnecessary security groups, ensuring only one security group remains selected.
+   - Click **Assign Security Groups** to save the changes.
+
+3. **Create and Enforce Security Group Policies:**
+   - Navigate to the **VPC Dashboard**.
+   - Select **Security Groups** from the left-hand menu.
+   - Create or modify security groups to ensure they have the necessary rules to cover the required access for your instances.
+   - Document and enforce a policy within your organization to limit instances to a single security group unless absolutely necessary.
+
+4. **Use AWS Config Rules:**
+   - Navigate to the **AWS Config** service in the AWS Management Console.
+   - Create a new rule or use an existing rule to check for instances with multiple security groups.
+   - Set up notifications or automated actions to alert you when an instance is found with multiple security groups, ensuring compliance with your security policies.
+
+By following these steps, you can effectively manage and prevent EC2 instances from being associated with multiple security groups, thereby maintaining a more streamlined and secure configuration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from being associated with multiple security groups using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group with Required Rules:**
+   Ensure you have a security group with the necessary rules that you want to apply to your EC2 instances.
+
+   ```sh
+   aws ec2 create-security-group --group-name MySecurityGroup --description "My security group"
+   ```
+
+2. **Launch EC2 Instances with a Single Security Group:**
+   When launching new EC2 instances, specify only one security group.
+
+   ```sh
+   aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-0123456789abcdef0
+   ```
+
+3. **Modify Existing Instances to Use a Single Security Group:**
+   For existing instances, ensure they are associated with only one security group. First, describe the instance to see its current security groups.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids i-0123456789abcdef0
+   ```
+
+   Then, modify the instance to associate it with a single security group.
+
+   ```sh
+   aws ec2 modify-instance-attribute --instance-id i-0123456789abcdef0 --groups sg-0123456789abcdef0
+   ```
+
+4. **Automate Compliance Checks:**
+   Use AWS Config to set up a rule that checks for instances with multiple security groups and alerts you. This helps in maintaining compliance.
+
+   ```sh
+   aws configservice put-config-rule --config-rule file://config-rule.json
+   ```
+
+   Example `config-rule.json`:
+   ```json
+   {
+     "ConfigRuleName": "ec2-instance-single-security-group",
+     "Description": "Check that EC2 instances are associated with only one security group",
+     "Scope": {
+       "ComplianceResourceTypes": [
+         "AWS::EC2::Instance"
+       ]
+     },
+     "Source": {
+       "Owner": "AWS",
+       "SourceIdentifier": "EC2_INSTANCE_NO_MULTIPLE_SECURITY_GROUPS"
+     }
+   }
+   ```
+
+By following these steps, you can prevent EC2 instances from being associated with multiple security groups using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from being associated with multiple security groups using Python scripts, you can use the AWS SDK for Python, also known as Boto3. Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **List EC2 Instances and Their Security Groups:**
+   Write a Python script to list all EC2 instances and their associated security groups.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def list_instances_with_security_groups():
+       response = ec2.describe_instances()
+       instances = response['Reservations']
+       for reservation in instances:
+           for instance in reservation['Instances']:
+               instance_id = instance['InstanceId']
+               security_groups = instance['SecurityGroups']
+               print(f"Instance ID: {instance_id}")
+               print("Security Groups:")
+               for sg in security_groups:
+                   print(f"  - {sg['GroupId']}")
+
+   list_instances_with_security_groups()
+   ```
+
+3. **Check for Instances with Multiple Security Groups:**
+   Modify the script to check if any instance has more than one security group and log or print a warning.
+
+   ```python
+   def check_multiple_security_groups():
+       response = ec2.describe_instances()
+       instances = response['Reservations']
+       for reservation in instances:
+           for instance in reservation['Instances']:
+               instance_id = instance['InstanceId']
+               security_groups = instance['SecurityGroups']
+               if len(security_groups) > 1:
+                   print(f"Warning: Instance {instance_id} has multiple security groups.")
+                   for sg in security_groups:
+                       print(f"  - {sg['GroupId']}")
+
+   check_multiple_security_groups()
+   ```
+
+4. **Enforce Single Security Group Policy:**
+   Implement a function to enforce that each instance has only one security group. This function will detach all but one security group from instances that have multiple security groups.
+
+   ```python
+   def enforce_single_security_group():
+       response = ec2.describe_instances()
+       instances = response['Reservations']
+       for reservation in instances:
+           for instance in reservation['Instances']:
+               instance_id = instance['InstanceId']
+               security_groups = instance['SecurityGroups']
+               if len(security_groups) > 1:
+                   # Keep the first security group and detach the rest
+                   primary_sg = security_groups[0]['GroupId']
+                   for sg in security_groups[1:]:
+                       ec2.modify_instance_attribute(
+                           InstanceId=instance_id,
+                           Groups=[primary_sg]
+                       )
+                   print(f"Instance {instance_id} now has only one security group: {primary_sg}")
+
+   enforce_single_security_group()
+   ```
+
+By following these steps, you can prevent EC2 instances from being associated with multiple security groups using Python scripts. This approach ensures that each instance is compliant with the policy of having only one security group.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then selecting "EC2" under the "Compute" category.
+3. In the EC2 dashboard, select "Instances" from the left-hand menu.
+4. In the Instances page, select an instance to inspect. In the "Description" tab at the bottom of the page, look for the "Security groups" field. If there are multiple security groups listed, this indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the following command to list all the EC2 instances in your AWS account:
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+   This command will return a list of all EC2 instance IDs.
+
+3. Check security groups for each instance: For each instance ID returned by the previous command, you can check the associated security groups using the following command:
+
+   ```
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].SecurityGroups[*].GroupId' --output text
+   ```
+   Replace `<instance-id>` with the actual instance ID. This command will return a list of security group IDs associated with the specified EC2 instance.
+
+4. Detect instances with multiple security groups: If the previous command returns more than one security group ID for an instance, it means that the instance is associated with multiple security groups. You can use a simple script to automate this process and detect all instances with multiple security groups. Here is an example of such a script in bash:
+
+   ```
+   #!/bin/bash
+   INSTANCE_IDS=$(aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text)
+   for ID in $INSTANCE_IDS
+   do
+       SG_COUNT=$(aws ec2 describe-instances --instance-ids $ID --query 'Reservations[*].Instances[*].SecurityGroups[*].GroupId' --output text | wc -w)
+       if [ $SG_COUNT -gt 1 ]
+       then
+           echo "Instance $ID has multiple security groups"
+       fi
+   done
+   ```
+   This script will print the IDs of all instances that are associated with more than one security group.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, and more. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+This will prompt you for your AWS Access Key ID, Secret Access Key, AWS Region. These are used to make programmatic calls to AWS from your machine.
+
+2. Write a Python script to list all EC2 instances and their associated security groups: 
+
+```python
+import boto3
+
+def list_instances_with_security_groups():
+    ec2 = boto3.resource('ec2')
+    for instance in ec2.instances.all():
+        print('ID: {}, State: {}, Security Groups: {}'.format(instance.id, instance.state, instance.security_groups))
+
+list_instances_with_security_groups()
+```
+This script will print out the ID, state, and security groups of all EC2 instances in your AWS account.
+
+3. Modify the script to detect instances with multiple security groups: 
+
+```python
+import boto3
+
+def detect_instances_with_multiple_security_groups():
+    ec2 = boto3.resource('ec2')
+    for instance in ec2.instances.all():
+        if len(instance.security_groups) > 1:
+            print('ID: {}, State: {}, Security Groups: {}'.format(instance.id, instance.state, instance.security_groups))
+
+detect_instances_with_multiple_security_groups()
+```
+This script will only print out instances that have more than one security group associated with them.
+
+4. Run the script: You can run the script using any Python interpreter. The script will print out the ID, state, and security groups of any EC2 instances that have multiple security groups associated with them. If no such instances exist, the script will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

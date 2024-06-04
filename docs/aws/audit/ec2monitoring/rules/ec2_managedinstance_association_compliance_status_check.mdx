@@ -24,6 +24,273 @@ CBP,RBI_MD_ITF,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not checking the status of managed instance compliance in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable AWS Systems Manager**:
+   - Navigate to the **AWS Systems Manager** console.
+   - Ensure that the Systems Manager is enabled and properly configured for your instances. This includes having the necessary IAM roles and policies attached to your instances.
+
+2. **Attach IAM Role to EC2 Instances**:
+   - Go to the **EC2 Dashboard**.
+   - Select the instances you want to manage.
+   - Click on **Actions** > **Instance Settings** > **Attach/Replace IAM Role**.
+   - Attach an IAM role that has the `AmazonSSMManagedInstanceCore` policy.
+
+3. **Configure Compliance Rules**:
+   - In the **Systems Manager** console, navigate to **Compliance** under **Node Management**.
+   - Set up compliance rules to check for specific configurations and patch compliance.
+   - Ensure that these rules are applied to your managed instances.
+
+4. **Enable Inventory Collection**:
+   - In the **Systems Manager** console, go to **Inventory** under **Node Management**.
+   - Configure inventory collection to gather metadata from your instances.
+   - Schedule regular inventory collection to ensure that compliance status is up-to-date.
+
+By following these steps, you can ensure that the status of managed instance compliance is regularly checked and maintained in AWS EC2 using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not checking the status of managed instance compliance in EC2 using AWS CLI, follow these steps:
+
+1. **Install and Configure AWS CLI:**
+   Ensure that the AWS CLI is installed and configured with the necessary permissions to manage EC2 instances and Systems Manager.
+
+   ```sh
+   aws configure
+   ```
+
+2. **Attach IAM Role to EC2 Instances:**
+   Ensure that your EC2 instances have an IAM role attached with the necessary permissions to interact with AWS Systems Manager. Create an IAM role with the `AmazonSSMManagedInstanceCore` policy and attach it to your EC2 instances.
+
+   ```sh
+   aws iam create-role --role-name SSMRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name SSMRole --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+   ```
+
+3. **Install SSM Agent on EC2 Instances:**
+   Ensure that the SSM Agent is installed and running on your EC2 instances. For Amazon Linux and Ubuntu, you can use the following commands:
+
+   ```sh
+   sudo yum install -y amazon-ssm-agent
+   sudo systemctl enable amazon-ssm-agent
+   sudo systemctl start amazon-ssm-agent
+   ```
+
+   For Ubuntu:
+
+   ```sh
+   sudo snap install amazon-ssm-agent --classic
+   sudo systemctl enable snap.amazon-ssm-agent.amazon-ssm-agent.service
+   sudo systemctl start snap.amazon-ssm-agent.amazon-ssm-agent.service
+   ```
+
+4. **Enable Compliance Reporting:**
+   Use AWS Systems Manager to enable compliance reporting for your managed instances. This involves creating an association with the `AWS-RunComplianceChecks` document.
+
+   ```sh
+   aws ssm create-association --name "AWS-RunComplianceChecks" --targets "Key=instanceIds,Values=i-0123456789abcdef0"
+   ```
+
+By following these steps, you can ensure that the status of managed instance compliance is checked and reported, preventing the misconfiguration in EC2.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of "Status of Managed Instance Compliance Should Be Checked" in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Enable AWS Systems Manager (SSM) Agent:**
+   - Ensure that the SSM agent is installed and running on your EC2 instances. This can be done by creating a script that checks and installs the SSM agent if necessary.
+
+3. **Attach IAM Role with SSM Permissions to EC2 Instances:**
+   - Ensure that your EC2 instances have an IAM role attached with the necessary permissions to communicate with AWS Systems Manager. The role should have the `AmazonSSMManagedInstanceCore` policy attached.
+
+4. **Enable Compliance Checks Using AWS Config Rules:**
+   - Use AWS Config to set up a rule that checks the compliance status of your managed instances. You can create a custom Config rule using a Lambda function to check the compliance status.
+
+Here is a Python script that demonstrates these steps:
+
+```python
+import boto3
+
+# Initialize boto3 clients
+ec2_client = boto3.client('ec2')
+ssm_client = boto3.client('ssm')
+iam_client = boto3.client('iam')
+config_client = boto3.client('config')
+
+# Function to ensure SSM agent is installed and running
+def ensure_ssm_agent(instance_id):
+    response = ssm_client.describe_instance_information(
+        Filters=[
+            {
+                'Key': 'InstanceIds',
+                'Values': [instance_id]
+            }
+        ]
+    )
+    if not response['InstanceInformationList']:
+        print(f"SSM Agent is not installed on instance {instance_id}. Installing...")
+        # Code to install SSM agent on the instance
+        # This can be done using SSM Run Command or user data script
+    else:
+        print(f"SSM Agent is already installed on instance {instance_id}.")
+
+# Function to attach IAM role with SSM permissions
+def attach_iam_role(instance_id, role_name):
+    instance = ec2_client.describe_instances(InstanceIds=[instance_id])
+    instance_profile = instance['Reservations'][0]['Instances'][0].get('IamInstanceProfile')
+    if not instance_profile:
+        print(f"Attaching IAM role {role_name} to instance {instance_id}.")
+        ec2_client.associate_iam_instance_profile(
+            IamInstanceProfile={'Name': role_name},
+            InstanceId=instance_id
+        )
+    else:
+        print(f"IAM role is already attached to instance {instance_id}.")
+
+# Function to create AWS Config rule for compliance check
+def create_config_rule():
+    config_rule_name = 'ec2-managed-instance-compliance-check'
+    try:
+        config_client.put_config_rule(
+            ConfigRule={
+                'ConfigRuleName': config_rule_name,
+                'Description': 'Check compliance status of managed instances',
+                'Scope': {
+                    'ComplianceResourceTypes': ['AWS::EC2::Instance']
+                },
+                'Source': {
+                    'Owner': 'AWS',
+                    'SourceIdentifier': 'EC2_MANAGED_INSTANCE_COMPLIANCE_CHECK'
+                }
+            }
+        )
+        print(f"Config rule {config_rule_name} created successfully.")
+    except config_client.exceptions.ResourceInUseException:
+        print(f"Config rule {config_rule_name} already exists.")
+
+# Main function to ensure compliance
+def ensure_compliance(instance_id, role_name):
+    ensure_ssm_agent(instance_id)
+    attach_iam_role(instance_id, role_name)
+    create_config_rule()
+
+# Example usage
+instance_id = 'i-0abcd1234efgh5678'  # Replace with your instance ID
+role_name = 'AmazonSSMManagedInstanceCore'  # Replace with your IAM role name
+ensure_compliance(instance_id, role_name)
+```
+
+### Explanation:
+1. **Ensure SSM Agent Installation:**
+   - The `ensure_ssm_agent` function checks if the SSM agent is installed on the specified EC2 instance and installs it if necessary.
+
+2. **Attach IAM Role:**
+   - The `attach_iam_role` function attaches an IAM role with the necessary SSM permissions to the specified EC2 instance.
+
+3. **Create AWS Config Rule:**
+   - The `create_config_rule` function creates an AWS Config rule to check the compliance status of managed instances.
+
+4. **Main Function:**
+   - The `ensure_compliance` function orchestrates the above steps to ensure compliance for the specified EC2 instance.
+
+By following these steps, you can prevent the misconfiguration related to the compliance status of managed instances in EC2 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Systems Manager Shared Resources", click on "Managed Instances".
+3. In the Managed Instances page, you will see a list of all your instances. Here, you can check the status of each instance.
+4. To check the compliance status, click on the instance ID of the instance you want to check. This will open the instance details page. Under the "Compliance" tab, you can see the compliance status of the instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the following command to list all your EC2 instances:
+
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with details of all your EC2 instances.
+
+3. Check the status of Managed Instance Compliance: To check the status of Managed Instance Compliance for each instance, you need to use the AWS Systems Manager. Use the following command:
+
+   ```
+   aws ssm list-compliance-summaries
+   ```
+   This command will return a JSON output with the compliance status of all your managed instances.
+
+4. Filter the results: If you want to check the compliance status of a specific instance, you can filter the results using the instance ID. Use the following command:
+
+   ```
+   aws ssm list-compliance-summaries --filters Key=InstanceId,Values=your-instance-id
+   ```
+   Replace 'your-instance-id' with the ID of the instance you want to check. This command will return the compliance status of the specified instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3):** First, you need to set up AWS SDK (Boto3) for Python. This allows Python to interact with AWS services. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. **Configure AWS Credentials:** Next, you need to configure your AWS credentials. You can do this by creating the credentials file yourself:
+
+```python
+aws configure
+```
+
+Then input your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+3. **Create Python Script:** Now, you can create a Python script to check the status of Managed Instance Compliance in EC2. Here's a basic example:
+
+```python
+import boto3
+
+def check_managed_instance_compliance():
+    client = boto3.client('ssm')
+    response = client.describe_instance_information()
+
+    for instance in response['InstanceInformationList']:
+        if instance['IsManagedInstance'] and not instance['IsCompliant']:
+            print(f"Instance {instance['InstanceId']} is not compliant")
+
+check_managed_instance_compliance()
+```
+
+This script will print out the IDs of all managed instances that are not compliant.
+
+4. **Run the Script:** Finally, you can run the script using a Python interpreter:
+
+```python
+python check_compliance.py
+```
+
+This will print out the IDs of all non-compliant managed instances. If no output is produced, that means all managed instances are compliant.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

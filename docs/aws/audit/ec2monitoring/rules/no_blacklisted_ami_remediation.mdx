@@ -1,6 +1,260 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the use of blacklisted Amazon Machine Images (AMIs) in EC2 using the AWS Management Console, follow these steps:
+
+1. **Create an IAM Policy:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Create a new policy that denies the use of specific AMIs by specifying their AMI IDs in the policy document. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": "ec2:RunInstances",
+           "Resource": "*",
+           "Condition": {
+             "StringEquals": {
+               "ec2:ImageId": [
+                 "ami-xxxxxxxxxxxxxxxxx",
+                 "ami-yyyyyyyyyyyyyyyyy"
+               ]
+             }
+           }
+         }
+       ]
+     }
+     ```
+
+2. **Attach the IAM Policy to Users/Roles:**
+   - Attach the newly created policy to the IAM users, groups, or roles that are responsible for launching EC2 instances. This ensures that they cannot use the blacklisted AMIs.
+
+3. **Set Up AWS Config Rules:**
+   - Navigate to the AWS Config service in the AWS Management Console.
+   - Create a custom AWS Config rule that checks for the use of blacklisted AMIs. This rule can trigger an alert or take corrective action if a blacklisted AMI is used.
+
+4. **Enable CloudTrail Logging:**
+   - Navigate to the CloudTrail service in the AWS Management Console.
+   - Ensure that CloudTrail is enabled to log all API calls related to EC2 instances. This helps in auditing and monitoring the use of AMIs and can be used to detect any attempts to use blacklisted AMIs.
+
+By following these steps, you can effectively prevent the use of blacklisted AMIs in your AWS environment using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of blacklisted Amazon Machine Images (AMIs) in EC2 using AWS CLI, you can follow these steps:
+
+1. **Identify Blacklisted AMIs:**
+   - Maintain a list of blacklisted AMI IDs that should not be used. This list can be stored in a secure location such as an S3 bucket or a parameter in AWS Systems Manager Parameter Store.
+
+2. **Create an IAM Policy:**
+   - Create an IAM policy that denies the use of blacklisted AMIs. This policy can be attached to IAM roles or users to enforce the restriction.
+   ```sh
+   aws iam create-policy --policy-name DenyBlacklistedAMIs --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ec2:RunInstances",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "ec2:ImageId": [
+                           "ami-12345678",  # Replace with blacklisted AMI IDs
+                           "ami-87654321"
+                       ]
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+3. **Attach the IAM Policy:**
+   - Attach the created policy to the relevant IAM users, groups, or roles.
+   ```sh
+   aws iam attach-user-policy --user-name YourUserName --policy-arn arn:aws:iam::aws:policy/DenyBlacklistedAMIs
+   ```
+
+4. **Automate Compliance Checks:**
+   - Use AWS Config to continuously monitor and ensure compliance. Create a custom AWS Config rule to check for the use of blacklisted AMIs.
+   ```sh
+   aws configservice put-config-rule --config-rule '{
+       "ConfigRuleName": "blacklisted-amis-check",
+       "Description": "Check that blacklisted AMIs are not used",
+       "Scope": {
+           "ComplianceResourceTypes": [
+               "AWS::EC2::Instance"
+           ]
+       },
+       "Source": {
+           "Owner": "CUSTOM_LAMBDA",
+           "SourceIdentifier": "arn:aws:lambda:region:account-id:function:function-name"
+       },
+       "InputParameters": "{\"blacklistedAMIs\":\"ami-12345678,ami-87654321\"}"
+   }'
+   ```
+
+By following these steps, you can effectively prevent the use of blacklisted AMIs in your AWS environment using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the use of blacklisted Amazon Machine Images (AMIs) in EC2 using Python scripts, you can follow these steps:
+
+1. **Define the List of Blacklisted AMIs:**
+   Create a list of AMI IDs that are blacklisted and should not be used.
+
+   ```python
+   blacklisted_amis = ['ami-12345678', 'ami-87654321']  # Example AMI IDs
+   ```
+
+2. **Use Boto3 to Interact with AWS EC2:**
+   Utilize the Boto3 library to interact with AWS EC2 and check the AMIs being used.
+
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+   ```
+
+3. **Check Running Instances for Blacklisted AMIs:**
+   Retrieve the list of running instances and check if any of them are using a blacklisted AMI.
+
+   ```python
+   def check_blacklisted_amis():
+       response = ec2_client.describe_instances()
+       for reservation in response['Reservations']:
+           for instance in reservation['Instances']:
+               ami_id = instance['ImageId']
+               if ami_id in blacklisted_amis:
+                   print(f"Instance {instance['InstanceId']} is using a blacklisted AMI: {ami_id}")
+
+   check_blacklisted_amis()
+   ```
+
+4. **Prevent Launching Instances with Blacklisted AMIs:**
+   Implement a pre-launch check to prevent the creation of instances with blacklisted AMIs. This can be done by integrating the check into your instance launch workflow.
+
+   ```python
+   def launch_instance(ami_id, instance_type, key_name):
+       if ami_id in blacklisted_amis:
+           raise ValueError(f"Cannot launch instance with blacklisted AMI: {ami_id}")
+       else:
+           response = ec2_client.run_instances(
+               ImageId=ami_id,
+               InstanceType=instance_type,
+               KeyName=key_name,
+               MinCount=1,
+               MaxCount=1
+           )
+           print(f"Instance launched with ID: {response['Instances'][0]['InstanceId']}")
+
+   # Example usage
+   try:
+       launch_instance('ami-12345678', 't2.micro', 'my-key-pair')
+   except ValueError as e:
+       print(e)
+   ```
+
+By following these steps, you can prevent the use of blacklisted AMIs in your AWS EC2 environment using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then selecting "EC2" under the "Compute" category.
+3. In the EC2 dashboard, select "AMIs" from the "Images" section in the left-hand navigation pane.
+4. In the AMIs page, you can see a list of all AMIs available for your account. Check the AMI IDs against your list of blacklisted AMIs. If any of the AMIs in the list match with the blacklisted AMIs, then those are being used in EC2.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EC2 instances.
+
+2. Once the AWS CLI is set up, you can list all the EC2 instances using the following command:
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+   This command will return a list of all the instance IDs.
+
+3. Now, for each instance ID, you can get the AMI ID using the following command:
+
+   ```
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].[ImageId]' --output text
+   ```
+   Replace `<instance-id>` with the actual instance ID. This command will return the AMI ID of the instance.
+
+4. Finally, you can check if the AMI ID is in your blacklist. This step depends on how you maintain your blacklist. If you have a text file with all the blacklisted AMI IDs, you can use the following command:
+
+   ```
+   grep -Fxq "<ami-id>" blacklist.txt
+   ```
+   Replace `<ami-id>` with the actual AMI ID. If the command returns nothing, the AMI ID is not in the blacklist. If the command returns the AMI ID, it is in the blacklist.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a session**: To start with, you need to import the necessary libraries in your Python script. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. Here is how you can do it:
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # or any other region
+)
+```
+
+2. **Get the list of all EC2 instances**: Now, you need to get the list of all EC2 instances in your AWS account. You can do this using the `describe_instances()` function of the EC2 client in Boto3. Here is how you can do it:
+
+```python
+ec2 = session.client('ec2')
+
+try:
+    response = ec2.describe_instances()
+except BotoCoreError as e:
+    print(e)
+```
+
+3. **Check for blacklisted AMIs**: Now, you need to check if any of the EC2 instances are using blacklisted AMIs. You can do this by iterating over the instances and checking their `ImageId` against a list of blacklisted AMIs. Here is how you can do it:
+
+```python
+blacklisted_amis = ['ami-abc123', 'ami-def456'] # replace with your blacklisted AMIs
+
+for reservation in response['Reservations']:
+    for instance in reservation['Instances']:
+        if instance['ImageId'] in blacklisted_amis:
+            print(f"Instance {instance['InstanceId']} is using blacklisted AMI {instance['ImageId']}")
+```
+
+4. **Handle exceptions**: It's a good practice to handle exceptions in your script. You can do this using the `try/except` block. In this case, you should handle `BotoCoreError` and `ClientError`, which are the common exceptions thrown by Boto3. Here is how you can do it:
+
+```python
+try:
+    # your code here
+except BotoCoreError as e:
+    print(e)
+except ClientError as e:
+    print(e)
+```
+
+This script will print the IDs of all EC2 instances that are using blacklisted AMIs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

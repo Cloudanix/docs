@@ -1,6 +1,229 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted inbound access on all uncommon ports in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups" under the "Network & Security" section.
+
+2. **Review Inbound Rules:**
+   - Select the security group you want to review.
+   - Click on the "Inbound rules" tab to view the current inbound rules.
+
+3. **Identify Uncommon Ports:**
+   - Look for any inbound rules that allow traffic on uncommon ports (ports other than standard ones like 22 for SSH, 80 for HTTP, 443 for HTTPS, etc.).
+   - Pay special attention to rules that have a source of "0.0.0.0/0" or "::/0", which means they allow traffic from any IP address.
+
+4. **Restrict or Remove Uncommon Ports:**
+   - For each rule that allows traffic on an uncommon port, either:
+     - Edit the rule to restrict the source IP range to a specific, trusted range.
+     - Remove the rule entirely if it is not necessary.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your EC2 instances are not exposed to unrestricted inbound access on uncommon ports, thereby enhancing your security posture.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted inbound access on all uncommon ports in EC2 using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group that you want to modify. You can list all security groups to find the relevant one.
+   ```sh
+   aws ec2 describe-security-groups
+   ```
+
+2. **Revoke Unrestricted Inbound Rules:**
+   Revoke any existing inbound rules that allow unrestricted access (0.0.0.0/0 or ::/0) on uncommon ports. Replace `<security-group-id>` with your actual security group ID and `<port>` with the specific port number.
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port> --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port> --cidr ::/0
+   ```
+
+3. **Add Restricted Inbound Rules:**
+   Add more restrictive inbound rules to allow access only from specific IP ranges or security groups. Replace `<ip-range>` with the allowed IP range and `<port>` with the specific port number.
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port> --cidr <ip-range>
+   ```
+
+4. **Verify the Changes:**
+   Verify that the security group rules have been updated correctly.
+   ```sh
+   aws ec2 describe-security-groups --group-id <security-group-id>
+   ```
+
+By following these steps, you can ensure that your EC2 instances are not exposed to unrestricted inbound access on uncommon ports.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted inbound access on all uncommon ports in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script**:
+   Write a Python script to identify and update security groups to restrict inbound access on uncommon ports.
+
+4. **Implement the Script**:
+   Below is a sample Python script to prevent unrestricted inbound access on uncommon ports:
+
+   ```python
+   import boto3
+
+   # Define the list of common ports
+   COMMON_PORTS = [22, 80, 443, 3389]
+
+   def get_security_groups(ec2):
+       """Retrieve all security groups."""
+       return ec2.describe_security_groups()['SecurityGroups']
+
+   def revoke_uncommon_ports(ec2, security_group_id, ip_permissions):
+       """Revoke inbound rules for uncommon ports."""
+       for permission in ip_permissions:
+           for ip_range in permission['IpRanges']:
+               if permission['FromPort'] not in COMMON_PORTS:
+                   ec2.revoke_security_group_ingress(
+                       GroupId=security_group_id,
+                       IpProtocol=permission['IpProtocol'],
+                       FromPort=permission['FromPort'],
+                       ToPort=permission['ToPort'],
+                       CidrIp=ip_range['CidrIp']
+                   )
+
+   def main():
+       ec2 = boto3.client('ec2')
+       security_groups = get_security_groups(ec2)
+
+       for sg in security_groups:
+           sg_id = sg['GroupId']
+           ip_permissions = sg['IpPermissions']
+           revoke_uncommon_ports(ec2, sg_id, ip_permissions)
+
+       print("Unrestricted inbound access on uncommon ports has been restricted.")
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+### Explanation:
+1. **Define Common Ports**: The script defines a list of common ports that are typically allowed (e.g., 22 for SSH, 80 for HTTP, 443 for HTTPS, 3389 for RDP).
+
+2. **Retrieve Security Groups**: The script retrieves all security groups in the AWS account.
+
+3. **Revoke Uncommon Ports**: For each security group, the script checks the inbound rules and revokes any rules that allow access on uncommon ports.
+
+4. **Execution**: The script is executed, and it will restrict inbound access on all uncommon ports for all security groups.
+
+By following these steps, you can prevent unrestricted inbound access on uncommon ports in your EC2 instances using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all security groups associated with your EC2 instances. Click on the security group ID that you want to inspect.
+4. In the details pane at the bottom, click on the "Inbound rules" tab. Here, you can see all the inbound rules associated with the selected security group. Check for any rules that allow unrestricted inbound access (0.0.0.0/0 or ::/0 in the source) on uncommon ports (i.e., ports other than 80 for HTTP, 443 for HTTPS, 22 for SSH, etc.). If such rules exist, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all security groups: Use the following command to list all the security groups in your AWS account:
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check inbound rules for each security group: For each security group, you need to check the inbound rules to see if there are any rules that allow unrestricted inbound access on all uncommon ports. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]'
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
+
+4. Analyze the output: The output of the previous command will include information about the IP ranges (IPRanges), protocols (IpProtocol), and port ranges (FromPort, ToPort) for each inbound rule. You need to analyze this output to identify any rules that allow unrestricted inbound access on all uncommon ports. Uncommon ports are typically those outside the range of 0-1023. If the IpProtocol is set to "-1" (all), and the IPRanges includes "0.0.0.0/0" (all IP addresses), and the FromPort and ToPort cover the range of uncommon ports, then the security group allows unrestricted inbound access on all uncommon ports.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, and more. You can install it using pip:
+
+```python
+pip install boto3
+```
+Then, configure your AWS credentials:
+
+```python
+aws configure
+```
+
+2. Import the necessary libraries and create a session using your credentials:
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION_NAME'
+)
+```
+
+3. Create an EC2 resource object using the session and get all the security groups:
+
+```python
+ec2 = session.resource('ec2')
+security_groups = ec2.security_groups.all()
+```
+
+4. Iterate over all the security groups and their rules to check if there are any rules that allow unrestricted inbound access on all uncommon ports:
+
+```python
+for security_group in security_groups:
+    for rule in security_group.ip_permissions:
+        # Check if the rule allows inbound traffic
+        if rule['IpProtocol'] != '-1':
+            # Check if the rule allows traffic from all IPs
+            for ip_range in rule['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    # Check if the rule allows traffic on all uncommon ports
+                    if rule['FromPort'] < 1024 or rule['FromPort'] > 49151:
+                        print(f"Security group {security_group.id} allows unrestricted inbound access on uncommon port {rule['FromPort']}")
+```
+
+This script will print the IDs of all security groups that allow unrestricted inbound access on all uncommon ports.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,216 @@ SOC2, GDPR, PCIDSS, NIST, HITRUST, NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not enforcing HTTPS for Elastic Beanstalk Load Balancers in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Elastic Beanstalk Environment:**
+   - Open the [AWS Management Console](https://aws.amazon.com/console/).
+   - Navigate to the **Elastic Beanstalk** service.
+   - Select your application and then choose the specific environment you want to configure.
+
+2. **Modify Load Balancer Configuration:**
+   - In the environment dashboard, go to the **Configuration** section.
+   - Under the **Load Balancer** category, click on the **Edit** button.
+
+3. **Add HTTPS Listener:**
+   - In the Load Balancer settings, ensure that an HTTPS listener is added. If not, add a new listener with the following details:
+     - **Protocol:** HTTPS
+     - **Port:** 443
+     - **SSL Certificate:** Select or upload an SSL certificate from AWS Certificate Manager (ACM).
+
+4. **Enforce HTTPS Redirection:**
+   - Scroll down to the **Rules** section and add a rule to redirect HTTP traffic to HTTPS.
+     - Create a rule that redirects HTTP (port 80) requests to HTTPS (port 443).
+     - Save the changes to apply the new configuration.
+
+By following these steps, you ensure that your Elastic Beanstalk environment's load balancer enforces HTTPS, enhancing the security of your application.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfiguration and enforce HTTPS for Elastic Beanstalk Load Balancers in EC2 using AWS CLI, follow these steps:
+
+1. **Create an SSL Certificate:**
+   Ensure you have an SSL certificate in AWS Certificate Manager (ACM). If you don't have one, you can request a new certificate:
+   ```sh
+   aws acm request-certificate --domain-name yourdomain.com --validation-method DNS
+   ```
+
+2. **Retrieve the Load Balancer Name:**
+   Identify the load balancer associated with your Elastic Beanstalk environment:
+   ```sh
+   aws elasticbeanstalk describe-environments --environment-names your-environment-name
+   ```
+
+3. **Configure the Load Balancer to Use HTTPS:**
+   Modify the load balancer to add an HTTPS listener. Replace `your-load-balancer-name`, `your-ssl-certificate-arn`, and `your-environment-name` with your actual values:
+   ```sh
+   aws elb create-load-balancer-listeners --load-balancer-name your-load-balancer-name --listeners "Protocol=HTTPS,LoadBalancerPort=443,InstanceProtocol=HTTP,InstancePort=80,SSLCertificateId=your-ssl-certificate-arn"
+   ```
+
+4. **Update Elastic Beanstalk Environment:**
+   Update your Elastic Beanstalk environment to use the HTTPS listener:
+   ```sh
+   aws elasticbeanstalk update-environment --environment-name your-environment-name --option-settings Namespace=aws:elb:listener:443,OptionName=ListenerProtocol,Value=HTTPS
+   ```
+
+By following these steps, you can ensure that your Elastic Beanstalk Load Balancers enforce HTTPS, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to enforcing HTTPS for Elastic Beanstalk Load Balancers in AWS EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Below are the steps to ensure that HTTPS is enforced:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script to Enforce HTTPS**:
+   Below is a Python script that uses Boto3 to enforce HTTPS on an Elastic Beanstalk environment's load balancer.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon Elastic Beanstalk
+   client = boto3.client('elasticbeanstalk')
+
+   # Replace with your Elastic Beanstalk environment name
+   environment_name = 'your-environment-name'
+
+   # Describe the environment to get the environment ID
+   response = client.describe_environments(EnvironmentNames=[environment_name])
+   environment_id = response['Environments'][0]['EnvironmentId']
+
+   # Describe the environment resources to get the load balancer name
+   response = client.describe_environment_resources(EnvironmentId=environment_id)
+   load_balancer_name = response['EnvironmentResources']['LoadBalancers'][0]['Name']
+
+   # Initialize a session using Elastic Load Balancing
+   elb_client = boto3.client('elbv2')
+
+   # Describe the load balancer to get the listener ARNs
+   response = elb_client.describe_load_balancers(Names=[load_balancer_name])
+   load_balancer_arn = response['LoadBalancers'][0]['LoadBalancerArn']
+
+   # Describe listeners to get the HTTP listener ARN
+   response = elb_client.describe_listeners(LoadBalancerArn=load_balancer_arn)
+   http_listener_arn = None
+   for listener in response['Listeners']:
+       if listener['Protocol'] == 'HTTP':
+           http_listener_arn = listener['ListenerArn']
+           break
+
+   # Create a redirect action to enforce HTTPS
+   if http_listener_arn:
+       elb_client.modify_listener(
+           ListenerArn=http_listener_arn,
+           DefaultActions=[
+               {
+                   'Type': 'redirect',
+                   'RedirectConfig': {
+                       'Protocol': 'HTTPS',
+                       'Port': '443',
+                       'StatusCode': 'HTTP_301'
+                   }
+               }
+           ]
+       )
+       print(f"HTTPS enforcement enabled for load balancer: {load_balancer_name}")
+   else:
+       print("No HTTP listener found to enforce HTTPS.")
+   ```
+
+4. **Run the Script**:
+   Execute the script to enforce HTTPS on your Elastic Beanstalk environment's load balancer.
+   ```bash
+   python enforce_https_eb.py
+   ```
+
+This script will ensure that any HTTP requests to your Elastic Beanstalk load balancer are redirected to HTTPS, thereby enforcing secure communication.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. List all the Elastic Beanstalk environments using the following command:
+
+   ```
+   aws elasticbeanstalk describe-environments
+   ```
+   This command will return a JSON output with details of all the Elastic Beanstalk environments.
+
+3. For each environment, list the resources using the following command:
+
+   ```
+   aws elasticbeanstalk describe-environment-resources --environment-name <your-environment-name>
+   ```
+   Replace `<your-environment-name>` with the name of your environment. This command will return a JSON output with details of all the resources associated with the specified environment.
+
+4. Check the LoadBalancerDescription field in the output. If the ListenerDescriptions field contains an entry where the Protocol is HTTP and not HTTPS, then HTTPS is not enforced for the Elastic Beanstalk Load Balancer.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can set your credentials via the AWS CLI, or by manually creating the files yourself. Set your AWS credentials by creating the files at ~/.aws/credentials. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the default profile, you can use the following format:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check for HTTPS enforcement: Now you can write a Python script that uses the boto3 library to check if HTTPS is enforced for Elastic Beanstalk Load Balancers. Here is a simple script that does this:
+
+   ```python
+   import boto3
+
+   def check_https_enforcement():
+       client = boto3.client('elasticbeanstalk')
+       environments = client.describe_environments()
+       for environment in environments['Environments']:
+           resources = client.describe_environment_resources(
+               EnvironmentId=environment['EnvironmentId']
+           )
+           for lb in resources['EnvironmentResources']['LoadBalancers']:
+               if lb['Protocol'] != 'HTTPS':
+                   print(f"HTTPS not enforced for load balancer: {lb['Name']} in environment: {environment['EnvironmentName']}")
+
+   if __name__ == "__main__":
+       check_https_enforcement()
+   ```
+
+4. Run the Python script: Finally, you can run the Python script. It will print out the names of any Elastic Beanstalk Load Balancers that do not have HTTPS enforcement. If no such load balancers are found, it will not print anything. You can run the script using the following command:
+
+   ```bash
+   python check_https_enforcement.py
+   ```
+
+Please note that this script assumes that you have the necessary permissions to list and describe your Elastic Beanstalk environments and resources. If you do not have these permissions, you will need to adjust your IAM policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

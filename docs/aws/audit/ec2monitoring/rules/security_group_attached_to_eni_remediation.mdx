@@ -1,6 +1,156 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent non-default security groups from being attached to Elastic Network Interfaces (ENIs) in EC2 using the AWS Management Console, follow these steps:
+
+1. **Review and Audit Security Groups:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - In the left-hand menu, select **Security Groups** under the **Network & Security** section.
+   - Review the list of security groups and ensure that only the default security group is used for ENIs that require minimal access.
+
+2. **Create and Enforce Policies:**
+   - Go to the **IAM Dashboard** in the AWS Management Console.
+   - Select **Policies** from the left-hand menu and create a new policy.
+   - Define a policy that restricts the attachment of non-default security groups to ENIs. For example, use a policy that allows only the default security group to be attached to ENIs.
+
+3. **Implement IAM Roles and Permissions:**
+   - Assign the newly created policy to IAM roles or users who manage EC2 instances and ENIs.
+   - Ensure that only authorized personnel have the permissions to modify security group attachments.
+
+4. **Set Up Monitoring and Alerts:**
+   - Navigate to the **CloudWatch Dashboard** in the AWS Management Console.
+   - Create a new rule in **CloudWatch Events** to monitor changes to ENI security group attachments.
+   - Set up alerts to notify administrators if a non-default security group is attached to an ENI.
+
+By following these steps, you can help prevent non-default security groups from being attached to Elastic Network Interfaces in EC2, thereby enhancing your security posture.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent non-default security groups from being attached to Elastic Network Interfaces (ENIs) in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Default Security Group:**
+   Ensure you have a default security group in your VPC. This is usually created automatically when you create a VPC, but you can verify or create one if needed.
+   ```sh
+   aws ec2 create-security-group --group-name default --description "Default security group" --vpc-id <your-vpc-id>
+   ```
+
+2. **List All ENIs:**
+   Retrieve a list of all Elastic Network Interfaces in your VPC to identify which ones are not using the default security group.
+   ```sh
+   aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=<your-vpc-id>"
+   ```
+
+3. **Attach Default Security Group to ENIs:**
+   For each ENI, ensure that the default security group is attached. You can modify the network interface to attach the default security group.
+   ```sh
+   aws ec2 modify-network-interface-attribute --network-interface-id <eni-id> --groups <default-sg-id>
+   ```
+
+4. **Automate the Process:**
+   To ensure that non-default security groups are not attached to ENIs in the future, you can create a script or use AWS Config rules to monitor and enforce this policy. Here is a simple example of a Python script using AWS CLI commands:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def enforce_default_sg(vpc_id, default_sg_id):
+       enis = ec2.describe_network_interfaces(Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}])
+       for eni in enis['NetworkInterfaces']:
+           if default_sg_id not in eni['Groups']:
+               ec2.modify_network_interface_attribute(
+                   NetworkInterfaceId=eni['NetworkInterfaceId'],
+                   Groups=[default_sg_id]
+               )
+
+   vpc_id = '<your-vpc-id>'
+   default_sg_id = '<default-sg-id>'
+   enforce_default_sg(vpc_id, default_sg_id)
+   ```
+
+By following these steps, you can ensure that only the default security group is attached to your Elastic Network Interfaces, thereby preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "NETWORK & SECURITY", click on "Network Interfaces".
+3. In the Network Interfaces page, you will see a list of all the Elastic Network Interfaces (ENIs) for your account. Click on the ID of the ENI you want to check.
+4. In the details pane at the bottom, under "Security groups", you can see the security groups attached to the ENI. If the default security group is attached, it means there is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can start using it to interact with AWS services.
+
+2. To list all the security groups in your AWS account, use the following command:
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName]' --output text
+   ```
+   This command will return a list of all security groups along with their GroupId and GroupName.
+
+3. To list all the Elastic Network Interfaces (ENIs) in your AWS account, use the following command:
+   ```
+   aws ec2 describe-network-interfaces --query 'NetworkInterfaces[*].[NetworkInterfaceId,Groups]' --output text
+   ```
+   This command will return a list of all ENIs along with their NetworkInterfaceId and the security groups attached to them.
+
+4. Now, you need to check if any non-default security groups are not attached to any ENI. You can do this by comparing the list of security groups with the list of security groups attached to ENIs. If a security group is not attached to any ENI, it means it is a non-default security group that is not attached to any ENI. You can use a Python script to automate this comparison process.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Once Boto3 is installed, you can use it to create a session using your AWS credentials. You can also use the AWS CLI to configure your credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, you can use the EC2 resource from Boto3 to get all the network interfaces in your account. For each network interface, you can check if it's attached to a non-default security group.
+
+```python
+ec2_resource = session.resource('ec2')
+
+for eni in ec2_resource.network_interfaces.all():
+    for group in eni.groups:
+        if group['GroupName'] != 'default':
+            print(f"ENI {eni.id} is attached to a non-default security group {group['GroupName']}")
+```
+
+4. The above script will print all the ENIs that are attached to a non-default security group. If you want to check if a specific ENI is attached to a non-default security group, you can get the ENI by its ID and then check its groups.
+
+```python
+eni = ec2_resource.NetworkInterface('eni-id')
+for group in eni.groups:
+    if group['GroupName'] != 'default':
+        print(f"ENI {eni.id} is attached to a non-default security group {group['GroupName']}")
+```
+
+This script will print the ENI ID and the name of the non-default security group it's attached to. If the ENI is not attached to a non-default security group, it will not print anything.
+</Accordion>
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 <AccordionGroup>

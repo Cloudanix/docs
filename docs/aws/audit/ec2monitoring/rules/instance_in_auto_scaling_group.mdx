@@ -23,6 +23,237 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent instances from being launched outside of an Auto Scaling Group in Amazon EC2 using the AWS Management Console, follow these steps:
+
+1. **Create an Auto Scaling Group:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - In the left-hand menu, under **Auto Scaling**, click on **Auto Scaling Groups**.
+   - Click on the **Create Auto Scaling group** button.
+   - Follow the wizard to configure the Auto Scaling group, including selecting the appropriate launch template or configuration, setting the desired capacity, and defining scaling policies.
+
+2. **Set Up IAM Policies:**
+   - Navigate to the **IAM Dashboard** in the AWS Management Console.
+   - In the left-hand menu, click on **Policies** and then click on **Create policy**.
+   - Use the JSON editor to create a policy that restricts the `ec2:RunInstances` action to only allow launching instances within an Auto Scaling Group. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": "ec2:RunInstances",
+           "Resource": "*",
+           "Condition": {
+             "StringNotEquals": {
+               "aws:RequestTag/AutoScalingGroupName": "your-auto-scaling-group-name"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Attach this policy to the relevant IAM users, groups, or roles.
+
+3. **Tag Instances Appropriately:**
+   - Ensure that instances launched within the Auto Scaling Group are tagged with the `AutoScalingGroupName` tag.
+   - Navigate to the **EC2 Dashboard** and select the instance.
+   - Click on the **Tags** tab and ensure the `AutoScalingGroupName` tag is present and correctly set.
+
+4. **Monitor and Audit:**
+   - Regularly monitor and audit your instances to ensure compliance.
+   - Use AWS Config to create a rule that checks whether instances are part of an Auto Scaling Group.
+   - Navigate to the **AWS Config Dashboard**.
+   - Click on **Rules** and then **Add rule**.
+   - Search for and select the **ec2-instance-in-auto-scaling-group** managed rule.
+   - Configure the rule and set it to evaluate your resources periodically.
+
+By following these steps, you can help ensure that instances are launched within an Auto Scaling Group, thereby maintaining better control over your EC2 instances and their scaling behavior.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of launching an EC2 instance outside of an Auto Scaling Group (ASG) using AWS CLI, you can follow these steps:
+
+1. **Create a Launch Template:**
+   - A launch template specifies the configuration for your instances, including the AMI, instance type, key pair, security groups, and other parameters.
+   ```sh
+   aws ec2 create-launch-template --launch-template-name MyLaunchTemplate --version-description "Version 1" --launch-template-data '{
+       "ImageId": "ami-0abcdef1234567890",
+       "InstanceType": "t2.micro",
+       "KeyName": "my-key-pair",
+       "SecurityGroupIds": ["sg-0123456789abcdef0"]
+   }'
+   ```
+
+2. **Create an Auto Scaling Group:**
+   - Use the launch template to create an Auto Scaling Group. This ensures that instances are launched within the ASG.
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name MyAutoScalingGroup --launch-template "LaunchTemplateName=MyLaunchTemplate,Version=1" --min-size 1 --max-size 3 --desired-capacity 1 --vpc-zone-identifier "subnet-0123456789abcdef0"
+   ```
+
+3. **Set Up Auto Scaling Policies:**
+   - Define scaling policies to automatically adjust the number of instances in your ASG based on demand.
+   ```sh
+   aws autoscaling put-scaling-policy --auto-scaling-group-name MyAutoScalingGroup --policy-name ScaleOut --scaling-adjustment 1 --adjustment-type ChangeInCapacity
+   aws autoscaling put-scaling-policy --auto-scaling-group-name MyAutoScalingGroup --policy-name ScaleIn --scaling-adjustment -1 --adjustment-type ChangeInCapacity
+   ```
+
+4. **Enable Instance Protection:**
+   - Enable instance protection to prevent instances from being terminated during scale-in events.
+   ```sh
+   aws autoscaling set-instance-protection --instance-ids i-0123456789abcdef0 --auto-scaling-group-name MyAutoScalingGroup --protected-from-scale-in
+   ```
+
+By following these steps, you ensure that instances are launched within an Auto Scaling Group, thereby preventing the misconfiguration of launching instances outside of an ASG.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of launching an EC2 instance outside of an Auto Scaling Group (ASG) in AWS using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+```bash
+pip install boto3
+```
+
+### 2. **Create an Auto Scaling Group**
+Use Boto3 to create an Auto Scaling Group. This ensures that any instances you launch are part of this group.
+
+```python
+import boto3
+
+client = boto3.client('autoscaling')
+
+response = client.create_auto_scaling_group(
+    AutoScalingGroupName='my-auto-scaling-group',
+    LaunchConfigurationName='my-launch-configuration',
+    MinSize=1,
+    MaxSize=5,
+    DesiredCapacity=1,
+    AvailabilityZones=['us-west-2a', 'us-west-2b'],
+    Tags=[
+        {
+            'Key': 'Name',
+            'Value': 'my-instance',
+            'PropagateAtLaunch': True
+        },
+    ]
+)
+print(response)
+```
+
+### 3. **Create a Launch Configuration**
+Create a launch configuration that specifies the instance type, AMI, and other settings for the instances in the Auto Scaling Group.
+
+```python
+response = client.create_launch_configuration(
+    LaunchConfigurationName='my-launch-configuration',
+    ImageId='ami-0abcdef1234567890',
+    InstanceType='t2.micro',
+    SecurityGroups=['sg-12345678'],
+    KeyName='my-key-pair'
+)
+print(response)
+```
+
+### 4. **Launch Instances via Auto Scaling Group**
+Ensure that instances are launched through the Auto Scaling Group by setting the desired capacity.
+
+```python
+response = client.update_auto_scaling_group(
+    AutoScalingGroupName='my-auto-scaling-group',
+    DesiredCapacity=2
+)
+print(response)
+```
+
+### Summary
+By following these steps, you ensure that instances are launched within an Auto Scaling Group, thereby preventing the misconfiguration of launching instances outside of an ASG. This approach leverages Boto3 to automate the creation and management of Auto Scaling Groups and their associated instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose 'Instances' to view all the instances running in your account.
+
+3. For each instance, check the 'Details' tab in the bottom panel. Look for the 'Auto Scaling group' field. If this field is empty, it means the instance is not part of an Auto Scaling group.
+
+4. Repeat this process for all instances in your account. Any instance not associated with an Auto Scaling group is a potential misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. List all the EC2 instances in your AWS account. You can do this by running the following command in your terminal:
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+
+   This command will return a list of all the EC2 instance IDs in your AWS account.
+
+3. For each EC2 instance, check if it is part of an Auto Scaling group. You can do this by running the following command for each instance ID:
+
+   ```
+   aws autoscaling describe-auto-scaling-instances --instance-ids <instance-id>
+   ```
+
+   Replace `<instance-id>` with the ID of the EC2 instance you are checking. This command will return information about the Auto Scaling group that the instance is part of, if it is part of one.
+
+4. If the command in step 3 does not return any information, then the EC2 instance is not part of an Auto Scaling group. This is a misconfiguration, as EC2 instances should be launched in an Auto Scaling group to ensure high availability and fault tolerance.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries**: The first step is to import the necessary libraries in your Python script. You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. **Create a session**: The next step is to create a session using your AWS credentials. You can do this by using the Session function in boto3. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. **Get a list of all EC2 instances**: Now, you can use the session to create a resource object for EC2. Then, you can use the instances.all() function to get a list of all EC2 instances.
+
+```python
+ec2_resource = session.resource('ec2')
+instances = ec2_resource.instances.all()
+```
+
+4. **Check if instances are part of an Auto Scaling Group**: Finally, you can iterate over the list of instances and check if each instance is part of an Auto Scaling Group. You can do this by checking the 'aws:autoscaling:groupName' tag of each instance. If this tag is not present, then the instance is not part of an Auto Scaling Group.
+
+```python
+for instance in instances:
+    tags = {tag['Key']: tag['Value'] for tag in instance.tags or []}
+    if 'aws:autoscaling:groupName' not in tags:
+        print(f"Instance {instance.id} is not part of an Auto Scaling Group")
+```
+
+This script will print out the IDs of all EC2 instances that are not part of an Auto Scaling Group.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

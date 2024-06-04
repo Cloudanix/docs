@@ -23,6 +23,222 @@ CBP,RBI_MD_ITF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of Recovery Point Retention in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Backup:**
+   - Open the AWS Management Console.
+   - In the search bar, type "AWS Backup" and select it from the list of services.
+
+2. **Review Backup Plans:**
+   - In the AWS Backup dashboard, go to the "Backup plans" section.
+   - Select the backup plan you want to review or create a new backup plan if necessary.
+
+3. **Configure Retention Rules:**
+   - Within the selected backup plan, navigate to the "Backup rule" section.
+   - Review and set the "Retention period" for your recovery points according to your organization's data retention policy. Ensure that the retention period is neither too short (which could lead to data loss) nor too long (which could incur unnecessary costs).
+
+4. **Save and Apply Changes:**
+   - After configuring the retention rules, save the changes to the backup plan.
+   - Ensure that the backup plan is applied to the necessary resources (e.g., EC2 instances) to enforce the retention policy.
+
+By following these steps, you can ensure that the recovery point retention for your EC2 instances is appropriately reviewed and configured to meet your data protection and compliance requirements.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of Recovery Point Retention in EC2 using AWS CLI, you can follow these steps:
+
+1. **Check Current Lifecycle Policy:**
+   First, you need to check the current lifecycle policy for your EBS snapshots to understand the existing retention rules.
+   ```sh
+   aws dlm get-lifecycle-policies --policy-ids <policy-id>
+   ```
+
+2. **Create or Update Lifecycle Policy:**
+   If you need to create a new lifecycle policy or update an existing one to ensure proper retention, you can use the following command. This example sets a retention period of 30 days.
+   ```sh
+   aws dlm create-lifecycle-policy --execution-role-arn <role-arn> --description "EBS Snapshot Lifecycle Policy" --state ENABLED --policy-details '{"ResourceTypes":["VOLUME"],"TargetTags":[{"Key":"<tag-key>","Value":"<tag-value>"}],"Schedules":[{"Name":"DailySnapshots","CreateRule":{"Interval":24,"IntervalUnit":"HOURS"},"RetainRule":{"Count":30}}]}'
+   ```
+
+3. **Validate the Policy:**
+   After creating or updating the policy, validate it to ensure it has been applied correctly.
+   ```sh
+   aws dlm get-lifecycle-policies --policy-ids <policy-id>
+   ```
+
+4. **Monitor and Audit:**
+   Regularly monitor and audit your lifecycle policies to ensure they are being enforced as expected. You can list all lifecycle policies to review them.
+   ```sh
+   aws dlm list-lifecycle-policies
+   ```
+
+By following these steps, you can ensure that your EBS snapshots have an appropriate retention policy, thereby preventing misconfigurations related to recovery point retention.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Recovery Point Retention in EC2 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Configure AWS Credentials**
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### 3. **Create a Python Script to Manage Recovery Point Retention**
+Below is a Python script that demonstrates how to manage and review the recovery point retention for EC2 instances. This script will list all the EBS snapshots and check their retention policies.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2 = session.client('ec2')
+
+# Define the retention period (e.g., 30 days)
+retention_days = 30
+retention_date = datetime.now() - timedelta(days=retention_days)
+
+# Function to check and manage snapshot retention
+def manage_snapshot_retention():
+    # Describe all snapshots
+    snapshots = ec2.describe_snapshots(OwnerIds=['self'])['Snapshots']
+    
+    for snapshot in snapshots:
+        snapshot_id = snapshot['SnapshotId']
+        start_time = snapshot['StartTime']
+        
+        # Check if the snapshot is older than the retention period
+        if start_time < retention_date:
+            print(f"Snapshot {snapshot_id} is older than {retention_days} days and should be reviewed.")
+            # Here you can add logic to delete or archive the snapshot if needed
+        else:
+            print(f"Snapshot {snapshot_id} is within the retention period.")
+
+# Run the function
+manage_snapshot_retention()
+```
+
+### 4. **Automate the Script Execution**
+To ensure continuous compliance, automate the execution of this script using AWS Lambda or a cron job on an EC2 instance.
+
+#### Using AWS Lambda:
+1. **Create a Lambda Function:**
+   - Go to the AWS Lambda console.
+   - Create a new Lambda function.
+   - Upload the Python script as the function code.
+   - Set up the necessary IAM role with permissions to describe and manage EC2 snapshots.
+
+2. **Set Up a CloudWatch Event Rule:**
+   - Go to the CloudWatch console.
+   - Create a new rule to trigger the Lambda function on a schedule (e.g., daily).
+
+#### Using a Cron Job on EC2:
+1. **Upload the Script to an EC2 Instance:**
+   - SSH into your EC2 instance.
+   - Upload the Python script to the instance.
+
+2. **Set Up a Cron Job:**
+   - Open the crontab editor:
+     ```bash
+     crontab -e
+     ```
+   - Add a new cron job to run the script daily:
+     ```bash
+     0 0 * * * /usr/bin/python3 /path/to/your/script.py
+     ```
+
+By following these steps, you can ensure that the recovery point retention for your EC2 instances is regularly reviewed and managed, preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under 'ELASTIC BLOCK STORE', click on 'Snapshots'.
+3. Here, you can see all the snapshots that are currently available in your AWS account. Each snapshot will have details like Snapshot ID, Volume ID, State, Started (date and time), Volume Size, Description, Tags, etc.
+4. To check the Recovery Point Retention, you need to look at the 'Started' column. This column shows the date and time when the snapshot was taken. If the snapshot is too old, it might indicate that the Recovery Point Retention should be reviewed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all the EC2 instances: Use the following command to list all the EC2 instances in your AWS account.
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+
+3. List all the snapshots for each EC2 instance: For each EC2 instance, you need to list all the snapshots. You can do this by running the following command for each instance ID.
+
+   ```
+   aws ec2 describe-snapshots --owner-ids self --filters Name=volume-id,Values=<volume-id> --query 'Snapshots[*].[SnapshotId,StartTime]' --output text
+   ```
+
+   Replace `<volume-id>` with the volume ID of the EC2 instance.
+
+4. Review the retention period of each snapshot: The output of the previous command includes the creation time of each snapshot. You can review these times to determine the retention period of each snapshot. If the retention period is longer than necessary, it may indicate a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries**: The first step is to import the necessary libraries in your Python script. You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. **Create a session**: The next step is to create a session using your AWS credentials. You can do this by using the Session function in boto3. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. **Connect to the EC2 service**: Now, you can connect to the EC2 service using the session object you created in the previous step. 
+
+```python
+ec2_resource = session.resource('ec2')
+```
+
+4. **Check Recovery Point Retention**: Finally, you can check the recovery point retention for each instance. You can do this by iterating over all instances and checking the 'RetentionPeriod' attribute. If the retention period is not set or is set to a value that is too low, you have detected a misconfiguration.
+
+```python
+for instance in ec2_resource.instances.all():
+    try:
+        recovery_point = instance.describe_attribute('RetentionPeriod')
+        if not recovery_point or recovery_point < YOUR_DESIRED_VALUE:
+            print(f"Instance {instance.id} has a misconfigured recovery point retention.")
+    except Exception as e:
+        print(f"Error checking instance {instance.id}: {e}")
+```
+
+Replace 'YOUR_DESIRED_VALUE' with the minimum acceptable recovery point retention period for your use case.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

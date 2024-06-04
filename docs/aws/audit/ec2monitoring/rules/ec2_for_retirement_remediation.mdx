@@ -1,6 +1,244 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent scheduled events for EC2 instances in AWS using the AWS Management Console, you can follow these steps:
+
+1. **Regular Monitoring:**
+   - Regularly monitor the "Scheduled Events" section in the EC2 Dashboard.
+   - Navigate to the EC2 Dashboard, and in the left-hand menu, under "Instances," click on "Scheduled Events."
+   - Ensure you check this section frequently to stay informed about any upcoming scheduled events that might affect your instances.
+
+2. **Instance Maintenance:**
+   - Opt for instance types that are less likely to be affected by scheduled events.
+   - Use newer generation instance types and avoid older or less stable instance types that might be more prone to maintenance events.
+
+3. **Instance Placement:**
+   - Use placement groups to control the placement of your instances.
+   - Placement groups can help you ensure that your instances are placed in a way that minimizes the impact of scheduled events. For example, using a spread placement group can help distribute instances across different hardware to reduce the risk of simultaneous maintenance events.
+
+4. **Proactive Communication:**
+   - Set up notifications for scheduled events.
+   - Use Amazon CloudWatch Events to create rules that trigger notifications (e.g., via SNS) when a scheduled event is announced for your instances. This allows you to take proactive measures to mitigate the impact of the event.
+
+By following these steps, you can minimize the impact of scheduled events on your EC2 instances and ensure better availability and reliability of your applications.
+</Accordion>
+
+<Accordion title='Using CLI'>
+Scheduled events for EC2 instances are typically maintenance events initiated by AWS, such as rebooting or stopping instances. While you cannot prevent AWS from scheduling these events, you can take steps to minimize their impact and ensure your instances are prepared for such events. Here are steps to manage and mitigate the impact of scheduled events using AWS CLI:
+
+1. **Monitor Scheduled Events:**
+   Regularly check for any scheduled events for your EC2 instances. This helps you stay informed and take necessary actions in advance.
+
+   ```sh
+   aws ec2 describe-instance-status --query 'InstanceStatuses[*].Events'
+   ```
+
+2. **Automate Notifications:**
+   Set up CloudWatch Events to trigger notifications (e.g., via SNS) when a scheduled event is detected. This ensures you are promptly informed about any upcoming maintenance.
+
+   ```sh
+   aws events put-rule --name "EC2ScheduledEventRule" --event-pattern '{"source": ["aws.ec2"], "detail-type": ["EC2 Instance State-change Notification"]}'
+   aws sns create-topic --name EC2ScheduledEvents
+   aws sns subscribe --topic-arn arn:aws:sns:region:account-id:EC2ScheduledEvents --protocol email --notification-endpoint your-email@example.com
+   aws events put-targets --rule "EC2ScheduledEventRule" --targets "Id"="1","Arn"="arn:aws:sns:region:account-id:EC2ScheduledEvents"
+   ```
+
+3. **Instance Recovery Options:**
+   Enable instance recovery options to automatically recover instances that are impaired due to scheduled events.
+
+   ```sh
+   aws ec2 create-tags --resources i-1234567890abcdef0 --tags Key=aws:ec2:recover,Value=true
+   ```
+
+4. **Regular Backups:**
+   Ensure regular backups of your instances using snapshots or AMIs. This helps in quick recovery in case of any issues arising from scheduled events.
+
+   ```sh
+   aws ec2 create-snapshot --volume-id vol-1234567890abcdef0 --description "Regular backup snapshot"
+   ```
+
+By following these steps, you can effectively manage and mitigate the impact of scheduled events on your EC2 instances using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+Scheduled Events for EC2 instances are typically maintenance events initiated by AWS, such as instance reboots, stops, or terminations. While you cannot prevent AWS from scheduling these events, you can take steps to monitor and manage them effectively to minimize disruption. Below are steps to monitor and handle scheduled events using Python scripts:
+
+### 1. Install AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed. If not, you can install it using pip:
+```bash
+pip install boto3
+```
+
+### 2. Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+### 3. Python Script to Monitor Scheduled Events
+Create a Python script to monitor scheduled events for your EC2 instances. This script will check for any upcoming scheduled events and notify you.
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+def get_scheduled_events():
+    try:
+        ec2_client = boto3.client('ec2')
+        response = ec2_client.describe_instance_status(
+            Filters=[
+                {
+                    'Name': 'event.code',
+                    'Values': ['instance-reboot', 'system-reboot', 'system-maintenance', 'instance-retirement', 'instance-stop']
+                }
+            ]
+        )
+        
+        for instance in response['InstanceStatuses']:
+            instance_id = instance['InstanceId']
+            for event in instance['Events']:
+                print(f"Instance {instance_id} has a scheduled event: {event['Description']} at {event['NotBefore']}")
+
+    except NoCredentialsError:
+        print("AWS credentials not found.")
+    except PartialCredentialsError:
+        print("Incomplete AWS credentials.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    get_scheduled_events()
+```
+
+### 4. Automate and Notify
+To ensure you are always aware of scheduled events, you can automate this script to run at regular intervals (e.g., using a cron job) and integrate it with a notification system (e.g., email, Slack).
+
+#### Example: Using AWS SNS for Notifications
+First, create an SNS topic and subscribe to it. Then, modify the script to publish notifications to the SNS topic.
+
+```python
+import boto3
+from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+def get_scheduled_events():
+    try:
+        ec2_client = boto3.client('ec2')
+        sns_client = boto3.client('sns')
+        sns_topic_arn = 'arn:aws:sns:region:account-id:topic-name'  # Replace with your SNS topic ARN
+
+        response = ec2_client.describe_instance_status(
+            Filters=[
+                {
+                    'Name': 'event.code',
+                    'Values': ['instance-reboot', 'system-reboot', 'system-maintenance', 'instance-retirement', 'instance-stop']
+                }
+            ]
+        )
+        
+        for instance in response['InstanceStatuses']:
+            instance_id = instance['InstanceId']
+            for event in instance['Events']:
+                message = f"Instance {instance_id} has a scheduled event: {event['Description']} at {event['NotBefore']}"
+                print(message)
+                sns_client.publish(
+                    TopicArn=sns_topic_arn,
+                    Message=message,
+                    Subject='Scheduled Event Notification'
+                )
+
+    except NoCredentialsError:
+        print("AWS credentials not found.")
+    except PartialCredentialsError:
+        print("Incomplete AWS credentials.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    get_scheduled_events()
+```
+
+By following these steps, you can effectively monitor and manage scheduled events for your EC2 instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose "Events" under "INSTANCES" section.
+
+3. In the "Events" page, you can see the list of all events related to your EC2 instances. You can filter the events by instance ID, event type, status, and date.
+
+4. If there are any scheduled events for your EC2 instances, they will be listed here with details like event type, status, instance ID, and description. You can click on the instance ID to go to the instance details page for more information.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure the AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-instance-status" command to check the status of your EC2 instances. This command returns information about the status of your instances, including any scheduled events. The command is as follows:
+
+   ```
+   aws ec2 describe-instance-status --include-all-instances
+   ```
+
+3. To filter out the instances with scheduled events, you can use the "query" option with the "describe-instance-status" command. The command is as follows:
+
+   ```
+   aws ec2 describe-instance-status --query 'InstanceStatuses[?Events!=`null`].{ID:InstanceId,Events:Events}' --output table
+   ```
+
+4. If there are any scheduled events, the output of the above command will display the instance ID and the details of the scheduled events. If there are no scheduled events, the command will not return any output.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. Inside this file, you should include your AWS Access Key ID and Secret Access Key:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Create a Python script: Now you can create a Python script that uses the Boto3 library to check for scheduled events. Here's a simple script that does this:
+
+   ```python
+   import boto3
+
+   def check_scheduled_events():
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_instance_status(IncludeAllInstances=True)
+       for instance in response['InstanceStatuses']:
+           if 'Events' in instance and instance['Events']:
+               for event in instance['Events']:
+                   print(f"Instance {instance['InstanceId']} has a scheduled event: {event['Code']} at {event['NotBefore']}")
+
+   if __name__ == "__main__":
+       check_scheduled_events()
+   ```
+
+4. Run the script: You can run the script from the command line using the Python interpreter:
+
+   ```bash
+   python check_scheduled_events.py
+   ```
+
+This script will print out any instances that have scheduled events, along with the type of event and the time it is scheduled to occur.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,249 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from being of an undesired type using the AWS Management Console, follow these steps:
+
+1. **Define and Enforce IAM Policies:**
+   - Navigate to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Create or modify IAM policies to restrict the creation of EC2 instances to specific instance types.
+   - Attach these policies to the relevant IAM users, groups, or roles to ensure that only authorized personnel can launch instances of the desired type.
+
+2. **Set Up AWS Config Rules:**
+   - Go to the AWS Config service in the AWS Management Console.
+   - Create a new AWS Config rule or use an existing one, such as `desired-instance-type`.
+   - Configure the rule to check for compliance with the desired instance types and set it to trigger evaluations on instance creation or modification.
+
+3. **Use AWS Service Catalog:**
+   - Navigate to the AWS Service Catalog in the AWS Management Console.
+   - Create a portfolio and add products (EC2 instance configurations) that only include the desired instance types.
+   - Share the portfolio with the relevant users or groups to ensure they can only launch instances from the predefined configurations.
+
+4. **Implement Tagging and Automation:**
+   - Establish a tagging policy that includes tags for instance types.
+   - Use AWS Lambda and CloudWatch Events to automate the enforcement of instance types. For example, create a Lambda function that checks the instance type upon creation and terminates or reconfigures instances that do not match the desired type.
+   - Set up CloudWatch Events to trigger the Lambda function on EC2 instance state changes.
+
+By following these steps, you can effectively prevent the creation of EC2 instances that do not conform to the desired instance types using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from being of an undesired type using AWS CLI, you can follow these steps:
+
+1. **Define Desired Instance Types in a Configuration File:**
+   Create a JSON or YAML configuration file that lists the allowed instance types. This file will be used to validate instance types during instance creation.
+
+   ```json
+   {
+     "allowed_instance_types": ["t2.micro", "t2.small", "t3.micro"]
+   }
+   ```
+
+2. **Create an IAM Policy to Restrict Instance Types:**
+   Create an IAM policy that restricts the creation of EC2 instances to the desired types. Save the following JSON policy to a file, e.g., `restrict_instance_types_policy.json`.
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "ec2:RunInstances",
+         "Resource": "arn:aws:ec2:*:*:instance/*",
+         "Condition": {
+           "StringNotEquals": {
+             "ec2:InstanceType": [
+               "t2.micro",
+               "t2.small",
+               "t3.micro"
+             ]
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+3. **Attach the IAM Policy to a User or Role:**
+   Use the AWS CLI to attach the policy to a specific IAM user or role. Replace `<user-name>` with the actual IAM user name.
+
+   ```sh
+   aws iam put-user-policy --user-name <user-name> --policy-name RestrictInstanceTypesPolicy --policy-document file://restrict_instance_types_policy.json
+   ```
+
+4. **Validate Instance Type Before Launching:**
+   Before launching an instance, validate the instance type against the allowed types using a script or manual check. Here is an example of how you can do this using AWS CLI and a simple bash script:
+
+   ```sh
+   ALLOWED_INSTANCE_TYPES=("t2.micro" "t2.small" "t3.micro")
+   INSTANCE_TYPE="t2.micro"  # Replace with the instance type you want to launch
+
+   if [[ " ${ALLOWED_INSTANCE_TYPES[@]} " =~ " ${INSTANCE_TYPE} " ]]; then
+     echo "Instance type ${INSTANCE_TYPE} is allowed."
+     # Proceed with instance creation
+     aws ec2 run-instances --instance-type ${INSTANCE_TYPE} --other-options
+   else
+     echo "Instance type ${INSTANCE_TYPE} is not allowed."
+     exit 1
+   fi
+   ```
+
+By following these steps, you can ensure that only the desired EC2 instance types are used within your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from being launched with undesired instance types using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and IAM Role/Policy:**
+   - Ensure you have the AWS SDK for Python (Boto3) installed.
+   - Create an IAM role or user with the necessary permissions to describe and launch EC2 instances.
+
+2. **Define Desired Instance Types:**
+   - Create a list of allowed instance types that you want to enforce.
+
+3. **Create a Pre-Launch Validation Script:**
+   - Write a Python script that checks the instance type before launching an EC2 instance.
+
+4. **Implement the Script to Enforce Desired Instance Types:**
+   - Use the script to validate and enforce the instance type during the instance launch process.
+
+Here is a sample Python script to achieve this:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Define the list of allowed instance types
+allowed_instance_types = ['t2.micro', 't2.small', 't2.medium']
+
+def validate_instance_type(instance_type):
+    if instance_type not in allowed_instance_types:
+        raise ValueError(f"Instance type {instance_type} is not allowed. Allowed types are: {allowed_instance_types}")
+
+def launch_instance(instance_type, image_id, min_count=1, max_count=1):
+    try:
+        # Validate the instance type
+        validate_instance_type(instance_type)
+        
+        # Launch the instance
+        response = ec2.run_instances(
+            InstanceType=instance_type,
+            ImageId=image_id,
+            MinCount=min_count,
+            MaxCount=max_count
+        )
+        print(f"Successfully launched instance(s) of type {instance_type}")
+        return response
+    except ValueError as e:
+        print(e)
+    except ClientError as e:
+        print(f"Failed to launch instance: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    desired_instance_type = 't2.micro'  # Change this to test with different instance types
+    ami_id = 'ami-0abcdef1234567890'  # Replace with a valid AMI ID
+
+    launch_instance(desired_instance_type, ami_id)
+```
+
+### Steps Explained:
+
+1. **Set Up AWS SDK (Boto3) and IAM Role/Policy:**
+   - Install Boto3 using `pip install boto3`.
+   - Ensure your IAM role or user has permissions like `ec2:RunInstances` and `ec2:DescribeInstances`.
+
+2. **Define Desired Instance Types:**
+   - The `allowed_instance_types` list contains the instance types that are permitted.
+
+3. **Create a Pre-Launch Validation Script:**
+   - The `validate_instance_type` function checks if the instance type is in the allowed list.
+
+4. **Implement the Script to Enforce Desired Instance Types:**
+   - The `launch_instance` function validates the instance type before calling `ec2.run_instances` to launch the instance.
+
+By following these steps, you can prevent the launch of EC2 instances with undesired instance types using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under "INSTANCES" section, click on "Instances".
+
+3. This will open up a list of all your EC2 instances. Here, you can see the details of each instance including its instance type.
+
+4. To check if an EC2 instance is of the desired type, look at the "Instance Type" column of the table. If the instance type does not match your desired type, then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the AWS CLI command `aws ec2 describe-instances` to list all the EC2 instances in your AWS account. This command will return a JSON output with detailed information about each EC2 instance.
+
+3. Extract instance types: You can extract the instance types from the JSON output using the `jq` command-line JSON processor. The command would look something like this: `aws ec2 describe-instances | jq -r '.Reservations[].Instances[].InstanceType'`. This command will return a list of instance types for all your EC2 instances.
+
+4. Check instance types: Now, you can check if the instance types match your desired type. For example, if your desired type is 't2.micro', you can modify the previous command to something like this: `aws ec2 describe-instances | jq -r '.Reservations[].Instances[].InstanceType' | grep -v 't2.micro'`. This command will return a list of instances that are not of type 't2.micro'. If the list is empty, it means all your instances are of the desired type.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, AWS DynamoDB, and much more. To install Boto3, you can use pip:
+
+   ```
+   pip install boto3
+   ```
+   You also need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+   ```
+   aws configure
+   ```
+
+2. Import the necessary modules and create an EC2 resource object: You need to import the boto3 module in your Python script and create an EC2 resource object using your AWS credentials.
+
+   ```python
+   import boto3
+
+   # Create an EC2 resource object using the AWS SDK for Python (Boto3)
+   ec2 = boto3.resource('ec2')
+   ```
+
+3. Retrieve all EC2 instances: You can use the `instances.all()` method to retrieve all EC2 instances.
+
+   ```python
+   # Retrieve all EC2 instances
+   instances = ec2.instances.all()
+   ```
+
+4. Check the instance type of each EC2 instance: You can use the `instance_type` attribute of an EC2 instance to check its type. If the instance type is not the desired type, you can print a message or perform some other action.
+
+   ```python
+   # Desired instance type
+   desired_instance_type = 't2.micro'
+
+   # Check the instance type of each EC2 instance
+   for instance in instances:
+       if instance.instance_type != desired_instance_type:
+           print(f'Instance {instance.id} is not of the desired type ({desired_instance_type}). It is of type {instance.instance_type}.')
+   ```
+   This script will print a message for each EC2 instance that is not of the desired type.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

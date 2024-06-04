@@ -1,6 +1,215 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted RDP access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the EC2 Dashboard.
+   - In the left-hand menu, under "Network & Security," choose "Security Groups."
+
+2. **Select the Security Group:**
+   - Find and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the security group selected, choose the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+
+4. **Restrict RDP Access:**
+   - Locate the rule that allows RDP access (port 3389).
+   - In the "Source" column, change the source from "0.0.0.0/0" (which allows access from anywhere) to a more restrictive IP range, such as your specific IP address or a range of trusted IP addresses.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that RDP access to your EC2 instances is restricted to trusted IP addresses, thereby enhancing the security of your instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted RDP access to EC2 instances using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance. You can list all security groups and find the relevant one using the following command:
+   ```sh
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{ID:GroupId,Name:GroupName}"
+   ```
+
+2. **Check Existing Rules:**
+   Check the existing inbound rules for the identified security group to see if there are any rules allowing unrestricted RDP access (port 3389):
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions"
+   ```
+
+3. **Revoke Unrestricted RDP Access:**
+   If you find any rules that allow unrestricted access (e.g., `0.0.0.0/0` or `::/0` for IPv6), revoke those rules. Replace `<security-group-id>` with your actual security group ID:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 3389 --cidr 0.0.0.0/0
+   ```
+
+4. **Add Restricted RDP Access:**
+   Add a more restrictive rule to allow RDP access only from specific IP addresses or ranges. Replace `<your-ip-range>` with the specific IP range you want to allow:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 3389 --cidr <your-ip-range>
+   ```
+
+By following these steps, you can ensure that RDP access to your EC2 instances is restricted to specific IP addresses, thereby preventing unrestricted access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted RDP access in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Check and Update Security Groups**:
+   Write a Python script to identify security groups with unrestricted RDP access (port 3389) and update them to restrict access.
+
+4. **Implement the Script**:
+   Below is a sample Python script to prevent unrestricted RDP access:
+
+   ```python
+   import boto3
+
+   def get_security_groups_with_unrestricted_rdp(ec2_client):
+       security_groups = ec2_client.describe_security_groups()
+       unrestricted_sgs = []
+
+       for sg in security_groups['SecurityGroups']:
+           for permission in sg['IpPermissions']:
+               if permission.get('FromPort') == 3389 and permission.get('ToPort') == 3389:
+                   for ip_range in permission.get('IpRanges', []):
+                       if ip_range.get('CidrIp') == '0.0.0.0/0':
+                           unrestricted_sgs.append(sg['GroupId'])
+                           break
+
+       return unrestricted_sgs
+
+   def revoke_unrestricted_rdp(ec2_client, sg_id):
+       ec2_client.revoke_security_group_ingress(
+           GroupId=sg_id,
+           IpPermissions=[
+               {
+                   'IpProtocol': 'tcp',
+                   'FromPort': 3389,
+                   'ToPort': 3389,
+                   'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+               }
+           ]
+       )
+
+   def main():
+       ec2_client = boto3.client('ec2')
+
+       unrestricted_sgs = get_security_groups_with_unrestricted_rdp(ec2_client)
+       for sg_id in unrestricted_sgs:
+           print(f"Revoking unrestricted RDP access for security group: {sg_id}")
+           revoke_unrestricted_rdp(ec2_client, sg_id)
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+### Explanation:
+1. **Install Boto3 Library**:
+   - Ensure Boto3 is installed to interact with AWS services.
+
+2. **Set Up AWS Credentials**:
+   - Configure AWS credentials to allow the script to authenticate with AWS.
+
+3. **Create a Python Script to Check and Update Security Groups**:
+   - The script identifies security groups with unrestricted RDP access (port 3389).
+
+4. **Implement the Script**:
+   - The script uses Boto3 to list security groups, checks for unrestricted RDP access, and revokes it if found.
+
+By following these steps, you can prevent unrestricted RDP access in EC2 instances using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all the security groups associated with your EC2 instances. Click on the security group that you want to check.
+4. In the details pane at the bottom, click on the "Inbound" tab. Here, you can see all the inbound rules for the selected security group. Check if there is any rule that allows unrestricted RDP access (i.e., the rule has "RDP" or "3389" in the port range and "0.0.0.0/0" or "::/0" in the source). If such a rule exists, then unrestricted RDP access is allowed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all security groups: The next step is to list all the security groups in your AWS account. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check for unrestricted RDP access: Now, for each security group, you need to check if it allows unrestricted RDP access. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}"
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all IP permissions for the specified security group.
+
+4. Analyze the output: If the output of the previous command includes an IP range of `0.0.0.0/0` for the port `3389` (the default port for RDP), it means that the security group allows unrestricted RDP access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Import necessary libraries and establish a session:
+   In your Python script, you need to import the necessary libraries and establish a session with AWS. Here is an example:
+
+   ```python
+   import boto3
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ec2 = session.resource('ec2')
+   ```
+
+3. Retrieve and inspect security groups:
+   Next, you need to retrieve all security groups and inspect their ingress rules. If a security group has an ingress rule that allows unrestricted RDP access (port 3389 open to 0.0.0.0/0), then it is misconfigured. Here is an example:
+
+   ```python
+   for security_group in ec2.security_groups.all():
+       for permission in security_group.ip_permissions:
+           for ip_range in permission['IpRanges']:
+               if '3389' in permission['FromPort'] and '3389' in permission['ToPort'] and ip_range['CidrIp'] == '0.0.0.0/0':
+                   print(f"Security Group {security_group.id} allows unrestricted RDP access.")
+   ```
+
+4. Run the script:
+   Finally, you can run the script by executing the command `python script_name.py` in your terminal. If there are any security groups that allow unrestricted RDP access, their IDs will be printed to the console.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

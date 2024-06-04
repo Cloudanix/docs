@@ -23,6 +23,229 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Accepter/Requester VPC To Private IP Should Be Enabled" in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to VPC Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "VPC" and select "VPC" from the dropdown to go to the VPC Dashboard.
+
+2. **Select Peering Connections:**
+   - In the left-hand navigation pane, click on "Peering Connections" under the "Virtual Private Cloud" section.
+
+3. **Modify Peering Connection:**
+   - Select the VPC peering connection you want to modify.
+   - Click on the "Actions" button and select "Modify Peering Connection Options."
+
+4. **Enable Private DNS Resolution:**
+   - In the "Modify Peering Connection Options" dialog, ensure that the "Allow DNS resolution from peer VPC" option is checked for both the requester and accepter VPCs.
+   - Click "Save Changes" to apply the settings.
+
+By following these steps, you ensure that DNS resolution to private IP addresses is enabled for the VPC peering connection, which helps in preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the Accepter/Requester VPC to Private IP should be enabled in EC2 using AWS CLI, follow these steps:
+
+1. **Create a VPC Peering Connection:**
+   Ensure that you have a VPC peering connection established between the requester and accepter VPCs. Use the following command to create a VPC peering connection:
+   ```sh
+   aws ec2 create-vpc-peering-connection --vpc-id <RequesterVPCId> --peer-vpc-id <AccepterVPCId> --peer-region <AccepterRegion>
+   ```
+
+2. **Accept the VPC Peering Connection:**
+   After creating the VPC peering connection, the accepter VPC needs to accept the peering request. Use the following command to accept the VPC peering connection:
+   ```sh
+   aws ec2 accept-vpc-peering-connection --vpc-peering-connection-id <VpcPeeringConnectionId>
+   ```
+
+3. **Update Route Tables:**
+   Update the route tables in both the requester and accepter VPCs to ensure that traffic can flow between them. Use the following commands to add routes:
+   ```sh
+   aws ec2 create-route --route-table-id <RequesterRouteTableId> --destination-cidr-block <AccepterVPC_CIDR> --vpc-peering-connection-id <VpcPeeringConnectionId>
+   aws ec2 create-route --route-table-id <AccepterRouteTableId> --destination-cidr-block <RequesterVPC_CIDR> --vpc-peering-connection-id <VpcPeeringConnectionId>
+   ```
+
+4. **Enable DNS Resolution:**
+   Ensure that DNS resolution is enabled for the VPC peering connection to allow private IP communication. Use the following command to modify the VPC peering connection options:
+   ```sh
+   aws ec2 modify-vpc-peering-connection-options --vpc-peering-connection-id <VpcPeeringConnectionId> --requester-peering-connection-options AllowDnsResolutionFromRemoteVpc=true --accepter-peering-connection-options AllowDnsResolutionFromRemoteVpc=true
+   ```
+
+By following these steps, you can prevent the misconfiguration and ensure that the VPC peering connection is properly set up to allow communication between private IPs in the requester and accepter VPCs.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the Accepter/Requester VPC to Private IP should be enabled in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Below are the steps to ensure that VPC peering connections are configured to use private IP addresses:
+
+### Step 1: Install Boto3
+First, ensure that you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables:
+```bash
+aws configure
+```
+
+### Step 3: Create a Python Script
+Create a Python script to check and enable the private IP address setting for VPC peering connections.
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2_client = session.client('ec2')
+
+def enable_private_ip_vpc_peering(peering_connection_id):
+    try:
+        # Describe the VPC peering connection
+        response = ec2_client.describe_vpc_peering_connections(
+            VpcPeeringConnectionIds=[peering_connection_id]
+        )
+        
+        peering_connection = response['VpcPeeringConnections'][0]
+        
+        # Check if the private IP address setting is enabled
+        if not peering_connection['RequesterVpcInfo']['PeeringOptions']['AllowDnsResolutionFromRemoteVpc']:
+            # Enable private IP address setting for the requester VPC
+            ec2_client.modify_vpc_peering_connection_options(
+                VpcPeeringConnectionId=peering_connection_id,
+                RequesterPeeringConnectionOptions={
+                    'AllowDnsResolutionFromRemoteVpc': True
+                }
+            )
+            print(f"Enabled private IP address setting for requester VPC in peering connection {peering_connection_id}")
+        
+        if not peering_connection['AccepterVpcInfo']['PeeringOptions']['AllowDnsResolutionFromRemoteVpc']:
+            # Enable private IP address setting for the accepter VPC
+            ec2_client.modify_vpc_peering_connection_options(
+                VpcPeeringConnectionId=peering_connection_id,
+                AccepterPeeringConnectionOptions={
+                    'AllowDnsResolutionFromRemoteVpc': True
+                }
+            )
+            print(f"Enabled private IP address setting for accepter VPC in peering connection {peering_connection_id}")
+        
+    except Exception as e:
+        print(f"Error enabling private IP address setting: {e}")
+
+# Example usage
+peering_connection_id = 'pcx-0123456789abcdef0'  # Replace with your VPC peering connection ID
+enable_private_ip_vpc_peering(peering_connection_id)
+```
+
+### Step 4: Run the Script
+Run the script to ensure that the private IP address setting is enabled for both the requester and accepter VPCs in the specified VPC peering connection.
+
+```bash
+python enable_private_ip_vpc_peering.py
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create a Python Script**: Write a script to check and enable the private IP address setting for VPC peering connections.
+4. **Run the Script**: Execute the script to apply the changes.
+
+This script will help you prevent the misconfiguration by ensuring that the private IP address setting is enabled for VPC peering connections in AWS EC2.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the "VPC Dashboard". 
+
+2. In the navigation pane, choose "Peering Connections". This will display a list of all the VPC peering connections.
+
+3. Select the VPC peering connection that you want to check. In the details pane, look for the "Requester VPC" and "Accepter VPC" sections.
+
+4. Check the "Requester CIDR" and "Accepter CIDR" fields. If the "Private IP" option is not enabled for both, then the VPC peering connection is misconfigured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. List all the VPC peering connections in your account using the following command:
+
+   ```
+   aws ec2 describe-vpc-peering-connections
+   ```
+
+   This command will return a JSON output with all the VPC peering connections in your account.
+
+3. For each VPC peering connection, check if the 'RequesterVpcInfo' and 'AccepterVpcInfo' fields have the 'AllowDnsResolutionFromRemoteVpc' attribute set to true. This attribute indicates whether the DNS resolution is enabled for the VPC. You can do this by parsing the JSON output using a tool like 'jq' or a scripting language like Python.
+
+   Here is an example of how you can do this using 'jq':
+
+   ```
+   aws ec2 describe-vpc-peering-connections | jq -r '.VpcPeeringConnections[] | select(.RequesterVpcInfo.AllowDnsResolutionFromRemoteVpc == false or .AccepterVpcInfo.AllowDnsResolutionFromRemoteVpc == false) | .VpcPeeringConnectionId'
+   ```
+
+   This command will return the IDs of the VPC peering connections where DNS resolution is not enabled.
+
+4. If the above command returns any VPC peering connection IDs, it means that there are VPC peering connections in your account where DNS resolution is not enabled. This is a misconfiguration and should be fixed.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if Accepter/Requester VPC To Private IP is enabled in EC2 using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including EC2. Here are the steps:
+
+1. **Import the Boto3 library in Python:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. To use Boto3, you first need to import it.
+
+   ```python
+   import boto3
+   ```
+
+2. **Create an EC2 resource and client:**
+   You need to create an EC2 resource and client using your AWS credentials. The resource is a high-level, object-oriented API, and the client is a low-level, direct service access.
+
+   ```python
+   ec2 = boto3.resource('ec2')
+   client = boto3.client('ec2')
+   ```
+
+3. **Get the list of all VPC Peering Connections:**
+   You can use the `describe_vpc_peering_connections` method of the EC2 client to get a list of all VPC Peering Connections.
+
+   ```python
+   response = client.describe_vpc_peering_connections()
+   ```
+
+4. **Check if Accepter/Requester VPC To Private IP is enabled:**
+   You can iterate over the list of all VPC Peering Connections and check the `RequesterVpcInfo` and `AccepterVpcInfo` for the `AllowDnsResolutionFromRemoteVpc` attribute. If it's set to `False`, then Accepter/Requester VPC To Private IP is not enabled.
+
+   ```python
+   for connection in response['VpcPeeringConnections']:
+       requester_info = connection['RequesterVpcInfo']
+       accepter_info = connection['AccepterVpcInfo']
+       if not requester_info['AllowDnsResolutionFromRemoteVpc'] or not accepter_info['AllowDnsResolutionFromRemoteVpc']:
+           print(f"VPC Peering Connection {connection['VpcPeeringConnectionId']} does not have Accepter/Requester VPC To Private IP enabled.")
+   ```
+
+Please note that you need to have the necessary permissions to describe VPC Peering Connections and to access the VPC information. Also, make sure to handle any exceptions that might occur while running the script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

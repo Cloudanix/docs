@@ -23,6 +23,232 @@ SOC2, GDPR, HITRUST, AWSWAF, NISTCSF, PCIDSS, FedRAMP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted Oracle access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups."
+
+2. **Identify Relevant Security Groups:**
+   - Review the list of security groups and identify those associated with your Oracle instances.
+
+3. **Edit Inbound Rules:**
+   - Select the security group associated with your Oracle instance.
+   - Choose the "Inbound rules" tab and click on the "Edit inbound rules" button.
+   - Look for rules that allow unrestricted access (i.e., 0.0.0.0/0 or ::/0) to Oracle ports (default is 1521).
+
+4. **Restrict Access:**
+   - Modify the inbound rule to restrict access to specific IP addresses or ranges that require access.
+   - Alternatively, remove the rule if unrestricted access is not necessary.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that Oracle access is restricted to only trusted IP addresses, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted Oracle access in EC2 using AWS CLI, you need to ensure that the security groups associated with your EC2 instances do not allow unrestricted access (0.0.0.0/0) on the Oracle database port (default is 1521). Here are the steps to achieve this:
+
+1. **Identify Security Groups with Unrestricted Oracle Access:**
+   Use the following AWS CLI command to describe security groups and filter for rules that allow unrestricted access on port 1521.
+
+   ```sh
+   aws ec2 describe-security-groups --query "SecurityGroups[?IpPermissions[?FromPort==`1521` && IpRanges[?CidrIp==`0.0.0.0/0`]]]" --output json
+   ```
+
+2. **Revoke Unrestricted Inbound Rules:**
+   For each security group identified in the previous step, revoke the inbound rule that allows unrestricted access on port 1521. Replace `<security-group-id>` with the actual security group ID.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 1521 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rules:**
+   If necessary, add a more restrictive rule to allow access only from specific IP addresses or CIDR blocks. Replace `<security-group-id>` with the actual security group ID and `<allowed-cidr>` with the allowed CIDR block.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 1521 --cidr <allowed-cidr>
+   ```
+
+4. **Verify Security Group Rules:**
+   After making changes, verify that the security group rules have been updated correctly and no unrestricted access is allowed on port 1521.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[?FromPort==`1521`]" --output json
+   ```
+
+By following these steps, you can ensure that your EC2 instances do not have unrestricted Oracle access, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted Oracle access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials. You can use environment variables or AWS configuration files to manage your credentials securely.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ec2 = session.client('ec2')
+   ```
+
+3. **Retrieve Security Groups**:
+   Fetch the security groups associated with your EC2 instances. This will allow you to inspect and modify the rules to prevent unrestricted Oracle access.
+   ```python
+   response = ec2.describe_security_groups()
+   security_groups = response['SecurityGroups']
+   ```
+
+4. **Modify Security Group Rules**:
+   Iterate through the security groups and modify the rules to restrict Oracle access (default port 1521). Ensure that the rules do not allow unrestricted access (i.e., 0.0.0.0/0 or ::/0).
+   ```python
+   for sg in security_groups:
+       sg_id = sg['GroupId']
+       for permission in sg['IpPermissions']:
+           if 'FromPort' in permission and permission['FromPort'] == 1521:
+               for ip_range in permission['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       # Revoke the unrestricted rule
+                       ec2.revoke_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIp=ip_range['CidrIp']
+                       )
+                       # Add a more restrictive rule (example: only allow from a specific IP range)
+                       ec2.authorize_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIp='YOUR_RESTRICTED_IP_RANGE'
+                       )
+               for ipv6_range in permission['Ipv6Ranges']:
+                   if ipv6_range['CidrIpv6'] == '::/0':
+                       # Revoke the unrestricted rule
+                       ec2.revoke_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIpv6=ipv6_range['CidrIpv6']
+                       )
+                       # Add a more restrictive rule (example: only allow from a specific IPv6 range)
+                       ec2.authorize_security_group_ingress(
+                           GroupId=sg_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIpv6='YOUR_RESTRICTED_IPV6_RANGE'
+                       )
+   ```
+
+Replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, `'YOUR_REGION'`, `'YOUR_RESTRICTED_IP_RANGE'`, and `'YOUR_RESTRICTED_IPV6_RANGE'` with your actual AWS credentials, region, and the IP ranges you want to allow.
+
+By following these steps, you can ensure that Oracle access on port 1521 is not unrestricted, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select 'Security Groups' under the 'Network & Security' section.
+3. In the 'Security Groups' page, you will see a list of all security groups associated with your EC2 instances. Select the security group you want to inspect.
+4. In the 'Inbound rules' tab of the selected security group, check for any rules that allow unrestricted access (0.0.0.0/0) to Oracle ports (typically TCP 1521). If such a rule exists, it indicates that unrestricted Oracle access is allowed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all security groups: The next step is to list all the security groups in your AWS account. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check for unrestricted Oracle access: Now, for each security group, you need to check if it allows unrestricted Oracle access. Oracle Database typically uses port 1521, so you need to check if this port is open to the world (0.0.0.0/0). You can do this by running the following command for each security group:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}"
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check.
+
+4. Analyze the output: The command in step 3 will return a list of all IP ranges that are allowed to access each port in the security group. If you see an entry where `FromPort` is 1521, `ToPort` is 1521, and `IpRanges` includes 0.0.0.0/0, then that security group allows unrestricted Oracle access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   To interact with AWS services, you need to install Boto3. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can configure your credentials either by exporting them directly into your shell or by storing them in a credentials file. You can create the credentials file yourself, the default location for the file is `~/.aws/credentials`. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the `default` profile, you can use the following format:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+2. Use Boto3 to interact with AWS EC2 service:
+   You can use Boto3 to create, configure, and manage AWS services. For example, you can start or stop EC2 instances, create security groups, and so on. Here is a simple script to list all EC2 instances:
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for instance in ec2.instances.all():
+       print(instance.id, instance.state)
+   ```
+
+3. Check the security group rules for Oracle access:
+   Oracle Database typically uses TCP port 1521. So, you need to check if there are any security group rules that allow unrestricted (0.0.0.0/0) access to this port. Here is a script to do this:
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for security_group in ec2.security_groups.all():
+       for permission in security_group.ip_permissions:
+           for ip_range in permission['IpRanges']:
+               if '1521' in permission['ToPort'] and ip_range['CidrIp'] == '0.0.0.0/0':
+                   print(f"Security Group {security_group.id} allows unrestricted Oracle access")
+   ```
+
+4. Run the script and review the output:
+   Run the script in your shell. If there are any security groups that allow unrestricted Oracle access, they will be printed out. Review the output and take necessary actions to restrict the access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,234 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where an Elastic File System (EFS) should have a recovery point in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable EFS Backup:**
+   - Navigate to the **Amazon EFS** console.
+   - Select the file system you want to configure.
+   - Go to the **Backup** tab.
+   - Enable automatic backups by selecting the **Enable automatic backups** option.
+
+2. **Create a Backup Plan:**
+   - Navigate to the **AWS Backup** console.
+   - Click on **Create backup plan**.
+   - Define the backup plan by specifying the backup frequency, retention period, and other settings.
+   - Assign the EFS file system to this backup plan.
+
+3. **Assign IAM Roles:**
+   - Ensure that the necessary IAM roles and policies are in place to allow AWS Backup to create and manage backups for your EFS file system.
+   - Navigate to the **IAM** console.
+   - Attach the required policies (e.g., `AWSBackupServiceRolePolicyForEFS`) to the IAM role used by AWS Backup.
+
+4. **Monitor Backup Status:**
+   - Regularly check the **AWS Backup** console to monitor the status of your backups.
+   - Set up CloudWatch alarms to notify you of any backup failures or issues.
+
+By following these steps, you can ensure that your Elastic File System has a recovery point, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where an Elastic File System (EFS) should have a recovery point in EC2 using AWS CLI, you can follow these steps:
+
+1. **Enable EFS Backup Policy:**
+   Ensure that your EFS file system has a backup policy enabled. This will automatically create recovery points for your EFS.
+
+   ```sh
+   aws efs put-backup-policy --file-system-id <file-system-id> --backup-policy Status=ENABLED
+   ```
+
+2. **Create a Backup Plan:**
+   Create a backup plan that specifies the backup rules, including the frequency and retention period for the backups.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "EFSBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "MoveToColdStorageAfterDays": 30,
+                   "DeleteAfterDays": 365
+               }
+           }
+       ]
+   }'
+   ```
+
+3. **Assign Resources to Backup Plan:**
+   Assign your EFS file system to the backup plan to ensure it is included in the backup schedule.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection '{
+       "SelectionName": "EFSBackupSelection",
+       "IamRoleArn": "arn:aws:iam::<account-id>:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:elasticfilesystem:<region>:<account-id>:file-system/<file-system-id>"
+       ]
+   }'
+   ```
+
+4. **Verify Backup Configuration:**
+   Verify that the backup policy and backup plan are correctly configured and associated with your EFS file system.
+
+   ```sh
+   aws efs describe-backup-policy --file-system-id <file-system-id>
+   aws backup get-backup-plan --backup-plan-id <backup-plan-id>
+   aws backup list-backup-selections --backup-plan-id <backup-plan-id>
+   ```
+
+By following these steps, you can ensure that your Elastic File System (EFS) has a recovery point in EC2, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where an Elastic File System (EFS) should have a recovery point in EC2 using Python scripts, you can follow these steps:
+
+### 1. **Install AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed. If not, you can install it using pip:
+```bash
+pip install boto3
+```
+
+### 2. **Set Up AWS Credentials**
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+### 3. **Create a Python Script to Enable EFS Backup**
+Here's a Python script to enable automatic backups for your EFS:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EFS
+client = boto3.client('efs')
+
+# Function to enable backup for EFS
+def enable_efs_backup(file_system_id):
+    try:
+        response = client.put_backup_policy(
+            FileSystemId=file_system_id,
+            BackupPolicy={
+                'Status': 'ENABLED'
+            }
+        )
+        print(f"Backup policy enabled for EFS: {file_system_id}")
+    except Exception as e:
+        print(f"Error enabling backup policy for EFS: {file_system_id}, {e}")
+
+# List of EFS file system IDs to enable backup
+efs_file_system_ids = ['fs-12345678', 'fs-87654321']  # Replace with your EFS IDs
+
+# Enable backup for each EFS
+for efs_id in efs_file_system_ids:
+    enable_efs_backup(efs_id)
+```
+
+### 4. **Run the Script**
+Execute the script to enable backups for your specified EFS file systems:
+```bash
+python enable_efs_backup.py
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create Python Script**: Write a script to enable EFS backup.
+4. **Run the Script**: Execute the script to apply the backup policy.
+
+This script will enable automatic backups for the specified EFS file systems, ensuring that recovery points are created regularly.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then selecting "EC2" under the "Compute" category.
+3. In the EC2 dashboard, select "Elastic File Systems" from the "Elastic Block Store" section in the left-hand menu.
+4. For each EFS listed, check the "Backup" column. If it shows "Disabled" or "No recent backups", it indicates that the EFS does not have a recovery point.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EFS file systems: Use the following command to list all the EFS file systems in your AWS account.
+
+   ```
+   aws efs describe-file-systems
+   ```
+
+   This command will return a JSON output with details of all the EFS file systems.
+
+3. List all backup vaults: Use the following command to list all the backup vaults in your AWS account.
+
+   ```
+   aws backup list-backup-vaults
+   ```
+
+   This command will return a JSON output with details of all the backup vaults.
+
+4. Check for recovery points: For each EFS file system, check if there is a recovery point in any of the backup vaults. You can do this by running the following command for each EFS file system and backup vault.
+
+   ```
+   aws backup list-recovery-points-by-backup-vault --backup-vault-name <backup-vault-name> --by-resource-arn <efs-file-system-arn>
+   ```
+
+   Replace `<backup-vault-name>` with the name of the backup vault and `<efs-file-system-arn>` with the ARN of the EFS file system. If the command returns a JSON output with details of one or more recovery points, then the EFS file system has a recovery point. If the command does not return any recovery points, then the EFS file system does not have a recovery point.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The AWS SDK for Python (Boto3) allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can configure it in several ways. One way is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+3. Write the Python script: Now you can write a Python script that uses Boto3 to check if Elastic File System has a recovery point. Here is a simple script that lists all EFS file systems and checks if they have a recovery point:
+
+```python
+import boto3
+
+# Create a client
+efs = boto3.client('efs')
+
+# List all file systems
+response = efs.describe_file_systems()
+
+# Check each file system for a recovery point
+for file_system in response['FileSystems']:
+    file_system_id = file_system['FileSystemId']
+    backup = boto3.client('backup')
+    recovery_points = backup.list_recovery_points_by_backup_vault(
+        BackupVaultName=file_system_id
+    )
+    if not recovery_points['RecoveryPoints']:
+        print(f'File system {file_system_id} does not have a recovery point.')
+```
+
+4. Run the Python script: Finally, you can run the Python script. It will print out the IDs of all EFS file systems that do not have a recovery point. If all file systems have a recovery point, it will not print anything.
+
+Please note that this script assumes that the backup vault name is the same as the file system ID, which may not be the case in your environment. You may need to modify the script to match your specific configuration.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 <AccordionGroup>

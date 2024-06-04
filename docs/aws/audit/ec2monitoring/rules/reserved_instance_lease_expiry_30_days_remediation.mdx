@@ -1,6 +1,274 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Reserved Instance Lease Expiration in the next 30 days in EC2 using the AWS Management Console, follow these steps:
+
+1. **Set Up Billing and Cost Management Alerts:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Select **Budgets** from the left-hand menu.
+   - Create a new budget and set up alerts for when your Reserved Instances are about to expire. This will notify you in advance so you can take appropriate action.
+
+2. **Enable Trusted Advisor Alerts:**
+   - Open the **AWS Management Console**.
+   - Navigate to **AWS Trusted Advisor**.
+   - Ensure that the **Service Limits** and **Cost Optimization** checks are enabled.
+   - Set up email notifications for Trusted Advisor alerts to receive notifications about expiring Reserved Instances.
+
+3. **Monitor Reserved Instances in the EC2 Console:**
+   - Go to the **EC2 Dashboard** in the AWS Management Console.
+   - Click on **Reserved Instances** in the left-hand menu.
+   - Regularly review the expiration dates of your Reserved Instances and plan for renewals or modifications as needed.
+
+4. **Set Up CloudWatch Alarms:**
+   - Open the **CloudWatch Console**.
+   - Create a new alarm based on a custom metric that tracks the expiration dates of Reserved Instances.
+   - Configure the alarm to send notifications to an SNS topic or email when a Reserved Instance is within 30 days of expiration.
+
+By following these steps, you can proactively manage and prevent the expiration of Reserved Instances in EC2.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Reserved Instance Lease Expiration in the next 30 days using AWS CLI, you can follow these steps:
+
+1. **Monitor Reserved Instances Expiration:**
+   Regularly check the expiration dates of your Reserved Instances to ensure you are aware of any upcoming expirations.
+
+   ```sh
+   aws ec2 describe-reserved-instances --query "ReservedInstances[?State=='active'].[ReservedInstancesId, End]"
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create CloudWatch Alarms to notify you when a Reserved Instance is about to expire. This can be done by creating a custom metric and setting an alarm on it.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ReservedInstanceExpiration" --metric-name "ReservedInstanceExpiration" --namespace "AWS/EC2" --statistic "Maximum" --period 86400 --threshold 1 --comparison-operator "LessThanThreshold" --evaluation-periods 1 --alarm-actions "arn:aws:sns:us-east-1:123456789012:MySNSTopic"
+   ```
+
+3. **Automate Renewal Process:**
+   Use AWS Lambda to automate the renewal process of Reserved Instances. You can create a Lambda function that checks for expiring Reserved Instances and automatically purchases new ones.
+
+   ```sh
+   aws lambda create-function --function-name RenewReservedInstances --runtime python3.8 --role arn:aws:iam::123456789012:role/service-role/MyLambdaRole --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+4. **Enable Notifications:**
+   Set up SNS (Simple Notification Service) to receive notifications about expiring Reserved Instances. This ensures you are always informed and can take action promptly.
+
+   ```sh
+   aws sns create-topic --name ReservedInstanceNotifications
+   aws sns subscribe --topic-arn arn:aws:sns:us-east-1:123456789012:ReservedInstanceNotifications --protocol email --notification-endpoint your-email@example.com
+   ```
+
+By following these steps, you can effectively monitor and manage your Reserved Instances to prevent unexpected expirations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Reserved Instance Lease Expiration in the next 30 days in AWS EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Install Boto3 if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Script to Monitor Reserved Instances:**
+   - Use Boto3 to connect to the EC2 service and retrieve information about your reserved instances.
+   - Check the expiration date of each reserved instance and compare it with the current date to determine if it will expire within the next 30 days.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon EC2
+   ec2_client = boto3.client('ec2')
+
+   # Get the current date and the date 30 days from now
+   current_date = datetime.now()
+   expiration_threshold = current_date + timedelta(days=30)
+
+   # Describe reserved instances
+   reserved_instances = ec2_client.describe_reserved_instances(Filters=[{'Name': 'state', 'Values': ['active']}])
+
+   # Check for instances expiring in the next 30 days
+   for instance in reserved_instances['ReservedInstances']:
+       expiration_date = instance['End']
+       if expiration_date <= expiration_threshold:
+           print(f"Reserved Instance {instance['ReservedInstancesId']} is expiring on {expiration_date}")
+   ```
+
+3. **Automate Notifications:**
+   - Integrate with AWS SNS (Simple Notification Service) to send notifications if any reserved instances are found to be expiring soon.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon EC2 and SNS
+   ec2_client = boto3.client('ec2')
+   sns_client = boto3.client('sns')
+
+   # SNS Topic ARN
+   sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-topic'
+
+   # Get the current date and the date 30 days from now
+   current_date = datetime.now()
+   expiration_threshold = current_date + timedelta(days=30)
+
+   # Describe reserved instances
+   reserved_instances = ec2_client.describe_reserved_instances(Filters=[{'Name': 'state', 'Values': ['active']}])
+
+   # Check for instances expiring in the next 30 days
+   for instance in reserved_instances['ReservedInstances']:
+       expiration_date = instance['End']
+       if expiration_date <= expiration_threshold:
+           message = f"Reserved Instance {instance['ReservedInstancesId']} is expiring on {expiration_date}"
+           print(message)
+           sns_client.publish(TopicArn=sns_topic_arn, Message=message, Subject='Reserved Instance Expiration Alert')
+   ```
+
+4. **Schedule the Script to Run Periodically:**
+   - Use AWS Lambda and CloudWatch Events to schedule the script to run periodically (e.g., daily) to continuously monitor the reserved instances.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   def lambda_handler(event, context):
+       # Initialize a session using Amazon EC2 and SNS
+       ec2_client = boto3.client('ec2')
+       sns_client = boto3.client('sns')
+
+       # SNS Topic ARN
+       sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-topic'
+
+       # Get the current date and the date 30 days from now
+       current_date = datetime.now()
+       expiration_threshold = current_date + timedelta(days=30)
+
+       # Describe reserved instances
+       reserved_instances = ec2_client.describe_reserved_instances(Filters=[{'Name': 'state', 'Values': ['active']}])
+
+       # Check for instances expiring in the next 30 days
+       for instance in reserved_instances['ReservedInstances']:
+           expiration_date = instance['End']
+           if expiration_date <= expiration_threshold:
+               message = f"Reserved Instance {instance['ReservedInstancesId']} is expiring on {expiration_date}"
+               print(message)
+               sns_client.publish(TopicArn=sns_topic_arn, Message=message, Subject='Reserved Instance Expiration Alert')
+   ```
+
+By following these steps, you can effectively monitor and prevent the expiration of reserved instances in AWS EC2 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+2. In the navigation pane, under "RESOURCES", click on "Reserved Instances".
+3. In the Reserved Instances page, you will see a list of all your reserved instances. Check the "End date" column for each of your reserved instances.
+4. If the "End date" is within the next 30 days, then the Reserved Instance lease is expiring in the next 30 days.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   During the configuration process, you will be asked to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format. You can find these details in your AWS Management Console.
+
+2. List all EC2 Reserved Instances: You can list all your EC2 Reserved Instances by running the following command:
+
+   ```
+   aws ec2 describe-reserved-instances --filters Name=state,Values=active
+   ```
+
+   This command will return a JSON object that contains information about all your active Reserved Instances.
+
+3. Parse the output: You can parse the output to get the end date of each Reserved Instance. The end date is contained in the `End` field of each Reserved Instance object. You can use a tool like `jq` to parse the JSON output. Here is an example command:
+
+   ```
+   aws ec2 describe-reserved-instances --filters Name=state,Values=active | jq -r '.ReservedInstances[] | .End'
+   ```
+
+4. Check if the end date is within the next 30 days: You can write a script that checks if the end date of each Reserved Instance is within the next 30 days. Here is an example Python script:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   command = ["aws", "ec2", "describe-reserved-instances", "--filters", "Name=state,Values=active"]
+   output = subprocess.check_output(command)
+   reserved_instances = json.loads(output)["ReservedInstances"]
+
+   for ri in reserved_instances:
+       end_date = datetime.strptime(ri["End"], "%Y-%m-%dT%H:%M:%S.%fZ")
+       if end_date <= datetime.now() + timedelta(days=30):
+           print(f"Reserved Instance {ri['ReservedInstancesId']} will expire in the next 30 days.")
+   ```
+
+   This script runs the AWS CLI command to list all active Reserved Instances, parses the output, and checks if the end date of each Reserved Instance is within the next 30 days. If it is, it prints a message with the ID of the Reserved Instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You need to set up your AWS credentials. You can set your credentials for use by Boto3 in several ways, but the simplest is to use the AWS CLI tool to configure them:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to list all EC2 Reserved Instances and their expiration dates:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create a client
+ec2 = boto3.client('ec2')
+
+# Get the list of all reserved instances
+reservations = ec2.describe_reserved_instances()['ReservedInstances']
+
+# Get the current date
+now = datetime.now()
+
+# Check each reserved instance
+for ri in reservations:
+    # Get the end date of the reserved instance
+    end_date = ri['End']
+    
+    # Calculate the difference between the end date and the current date
+    diff = end_date - now
+    
+    # If the difference is less than 30 days, print the ID of the reserved instance
+    if diff.days < 30:
+        print("Reserved Instance ID: ", ri['ReservedInstancesId'])
+```
+
+4. Run the script: You can run the script using any Python interpreter. The script will print the IDs of all EC2 Reserved Instances that will expire in the next 30 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

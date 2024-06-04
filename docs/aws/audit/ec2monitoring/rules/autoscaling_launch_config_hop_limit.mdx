@@ -23,6 +23,244 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of Autoscaling Hop Limit in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top navigation bar, select "Services" and then choose "EC2" under the "Compute" section.
+
+2. **Access Auto Scaling Groups:**
+   - In the left-hand navigation pane, scroll down and select "Auto Scaling Groups" under the "Auto Scaling" section.
+
+3. **Modify Auto Scaling Group Settings:**
+   - Select the Auto Scaling group you want to configure.
+   - Click on the "Edit" button to modify the settings of the selected Auto Scaling group.
+
+4. **Set the Hop Limit:**
+   - In the "Advanced Details" section, locate the "Instance Metadata Service" settings.
+   - Ensure that the "Hop Limit" is set to a value that meets your security requirements (typically, a value of 1 is recommended to prevent unauthorized access).
+   - Save the changes by clicking the "Update" button.
+
+By following these steps, you can ensure that the hop limit for instance metadata is properly configured, enhancing the security of your EC2 instances within the Auto Scaling group.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of Autoscaling Hop Limit in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Launch Configuration with Proper Hop Limit:**
+   Ensure that the launch configuration for your Auto Scaling group specifies the correct instance metadata options, including the hop limit.
+
+   ```sh
+   aws autoscaling create-launch-configuration \
+       --launch-configuration-name my-launch-config \
+       --image-id ami-12345678 \
+       --instance-type t2.micro \
+       --instance-metadata-options "HttpPutResponseHopLimit=2"
+   ```
+
+2. **Create an Auto Scaling Group with the Launch Configuration:**
+   Create an Auto Scaling group using the launch configuration that you have set up with the proper hop limit.
+
+   ```sh
+   aws autoscaling create-auto-scaling-group \
+       --auto-scaling-group-name my-asg \
+       --launch-configuration-name my-launch-config \
+       --min-size 1 \
+       --max-size 5 \
+       --desired-capacity 2 \
+       --vpc-zone-identifier subnet-12345678
+   ```
+
+3. **Update Existing Launch Configurations:**
+   If you have existing launch configurations, you need to create a new launch configuration with the correct hop limit and update your Auto Scaling group to use the new configuration.
+
+   ```sh
+   aws autoscaling update-auto-scaling-group \
+       --auto-scaling-group-name my-asg \
+       --launch-configuration-name my-new-launch-config
+   ```
+
+4. **Verify the Configuration:**
+   Ensure that the Auto Scaling group is using the launch configuration with the correct hop limit by describing the Auto Scaling group and checking the instance metadata options.
+
+   ```sh
+   aws autoscaling describe-auto-scaling-groups \
+       --auto-scaling-group-names my-asg
+   ```
+
+By following these steps, you can prevent the misconfiguration of Autoscaling Hop Limit in EC2 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Autoscaling Hop Limit in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that the hop limit is checked and set correctly:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a credentials file at `~/.aws/credentials`.
+
+3. **Create a Python Script to Check and Set Hop Limit**:
+   Write a Python script to check and set the hop limit for your EC2 instances in an Auto Scaling group.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the EC2 and Auto Scaling clients
+   ec2_client = session.client('ec2')
+   autoscaling_client = session.client('autoscaling')
+
+   # Function to check and set hop limit
+   def check_and_set_hop_limit(auto_scaling_group_name, desired_hop_limit):
+       # Describe the Auto Scaling group
+       response = autoscaling_client.describe_auto_scaling_groups(
+           AutoScalingGroupNames=[auto_scaling_group_name]
+       )
+       auto_scaling_group = response['AutoScalingGroups'][0]
+
+       # Get the launch configuration name
+       launch_configuration_name = auto_scaling_group['LaunchConfigurationName']
+
+       # Describe the launch configuration
+       response = autoscaling_client.describe_launch_configurations(
+           LaunchConfigurationNames=[launch_configuration_name]
+       )
+       launch_configuration = response['LaunchConfigurations'][0]
+
+       # Check the current hop limit
+       current_hop_limit = launch_configuration.get('InstanceMetadataOptions', {}).get('HttpPutResponseHopLimit', None)
+
+       # If the hop limit is not set or is different from the desired value, update it
+       if current_hop_limit != desired_hop_limit:
+           print(f"Updating hop limit from {current_hop_limit} to {desired_hop_limit}")
+
+           # Create a new launch configuration with the desired hop limit
+           autoscaling_client.create_launch_configuration(
+               LaunchConfigurationName=f"{launch_configuration_name}-updated",
+               ImageId=launch_configuration['ImageId'],
+               InstanceType=launch_configuration['InstanceType'],
+               KeyName=launch_configuration.get('KeyName'),
+               SecurityGroups=launch_configuration.get('SecurityGroups'),
+               UserData=launch_configuration.get('UserData'),
+               InstanceMetadataOptions={
+                   'HttpPutResponseHopLimit': desired_hop_limit
+               }
+           )
+
+           # Update the Auto Scaling group to use the new launch configuration
+           autoscaling_client.update_auto_scaling_group(
+               AutoScalingGroupName=auto_scaling_group_name,
+               LaunchConfigurationName=f"{launch_configuration_name}-updated"
+           )
+
+           print("Hop limit updated successfully.")
+       else:
+           print("Hop limit is already set correctly.")
+
+   # Example usage
+   auto_scaling_group_name = 'your-auto-scaling-group-name'
+   desired_hop_limit = 2
+   check_and_set_hop_limit(auto_scaling_group_name, desired_hop_limit)
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure that the hop limit is checked and set correctly for your EC2 instances in the Auto Scaling group.
+
+   ```bash
+   python check_and_set_hop_limit.py
+   ```
+
+This script will check the current hop limit for the instances in the specified Auto Scaling group and update it if necessary. Make sure to replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, `'YOUR_REGION'`, and `'your-auto-scaling-group-name'` with your actual AWS credentials, region, and Auto Scaling group name.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose 'Auto Scaling groups'.
+
+3. Select the Auto Scaling group that you want to check.
+
+4. In the details pane, under 'Advanced configurations', check the value of 'Max instance lifetime'. This is the maximum amount of time that an instance can be in service. The value must be either equal to 0 (which means instances are not replaced automatically) or between 7-365 days.
+
+5. If the value is not set or is set to a value outside the allowed range, then the Auto Scaling group is not properly configured to replace instances that have been running for a long time, which could lead to potential issues with instance performance and reliability.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI by following the instructions provided in the official AWS documentation. Once installed, you can configure it by running the command `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Auto Scaling groups: Use the following AWS CLI command to list all the Auto Scaling groups in your AWS account:
+
+   ```
+   aws autoscaling describe-auto-scaling-groups
+   ```
+
+   This command will return a JSON output with the details of all the Auto Scaling groups.
+
+3. Check the hop limit for each Auto Scaling group: The hop limit is not a directly accessible attribute of an Auto Scaling group. However, you can infer it from the number of Launch Configurations or Launch Templates associated with the Auto Scaling group. You can use the following command to list all the Launch Configurations or Launch Templates:
+
+   ```
+   aws autoscaling describe-launch-configurations
+   aws ec2 describe-launch-templates
+   ```
+
+4. Analyze the output: The output of the above commands will include a list of all the Launch Configurations or Launch Templates. If an Auto Scaling group has more than one Launch Configuration or Launch Template, it indicates that the hop limit may have been exceeded. You need to manually analyze the output and check the number of Launch Configurations or Launch Templates for each Auto Scaling group.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) in your environment. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+```python
+pip install boto3
+```
+
+2. Configure your AWS credentials to allow your script to access AWS services. You can do this by setting up your AWS credentials in the AWS credentials file (`~/.aws/credentials`), or by setting the following environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`.
+
+3. Create a Python script that uses Boto3 to interact with the AWS EC2 service. The script should retrieve all Auto Scaling groups and check the value of the `MaxSize` attribute. If the `MaxSize` attribute is not set or is set to a value that is too high, this could indicate a misconfiguration.
+
+```python
+import boto3
+
+def check_autoscaling_hop_limit():
+    client = boto3.client('autoscaling')
+    response = client.describe_auto_scaling_groups()
+
+    for group in response['AutoScalingGroups']:
+        if 'MaxSize' not in group or group['MaxSize'] > 10:  # Replace 10 with the maximum allowed size
+            print(f"Auto Scaling group {group['AutoScalingGroupName']} is misconfigured. MaxSize is {group['MaxSize']}")
+
+check_autoscaling_hop_limit()
+```
+
+4. Run the script. If there are any misconfigured Auto Scaling groups, the script will print their names and the current `MaxSize` value. If no misconfigured groups are found, the script will not output anything.
+
+Please note that the maximum allowed size (`10` in the example) should be replaced with the value that is appropriate for your specific use case.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

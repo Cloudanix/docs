@@ -1,6 +1,257 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the use of EC2-Classic in EC2 using the AWS Management Console, follow these steps:
+
+1. **Check VPC Default Settings:**
+   - Navigate to the **VPC Dashboard** in the AWS Management Console.
+   - Ensure that your account is set to use the default VPC for new instances. This will prevent the use of EC2-Classic, as new instances will be launched in a VPC by default.
+
+2. **Launch Instances in VPC:**
+   - When launching a new EC2 instance, make sure to select a VPC in the **Network** section of the instance launch wizard.
+   - Avoid selecting any option that refers to EC2-Classic.
+
+3. **Review Existing Instances:**
+   - Go to the **EC2 Dashboard** and review your existing instances.
+   - Ensure that all instances are running within a VPC. Instances running in EC2-Classic should be migrated to a VPC.
+
+4. **IAM Policies and Permissions:**
+   - Create and enforce IAM policies that restrict users from launching instances in EC2-Classic.
+   - Use AWS Identity and Access Management (IAM) to ensure that only authorized users can create and manage EC2 instances, and that they are restricted to using VPCs.
+
+By following these steps, you can ensure that EC2-Classic is not used in your AWS environment, thereby enhancing security and modernizing your infrastructure.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of EC2-Classic in AWS using the AWS CLI, you can follow these steps:
+
+1. **Disable EC2-Classic for your account:**
+   Ensure that your AWS account is configured to use only EC2-VPC. AWS has deprecated EC2-Classic for new accounts, but if you have an older account, you can disable EC2-Classic.
+
+   ```sh
+   aws ec2 modify-account --default-vpc
+   ```
+
+2. **Create a VPC:**
+   Ensure that you have a VPC created in your account. This will be the network environment where your EC2 instances will be launched.
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+3. **Launch EC2 Instances in VPC:**
+   When launching EC2 instances, specify the subnet ID to ensure they are launched within a VPC.
+
+   ```sh
+   aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --subnet-id subnet-6e7f829e
+   ```
+
+4. **Set Up IAM Policies:**
+   Create and attach IAM policies to users, groups, or roles to restrict the creation of EC2 instances in EC2-Classic. Ensure that the policies enforce the use of VPC.
+
+   ```sh
+   aws iam create-policy --policy-name EC2-VPC-Only --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ec2:RunInstances",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "ec2:Tenancy": "default"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that EC2-Classic is not used in your AWS environment, and all EC2 instances are launched within a VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the use of EC2-Classic in AWS using Python scripts, you can leverage the AWS SDK for Python, also known as Boto3. Here are the steps to ensure that EC2-Classic is not used:
+
+1. **Check for EC2-Classic Instances:**
+   Use Boto3 to list all EC2 instances and filter out any that are using EC2-Classic. This will help you identify any existing instances that need to be migrated.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_instances()
+
+   for reservation in response['Reservations']:
+       for instance in reservation['Instances']:
+           if 'Classic' in instance['InstanceType']:
+               print(f"Instance {instance['InstanceId']} is using EC2-Classic.")
+   ```
+
+2. **Disable EC2-Classic for New Instances:**
+   Ensure that new instances are launched in a VPC by specifying the `NetworkInterfaces` parameter when creating instances. This parameter requires you to specify a subnet, which is only available in VPC.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.run_instances(
+       ImageId='ami-0abcdef1234567890',
+       MinCount=1,
+       MaxCount=1,
+       InstanceType='t2.micro',
+       NetworkInterfaces=[{
+           'SubnetId': 'subnet-0bb1c79de3EXAMPLE',
+           'DeviceIndex': 0,
+           'AssociatePublicIpAddress': True
+       }]
+   )
+
+   print(f"Instance {response['Instances'][0]['InstanceId']} launched in VPC.")
+   ```
+
+3. **Monitor and Alert for EC2-Classic Usage:**
+   Set up a CloudWatch rule to trigger a Lambda function that checks for EC2-Classic instances and sends an alert if any are found. The Lambda function can use Boto3 to perform the check.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_instances()
+
+       for reservation in response['Reservations']:
+           for instance in reservation['Instances']:
+               if 'Classic' in instance['InstanceType']:
+                   # Send alert (e.g., SNS, email, etc.)
+                   print(f"Alert: Instance {instance['InstanceId']} is using EC2-Classic.")
+   ```
+
+4. **Automate Migration to VPC:**
+   Create a script to automate the migration of EC2-Classic instances to a VPC. This involves stopping the instance, creating an AMI, and then launching a new instance in a VPC using that AMI.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def migrate_instance(instance_id):
+       # Stop the instance
+       ec2.stop_instances(InstanceIds=[instance_id])
+       waiter = ec2.get_waiter('instance_stopped')
+       waiter.wait(InstanceIds=[instance_id])
+
+       # Create an AMI
+       response = ec2.create_image(InstanceId=instance_id, Name=f"ami-{instance_id}")
+       image_id = response['ImageId']
+
+       # Wait for the AMI to be available
+       waiter = ec2.get_waiter('image_available')
+       waiter.wait(ImageIds=[image_id])
+
+       # Launch a new instance in VPC
+       response = ec2.run_instances(
+           ImageId=image_id,
+           MinCount=1,
+           MaxCount=1,
+           InstanceType='t2.micro',
+           NetworkInterfaces=[{
+               'SubnetId': 'subnet-0bb1c79de3EXAMPLE',
+               'DeviceIndex': 0,
+               'AssociatePublicIpAddress': True
+           }]
+       )
+
+       print(f"Instance {response['Instances'][0]['InstanceId']} launched in VPC.")
+
+   # Example usage
+   migrate_instance('i-0abcdef1234567890')
+   ```
+
+These steps will help you prevent the use of EC2-Classic by ensuring that new instances are launched in a VPC, monitoring for any existing EC2-Classic instances, and automating the migration of any such instances to a VPC.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under "EC2 Dashboard", click on "Running Instances". If you don’t have any instances, this section will be empty.
+
+3. Check the "Platform details" of your instances. If any of your instances are in EC2-Classic, the "Platform details" will show "EC2". Instances in a VPC will show a VPC ID under "Platform details".
+
+4. You can also check the "VPC" column in your instances list. If any of your instances are in EC2-Classic, the "VPC" column will be empty.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the following AWS CLI command to list all your EC2 instances:
+
+   ```
+   aws ec2 describe-instances
+   ```
+
+   This command will return a JSON output with details about all your EC2 instances.
+
+3. Check for EC2 Classic instances: EC2 Classic instances do not have a VPC ID associated with them. So, you can check for EC2 Classic instances by looking for instances where the VPC ID is null or not present. You can do this by parsing the JSON output from the previous step using a tool like `jq`. Here is an example command:
+
+   ```
+   aws ec2 describe-instances | jq -r '.Reservations[].Instances[] | select(.VpcId == null) | .InstanceId'
+   ```
+
+   This command will return the IDs of all EC2 Classic instances.
+
+4. If the above command returns any instance IDs, it means that you are using EC2 Classic instances. If it does not return any instance IDs, it means that you are not using any EC2 Classic instances.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The primary library you need is boto3, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can set them in your environment variables:
+
+```python
+import os
+os.environ["AWS_ACCESS_KEY_ID"] = "your_access_key"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "your_secret_key"
+```
+
+3. Write a Python script to list all EC2 instances: Now, you can write a Python script that uses boto3 to list all your EC2 instances and check if any of them are using the EC2-Classic platform. Here's a simple script that does this:
+
+```python
+import boto3
+
+def check_ec2_classic():
+    ec2 = boto3.resource('ec2')
+    for instance in ec2.instances.all():
+        if instance.platform == 'EC2-Classic':
+            print(f"Instance {instance.id} is using EC2-Classic")
+
+check_ec2_classic()
+```
+
+4. Run the script: Finally, you can run the script. If any of your instances are using the EC2-Classic platform, their IDs will be printed to the console. If no instances are using EC2-Classic, the script will not output anything.
+
+Please note that the above script is a simple example and might need to be adjusted based on your specific needs and environment. For example, you might need to handle pagination if you have a lot of instances, or you might want to handle exceptions in case of API errors.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

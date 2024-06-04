@@ -23,6 +23,240 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where FSx should have a recovery point in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable Backups for FSx File Systems:**
+   - Navigate to the **Amazon FSx** console.
+   - Select the **File Systems** option from the left-hand menu.
+   - Choose the FSx file system you want to configure.
+   - In the **Backups** tab, ensure that automatic backups are enabled. You can set the backup window and retention period according to your requirements.
+
+2. **Configure Backup Policies:**
+   - Go to the **AWS Backup** console.
+   - Create a backup plan by selecting **Create backup plan**.
+   - Define the backup rules, including the frequency and retention period.
+   - Assign the FSx file system resources to the backup plan to ensure they are included in the scheduled backups.
+
+3. **Set Up Lifecycle Policies:**
+   - In the **AWS Backup** console, navigate to the **Lifecycle** section.
+   - Configure lifecycle policies to transition backups to cold storage or delete them after a certain period, ensuring efficient use of storage and cost management.
+
+4. **Monitor Backup Status:**
+   - Regularly check the **Backup Jobs** and **Backup Vaults** in the AWS Backup console.
+   - Ensure that backups are being created successfully and that there are no failed backup jobs.
+   - Set up CloudWatch alarms to notify you of any backup failures or issues.
+
+By following these steps, you can ensure that your FSx file systems have regular recovery points, thereby preventing misconfigurations related to backups.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where FSx should have a recovery point in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   Ensure you have a backup plan that includes FSx file systems. This plan will define the backup rules and the resources to be backed up.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "FSxBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign your FSx file systems to the backup plan to ensure they are included in the scheduled backups.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <your-backup-plan-id> --backup-selection '{
+       "SelectionName": "FSxSelection",
+       "IamRoleArn": "arn:aws:iam::<account-id>:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:fsx:<region>:<account-id>:file-system/<fsx-id>"
+       ]
+   }'
+   ```
+
+3. **Enable Automatic Backups for FSx:**
+   When creating a new FSx file system, enable automatic backups. This ensures that the file system is backed up daily.
+
+   ```sh
+   aws fsx create-file-system --file-system-type WINDOWS --storage-capacity 300 --subnet-ids subnet-12345678 --windows-configuration '{
+       "ThroughputCapacity": 8,
+       "WeeklyMaintenanceStartTime": "1:05:00",
+       "DailyAutomaticBackupStartTime": "02:00",
+       "AutomaticBackupRetentionDays": 7
+   }'
+   ```
+
+4. **Verify Backup Configuration:**
+   Regularly verify that your FSx file systems are being backed up according to the backup plan.
+
+   ```sh
+   aws backup list-backups --by-resource-arn arn:aws:fsx:<region>:<account-id>:file-system/<fsx-id>
+   ```
+
+By following these steps, you can ensure that your FSx file systems have recovery points and are protected against data loss.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of FSx (Amazon FSx) not having a recovery point in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Enable Backups:**
+   - Write a Python script to enable automatic backups for your FSx file systems. This script will iterate through all FSx file systems and ensure that automatic backups are enabled.
+
+3. **Script to Enable Automatic Backups:**
+   - Below is a sample Python script to enable automatic backups for FSx file systems:
+     ```python
+     import boto3
+
+     def enable_automatic_backups():
+         # Create a Boto3 client for FSx
+         fsx_client = boto3.client('fsx')
+
+         # Describe all FSx file systems
+         response = fsx_client.describe_file_systems()
+
+         for file_system in response['FileSystems']:
+             file_system_id = file_system['FileSystemId']
+             backup_policy = file_system.get('BackupPolicy', {})
+
+             # Check if automatic backups are enabled
+             if not backup_policy.get('AutomaticBackupRetentionDays'):
+                 # Enable automatic backups with a retention period of 7 days
+                 fsx_client.update_file_system(
+                     FileSystemId=file_system_id,
+                     BackupPolicy={
+                         'AutomaticBackupRetentionDays': 7
+                     }
+                 )
+                 print(f"Enabled automatic backups for FSx file system: {file_system_id}")
+             else:
+                 print(f"Automatic backups already enabled for FSx file system: {file_system_id}")
+
+     if __name__ == "__main__":
+         enable_automatic_backups()
+     ```
+
+4. **Run the Script:**
+   - Execute the script to ensure that all FSx file systems have automatic backups enabled:
+     ```bash
+     python enable_fsx_backups.py
+     ```
+
+By following these steps, you can ensure that your FSx file systems have automatic backups enabled, thereby preventing the misconfiguration of not having a recovery point in EC2.
+</Accordion>
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon FSx console at https://console.aws.amazon.com/fsx/.
+
+2. In the navigation pane, choose "File systems". This will display a list of all your FSx file systems.
+
+3. Select the FSx file system that you want to check for recovery points. 
+
+4. In the details pane, look for the "Backups" section. Here, you can see the list of all backups (recovery points) created for the selected file system. If there are no backups listed, it means that the FSx file system does not have any recovery points.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all FSx file systems: Use the following command to list all the FSx file systems in your AWS account.
+
+   ```
+   aws fsx describe-file-systems
+   ```
+
+   This command will return a JSON output with details of all FSx file systems.
+
+3. Check for recovery points: For each FSx file system, check if there are any recovery points. You can do this by using the following command:
+
+   ```
+   aws backup list-recovery-points-by-backup-vault --backup-vault-name <name_of_your_backup_vault>
+   ```
+
+   Replace `<name_of_your_backup_vault>` with the name of your backup vault. This command will return a list of recovery points in the specified backup vault.
+
+4. Analyze the output: If the output from the previous step does not contain the ID of the FSx file system, it means that there are no recovery points for that file system. This is a misconfiguration as it could lead to data loss in case of a disaster.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing your Python script, you need to install the AWS SDK for Python (Boto3). You can do this by running the command `pip install boto3` in your terminal.
+
+2. Import the necessary libraries and establish a session with AWS: In your Python script, you'll need to import the Boto3 library and establish a session with AWS. Here's how you can do that:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+Replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS access key, secret key, and region.
+
+3. Connect to the FSx service and retrieve all file systems: Now that you have a session with AWS, you can connect to the FSx service and retrieve all file systems. Here's how you can do that:
+
+```python
+fsx = session.client('fsx')
+
+response = fsx.describe_file_systems()
+
+file_systems = response['FileSystems']
+```
+
+4. Check each file system for a recovery point: Now that you have a list of all file systems, you can check each one for a recovery point. Here's how you can do that:
+
+```python
+for fs in file_systems:
+    backups = fsx.describe_backups(
+        Filters=[
+            {
+                'Name': 'file-system-id',
+                'Values': [
+                    fs['FileSystemId'],
+                ]
+            },
+        ]
+    )
+
+    if not backups['Backups']:
+        print(f"File system {fs['FileSystemId']} does not have a recovery point.")
+```
+
+This script will print out the ID of each file system that does not have a recovery point.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

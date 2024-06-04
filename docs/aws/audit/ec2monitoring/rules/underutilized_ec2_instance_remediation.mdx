@@ -1,6 +1,251 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from being underutilized in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Detailed Monitoring:**
+   - Navigate to the EC2 Dashboard in the AWS Management Console.
+   - Select the instance you want to monitor.
+   - Click on the "Actions" dropdown menu, then select "Monitor and troubleshoot" and choose "Manage detailed monitoring."
+   - Enable detailed monitoring to get more granular metrics, which can help in identifying underutilization.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" in the left-hand menu, then click "Create Alarm."
+   - Select the EC2 metric you want to monitor (e.g., CPU Utilization, Network In/Out).
+   - Set thresholds for underutilization (e.g., CPU Utilization below 10% for a certain period) and configure notifications.
+
+3. **Use AWS Trusted Advisor:**
+   - Open the AWS Trusted Advisor Dashboard.
+   - Review the "Cost Optimization" section, which includes checks for underutilized EC2 instances.
+   - Regularly review the recommendations provided by Trusted Advisor and take action accordingly.
+
+4. **Implement Auto Scaling:**
+   - Navigate to the EC2 Dashboard and click on "Auto Scaling Groups" in the left-hand menu.
+   - Create a new Auto Scaling group or modify an existing one.
+   - Configure scaling policies to automatically adjust the number of instances based on demand, ensuring that instances are not underutilized.
+
+By following these steps, you can proactively monitor and manage your EC2 instances to prevent underutilization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from being underutilized using AWS CLI, you can follow these steps:
+
+1. **Monitor CPU Utilization:**
+   Regularly monitor the CPU utilization of your EC2 instances to identify underutilized instances. You can use the `cloudwatch` command to get CPU utilization metrics.
+
+   ```sh
+   aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUUtilization --dimensions Name=InstanceId,Value=<instance-id> --start-time <start-time> --end-time <end-time> --period 300 --statistics Average
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to notify you when an instance's CPU utilization falls below a certain threshold for a specified period.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "LowCPUUtilization" --metric-name CPUUtilization --namespace AWS/EC2 --statistic Average --period 300 --threshold 10 --comparison-operator LessThanThreshold --dimensions Name=InstanceId,Value=<instance-id> --evaluation-periods 2 --alarm-actions <sns-topic-arn>
+   ```
+
+3. **Enable Auto Scaling:**
+   Configure Auto Scaling to automatically adjust the number of instances based on demand. This helps in scaling down underutilized instances.
+
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name <group-name> --instance-id <instance-id> --min-size 1 --max-size 10 --desired-capacity 2 --availability-zones <availability-zones>
+   ```
+
+4. **Use AWS Trusted Advisor:**
+   Regularly check AWS Trusted Advisor for recommendations on underutilized instances. You can use the AWS CLI to describe the Trusted Advisor checks.
+
+   ```sh
+   aws support describe-trusted-advisor-checks --language en
+   ```
+
+By following these steps, you can proactively monitor and manage your EC2 instances to prevent underutilization.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from being underutilized in AWS using Python scripts, you can follow these steps:
+
+1. **Monitor CPU Utilization**:
+   - Use the AWS CloudWatch service to monitor the CPU utilization of your EC2 instances. If the CPU utilization is consistently below a certain threshold (e.g., 20%), the instance might be underutilized.
+
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+
+   def get_cpu_utilization(instance_id):
+       response = cloudwatch.get_metric_statistics(
+           Namespace='AWS/EC2',
+           MetricName='CPUUtilization',
+           Dimensions=[{'Name': 'InstanceId', 'Value': instance_id}],
+           StartTime=datetime.utcnow() - timedelta(minutes=10),
+           EndTime=datetime.utcnow(),
+           Period=300,
+           Statistics=['Average']
+       )
+       for point in response['Datapoints']:
+           return point['Average']
+       return None
+   ```
+
+2. **Tagging Underutilized Instances**:
+   - Automatically tag instances that are underutilized for easy identification and further action.
+
+   ```python
+   ec2 = boto3.client('ec2')
+
+   def tag_underutilized_instance(instance_id):
+       ec2.create_tags(
+           Resources=[instance_id],
+           Tags=[{'Key': 'Underutilized', 'Value': 'True'}]
+       )
+   ```
+
+3. **Automated Scaling**:
+   - Implement auto-scaling policies to scale down underutilized instances. This can be done by creating an Auto Scaling Group (ASG) and setting appropriate scaling policies.
+
+   ```python
+   autoscaling = boto3.client('autoscaling')
+
+   def create_scaling_policy(asg_name):
+       response = autoscaling.put_scaling_policy(
+           AutoScalingGroupName=asg_name,
+           PolicyName='ScaleDownPolicy',
+           PolicyType='SimpleScaling',
+           AdjustmentType='ChangeInCapacity',
+           ScalingAdjustment=-1,
+           Cooldown=300
+       )
+       return response
+   ```
+
+4. **Scheduled Checks**:
+   - Schedule regular checks to identify and handle underutilized instances. This can be done using AWS Lambda and CloudWatch Events to trigger the script periodically.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   def lambda_handler(event, context):
+       ec2 = boto3.client('ec2')
+       cloudwatch = boto3.client('cloudwatch')
+
+       instances = ec2.describe_instances()
+       for reservation in instances['Reservations']:
+           for instance in reservation['Instances']:
+               instance_id = instance['InstanceId']
+               cpu_utilization = get_cpu_utilization(instance_id)
+               if cpu_utilization is not None and cpu_utilization < 20:
+                   tag_underutilized_instance(instance_id)
+                   # Optionally, you can add logic to stop or terminate the instance
+                   # ec2.stop_instances(InstanceIds=[instance_id])
+                   # ec2.terminate_instances(InstanceIds=[instance_id])
+
+   # Schedule this function using CloudWatch Events
+   ```
+
+By following these steps, you can proactively monitor and manage underutilized EC2 instances using Python scripts, ensuring that your resources are used efficiently.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, select "Instances" to view all the EC2 instances.
+3. For each instance, check the "Monitoring" tab. This tab provides metrics about CPU utilization, Disk reads and writes, Network packets, etc. 
+4. If the CPU utilization is consistently low (below 20% for example), the instance may be underutilized. Similarly, if the Disk reads/writes and Network packets are low, it could also indicate underutilization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List all EC2 Instances**: Use the AWS CLI command `aws ec2 describe-instances` to list all the EC2 instances in your account. This command will return a JSON output with details about all your instances.
+
+3. **Check CPU Utilization**: To check the CPU utilization of your EC2 instances, you can use the CloudWatch `get-metric-statistics` command. The command will look something like this: 
+
+    ```
+    aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUUtilization --dimensions Name=InstanceId,Value=instance_id --start-time 2021-01-01T00:00:00Z --end-time 2021-01-02T23:59:59Z --period 3600 --statistics Maximum --unit Percent
+    ```
+
+    Replace `instance_id` with the ID of your EC2 instance, and adjust the `start-time` and `end-time` parameters to the period you want to check. This command will return the maximum CPU utilization for each hour in the specified period.
+
+4. **Analyze the Output**: The output of the `get-metric-statistics` command will include a `Datapoints` array with the maximum CPU utilization for each hour. If the CPU utilization is consistently low (e.g., less than 20%), the EC2 instance may be underutilized.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your Python environment. You can do this using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+2. Use Boto3 to connect to AWS EC2:
+   You can use Boto3 to create an EC2 resource object using the AWS credentials:
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+   ```
+
+3. Retrieve and analyze EC2 instances:
+   You can use the EC2 resource object to retrieve all EC2 instances and analyze their utilization:
+   ```python
+   instances = ec2.instances.all()
+
+   for instance in instances:
+       # Get instance id and type
+       instance_id = instance.id
+       instance_type = instance.instance_type
+
+       # Get CloudWatch metrics for the instance
+       cloudwatch = boto3.client('cloudwatch')
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/EC2',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'InstanceId',
+                   'Value': instance_id
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=300,
+           Statistics=['Average']
+       )
+
+       # Check if the instance is underutilized
+       if metrics['Datapoints']:
+           cpu_utilization = metrics['Datapoints'][0]['Average']
+           if cpu_utilization < 20.0:  # You can adjust this threshold as needed
+               print(f"Instance {instance_id} of type {instance_type} is underutilized with CPU utilization of {cpu_utilization}%")
+   ```
+
+4. Regularly run the script:
+   You should regularly run this script to monitor your EC2 instances. You can do this manually, or you can automate it using a cron job or a similar scheduling tool.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

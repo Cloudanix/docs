@@ -23,6 +23,218 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the virtualization type of an EC2 instance from being set to Paravirtual (PV) in AWS using the AWS Management Console, follow these steps:
+
+1. **Launch Instance Wizard**:
+   - Open the AWS Management Console and navigate to the EC2 Dashboard.
+   - Click on the "Launch Instance" button to start the instance creation process.
+
+2. **Choose an AMI**:
+   - In the "Choose an Amazon Machine Image (AMI)" step, select an AMI that supports Hardware Virtual Machine (HVM). Most modern AMIs, including Amazon Linux 2, Ubuntu, and Windows Server, support HVM by default.
+
+3. **Instance Type Selection**:
+   - In the "Choose an Instance Type" step, select an instance type that supports HVM. Most current-generation instance types (e.g., t3, m5, c5) support HVM and do not support PV.
+
+4. **Review and Launch**:
+   - Continue through the instance configuration steps, ensuring that you do not select any deprecated or older instance types that might support PV.
+   - Review your instance configuration in the "Review Instance Launch" step and click "Launch" to start the instance with the selected HVM-supported AMI and instance type.
+
+By following these steps, you ensure that the EC2 instance is launched with HVM virtualization, thereby preventing the use of Paravirtual (PV) virtualization type.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the creation of EC2 instances with the virtualization type set to Paravirtual using AWS CLI, you can follow these steps:
+
+1. **Describe Available Instance Types**:
+   Before launching an instance, you can list the available instance types and their virtualization types to ensure you select an HVM (Hardware Virtual Machine) type.
+
+   ```sh
+   aws ec2 describe-instance-types --query "InstanceTypes[?Hypervisor=='xen'].{InstanceType:InstanceType, VirtualizationType:VirtualizationType}"
+   ```
+
+2. **Launch Instance with HVM Virtualization Type**:
+   When launching a new EC2 instance, specify an instance type that supports HVM. For example, `t2.micro` is an instance type that uses HVM.
+
+   ```sh
+   aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair
+   ```
+
+3. **Create a Launch Template**:
+   Create a launch template that specifies an instance type with HVM virtualization. This ensures that any instances launched using this template will use HVM.
+
+   ```sh
+   aws ec2 create-launch-template --launch-template-name MyLaunchTemplate --version-description "HVM Template" --launch-template-data '{"ImageId":"ami-0abcdef1234567890","InstanceType":"t2.micro","KeyName":"MyKeyPair"}'
+   ```
+
+4. **Use IAM Policies to Restrict Instance Types**:
+   Create and attach an IAM policy to restrict users from launching instances with Paravirtual virtualization types. This policy can be attached to IAM roles or users.
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ec2:RunInstances",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "ec2:InstanceType": [
+                           "m1.small",
+                           "m1.medium",
+                           "m1.large",
+                           "m1.xlarge"
+                       ]
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+   Save the above JSON policy to a file, e.g., `deny-paravirtual-policy.json`, and then create the policy using the AWS CLI:
+
+   ```sh
+   aws iam create-policy --policy-name DenyParavirtualInstances --policy-document file://deny-paravirtual-policy.json
+   ```
+
+By following these steps, you can ensure that EC2 instances with Paravirtual virtualization types are not created using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the creation of EC2 instances with the Paravirtual (PV) virtualization type using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that only Hardware Virtual Machine (HVM) instances are created:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script to Launch EC2 Instances with HVM**:
+   Write a Python script that specifies the virtualization type as HVM when launching an EC2 instance. Here is an example script:
+
+   ```python
+   import boto3
+
+   def launch_hvm_instance():
+       ec2_client = boto3.client('ec2', region_name='us-west-2')  # Specify your region
+
+       # Define the instance parameters
+       instance_params = {
+           'ImageId': 'ami-0abcdef1234567890',  # Replace with an HVM AMI ID
+           'InstanceType': 't2.micro',  # Specify the instance type
+           'MinCount': 1,
+           'MaxCount': 1,
+           'KeyName': 'your-key-pair',  # Replace with your key pair name
+           'SecurityGroupIds': ['sg-0123456789abcdef0'],  # Replace with your security group ID
+           'SubnetId': 'subnet-0123456789abcdef0'  # Replace with your subnet ID
+       }
+
+       # Launch the instance
+       response = ec2_client.run_instances(**instance_params)
+
+       # Print the instance ID
+       for instance in response['Instances']:
+           print(f"Launched instance with ID: {instance['InstanceId']}")
+
+   if __name__ == "__main__":
+       launch_hvm_instance()
+   ```
+
+4. **Verify the Virtualization Type**:
+   Ensure that the AMI you are using is of the HVM type. You can check this by describing the AMI using Boto3:
+
+   ```python
+   def check_ami_virtualization_type(ami_id):
+       ec2_client = boto3.client('ec2', region_name='us-west-2')  # Specify your region
+
+       response = ec2_client.describe_images(ImageIds=[ami_id])
+       for image in response['Images']:
+           print(f"AMI ID: {image['ImageId']}, Virtualization Type: {image['VirtualizationType']}")
+
+   if __name__ == "__main__":
+       ami_id = 'ami-0abcdef1234567890'  # Replace with your AMI ID
+       check_ami_virtualization_type(ami_id)
+   ```
+
+By following these steps, you can ensure that your EC2 instances are launched with the HVM virtualization type, thereby preventing the use of Paravirtual (PV) instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Instances", click on "Instances".
+3. In the main pane, select the instance you want to check.
+4. In the "Description" tab at the bottom of the page, look for the "AMI ID" field. Click on the AMI ID link.
+5. In the new page that opens, look for the "Root device type" field. If the value is "instance store", then the instance is using paravirtualization. If the value is "ebs", then the instance is using hardware virtualization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-instances" command to get information about your EC2 instances. The command is as follows:
+
+   ```
+   aws ec2 describe-instances --instance-ids <your-instance-id>
+   ```
+
+   Replace `<your-instance-id>` with the ID of the EC2 instance you want to check.
+
+3. The output of the above command will be in JSON format. You need to look for the "VirtualizationType" field in the output. This field will tell you the virtualization type of the EC2 instance.
+
+4. If the "VirtualizationType" field is set to "paravirtual", then the EC2 instance is using paravirtual virtualization. If it's set to "hvm", then the EC2 instance is using Hardware Virtual Machine (HVM) virtualization.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install Boto3: Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Configure AWS Credentials: You need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+3. Import Boto3 in your Python script: Now, you can start writing your Python script. First, you need to import the Boto3 library:
+
+```python
+import boto3
+```
+
+4. Check the Virtualization Type: Now, you can use Boto3 to interact with your EC2 instances and check their virtualization type. Here is a simple script that lists all your instances and their virtualization type:
+
+```python
+def check_virtualization_type():
+    ec2 = boto3.resource('ec2')
+    for instance in ec2.instances.all():
+        print('ID: {}, Type: {}, Virtualization: {}'.format(instance.id, instance.instance_type, instance.virtualization_type))
+
+check_virtualization_type()
+```
+
+This script will print the ID, type, and virtualization type of all your EC2 instances. If the virtualization type is 'paravirtual', then the instance is using paravirtualization.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

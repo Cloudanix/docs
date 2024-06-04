@@ -1,6 +1,228 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted MsSQL access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups."
+
+2. **Identify the Relevant Security Group:**
+   - Locate the security group associated with your EC2 instance that is running MsSQL.
+   - Click on the security group ID to view its details.
+
+3. **Review Inbound Rules:**
+   - In the security group details, go to the "Inbound rules" tab.
+   - Look for any rules that allow unrestricted access (0.0.0.0/0 or ::/0) to port 1433, which is the default port for MsSQL.
+
+4. **Modify or Remove Inbound Rules:**
+   - If you find any unrestricted access rules, either modify them to restrict access to specific IP addresses or remove them entirely.
+   - To modify, click "Edit inbound rules," change the "Source" to a specific IP range or security group, and save the changes.
+   - To remove, click "Edit inbound rules," delete the rule allowing unrestricted access, and save the changes.
+
+By following these steps, you can ensure that MsSQL access on your EC2 instances is restricted to only trusted IP addresses or security groups, thereby enhancing the security of your database.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted MS SQL access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the MS SQL port (default is 1433). Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance that allows MS SQL access.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <your-instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rule:**
+   Revoke any existing inbound rule that allows unrestricted access (0.0.0.0/0) to port 1433.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 1433 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rule:**
+   Add a more restrictive inbound rule to allow access only from specific IP addresses or CIDR blocks.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 1433 --cidr <your-allowed-cidr>
+   ```
+
+4. **Verify Security Group Rules:**
+   Verify that the security group rules have been updated correctly.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   ```
+
+By following these steps, you can ensure that MS SQL access is restricted to only trusted IP addresses, thereby preventing unrestricted access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted MsSQL access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script**:
+   Write a Python script to modify the security group rules to restrict MsSQL access (port 1433).
+
+4. **Implement the Script**:
+   Below is a sample Python script to restrict MsSQL access to a specific IP range (e.g., `192.168.1.0/24`). Modify the IP range as per your requirements.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Define the security group ID and the IP range to allow
+   security_group_id = 'sg-0123456789abcdef0'  # Replace with your security group ID
+   ip_range = '192.168.1.0/24'  # Replace with the IP range you want to allow
+
+   # Revoke all existing rules for port 1433
+   ec2.revoke_security_group_ingress(
+       GroupId=security_group_id,
+       IpPermissions=[
+           {
+               'IpProtocol': 'tcp',
+               'FromPort': 1433,
+               'ToPort': 1433,
+               'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+           }
+       ]
+   )
+
+   # Add a new rule to allow access only from the specified IP range
+   ec2.authorize_security_group_ingress(
+       GroupId=security_group_id,
+       IpPermissions=[
+           {
+               'IpProtocol': 'tcp',
+               'FromPort': 1433,
+               'ToPort': 1433,
+               'IpRanges': [{'CidrIp': ip_range}]
+           }
+       ]
+   )
+
+   print(f"MsSQL access restricted to {ip_range} for security group {security_group_id}")
+   ```
+
+### Summary of Steps:
+1. **Install Boto3**: Ensure the Boto3 library is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create a Python Script**: Write a script to modify security group rules.
+4. **Implement the Script**: Use the script to revoke unrestricted access and allow access only from a specific IP range.
+
+This script will help you prevent unrestricted MsSQL access by ensuring that only specified IP ranges can access port 1433 on your EC2 instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select 'Security Groups' under the 'Network & Security' section.
+3. In the 'Security Groups' page, select each security group one by one and check the 'Inbound' rules.
+4. Look for any rules that allow unrestricted access (0.0.0.0/0) to MsSQL port (default is 1433). If such a rule exists, it indicates that unrestricted MsSQL access is allowed, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all EC2 instances: Use the following command to list all EC2 instances in your AWS account:
+
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with details about all your EC2 instances.
+
+3. Check security groups: For each EC2 instance, check the associated security groups. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a JSON output with details about the specified security group.
+
+4. Check for unrestricted MsSQL access: In the JSON output from the previous step, look for the `IpPermissions` field. This field contains a list of IP ranges that are allowed to access the EC2 instance. If you find an IP range that is set to `0.0.0.0/0` and the `FromPort` is 1433 (the default port for MsSQL), this means that MsSQL access is unrestricted.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can configure your AWS credentials in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+3. Write a Python script to list all EC2 instances and their security groups: 
+
+```python
+import boto3
+
+def list_instances():
+    ec2 = boto3.resource('ec2')
+    instances = ec2.instances.all()
+    for instance in instances:
+        print("Instance ID: ", instance.id)
+        print("Security Groups: ", instance.security_groups)
+
+list_instances()
+```
+
+4. Write a Python script to check for unrestricted MsSQL access:
+
+```python
+import boto3
+
+def check_unrestricted_access():
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_security_groups()
+    for security_group in response['SecurityGroups']:
+        for permission in security_group['IpPermissions']:
+            for range in permission['IpRanges']:
+                if '0.0.0.0/0' in range['CidrIp']:
+                    if permission['FromPort'] == 1433 and permission['ToPort'] == 1433:
+                        print("Unrestricted MsSQL access detected in Security Group: ", security_group['GroupId'])
+
+check_unrestricted_access()
+```
+
+This script checks all security groups for rules that allow unrestricted access (0.0.0.0/0) to the MsSQL port (1433). If it finds any, it prints out the ID of the security group.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

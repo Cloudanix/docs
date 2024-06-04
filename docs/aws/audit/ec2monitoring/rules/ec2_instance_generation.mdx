@@ -23,6 +23,221 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from using outdated generations and ensure they use the latest generation in AWS using the AWS Management Console, follow these steps:
+
+1. **Review Instance Types:**
+   - Navigate to the EC2 Dashboard in the AWS Management Console.
+   - Under "Instances," select "Launch Instance."
+   - In the "Choose an Amazon Machine Image (AMI)" step, ensure you select an AMI that supports the latest generation instance types.
+
+2. **Instance Type Selection:**
+   - In the "Choose an Instance Type" step, filter the instance types to show only the latest generation instances.
+   - Select the latest generation instance type that meets your requirements.
+
+3. **Instance Launch Templates:**
+   - Go to the "Launch Templates" section under the EC2 Dashboard.
+   - Create or modify a launch template to specify the latest generation instance types.
+   - Ensure that the launch template is used for all new instance launches.
+
+4. **Auto Scaling Groups:**
+   - Navigate to the "Auto Scaling Groups" section under the EC2 Dashboard.
+   - Create or update an Auto Scaling group to use the launch template that specifies the latest generation instance types.
+   - Ensure that the Auto Scaling group is configured to replace older generation instances with the latest generation instances during scaling activities.
+
+By following these steps, you can ensure that your EC2 instances are using the latest generation instance types, thereby optimizing performance and cost-efficiency.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your EC2 instances are using the latest generation in AWS using the AWS CLI, you can follow these steps:
+
+1. **List Available Instance Types:**
+   First, you need to list the available instance types to identify the latest generation. Use the following command to get a list of available instance types in a specific region:
+   ```sh
+   aws ec2 describe-instance-types --region <your-region>
+   ```
+
+2. **Filter for Latest Generation Instances:**
+   To filter and list only the latest generation instance types, you can use the `--filters` option. For example, to list the latest generation of general-purpose instances:
+   ```sh
+   aws ec2 describe-instance-types --filters "Name=instance-type,Values=t3.*,m5.*,c5.*" --region <your-region>
+   ```
+
+3. **Launch Instances with Latest Generation Types:**
+   When launching new instances, specify the latest generation instance type. For example, to launch an instance with the `t3.micro` type:
+   ```sh
+   aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t3.micro --key-name <your-key-pair> --region <your-region>
+   ```
+
+4. **Create a Policy to Enforce Latest Generation Instances:**
+   Create an IAM policy that restricts the creation of older generation instance types. This policy can be attached to IAM roles or users to enforce the use of the latest generation instances. Here is an example policy:
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ec2:RunInstances",
+               "Resource": "arn:aws:ec2:<your-region>::instance/*",
+               "Condition": {
+                   "StringNotLike": {
+                       "ec2:InstanceType": [
+                           "t3.*",
+                           "m5.*",
+                           "c5.*"
+                       ]
+                   }
+               }
+           }
+       ]
+   }
+   ```
+   Use the following command to create the policy:
+   ```sh
+   aws iam create-policy --policy-name EnforceLatestGenInstances --policy-document file://policy.json
+   ```
+
+By following these steps, you can ensure that your EC2 instances are using the latest generation instance types using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from using outdated generations and ensure they use the latest generation, you can implement a Python script that checks the instance type and compares it against a list of the latest generation instance types. Here are the steps to achieve this:
+
+### Step 1: Install Required Libraries
+Ensure you have the `boto3` library installed, which is the AWS SDK for Python.
+
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client to interact with the EC2 service.
+
+```python
+import boto3
+
+ec2_client = boto3.client('ec2')
+```
+
+### Step 3: Fetch Latest Generation Instance Types
+You need to maintain a list of the latest generation instance types. This list can be updated periodically based on AWS documentation.
+
+```python
+latest_generation_instance_types = [
+    't3.micro', 't3.small', 't3.medium', 'm5.large', 'm5.xlarge', 'c5.large', 'c5.xlarge'
+    # Add other latest generation instance types as needed
+]
+```
+
+### Step 4: Check and Prevent Launch of Outdated Instances
+Create a function to check if the instance type is in the latest generation list and prevent the launch if it is not.
+
+```python
+def is_latest_generation(instance_type):
+    return instance_type in latest_generation_instance_types
+
+def prevent_outdated_instance_launch():
+    # Describe instances to get the current running instances
+    response = ec2_client.describe_instances()
+    
+    for reservation in response['Reservations']:
+        for instance in reservation['Instances']:
+            instance_type = instance['InstanceType']
+            if not is_latest_generation(instance_type):
+                print(f"Instance {instance['InstanceId']} is using an outdated generation: {instance_type}")
+                # Here you can add logic to stop the instance or notify the user
+                # ec2_client.stop_instances(InstanceIds=[instance['InstanceId']])
+                # Or send a notification to the admin
+
+# Call the function to check and prevent outdated instance launches
+prevent_outdated_instance_launch()
+```
+
+### Summary
+1. **Install Boto3**: Ensure the AWS SDK for Python is installed.
+2. **Initialize Boto3 Client**: Set up the client to interact with EC2.
+3. **Maintain Latest Generation List**: Keep an updated list of the latest generation instance types.
+4. **Check and Prevent**: Implement a function to check instance types and take action if they are outdated.
+
+By following these steps, you can automate the prevention of launching outdated EC2 instances using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Instances", click on "Instances".
+3. In the "Instances" page, you will see a list of all your EC2 instances. Check the "Instance type" column for each instance.
+4. If the instance type is not of the latest generation (for example, it starts with "t1", "m1", "m2", "c1", "cc1", "cg1", "cr1", "hs1", "m3", "c3", "r3", "i2", "d2"), then it is a misconfiguration as it is not using the latest generation instance type.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the AWS CLI command `aws ec2 describe-instances` to list all the EC2 instances in your account. This command will return a JSON output with details about all your EC2 instances.
+
+3. Extract instance types and instance IDs: From the JSON output, you can extract the instance types and instance IDs using the command `aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId, InstanceType]' --output text`. This command will return a list of instance IDs and their corresponding instance types.
+
+4. Check if instances are of the latest generation: Now, you need to manually check if the instance types returned in the previous step are of the latest generation or not. You can do this by referring to the official AWS documentation which lists all the latest generation instance types. If any of your instances are not of the latest generation, then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Create a Python script: The following script will list all EC2 instances and their instance types. It will then check if the instance type is of the latest generation or not.
+
+   ```python
+   import boto3
+
+   def check_ec2_instance_type():
+       ec2 = boto3.resource('ec2')
+       instances = ec2.instances.all()
+
+       for instance in instances:
+           instance_type = instance.instance_type
+           print(f'Instance ID: {instance.id}, Instance Type: {instance_type}')
+
+           if not instance_type.startswith('m5') and not instance_type.startswith('c5'):
+               print(f'Instance {instance.id} is not using the latest generation instance type.')
+
+   if __name__ == '__main__':
+       check_ec2_instance_type()
+   ```
+   This script assumes that m5 and c5 are the latest generation instance types. You should replace these with the actual latest generation instance types.
+
+4. Run the Python script: You can run the Python script using the following command:
+
+   ```bash
+   python check_ec2_instance_type.py
+   ```
+   
+This script will print out the instance ID and instance type of all EC2 instances. If an instance is not using the latest generation instance type, it will print a warning message.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

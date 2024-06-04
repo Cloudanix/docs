@@ -1,6 +1,264 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent manual deletion of backups in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable Backup Vault Lock:**
+   - Navigate to the AWS Backup service in the AWS Management Console.
+   - Select "Backup vaults" from the left-hand menu.
+   - Choose the backup vault you want to protect.
+   - Click on the "Vault Lock" tab and enable Vault Lock. This will prevent any manual deletion of backups stored in this vault.
+
+2. **Set Backup Policies:**
+   - In the AWS Backup console, go to "Backup plans" and create or edit a backup plan.
+   - Define the backup rules, ensuring that the retention period is set according to your requirements.
+   - Assign the backup plan to the necessary resources (e.g., EC2 instances).
+
+3. **Enable IAM Policies:**
+   - Go to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Create or modify IAM policies to restrict permissions for users and roles, ensuring they do not have the `DeleteBackup` or `DeleteBackupVault` permissions.
+   - Attach these policies to the appropriate IAM users, groups, or roles.
+
+4. **Enable Multi-Factor Authentication (MFA) for Sensitive Operations:**
+   - In the IAM console, select "Users" and choose the user you want to configure.
+   - Under the "Security credentials" tab, enable MFA.
+   - Create an IAM policy that requires MFA for sensitive operations, including backup deletions, and attach it to the user or role.
+
+By following these steps, you can significantly reduce the risk of manual deletion of backups in EC2 using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent manual deletion of backups in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Policy to Deny Deletion of Backups:**
+   - Create a JSON file named `deny-delete-backup-policy.json` with the following content:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": [
+             "ec2:DeleteSnapshot",
+             "ec2:DeleteVolume"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+   - Use the AWS CLI to create the IAM policy:
+     ```sh
+     aws iam create-policy --policy-name DenyDeleteBackupPolicy --policy-document file://deny-delete-backup-policy.json
+     ```
+
+2. **Attach the Policy to a User or Role:**
+   - Identify the IAM user or role that should be restricted from deleting backups.
+   - Attach the policy to the user or role using the following command:
+     ```sh
+     aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/DenyDeleteBackupPolicy
+     ```
+     Or for a role:
+     ```sh
+     aws iam attach-role-policy --role-name <role-name> --policy-arn arn:aws:iam::<account-id>:policy/DenyDeleteBackupPolicy
+     ```
+
+3. **Verify the Policy Attachment:**
+   - Ensure the policy is attached correctly by listing the policies attached to the user or role:
+     ```sh
+     aws iam list-attached-user-policies --user-name <username>
+     ```
+     Or for a role:
+     ```sh
+     aws iam list-attached-role-policies --role-name <role-name>
+     ```
+
+4. **Test the Policy:**
+   - Attempt to delete a snapshot or volume using the AWS CLI to ensure the policy is working as expected:
+     ```sh
+     aws ec2 delete-snapshot --snapshot-id <snapshot-id>
+     ```
+     You should receive an error message indicating that the action is not authorized.
+
+By following these steps, you can effectively prevent manual deletion of backups in EC2 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent manual deletion of backups in EC2 using Python scripts, you can leverage AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   - Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create an IAM Policy to Deny Deletion of Backups:**
+   - Define an IAM policy that denies the `ec2:DeleteSnapshot` action.
+
+   ```python
+   import boto3
+   import json
+
+   iam_client = boto3.client('iam')
+
+   policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ec2:DeleteSnapshot",
+               "Resource": "*"
+           }
+       ]
+   }
+
+   response = iam_client.create_policy(
+       PolicyName='DenyDeleteSnapshotPolicy',
+       PolicyDocument=json.dumps(policy_document)
+   )
+
+   policy_arn = response['Policy']['Arn']
+   print(f"Policy ARN: {policy_arn}")
+   ```
+
+3. **Attach the Policy to IAM Users or Roles:**
+   - Attach the created policy to the IAM users or roles that should be restricted from deleting snapshots.
+
+   ```python
+   iam_client = boto3.client('iam')
+
+   user_name = 'your-iam-user-name'  # Replace with your IAM user name
+
+   response = iam_client.attach_user_policy(
+       UserName=user_name,
+       PolicyArn=policy_arn
+   )
+
+   print(f"Policy attached to user {user_name}")
+   ```
+
+4. **Automate the Policy Attachment for New Users:**
+   - Optionally, you can automate the attachment of this policy to new users by using AWS Lambda and CloudWatch Events to trigger the policy attachment whenever a new user is created.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       iam_client = boto3.client('iam')
+       policy_arn = 'arn:aws:iam::aws:policy/DenyDeleteSnapshotPolicy'  # Replace with your policy ARN
+
+       # Extract the user name from the event
+       user_name = event['detail']['requestParameters']['userName']
+
+       # Attach the policy to the new user
+       response = iam_client.attach_user_policy(
+           UserName=user_name,
+           PolicyArn=policy_arn
+       )
+
+       print(f"Policy attached to new user {user_name}")
+
+   # Note: You need to set up a CloudWatch Event Rule to trigger this Lambda function on CreateUser API calls.
+   ```
+
+By following these steps, you can prevent manual deletion of EC2 backups by denying the `ec2:DeleteSnapshot` action through IAM policies and automating the policy attachment process.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu and then selecting "EC2" under the "Compute" section.
+3. In the EC2 dashboard, select "Snapshots" from the "Elastic Block Store" section in the left-hand menu.
+4. In the "Snapshots" section, you can see all the snapshots created for your EC2 instances. Check the "Tags" column for each snapshot. If the "Tags" column contains a tag with the key "DeletionPolicy" and the value "Retain", it means that manual deletion is disabled for that snapshot. If such a tag is not present, it means that manual deletion is enabled for that snapshot.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all EC2 instances: Use the following command to list all the EC2 instances in your AWS account:
+
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with the details of all your EC2 instances.
+
+3. List all snapshots: Use the following command to list all the snapshots in your AWS account:
+
+   ```
+   aws ec2 describe-snapshots --owner-ids 'your_aws_account_id'
+   ```
+   Replace 'your_aws_account_id' with your actual AWS account ID. This command will return a JSON output with the details of all your snapshots.
+
+4. Check if manual deletion is disabled: Unfortunately, AWS CLI does not provide a direct command to check if manual deletion is disabled for a snapshot. However, you can check the 'Tags' field in the output of the 'describe-snapshots' command. If a snapshot has a tag with the key 'aws:ec2snapshot:deletion-allowance' and the value 'disallow', it means that manual deletion is disabled for that snapshot.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, create an EC2 resource object using the session:
+
+```python
+ec2 = session.resource('ec2')
+```
+
+4. Iterate over all the snapshots and check if the 'tag:DeletionPolicy' is set to 'Retain'. If not, it means that manual deletion is not disabled:
+
+```python
+for snapshot in ec2.snapshots.all():
+    if 'Tags' in snapshot:
+        for tag in snapshot['Tags']:
+            if tag['Key'] == 'tag:DeletionPolicy' and tag['Value'] != 'Retain':
+                print(f"Manual deletion is not disabled for snapshot: {snapshot.id}")
+```
+
+This script will print the IDs of all snapshots for which manual deletion is not disabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
@@ -29,8 +287,6 @@ To remediate the issue of manual deletion of backups in AWS EC2, follow these st
    - Once you have disabled manual deletion of backups, verify the changes by navigating back to the backup vault details and checking the settings to ensure that manual deletion is disabled.
 
 By following these steps, you have successfully remediated the issue of manual deletion of backups in AWS EC2 using the AWS Management Console.
-
-#
 </Accordion>
 
 <Accordion title='Using CLI'>
@@ -66,48 +322,53 @@ By following these steps, you can remediate the issue of backup manual deletion 
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the issue of Backup Manual Deletion being enabled for AWS EC2 instances using Python, you can follow these steps:
-
-1. Install the Boto3 library:
-```bash
-pip install boto3
-```
-
-2. Use the following Python script to disable the manual deletion of backups for all EC2 instances in your AWS account:
+To disable manual deletion for backup recovery points, you can utilize Boto3, the AWS SDK for Python, to update the backup vault access policy. Here's a Python script that demonstrates how to accomplish this:
 
 ```python
 import boto3
+import json
 
-def disable_backup_manual_deletion():
-    # Create a Boto3 EC2 client
-    ec2_client = boto3.client('ec2')
+def disable_manual_deletion_for_recovery_points(vault_name):
+    # Define the new backup vault access policy that disables manual deletion
+    access_policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "backup:DeleteRecoveryPoint",
+                "Resource": "*"
+            }
+        ]
+    }
 
-    # Describe all EC2 instances in the account
-    response = ec2_client.describe_instances()
+    # Convert access policy to JSON
+    access_policy_json = json.dumps(access_policy)
 
-    for reservation in response['Reservations']:
-        for instance in reservation['Instances']:
-            instance_id = instance['InstanceId']
-            
-            # Disable the manual deletion of backups for the instance
-            try:
-                ec2_client.modify_instance_attribute(
-                    InstanceId=instance_id,
-                    DisableApiTermination={
-                        'Value': True
-                    }
-                )
-                print(f"Disabled manual deletion of backups for instance: {instance_id}")
-            except Exception as e:
-                print(f"Error disabling manual deletion of backups for instance {instance_id}: {str(e)}")
+    # Initialize the AWS Backup client
+    backup_client = boto3.client('backup')
 
-if __name__ == '__main__':
-    disable_backup_manual_deletion()
+    # Update the backup vault access policy
+    response = backup_client.put_backup_vault_access_policy(
+        BackupVaultName=vault_name,
+        PolicyName='DenyManualDeletion',
+        PolicyDocument=access_policy_json
+    )
+
+    print(f"Manual deletion disabled for recovery points in backup vault '{vault_name}'.")
+
+def main():
+    # Specify the name of the backup vault
+    vault_name = 'your-backup-vault-name'
+
+    # Disable manual deletion for recovery points
+    disable_manual_deletion_for_recovery_points(vault_name)
+
+if __name__ == "__main__":
+    main()
 ```
 
-3. Run the Python script to disable manual deletion of backups for all EC2 instances in your AWS account.
-
-This script will iterate through all EC2 instances in your AWS account and disable the manual deletion of backups for each instance. This will help prevent accidental deletion of backups for your EC2 instances.
+Make sure to replace `'your-backup-vault-name'` with the name of your backup vault. This script updates the access policy for the specified backup vault to deny the `backup:DeleteRecoveryPoint` action for all principals, effectively preventing manual deletion of recovery points.
 </Accordion>
 
 </AccordionGroup>

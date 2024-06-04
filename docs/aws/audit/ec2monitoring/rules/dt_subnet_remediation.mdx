@@ -1,6 +1,272 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not restricting data-tier subnet connectivity to a VPC NAT Gateway in EC2 using the AWS Management Console, follow these steps:
+
+1. **Create a NAT Gateway:**
+   - Navigate to the **VPC Dashboard**.
+   - Select **NAT Gateways** from the left-hand menu.
+   - Click on **Create NAT Gateway**.
+   - Choose the appropriate **Subnet** and **Elastic IP** for the NAT Gateway.
+   - Click **Create a NAT Gateway**.
+
+2. **Update Route Tables:**
+   - Go to the **Route Tables** section in the **VPC Dashboard**.
+   - Select the route table associated with your data-tier subnet.
+   - Click on the **Routes** tab and then **Edit routes**.
+   - Add a new route with the destination `0.0.0.0/0` and target as the **NAT Gateway** you created.
+   - Save the changes.
+
+3. **Configure Security Groups:**
+   - Navigate to the **EC2 Dashboard**.
+   - Select **Security Groups** from the left-hand menu.
+   - Choose the security group associated with your data-tier instances.
+   - Ensure that the inbound and outbound rules are configured to allow traffic only from the necessary sources and destinations, minimizing exposure.
+
+4. **Network ACLs:**
+   - Go to the **Network ACLs** section in the **VPC Dashboard**.
+   - Select the Network ACL associated with your data-tier subnet.
+   - Edit the inbound and outbound rules to restrict traffic to and from the NAT Gateway and other necessary resources only.
+   - Ensure that the rules are set to allow only the required traffic and deny all other traffic.
+
+By following these steps, you can ensure that your data-tier subnet is properly restricted to communicate only through the VPC NAT Gateway, enhancing the security and proper configuration of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfigurations related to restricting data-tier subnet connectivity to a VPC NAT Gateway in EC2 using AWS CLI, follow these steps:
+
+1. **Create a VPC:**
+   Ensure you have a VPC created. If not, create one using the following command:
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+2. **Create Subnets:**
+   Create a public subnet and a private subnet within the VPC. The public subnet will be associated with the NAT Gateway.
+   ```sh
+   # Create a public subnet
+   aws ec2 create-subnet --vpc-id <VPC_ID> --cidr-block 10.0.1.0/24 --availability-zone <AZ>
+
+   # Create a private subnet
+   aws ec2 create-subnet --vpc-id <VPC_ID> --cidr-block 10.0.2.0/24 --availability-zone <AZ>
+   ```
+
+3. **Create and Attach a NAT Gateway:**
+   Create a NAT Gateway in the public subnet and associate it with an Elastic IP.
+   ```sh
+   # Allocate an Elastic IP
+   ALLOC_ID=$(aws ec2 allocate-address --query 'AllocationId' --output text)
+
+   # Create the NAT Gateway
+   aws ec2 create-nat-gateway --subnet-id <Public_Subnet_ID> --allocation-id $ALLOC_ID
+   ```
+
+4. **Update Route Tables:**
+   Update the route table of the private subnet to route internet-bound traffic through the NAT Gateway.
+   ```sh
+   # Get the route table ID associated with the private subnet
+   RTB_ID=$(aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=<Private_Subnet_ID>" --query 'RouteTables[0].RouteTableId' --output text)
+
+   # Create a route in the private subnet's route table to route traffic through the NAT Gateway
+   aws ec2 create-route --route-table-id $RTB_ID --destination-cidr-block 0.0.0.0/0 --nat-gateway-id <NAT_Gateway_ID>
+   ```
+
+Replace `<VPC_ID>`, `<Public_Subnet_ID>`, `<Private_Subnet_ID>`, `<AZ>`, and `<NAT_Gateway_ID>` with the appropriate values for your setup. This ensures that instances in the private subnet can access the internet through the NAT Gateway, while inbound traffic is restricted.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not restricting data-tier subnet connectivity to a VPC NAT Gateway in EC2 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with your AWS environment.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a VPC and Subnets:**
+   Use Boto3 to create a VPC and subnets. Ensure that the data-tier subnet is created and tagged appropriately.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # Create VPC
+   vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+   vpc_id = vpc['Vpc']['VpcId']
+
+   # Create Subnets
+   data_tier_subnet = ec2.create_subnet(
+       CidrBlock='10.0.1.0/24',
+       VpcId=vpc_id,
+       TagSpecifications=[
+           {
+               'ResourceType': 'subnet',
+               'Tags': [{'Key': 'Name', 'Value': 'DataTierSubnet'}]
+           }
+       ]
+   )
+   data_tier_subnet_id = data_tier_subnet['Subnet']['SubnetId']
+   ```
+
+3. **Create and Attach a NAT Gateway:**
+   Create a NAT Gateway in a public subnet and attach it to the data-tier subnet's route table.
+
+   ```python
+   # Create an Internet Gateway
+   igw = ec2.create_internet_gateway()
+   igw_id = igw['InternetGateway']['InternetGatewayId']
+   ec2.attach_internet_gateway(InternetGatewayId=igw_id, VpcId=vpc_id)
+
+   # Create a Public Subnet
+   public_subnet = ec2.create_subnet(
+       CidrBlock='10.0.0.0/24',
+       VpcId=vpc_id,
+       TagSpecifications=[
+           {
+               'ResourceType': 'subnet',
+               'Tags': [{'Key': 'Name', 'Value': 'PublicSubnet'}]
+           }
+       ]
+   )
+   public_subnet_id = public_subnet['Subnet']['SubnetId']
+
+   # Allocate an Elastic IP for the NAT Gateway
+   eip = ec2.allocate_address(Domain='vpc')
+   eip_allocation_id = eip['AllocationId']
+
+   # Create the NAT Gateway
+   nat_gateway = ec2.create_nat_gateway(
+       SubnetId=public_subnet_id,
+       AllocationId=eip_allocation_id
+   )
+   nat_gateway_id = nat_gateway['NatGateway']['NatGatewayId']
+
+   # Wait for the NAT Gateway to become available
+   waiter = ec2.get_waiter('nat_gateway_available')
+   waiter.wait(NatGatewayIds=[nat_gateway_id])
+   ```
+
+4. **Update Route Table for Data-Tier Subnet:**
+   Ensure the data-tier subnet's route table routes internet-bound traffic through the NAT Gateway.
+
+   ```python
+   # Create a Route Table for the Data-Tier Subnet
+   route_table = ec2.create_route_table(VpcId=vpc_id)
+   route_table_id = route_table['RouteTable']['RouteTableId']
+
+   # Associate the Route Table with the Data-Tier Subnet
+   ec2.associate_route_table(
+       RouteTableId=route_table_id,
+       SubnetId=data_tier_subnet_id
+   )
+
+   # Create a Route to the NAT Gateway
+   ec2.create_route(
+       RouteTableId=route_table_id,
+       DestinationCidrBlock='0.0.0.0/0',
+       NatGatewayId=nat_gateway_id
+   )
+   ```
+
+By following these steps, you ensure that the data-tier subnet is properly configured to route internet-bound traffic through a NAT Gateway, thereby preventing direct internet access and adhering to best practices for security and network configuration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the VPC Dashboard. 
+
+2. In the left navigation pane, click on 'Subnets' to view all the subnets in your VPC. 
+
+3. Select the data-tier subnet that you want to check. In the 'Description' tab at the bottom, check the 'Route table' field. Click on the Route Table ID to view its details.
+
+4. In the Route Table details page, check the 'Routes' tab. If there is a route that points all traffic (0.0.0.0/0) to a NAT Gateway, then the data-tier subnet is restricted to the VPC NAT Gateway. If not, then the subnet is not properly configured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. List all the VPCs in your AWS account using the following command:
+   ```
+   aws ec2 describe-vpcs
+   ```
+   This command will return a JSON output with details of all the VPCs in your account.
+
+3. Identify the VPC that you want to check for the misconfiguration. Note down the VPC ID.
+
+4. Now, list all the subnets in the identified VPC using the following command:
+   ```
+   aws ec2 describe-subnets --filters "Name=vpc-id,Values=<VPC_ID>"
+   ```
+   Replace `<VPC_ID>` with the ID of the VPC you identified in the previous step. This command will return a JSON output with details of all the subnets in the VPC.
+
+5. Check the route table associated with each subnet. You can do this using the following command:
+   ```
+   aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=<SUBNET_ID>"
+   ```
+   Replace `<SUBNET_ID>` with the ID of each subnet. This command will return a JSON output with details of the route table associated with the subnet.
+
+6. In the output of the above command, look for the `Routes` section. If there is a route with `DestinationCidrBlock` as `0.0.0.0/0` and `GatewayId` as the ID of a NAT gateway, then the subnet is correctly configured to restrict data-tier subnet connectivity to the VPC NAT Gateway. If not, then there is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if the data-tier subnet connectivity is restricted to VPC NAT Gateway in EC2 using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including EC2. Here are the steps:
+
+1. **Import the Boto3 library and create an EC2 resource object:**
+
+    ```python
+    import boto3
+    ec2 = boto3.resource('ec2')
+    ```
+
+2. **Get the list of all subnets:**
+
+    ```python
+    subnets = ec2.subnets.all()
+    ```
+
+3. **Iterate over the subnets and check the route tables:**
+
+    For each subnet, you need to check the route table to see if it has a route that points to a NAT Gateway. This can be done by checking the `Routes` attribute of the route table.
+
+    ```python
+    for subnet in subnets:
+        route_table = ec2.RouteTable(subnet.route_table.id)
+        for route in route_table.routes:
+            if 'NatGatewayId' in route:
+                print(f"Subnet {subnet.id} has a route to a NAT Gateway.")
+    ```
+
+4. **Check if the subnet is a data-tier subnet:**
+
+    If a subnet is a data-tier subnet, it should not have a route to a NAT Gateway. You can check this by looking at the tags of the subnet. If the 'Tier' tag is 'Data', then it is a data-tier subnet.
+
+    ```python
+    for subnet in subnets:
+        for tag in subnet.tags:
+            if tag['Key'] == 'Tier' and tag['Value'] == 'Data':
+                route_table = ec2.RouteTable(subnet.route_table.id)
+                for route in route_table.routes:
+                    if 'NatGatewayId' in route:
+                        print(f"Data-tier subnet {subnet.id} has a route to a NAT Gateway.")
+    ```
+
+This script will print out the IDs of all data-tier subnets that have a route to a NAT Gateway, indicating a potential misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

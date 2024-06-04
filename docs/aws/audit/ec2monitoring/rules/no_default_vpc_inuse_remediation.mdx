@@ -1,6 +1,209 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the use of the Default VPC in EC2 using the AWS Management Console, follow these steps:
+
+1. **Create a New VPC:**
+   - Navigate to the VPC Dashboard in the AWS Management Console.
+   - Click on "Create VPC" and follow the wizard to set up a new VPC with the desired configuration (CIDR block, subnets, route tables, etc.).
+
+2. **Launch Instances in the New VPC:**
+   - When launching a new EC2 instance, ensure you select the newly created VPC instead of the default VPC.
+   - Specify the appropriate subnet within the new VPC for the instance.
+
+3. **Update Security Groups and Network ACLs:**
+   - Create new security groups and network ACLs within the new VPC to control traffic to and from your instances.
+   - Ensure that these security groups and ACLs are applied to your instances in the new VPC.
+
+4. **Modify Existing Resources:**
+   - Identify any existing resources (such as EC2 instances, RDS instances, etc.) that are currently using the default VPC.
+   - Migrate these resources to the new VPC by creating snapshots, AMIs, or backups, and then launching new instances in the new VPC using these backups.
+
+By following these steps, you can ensure that your resources are not using the default VPC and are instead utilizing a custom-configured VPC that meets your specific requirements.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of the Default VPC in EC2 using AWS CLI, you can follow these steps:
+
+1. **Identify the Default VPC:**
+   First, you need to identify the Default VPC in your AWS account. You can do this by describing the VPCs and filtering for the default one.
+   ```sh
+   aws ec2 describe-vpcs --filters "Name=isDefault,Values=true"
+   ```
+
+2. **Create a New VPC:**
+   If you don't already have a custom VPC, create a new one. This will be used instead of the default VPC.
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+3. **Create Subnets in the New VPC:**
+   Create subnets within the new VPC. You need at least one subnet in each Availability Zone you plan to use.
+   ```sh
+   aws ec2 create-subnet --vpc-id <new-vpc-id> --cidr-block 10.0.1.0/24 --availability-zone <your-az>
+   ```
+
+4. **Launch Instances in the New VPC:**
+   When launching new EC2 instances, specify the new VPC and subnet to ensure they are not using the default VPC.
+   ```sh
+   aws ec2 run-instances --image-id <ami-id> --count 1 --instance-type t2.micro --key-name <key-pair-name> --subnet-id <new-subnet-id>
+   ```
+
+By following these steps, you ensure that new EC2 instances are launched in a custom VPC rather than the default VPC, thereby preventing the use of the default VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the use of the Default VPC in EC2 using Python scripts, you can follow these steps:
+
+1. **Install and Configure AWS SDK (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **List All VPCs and Identify the Default VPC:**
+   Use Boto3 to list all VPCs and identify the default VPC.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # List all VPCs
+   response = ec2.describe_vpcs()
+   vpcs = response['Vpcs']
+
+   # Identify the default VPC
+   default_vpc_id = None
+   for vpc in vpcs:
+       if vpc['IsDefault']:
+           default_vpc_id = vpc['VpcId']
+           break
+
+   if default_vpc_id:
+       print(f"Default VPC ID: {default_vpc_id}")
+   else:
+       print("No default VPC found.")
+   ```
+
+3. **Create a New VPC:**
+   If you don't already have a non-default VPC, create a new VPC.
+
+   ```python
+   if not default_vpc_id:
+       # Create a new VPC
+       new_vpc = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+       new_vpc_id = new_vpc['Vpc']['VpcId']
+       print(f"New VPC created with ID: {new_vpc_id}")
+
+       # Add a name tag to the new VPC
+       ec2.create_tags(Resources=[new_vpc_id], Tags=[{'Key': 'Name', 'Value': 'MyNewVPC'}])
+   ```
+
+4. **Ensure EC2 Instances Are Launched in Non-Default VPC:**
+   Modify your instance launch scripts to specify the non-default VPC and its subnets.
+
+   ```python
+   # Assuming you have a non-default VPC ID and a subnet ID within that VPC
+   non_default_vpc_id = 'vpc-xxxxxxxx'
+   subnet_id = 'subnet-xxxxxxxx'  # Replace with your subnet ID
+
+   # Launch an EC2 instance in the non-default VPC
+   instance = ec2.run_instances(
+       ImageId='ami-xxxxxxxx',  # Replace with your desired AMI ID
+       InstanceType='t2.micro',
+       MaxCount=1,
+       MinCount=1,
+       NetworkInterfaces=[{
+           'SubnetId': subnet_id,
+           'DeviceIndex': 0,
+           'AssociatePublicIpAddress': True
+       }]
+   )
+
+   instance_id = instance['Instances'][0]['InstanceId']
+   print(f"EC2 instance launched with ID: {instance_id} in VPC: {non_default_vpc_id}")
+   ```
+
+By following these steps, you can ensure that your EC2 instances are not launched in the default VPC, thereby preventing the use of the default VPC.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon VPC console at https://console.aws.amazon.com/vpc/.
+
+2. In the navigation pane, choose 'Your VPCs'.
+
+3. In the list of VPCs, check the 'VPC ID' column. The default VPC has a VPC ID that begins with 'vpc-1a2b3c4d' (the actual ID will vary). 
+
+4. If any resources (like instances, subnets, security groups, network ACLs, route tables, internet gateways, EIPs, or virtual private gateways) are associated with the default VPC, it means the default VPC is in use. You can check this by clicking on the VPC ID and checking the 'Summary' tab for associated resources.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all VPCs: Use the AWS CLI command `aws ec2 describe-vpcs` to list all the VPCs in your AWS account. This command will return a JSON output with details of all the VPCs.
+
+3. Identify the default VPC: In the JSON output, look for the "IsDefault" key. If the value of this key is true, then that VPC is the default VPC. The command to filter out the default VPC is: `aws ec2 describe-vpcs --query 'Vpcs[?IsDefault==`true`]'`.
+
+4. Check if the default VPC is in use: To check if the default VPC is in use, you need to check if there are any instances running in it. You can do this by using the AWS CLI command `aws ec2 describe-instances --filters "Name=vpc-id,Values=<default-vpc-id>"`. Replace `<default-vpc-id>` with the ID of your default VPC. If this command returns any instances, then the default VPC is in use.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check for default VPC usage:
+
+   ```python
+   import boto3
+
+   def check_default_vpc():
+       ec2 = boto3.resource('ec2')
+       vpcs = ec2.vpcs.all()
+       for vpc in vpcs:
+           if vpc.is_default:
+               print(f"Default VPC {vpc.id} is in use")
+
+   if __name__ == "__main__":
+       check_default_vpc()
+   ```
+
+   This script will print out the ID of the default VPC if it is in use.
+
+4. Run the Python script: You can run the script from your terminal with the command:
+
+   ```
+   python check_default_vpc.py
+   ```
+
+   If the default VPC is in use, the script will print out its ID. If not, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,263 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of AWS EC2 Hibernation not being enabled using the AWS Management Console, follow these steps:
+
+1. **Launch Instance Wizard:**
+   - Open the AWS Management Console and navigate to the EC2 Dashboard.
+   - Click on the "Launch Instance" button to start the instance creation process.
+
+2. **Configure Instance Details:**
+   - In the "Configure Instance Details" step, scroll down to the "Advanced Details" section.
+   - Look for the "Hibernation options" and check the box that says "Enable hibernation."
+
+3. **Instance Type and AMI:**
+   - Ensure that you select an instance type and Amazon Machine Image (AMI) that supports hibernation. Note that not all instance types and AMIs support this feature.
+
+4. **EBS Volume Configuration:**
+   - Ensure that the root EBS volume is encrypted and has enough space to store the instance's memory (RAM). This is required for hibernation to work properly.
+
+By following these steps, you can ensure that hibernation is enabled for your EC2 instances during the launch process using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that AWS EC2 Hibernation is enabled using the AWS CLI, follow these steps:
+
+1. **Create an IAM Role with Necessary Permissions:**
+   Ensure you have an IAM role with the necessary permissions to create and manage EC2 instances. Attach the `AmazonEC2FullAccess` policy to your IAM role.
+
+   ```sh
+   aws iam create-role --role-name EC2HibernationRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name EC2HibernationRole --policy-arn arn:aws:iam::aws:policy/AmazonEC2FullAccess
+   ```
+
+2. **Create an EC2 Launch Template with Hibernation Enabled:**
+   Create a launch template that specifies hibernation options. This template will be used to launch instances with hibernation enabled.
+
+   ```sh
+   aws ec2 create-launch-template --launch-template-name MyHibernationTemplate --version-description "Hibernation enabled" --launch-template-data '{
+       "ImageId": "ami-0abcdef1234567890",
+       "InstanceType": "t2.micro",
+       "HibernationOptions": {
+           "Configured": true
+       }
+   }'
+   ```
+
+3. **Launch an EC2 Instance Using the Launch Template:**
+   Use the launch template created in the previous step to launch an EC2 instance with hibernation enabled.
+
+   ```sh
+   aws ec2 run-instances --launch-template LaunchTemplateName=MyHibernationTemplate,Version=1
+   ```
+
+4. **Verify Hibernation Configuration:**
+   Verify that the instance has been launched with hibernation enabled by describing the instance and checking the hibernation options.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids i-1234567890abcdef0 --query "Reservations[*].Instances[*].HibernationOptions"
+   ```
+
+By following these steps, you can ensure that EC2 instances are launched with hibernation enabled using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of AWS EC2 Hibernation not being enabled using Python scripts, you can follow these steps:
+
+1. **Install and Configure AWS SDK (Boto3):**
+   Ensure you have the AWS SDK for Python (Boto3) installed and configured with the necessary permissions to manage EC2 instances.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Python Script to Enable Hibernation:**
+   Write a Python script that will create an EC2 instance with hibernation enabled. Note that hibernation can only be enabled at the time of instance launch and only for specific instance types and AMIs.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Define the instance parameters
+   instance_params = {
+       'ImageId': 'ami-0abcdef1234567890',  # Replace with a valid AMI ID that supports hibernation
+       'InstanceType': 't3.medium',  # Ensure the instance type supports hibernation
+       'MinCount': 1,
+       'MaxCount': 1,
+       'HibernationOptions': {
+           'Configured': True
+       },
+       'KeyName': 'your-key-pair',  # Replace with your key pair name
+       'SecurityGroupIds': ['sg-0123456789abcdef0'],  # Replace with your security group ID
+       'SubnetId': 'subnet-0123456789abcdef0'  # Replace with your subnet ID
+   }
+
+   # Launch the instance with hibernation enabled
+   response = ec2.run_instances(**instance_params)
+
+   # Print the instance ID
+   for instance in response['Instances']:
+       print(f"Instance {instance['InstanceId']} launched with hibernation enabled.")
+   ```
+
+3. **Verify Hibernation Configuration:**
+   After launching the instance, you can verify that hibernation is enabled by describing the instance and checking the `HibernationOptions` attribute.
+
+   ```python
+   instance_id = 'i-0123456789abcdef0'  # Replace with your instance ID
+
+   response = ec2.describe_instances(InstanceIds=[instance_id])
+
+   for reservation in response['Reservations']:
+       for instance in reservation['Instances']:
+           hibernation_configured = instance['HibernationOptions']['Configured']
+           print(f"Hibernation configured: {hibernation_configured}")
+   ```
+
+4. **Automate the Script Execution:**
+   To ensure that all new instances have hibernation enabled, you can automate the execution of this script using a CI/CD pipeline or a scheduled task (e.g., using AWS Lambda or a cron job).
+
+   Example of scheduling with AWS Lambda (simplified):
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       ec2 = boto3.client('ec2')
+       instance_params = {
+           'ImageId': 'ami-0abcdef1234567890',
+           'InstanceType': 't3.medium',
+           'MinCount': 1,
+           'MaxCount': 1,
+           'HibernationOptions': {
+               'Configured': True
+           },
+           'KeyName': 'your-key-pair',
+           'SecurityGroupIds': ['sg-0123456789abcdef0'],
+           'SubnetId': 'subnet-0123456789abcdef0'
+       }
+       response = ec2.run_instances(**instance_params)
+       for instance in response['Instances']:
+           print(f"Instance {instance['InstanceId']} launched with hibernation enabled.")
+   ```
+
+   Deploy this Lambda function and set up a trigger based on your requirements (e.g., CloudWatch Events).
+
+By following these steps, you can ensure that hibernation is enabled for your EC2 instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Instances", click on "Instances".
+3. In the Instances dashboard, select the EC2 instance that you want to verify.
+4. In the bottom panel, under the "Description" tab, look for the "Root device type" field. If the value is "ebs", the instance is EBS-backed. Hibernation is only available for EBS-backed instances.
+5. Next, check the instance type. Not all instance types support hibernation. You can find the instance type in the "Instance type" field in the "Description" tab.
+6. Finally, check if the instance is enabled for hibernation. This can be done by looking at the "Hibernation" field in the "Description" tab. If the value is "enabled", then hibernation is enabled for the instance. If the value is "disabled", then hibernation is not enabled for the instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all EC2 instances: Once AWS CLI is set up, you can list all your EC2 instances by running the following command:
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with the details of all your EC2 instances.
+
+3. Check Hibernation Configuration: Unfortunately, AWS CLI does not provide a direct command to check if hibernation is enabled for an EC2 instance. However, you can check if an instance is hibernation-compatible by looking at the instance type. Hibernation is only supported for instances that are EBS-backed and are of the instance types that support hibernation. You can check the instance type in the JSON output from the previous step.
+
+4. Python Script: If you want to automate this process, you can write a Python script using the boto3 library to list all EC2 instances and check their hibernation compatibility. Here is a simple script to do this:
+
+   ```
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for instance in ec2.instances.all():
+       if instance.instance_type in ['m3.medium', 'm3.large', 'm3.xlarge', 'm3.2xlarge']:
+           print(f"Instance {instance.id} is hibernation-compatible")
+       else:
+           print(f"Instance {instance.id} is not hibernation-compatible")
+   ```
+   Replace the list of instance types with the list of instance types that support hibernation. This script will print whether each instance is hibernation-compatible or not.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your Python environment. You can do this using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it with your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. Import the necessary modules and create an EC2 resource object:
+   You need to import the Boto3 module in your Python script and create an EC2 resource object. This object will allow you to interact with your EC2 instances.
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+   ```
+
+3. Iterate over all EC2 instances and check the hibernation option:
+   You can use the `instances.all()` method to get a list of all your EC2 instances. Then, you can iterate over this list and check the `hibernation_options` attribute of each instance. If the `configured` key of this attribute is False, then hibernation is not enabled for that instance.
+   ```python
+   for instance in ec2.instances.all():
+       hibernation_options = instance.hibernation_options
+       if not hibernation_options['configured']:
+           print(f'Hibernation is not enabled for instance {instance.id}')
+   ```
+
+4. Handle exceptions:
+   It's a good practice to handle exceptions in your script. For example, you might want to catch the `NoCredentialsError` exception, which is raised when Boto3 can't find your AWS credentials.
+   ```python
+   try:
+       for instance in ec2.instances.all():
+           hibernation_options = instance.hibernation_options
+           if not hibernation_options['configured']:
+               print(f'Hibernation is not enabled for instance {instance.id}')
+   except boto3.exceptions.NoCredentialsError:
+       print('AWS credentials not found')
+   ```
+   This script will print the IDs of all EC2 instances for which hibernation is not enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

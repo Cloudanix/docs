@@ -23,6 +23,283 @@ CBP,SEBI,RBI_MD_ITF,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of an Elastic File System (EFS) not being included in a backup plan in AWS EC2 using the AWS Management Console, follow these steps:
+
+1. **Create a Backup Plan:**
+   - Navigate to the AWS Backup service in the AWS Management Console.
+   - Click on "Create backup plan."
+   - Choose to start with a template or build a new plan from scratch.
+   - Define the backup rules, including frequency and retention period.
+
+2. **Assign Resources to the Backup Plan:**
+   - After creating the backup plan, go to the "Assign resources" section.
+   - Select "Resource type" as "EFS."
+   - Use tags or resource IDs to specify the EFS file systems that should be included in the backup plan.
+
+3. **Enable Backup for EFS:**
+   - Navigate to the Amazon EFS service in the AWS Management Console.
+   - Select the EFS file system you want to include in the backup plan.
+   - Ensure that the EFS file system is tagged appropriately if you are using tags to assign resources to the backup plan.
+
+4. **Verify Backup Configuration:**
+   - Go back to the AWS Backup service and review the backup plan details.
+   - Ensure that the EFS file systems are listed under the resources assigned to the backup plan.
+   - Check the backup schedule and retention settings to confirm they meet your requirements.
+
+By following these steps, you can ensure that your Elastic File System (EFS) is included in a backup plan, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Elastic File System (EFS) is included in a backup plan using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, you need to create a backup plan that specifies the backup rules and schedules. You can do this using the `aws backup create-backup-plan` command.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyEFSBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "DeleteAfterDays": 30
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Create a Backup Selection:**
+   After creating the backup plan, you need to create a backup selection to specify the resources (EFS file systems) that should be backed up. Use the `aws backup create-backup-selection` command.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <backup-plan-id> --backup-selection '{
+       "SelectionName": "MyEFSSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:elasticfilesystem:us-west-2:123456789012:file-system/fs-12345678"
+       ]
+   }'
+   ```
+
+   Replace `<backup-plan-id>` with the ID of the backup plan created in step 1, and update the `IamRoleArn` and `Resources` with the appropriate values.
+
+3. **Verify Backup Plan and Selection:**
+   Ensure that the backup plan and selection have been created successfully by listing them using the `aws backup list-backup-plans` and `aws backup list-backup-selections` commands.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <backup-plan-id>
+   ```
+
+4. **Monitor Backup Jobs:**
+   Regularly monitor the backup jobs to ensure that the EFS file systems are being backed up as per the plan. Use the `aws backup list-backup-jobs` command to check the status of backup jobs.
+
+   ```sh
+   aws backup list-backup-jobs --by-resource-arn arn:aws:elasticfilesystem:us-west-2:123456789012:file-system/fs-12345678
+   ```
+
+By following these steps, you can ensure that your Elastic File System (EFS) is included in a backup plan using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of an Elastic File System (EFS) not being included in a backup plan in AWS EC2 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Backup Plan**
+Create a backup plan using Boto3. This plan will define the backup rules and the resources to be backed up.
+
+```python
+import boto3
+
+# Initialize a session using Amazon Backup
+backup_client = boto3.client('backup')
+
+# Define the backup plan
+backup_plan = {
+    'BackupPlanName': 'MyEFSBackupPlan',
+    'Rules': [
+        {
+            'RuleName': 'DailyBackup',
+            'TargetBackupVaultName': 'Default',
+            'ScheduleExpression': 'cron(0 12 * * ? *)',  # Daily at 12 PM UTC
+            'StartWindowMinutes': 60,
+            'CompletionWindowMinutes': 180,
+            'Lifecycle': {
+                'MoveToColdStorageAfterDays': 30,
+                'DeleteAfterDays': 365
+            }
+        }
+    ]
+}
+
+# Create the backup plan
+response = backup_client.create_backup_plan(
+    BackupPlan=backup_plan
+)
+
+backup_plan_id = response['BackupPlanId']
+print(f"Backup Plan ID: {backup_plan_id}")
+```
+
+### 3. **Assign EFS to the Backup Plan**
+Assign the EFS file system to the backup plan by creating a backup selection.
+
+```python
+# Define the resources to be backed up
+efs_arn = 'arn:aws:elasticfilesystem:region:account-id:file-system/file-system-id'
+
+backup_selection = {
+    'SelectionName': 'EFSBackupSelection',
+    'IamRoleArn': 'arn:aws:iam::account-id:role/service-role/AWSBackupDefaultServiceRole',
+    'Resources': [efs_arn]
+}
+
+# Create the backup selection
+response = backup_client.create_backup_selection(
+    BackupPlanId=backup_plan_id,
+    BackupSelection=backup_selection
+)
+
+print(f"Backup Selection ID: {response['SelectionId']}")
+```
+
+### 4. **Verify Backup Plan and Selection**
+Verify that the backup plan and selection have been created and are correctly configured.
+
+```python
+# Get the backup plan details
+backup_plan_details = backup_client.get_backup_plan(
+    BackupPlanId=backup_plan_id
+)
+
+print("Backup Plan Details:")
+print(backup_plan_details)
+
+# Get the backup selection details
+backup_selection_details = backup_client.get_backup_selection(
+    BackupPlanId=backup_plan_id,
+    SelectionId=response['SelectionId']
+)
+
+print("Backup Selection Details:")
+print(backup_selection_details)
+```
+
+### Summary
+1. **Set Up AWS SDK (Boto3)**: Install and import Boto3.
+2. **Create a Backup Plan**: Define and create a backup plan using Boto3.
+3. **Assign EFS to the Backup Plan**: Create a backup selection to include the EFS file system in the backup plan.
+4. **Verify Backup Plan and Selection**: Retrieve and print the details of the backup plan and selection to ensure they are correctly configured.
+
+By following these steps, you can ensure that your Elastic File System (EFS) is included in a backup plan, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Backup dashboard. You can do this by typing 'AWS Backup' in the search bar and selecting it from the dropdown menu.
+3. In the AWS Backup dashboard, select 'Backup plans' from the left-hand navigation pane. This will display a list of all your backup plans.
+4. For each backup plan, click on its name to view its details. Check if the Elastic File System (EFS) is included in the backup resources. If it's not listed, then it's a misconfiguration as the EFS is not included in the backup plan.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can use the `describe-file-systems` command to list all the EFS file systems in your account. The command is as follows:
+
+   ```
+   aws efs describe-file-systems --region your-region-name
+   ```
+   Replace 'your-region-name' with the name of your AWS region. This command will return a list of file systems along with their details.
+
+3. To check if a file system is included in a backup plan, you need to use the `list-backup-plans` command from AWS Backup service. The command is as follows:
+
+   ```
+   aws backup list-backup-plans --region your-region-name
+   ```
+   This command will return a list of all backup plans in your account.
+
+4. Finally, you need to check if the file system ID from step 2 is included in any of the backup plans from step 3. You can do this by using the `get-backup-plan` command with the backup plan ID as follows:
+
+   ```
+   aws backup get-backup-plan --backup-plan-id your-backup-plan-id --region your-region-name
+   ```
+   Replace 'your-backup-plan-id' with the ID of your backup plan. This command will return the details of the backup plan, including the resources it covers. If the file system ID from step 2 is included in the resources, then the file system is in a backup plan. If not, then it is not in a backup plan.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Establish a session: The first step in your Python script is to establish a session with AWS. This will allow you to interact with AWS services. You can do this using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Connect to the EC2 service: Once you have a session established, you can connect to the EC2 service. This will allow you to interact with your EC2 instances:
+
+```python
+ec2_resource = session.resource('ec2')
+```
+
+4. Check for EFS backup plan: Now that you are connected to the EC2 service, you can check for EFS backup plans. You can do this by iterating over all of your EFS file systems and checking if they have a backup plan:
+
+```python
+efs_client = session.client('efs')
+
+file_systems = efs_client.describe_file_systems()
+
+for file_system in file_systems['FileSystems']:
+    backup_client = session.client('backup')
+    backup_plans = backup_client.list_backup_plans()
+
+    is_in_backup_plan = any(
+        plan for plan in backup_plans['BackupPlansList']
+        if plan['BackupPlanName'] == file_system['Name']
+    )
+
+    if not is_in_backup_plan:
+        print(f"File system {file_system['Name']} is not in a backup plan.")
+```
+
+This script will print out the names of any EFS file systems that are not in a backup plan.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

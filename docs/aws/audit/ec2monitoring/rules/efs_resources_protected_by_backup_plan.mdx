@@ -23,6 +23,238 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of an Elastic File System (EFS) not having a backup plan in EC2 using the AWS Management Console, follow these steps:
+
+1. **Enable EFS Backup:**
+   - Navigate to the **Amazon EFS** service in the AWS Management Console.
+   - Select the EFS file system you want to configure.
+   - Go to the **Backup** tab.
+   - Click on **Enable automatic backups** to ensure that your EFS file system is automatically backed up using AWS Backup.
+
+2. **Configure AWS Backup Plan:**
+   - Navigate to the **AWS Backup** service in the AWS Management Console.
+   - Click on **Create backup plan**.
+   - Define the backup plan by specifying the backup frequency, retention period, and other settings.
+   - Assign the EFS file system to this backup plan by creating a resource assignment.
+
+3. **Set Backup Policies:**
+   - In the AWS Backup console, go to **Backup policies**.
+   - Create or modify a backup policy to include EFS file systems.
+   - Ensure that the policy is applied to the appropriate organizational units or accounts to enforce backup requirements.
+
+4. **Monitor Backup Compliance:**
+   - Use the **AWS Backup Dashboard** to monitor the compliance status of your backup plans.
+   - Set up **AWS CloudWatch Alarms** to notify you of any backup failures or issues.
+   - Regularly review the backup reports to ensure that all EFS file systems are being backed up as per the defined policies.
+
+By following these steps, you can ensure that your Elastic File System in EC2 has a robust backup plan in place, thereby preventing misconfigurations related to backups.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where an Elastic File System (EFS) should have a backup plan in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Backup Plan:**
+   First, create a backup plan that specifies the backup rules and schedules. You can use the `aws backup create-backup-plan` command to create a backup plan.
+
+   ```sh
+   aws backup create-backup-plan --backup-plan '{
+       "BackupPlanName": "MyEFSBackupPlan",
+       "Rules": [
+           {
+               "RuleName": "DailyBackup",
+               "TargetBackupVaultName": "Default",
+               "ScheduleExpression": "cron(0 12 * * ? *)",
+               "StartWindowMinutes": 60,
+               "CompletionWindowMinutes": 180,
+               "Lifecycle": {
+                   "MoveToColdStorageAfterDays": 30,
+                   "DeleteAfterDays": 365
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Assign Resources to the Backup Plan:**
+   Assign the EFS file system to the backup plan using the `aws backup create-backup-selection` command. You need the Backup Plan ID and the Resource ARN of the EFS file system.
+
+   ```sh
+   aws backup create-backup-selection --backup-plan-id <BackupPlanId> --backup-selection '{
+       "SelectionName": "MyEFSBackupSelection",
+       "IamRoleArn": "arn:aws:iam::123456789012:role/service-role/AWSBackupDefaultServiceRole",
+       "Resources": [
+           "arn:aws:elasticfilesystem:us-west-2:123456789012:file-system/fs-12345678"
+       ]
+   }'
+   ```
+
+3. **Verify Backup Plan and Selection:**
+   Verify that the backup plan and selection have been created correctly using the `aws backup list-backup-plans` and `aws backup list-backup-selections` commands.
+
+   ```sh
+   aws backup list-backup-plans
+   aws backup list-backup-selections --backup-plan-id <BackupPlanId>
+   ```
+
+4. **Enable EFS Backup:**
+   Ensure that the EFS file system has backup enabled by checking its lifecycle policies. You can use the `aws efs describe-file-systems` command to verify the backup status.
+
+   ```sh
+   aws efs describe-file-systems --file-system-id fs-12345678
+   ```
+
+By following these steps, you can ensure that your Elastic File System (EFS) in EC2 has a backup plan configured using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of an Elastic File System (EFS) not having a backup plan in AWS EC2 using Python scripts, you can follow these steps:
+
+### 1. **Install and Configure AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed and configured. You can install it using pip:
+
+```bash
+pip install boto3
+```
+
+Then, configure your AWS credentials:
+
+```bash
+aws configure
+```
+
+### 2. **Create a Python Script to Enable EFS Backup**
+Write a Python script to enable automatic backups for your EFS. This script will use the Boto3 library to interact with AWS services.
+
+```python
+import boto3
+
+# Initialize the EFS client
+efs_client = boto3.client('efs')
+
+# Function to enable backup for a given EFS file system
+def enable_efs_backup(file_system_id):
+    try:
+        response = efs_client.put_backup_policy(
+            FileSystemId=file_system_id,
+            BackupPolicy={
+                'Status': 'ENABLED'
+            }
+        )
+        print(f"Backup policy enabled for EFS: {file_system_id}")
+    except Exception as e:
+        print(f"Error enabling backup policy for EFS: {file_system_id}, Error: {str(e)}")
+
+# Example usage
+file_system_id = 'fs-12345678'  # Replace with your EFS file system ID
+enable_efs_backup(file_system_id)
+```
+
+### 3. **Automate the Script Execution**
+To ensure that all new EFS file systems have backups enabled, you can automate the execution of this script. One way to do this is by using AWS Lambda and CloudWatch Events to trigger the script whenever a new EFS is created.
+
+### 4. **Monitor and Verify Backup Policies**
+Create a monitoring script to periodically check that all EFS file systems have backup policies enabled. This script can be scheduled using a cron job or AWS Lambda with CloudWatch Events.
+
+```python
+import boto3
+
+# Initialize the EFS client
+efs_client = boto3.client('efs')
+
+# Function to check backup policy for all EFS file systems
+def check_efs_backup_policies():
+    try:
+        response = efs_client.describe_file_systems()
+        for file_system in response['FileSystems']:
+            file_system_id = file_system['FileSystemId']
+            backup_policy = efs_client.describe_backup_policy(FileSystemId=file_system_id)
+            if backup_policy['BackupPolicy']['Status'] != 'ENABLED':
+                print(f"Backup policy not enabled for EFS: {file_system_id}")
+            else:
+                print(f"Backup policy is enabled for EFS: {file_system_id}")
+    except Exception as e:
+        print(f"Error checking backup policies: {str(e)}")
+
+# Example usage
+check_efs_backup_policies()
+```
+
+By following these steps, you can ensure that your EFS file systems in AWS EC2 have backup plans enabled, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Elastic Block Store", click on "Snapshots". This will display a list of all snapshots available in your AWS account.
+3. For each snapshot, check the "Tags" column. If a snapshot does not have a tag with the key "Backup", then it means that the Elastic File System (EFS) associated with that snapshot does not have a backup plan.
+4. To confirm, you can click on the snapshot ID to view its details. In the "Description" field, if it says "This snapshot was created by AWS Backup", then it means that the EFS has a backup plan. If not, then it confirms that the EFS does not have a backup plan.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local system. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all EFS file systems: Use the following command to list all the EFS file systems in your AWS account.
+
+   ```
+   aws efs describe-file-systems --query 'FileSystems[*].[FileSystemId]' --output text
+   ```
+
+   This command will return a list of all EFS file system IDs.
+
+3. Check backup plans: For each EFS file system ID returned by the previous command, you need to check if there is a backup plan associated with it. You can do this by using the following command:
+
+   ```
+   aws backup describe-backup-jobs --by-resource-arn arn:aws:elasticfilesystem:<region>:<account-id>:file-system/<file-system-id> --query 'BackupJobs[*].[BackupJobId]' --output text
+   ```
+
+   Replace `<region>`, `<account-id>`, and `<file-system-id>` with your AWS region, account ID, and the EFS file system ID respectively. This command will return a list of backup job IDs if there is a backup plan associated with the EFS file system.
+
+4. Analyze the results: If the previous command returns a list of backup job IDs, it means that the EFS file system has a backup plan. If it returns nothing, it means that the EFS file system does not have a backup plan. Repeat steps 3 and 4 for each EFS file system ID to check all your EFS file systems.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, ensure that you have the necessary Python libraries installed. You will need the 'boto3' library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can pass these credentials into your Python script directly (not recommended for security reasons), or more securely, you can set up your credentials file at ~/.aws/credentials. 
+
+3. Write a Python script to check for EFS backup plans: You can use the 'describe_backup_policy' method provided by the EFS client in boto3. This method returns the backup policy for the specified EFS file system.
+
+```python
+import boto3
+
+def check_efs_backup_policy(file_system_id):
+    efs = boto3.client('efs')
+    response = efs.describe_backup_policy(
+        FileSystemId=file_system_id
+    )
+    return response['BackupPolicy']
+
+file_system_id = 'your-efs-file-system-id'
+backup_policy = check_efs_backup_policy(file_system_id)
+print(backup_policy)
+```
+
+4. Analyze the output: The script will return the backup policy for the specified EFS file system. If the 'Status' field in the output is 'ENABLED', it means that the EFS file system has a backup plan. If it's 'DISABLED', it means that the EFS file system does not have a backup plan.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

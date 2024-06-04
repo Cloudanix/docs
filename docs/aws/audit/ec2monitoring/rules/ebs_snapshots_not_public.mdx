@@ -23,6 +23,222 @@ HIPAA, NIST, HITRUST, SOC2, GDPR, NISTCSF, PCIDSS, FedRAMP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 Instance Snapshots from being public in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Snapshots Section:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the Amazon EC2 dashboard.
+   - In the left-hand menu, under "Elastic Block Store," choose "Snapshots."
+
+2. **Check Snapshot Permissions:**
+   - Select the snapshot you want to check.
+   - In the lower pane, choose the "Permissions" tab.
+   - Ensure that the snapshot is not shared with "All AWS accounts" (i.e., it should not be public).
+
+3. **Modify Snapshot Permissions:**
+   - If the snapshot is public, click on the "Edit" button in the "Permissions" tab.
+   - Remove any entries that make the snapshot public by ensuring that "Public" is not selected and no other AWS accounts are listed unless explicitly required.
+
+4. **Save Changes:**
+   - After making the necessary changes, click "Save" to apply the new permissions settings.
+
+By following these steps, you can ensure that your EC2 instance snapshots are not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instance snapshots from being public using AWS CLI, you can follow these steps:
+
+1. **Check Current Snapshot Permissions:**
+   Use the `describe-snapshot-attribute` command to check the current permissions of your snapshot. Replace `snapshot-id` with your actual snapshot ID.
+   ```sh
+   aws ec2 describe-snapshot-attribute --snapshot-id <snapshot-id> --attribute createVolumePermission
+   ```
+
+2. **Remove Public Permissions:**
+   If the snapshot is public, you need to remove the public permissions. Use the `modify-snapshot-attribute` command to remove the `all` group from the createVolumePermission attribute.
+   ```sh
+   aws ec2 modify-snapshot-attribute --snapshot-id <snapshot-id> --attribute createVolumePermission --operation-type remove --group-names all
+   ```
+
+3. **Verify Permissions Removal:**
+   After modifying the snapshot attribute, verify that the public permissions have been removed by re-running the `describe-snapshot-attribute` command.
+   ```sh
+   aws ec2 describe-snapshot-attribute --snapshot-id <snapshot-id> --attribute createVolumePermission
+   ```
+
+4. **Automate the Check and Removal:**
+   To ensure that no snapshots are public in the future, you can create a script that periodically checks all snapshots and removes public permissions if found. Here is a simple example in Python using Boto3:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def remove_public_snapshots():
+       snapshots = ec2.describe_snapshots(OwnerIds=['self'])['Snapshots']
+       for snapshot in snapshots:
+           attributes = ec2.describe_snapshot_attribute(SnapshotId=snapshot['SnapshotId'], Attribute='createVolumePermission')
+           for permission in attributes['CreateVolumePermissions']:
+               if permission.get('Group') == 'all':
+                   ec2.modify_snapshot_attribute(SnapshotId=snapshot['SnapshotId'], Attribute='createVolumePermission', OperationType='remove', GroupNames=['all'])
+                   print(f"Removed public access from snapshot {snapshot['SnapshotId']}")
+
+   remove_public_snapshots()
+   ```
+
+By following these steps, you can ensure that your EC2 instance snapshots are not publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instance snapshots from being public in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your EC2 snapshots are not publicly accessible:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 EC2 client to interact with the EC2 service.
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+   ```
+
+3. **Retrieve All Snapshots**:
+   Retrieve all snapshots owned by your account.
+   ```python
+   snapshots = ec2_client.describe_snapshots(OwnerIds=['self'])['Snapshots']
+   ```
+
+4. **Check and Modify Snapshot Permissions**:
+   Iterate through each snapshot and check its permissions. If any snapshot is found to be public, modify its permissions to make it private.
+   ```python
+   for snapshot in snapshots:
+       snapshot_id = snapshot['SnapshotId']
+       permissions = ec2_client.describe_snapshot_attribute(
+           SnapshotId=snapshot_id,
+           Attribute='createVolumePermission'
+       )['CreateVolumePermissions']
+
+       # Check if the snapshot is public
+       is_public = any(permission.get('Group') == 'all' for permission in permissions)
+
+       if is_public:
+           # Remove public access
+           ec2_client.modify_snapshot_attribute(
+               SnapshotId=snapshot_id,
+               Attribute='createVolumePermission',
+               OperationType='remove',
+               GroupNames=['all']
+           )
+           print(f"Snapshot {snapshot_id} is now private.")
+       else:
+           print(f"Snapshot {snapshot_id} is already private.")
+   ```
+
+This script will ensure that all your EC2 snapshots are not publicly accessible by checking their permissions and modifying them if necessary.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under 'Elastic Block Store', click 'Snapshots'.
+
+3. In the 'Snapshots' page, select the snapshot that you want to check.
+
+4. In the 'Description' tab at the bottom of the page, look for the 'Permissions' field. If the 'Permissions' field is set to 'Public', then the selected EC2 snapshot is publicly accessible, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all snapshots: Use the following AWS CLI command to list all the snapshots in your AWS account:
+
+   ```
+   aws ec2 describe-snapshots --owner-ids 'your_aws_account_id'
+   ```
+
+   Replace 'your_aws_account_id' with your actual AWS account ID. This command will return a JSON output with details of all the snapshots.
+
+3. Check the permissions of each snapshot: In the JSON output, look for the 'SnapshotId' and 'CreateVolumePermissions' fields. If the 'CreateVolumePermissions' field is empty, it means the snapshot is private. If it contains 'all' or a specific AWS account ID, it means the snapshot is public or shared with a specific AWS account respectively.
+
+4. Use a script to automate the process: If you have many snapshots and want to automate the process, you can use a Python script with the boto3 library (AWS SDK for Python) to list all snapshots and check their permissions. Here is a simple example:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for snapshot in ec2.snapshots.filter(OwnerIds=['your_aws_account_id']):
+       permissions = snapshot.describe_attribute(Attribute='createVolumePermission')
+       if permissions['CreateVolumePermissions']:
+           print(f"Snapshot {snapshot.id} is public or shared")
+       else:
+           print(f"Snapshot {snapshot.id} is private")
+   ```
+
+   Replace 'your_aws_account_id' with your actual AWS account ID. This script will print the ID of each snapshot and whether it is public or private.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The AWS SDK for Python (Boto3) allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can configure it in several ways, but the simplest way is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. Write the Python script: Now you can write a Python script that uses Boto3 to check if EC2 instance snapshots are public. Here's a simple script that does this:
+
+   ```python
+   import boto3
+
+   def check_public_snapshots():
+       ec2 = boto3.resource('ec2')
+       snapshots = ec2.snapshots.filter(OwnerIds=['self'])
+       for snapshot in snapshots:
+           for perm in snapshot.get('Permissions'):
+               if perm['Group'] == 'all':
+                   print(f"Snapshot {snapshot.id} is public")
+
+   if __name__ == "__main__":
+       check_public_snapshots()
+   ```
+
+   This script first creates a connection to the EC2 service. Then it retrieves all snapshots that belong to the current AWS account. For each snapshot, it checks the permissions. If the 'all' group has permissions, it means the snapshot is public, and the script prints a warning message.
+
+4. Run the Python script: Finally, you can run the Python script using the Python interpreter:
+
+   ```bash
+   python check_public_snapshots.py
+   ```
+
+   If there are any public snapshots, you will see warning messages in the console. If there are no messages, it means all your snapshots are private.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

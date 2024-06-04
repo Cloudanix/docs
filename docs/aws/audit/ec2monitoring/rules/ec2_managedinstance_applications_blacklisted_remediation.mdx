@@ -1,117 +1,336 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the installation of unspecified applications on an EC2 instance using the AWS Management Console, you can follow these steps:
+
+1. **Create and Apply IAM Policies:**
+   - Navigate to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Create a new IAM policy that restricts the installation of applications by limiting the permissions to only those necessary for the instance's intended purpose.
+   - Attach this policy to the IAM roles associated with your EC2 instances.
+
+2. **Use EC2 Instance Launch Templates:**
+   - Go to the EC2 Dashboard and select "Launch Templates" under the "Instances" section.
+   - Create a new launch template specifying the approved AMI (Amazon Machine Image) and configurations.
+   - Ensure that the launch template includes only the necessary software and configurations required for the instance's purpose.
+
+3. **Implement Systems Manager State Manager:**
+   - Navigate to the Systems Manager service in the AWS Management Console.
+   - Use State Manager to create and apply a configuration that enforces compliance with your organization's software policies.
+   - Define the desired state for your instances, ensuring that only specified applications are installed and running.
+
+4. **Enable AWS Config Rules:**
+   - Go to the AWS Config service in the AWS Management Console.
+   - Create or enable AWS Config rules that monitor and evaluate the configurations of your EC2 instances.
+   - Use custom rules or managed rules to check for compliance with your software installation policies, ensuring that only specified applications are installed on your instances.
+
+By following these steps, you can effectively prevent the installation of unspecified applications on your EC2 instances using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the installation of unspecified applications on an EC2 instance using AWS CLI, you can follow these steps:
+
+1. **Create a Custom IAM Policy**:
+   - Define a custom IAM policy that restricts the installation of applications on EC2 instances. This policy can be attached to the IAM role associated with your EC2 instances.
+   - Example policy JSON:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": [
+             "ec2:RunInstances",
+             "ec2:CreateTags"
+           ],
+           "Resource": "*",
+           "Condition": {
+             "StringNotEquals": {
+               "ec2:InstanceType": "t2.micro"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Use the following CLI command to create the policy:
+     ```sh
+     aws iam create-policy --policy-name RestrictApplicationInstallation --policy-document file://policy.json
+     ```
+
+2. **Attach the Policy to an IAM Role**:
+   - Attach the custom policy to the IAM role that is associated with your EC2 instances.
+   - Use the following CLI command to attach the policy:
+     ```sh
+     aws iam attach-role-policy --role-name YourEC2RoleName --policy-arn arn:aws:iam::aws:policy/RestrictApplicationInstallation
+     ```
+
+3. **Use EC2 Instance User Data**:
+   - When launching an EC2 instance, use the `--user-data` option to provide a script that ensures only specified applications are installed.
+   - Example user data script:
+     ```sh
+     #!/bin/bash
+     # Install only specified applications
+     yum install -y httpd
+     ```
+   - Use the following CLI command to launch an instance with user data:
+     ```sh
+     aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-0123456789abcdef0 --subnet-id subnet-6e7f829e --user-data file://user-data.sh
+     ```
+
+4. **Configure EC2 Instance Metadata Options**:
+   - Restrict access to the instance metadata service to prevent unauthorized changes to the instance configuration.
+   - Use the following CLI command to launch an instance with restricted metadata options:
+     ```sh
+     aws ec2 run-instances --image-id ami-0abcdef1234567890 --count 1 --instance-type t2.micro --key-name MyKeyPair --security-group-ids sg-0123456789abcdef0 --subnet-id subnet-6e7f829e --metadata-options "HttpTokens=required,HttpPutResponseHopLimit=2"
+     ```
+
+By following these steps, you can prevent the installation of unspecified applications on your EC2 instances using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the installation of unspecified applications on an EC2 instance using Python scripts, you can follow these steps:
+
+1. **Define Allowed Applications**:
+   Create a list of allowed applications that can be installed on your EC2 instances. This list will be used to check against the applications installed on the instance.
+
+2. **Use AWS Systems Manager (SSM) to Run Commands**:
+   Utilize AWS Systems Manager to run commands on your EC2 instances to check for installed applications. AWS SSM allows you to remotely execute commands on your instances.
+
+3. **Check Installed Applications**:
+   Write a Python script to connect to your EC2 instances and retrieve the list of installed applications. Compare this list with your predefined list of allowed applications.
+
+4. **Automate Monitoring and Alerts**:
+   Set up a monitoring system to periodically run the script and alert you if any unauthorized applications are found.
+
+Here is a Python script example to achieve this:
+
+```python
+import boto3
+import json
+
+# Define allowed applications
+allowed_applications = ['nginx', 'httpd', 'mysql']
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(profile_name='your-profile')
+ssm_client = session.client('ssm')
+
+# Function to get the list of installed applications on an instance
+def get_installed_applications(instance_id):
+    response = ssm_client.send_command(
+        InstanceIds=[instance_id],
+        DocumentName="AWS-RunShellScript",
+        Parameters={'commands': ['dpkg --get-selections']}
+    )
+    command_id = response['Command']['CommandId']
+    
+    # Wait for the command to complete
+    waiter = ssm_client.get_waiter('command_executed')
+    waiter.wait(CommandId=command_id, InstanceId=instance_id)
+    
+    # Get the command output
+    output = ssm_client.get_command_invocation(
+        CommandId=command_id,
+        InstanceId=instance_id
+    )
+    
+    installed_apps = output['StandardOutputContent'].split('\n')
+    installed_apps = [app.split()[0] for app in installed_apps if app]
+    return installed_apps
+
+# Function to check for unauthorized applications
+def check_unauthorized_applications(instance_id):
+    installed_apps = get_installed_applications(instance_id)
+    unauthorized_apps = [app for app in installed_apps if app not in allowed_applications]
+    
+    if unauthorized_apps:
+        print(f"Unauthorized applications found on instance {instance_id}: {unauthorized_apps}")
+    else:
+        print(f"No unauthorized applications found on instance {instance_id}")
+
+# Example usage
+instance_id = 'i-0abcd1234efgh5678'  # Replace with your instance ID
+check_unauthorized_applications(instance_id)
+```
+
+### Explanation:
+1. **Define Allowed Applications**: A list of allowed applications is defined.
+2. **Use AWS Systems Manager (SSM) to Run Commands**: The script uses AWS SSM to run a shell command on the EC2 instance to list installed applications.
+3. **Check Installed Applications**: The script retrieves the list of installed applications and compares it with the allowed applications.
+4. **Automate Monitoring and Alerts**: The script checks for unauthorized applications and prints a message if any are found. This can be extended to send alerts or take other actions.
+
+Make sure you have the necessary IAM permissions to use AWS Systems Manager and that the EC2 instance has the SSM agent installed and configured.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select the 'Instances' option from the left-hand side menu. This will display a list of all the EC2 instances that are currently running.
+3. Select the EC2 instance you want to check for misconfigurations. In the 'Description' tab at the bottom of the page, you can see all the details related to the selected instance.
+4. To check for any unspecified applications, you need to connect to the instance. You can do this by clicking on the 'Connect' button at the top of the page. Once connected, you can use the command line interface to list all the installed applications and check if there are any applications that should not be installed on the instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure to configure it with the necessary access keys and region.
+
+2. Once the AWS CLI is set up, you can list all the EC2 instances using the following command:
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with details about all the EC2 instances.
+
+3. To check the applications installed on an instance, you need to SSH into the instance. You can do this using the following command:
+   ```
+   ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com
+   ```
+   Replace "/path/my-key-pair.pem" with the path to your private key file and "ec2-198-51-100-1.compute-1.amazonaws.com" with the public DNS of your EC2 instance.
+
+4. Once you are logged into the instance, you can check the installed applications using the following command:
+   ```
+   dpkg --get-selections
+   ```
+   This command will list all the installed packages on the instance. You can look through this list to check if any unspecified applications are installed.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it. You can do this by creating a new session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+2. List all EC2 instances: Use the `describe_instances()` function to get information about all instances. This function returns a lot of information about each instance, including the instance ID, instance type, and state.
+
+```python
+ec2 = session.resource('ec2')
+for instance in ec2.instances.all():
+    print(instance.id, instance.instance_type, instance.state)
+```
+
+3. Check for installed applications: To check for installed applications, you can use the `describe_instance_attribute()` function with the `UserData` attribute. This function returns the user data that you specified when you launched the instance. The user data is often used to pass scripts or other automation to run at launch time.
+
+```python
+response = ec2.describe_instance_attribute(
+    InstanceId='INSTANCE_ID',
+    Attribute='userData'
+)
+print('User data:', response['UserData'])
+```
+
+4. Analyze the user data: The user data returned in the previous step is base64-encoded. After decoding it, you can analyze it to check for any scripts or commands that install applications. If the user data contains commands to install applications, then applications are installed on the instance.
+
+```python
+import base64
+
+user_data = response['UserData']
+decoded_user_data = base64.b64decode(user_data).decode('utf-8')
+print('Decoded user data:', decoded_user_data)
+
+if 'apt-get install' in decoded_user_data or 'yum install' in decoded_user_data:
+    print('Applications are installed on the instance.')
+else:
+    print('No applications are installed on the instance.')
+```
+
+Please note that this method only checks for applications installed through the user data at launch time. It does not check for applications installed after the instance has been launched.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-To remediate the issue of having unspecified applications installed on an AWS EC2 instance, you can follow these steps using the AWS Management Console:
-
-1. **Identify Installed Applications**:
-   - Connect to the EC2 instance using SSH or RDP.
-   - Use commands like `dpkg -l` for Debian-based systems or `rpm -qa` for Red Hat-based systems to list all installed packages.
-
-2. **Remove Unspecified Applications**:
-   - Identify any applications that are not supposed to be installed on the instance.
-   - Use the appropriate package manager (`apt` for Debian-based systems, `yum` for Red Hat-based systems) to uninstall the unwanted applications. For example:
-     - Debian-based systems: `sudo apt-get remove <package_name>`
-     - Red Hat-based systems: `sudo yum remove <package_name>`
-
-3. **Update Security Groups**:
-   - Ensure that the security groups associated with the EC2 instance only allow necessary inbound and outbound traffic. Restrict access to only required ports and protocols.
-
-4. **Implement IAM Policies**:
-   - Use AWS Identity and Access Management (IAM) to enforce policies that restrict users' ability to install applications on EC2 instances.
-
-5. **Enable AWS Config Rules**:
-   - Set up AWS Config Rules to monitor and enforce compliance with your desired configuration standards. This can help prevent unauthorized applications from being installed on EC2 instances.
-
-6. **Regularly Monitor and Audit**:
-   - Regularly monitor the instances for any unauthorized changes and audit the installed applications to ensure compliance with organizational policies.
-
-By following these steps, you can remediate the issue of having unspecified applications installed on an AWS EC2 instance and ensure that only approved applications are running on your instances.
-
-#
+1. Identify the EC2 managed instances where blacklisted applications are installed.
+2. Connect to each identified instance using Systems Manager Session Manager or SSH.
+3. Uninstall or disable the blacklisted applications using the appropriate package management commands (e.g., `apt-get` for Debian/Ubuntu, `yum` for RHEL/CentOS).
+4. Verify that the blacklisted applications have been successfully removed or disabled.
 </Accordion>
 
 <Accordion title='Using CLI'>
-To remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using the AWS CLI, follow these steps:
+There's no direct AWS CLI command to uninstall or disable applications on EC2 managed instances. You'll typically need to use a combination of AWS Systems Manager Run Command or AWS SSM Session Manager along with remote execution commands to achieve this. Below is a generic example of how you might do this:
 
-1. **Identify Installed Applications:** First, you need to identify the applications that are installed on the EC2 instance. You can SSH into the instance and manually check the installed applications or use a configuration management tool like Ansible to gather this information.
+```bash
+aws ssm send-command --instance-ids <instance-id> --document-name "AWS-RunShellScript" --parameters "commands=<uninstall-command>" --output text
+```
 
-2. **Remove Unspecified Applications:** Once you have identified the applications that are not supposed to be installed on the instance, you can remove them using the following command:
-   
-   ```
-   sudo yum remove <package_name>
-   ```
-
-   Replace `<package_name>` with the name of the package you want to remove. You may need to run this command for each unwanted package.
-
-3. **Update Security Groups:** If the applications were accessed over the network, you should also update the security groups associated with the EC2 instance to restrict access to only necessary ports and protocols.
-
-4. **Create an AMI:** After removing the unwanted applications, you may want to create a new Amazon Machine Image (AMI) from the instance. This will ensure that any new instances launched from this AMI do not have the unwanted applications installed.
-
-5. **Terminate and Replace Instance:** If removing the unwanted applications is not feasible or if the instance is heavily compromised, you may consider terminating the instance and launching a new instance from the updated AMI.
-
-By following these steps, you can remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using the AWS CLI.
+Replace `<instance-id>` with the ID of the EC2 managed instance and `<uninstall-command>` with the appropriate command to uninstall or disable the blacklisted application.
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using Python, you can use the AWS Systems Manager Run Command to execute a script that will uninstall any unwanted applications.
+```python
+import boto3
 
-Here are the step-by-step instructions to remediate this issue:
+def remediate_managed_instance(application_names):
+    # Initialize Systems Manager client
+    ssm_client = boto3.client('ssm')
 
-1. **Identify Unspecified Applications**:
-   - Use the following Python script to list all installed applications on the EC2 instance:
-     ```python
-     import subprocess
-     installed_apps = subprocess.check_output("dpkg --get-selections", shell=True).decode()
-     print(installed_apps)
-     ```
-   - Review the list of installed applications to identify the unspecified ones that need to be uninstalled.
+    # Retrieve EC2 managed instances
+    response = ssm_client.describe_instance_information()
 
-2. **Create a Python Script to Uninstall Unspecified Applications**:
-   - Create a Python script that will uninstall the identified unspecified applications. For example:
-     ```python
-     import subprocess
-     apps_to_uninstall = ["app1", "app2"]  # List of unspecified applications to uninstall
-     for app in apps_to_uninstall:
-         subprocess.call(f"sudo apt-get remove --purge {app} -y", shell=True)
-     ```
+    for instance in response['InstanceInformationList']:
+        instance_id = instance['InstanceId']
+        inventory = ssm_client.get_inventory(
+            Filters=[
+                {
+                    'Key': 'AWS:InstanceInformation.InstanceId',
+                    'Values': [instance_id]
+                },
+            ]
+        )
 
-3. **Install AWS SDK for Python (Boto3)**:
-   - If you haven't already, install the Boto3 library for Python using pip:
-     ```
-     pip install boto3
-     ```
+        if 'Applications' in inventory['Entities'][0]['Data']:
+            installed_applications = inventory['Entities'][0]['Data']['Applications']
 
-4. **Use Boto3 to Execute the Script on EC2 Instance**:
-   - Use the following Python script to execute the uninstallation script on the EC2 instance:
-     ```python
-     import boto3
+            # Check for blacklisted applications
+            for app in installed_applications:
+                if app['Name'] in application_names:
+                    print(f"Blacklisted application '{app['Name']}' found on instance '{instance_id}'.")
+                    # Perform remediation action here (e.g., uninstall or disable the application)
+                    # Example:
+                    # ssm_client.send_command(
+                    #     InstanceIds=[instance_id],
+                    #     DocumentName='AWS-RunShellScript',
+                    #     Parameters={
+                    #         'commands': ['<uninstall-command>']
+                    #     }
+                    # )
+                    break
 
-     # Specify the EC2 instance ID
-     instance_id = 'your_instance_id'
+def main():
+    # Specify the list of blacklisted application names
+    blacklisted_applications = ['application1', 'application2']
 
-     # Specify the path to the uninstall script on the EC2 instance
-     script_path = '/path/to/uninstall_script.py'
+    # Remediate EC2 managed instances with blacklisted applications
+    remediate_managed_instance(blacklisted_applications)
 
-     ssm_client = boto3.client('ssm')
+if __name__ == "__main__":
+    main()
+```
 
-     response = ssm_client.send_command(
-         InstanceIds=[instance_id],
-         DocumentName="AWS-RunShellScript",
-         Parameters={'commands': [f'python {script_path}']}
-     )
-
-     print(response)
-     ```
-
-5. **Review the Execution**:
-   - Monitor the execution of the script using the response from the `send_command` function to ensure that the unspecified applications are successfully uninstalled.
-
-By following these steps, you can remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using Python and AWS Systems Manager Run Command.
+Replace `'application1', 'application2'` with the names of the blacklisted applications. This script checks for the presence of blacklisted applications on EC2 managed instances using AWS Systems Manager Inventory and takes remediation actions accordingly. Adjust the remediation action (e.g., uninstall command) as per your requirements.
 </Accordion>
 
 </AccordionGroup>

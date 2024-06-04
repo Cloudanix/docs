@@ -23,6 +23,231 @@ CBP, AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted Elasticsearch access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to the VPC Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "VPC" and then "Security Groups."
+
+2. **Identify the Security Group:**
+   - Locate the security group associated with your Elasticsearch instance.
+   - Select the security group to view its details.
+
+3. **Edit Inbound Rules:**
+   - Choose the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+   - Review the existing rules and ensure that there are no rules allowing unrestricted access (e.g., 0.0.0.0/0 or ::/0) to port 9200 (default Elasticsearch port).
+
+4. **Restrict Access:**
+   - Modify the inbound rules to restrict access to specific IP addresses or CIDR blocks that require access.
+   - For example, you can specify the IP addresses of your trusted networks or use a VPN to limit access.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your Elasticsearch instance is not exposed to unrestricted access, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted Elasticsearch access in EC2 using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group with Restricted Access:**
+   Create a security group that allows access only from specific IP addresses or CIDR blocks. Replace `<SECURITY_GROUP_NAME>` and `<DESCRIPTION>` with appropriate values.
+
+   ```sh
+   aws ec2 create-security-group --group-name <SECURITY_GROUP_NAME> --description "<DESCRIPTION>"
+   ```
+
+2. **Add Inbound Rules to the Security Group:**
+   Add inbound rules to the security group to allow access only from specific IP addresses or CIDR blocks. Replace `<SECURITY_GROUP_ID>`, `<PROTOCOL>`, `<PORT>`, and `<CIDR_BLOCK>` with appropriate values.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <SECURITY_GROUP_ID> --protocol <PROTOCOL> --port <PORT> --cidr <CIDR_BLOCK>
+   ```
+
+3. **Attach the Security Group to the Elasticsearch Instance:**
+   Attach the newly created security group to your Elasticsearch instance. Replace `<INSTANCE_ID>` and `<SECURITY_GROUP_ID>` with appropriate values.
+
+   ```sh
+   aws ec2 modify-instance-attribute --instance-id <INSTANCE_ID> --groups <SECURITY_GROUP_ID>
+   ```
+
+4. **Verify the Security Group Configuration:**
+   Verify that the security group is correctly configured and attached to the instance. Replace `<INSTANCE_ID>` with the appropriate value.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <INSTANCE_ID> --query "Reservations[*].Instances[*].SecurityGroups"
+   ```
+
+By following these steps, you can ensure that your Elasticsearch instance is not accessible from unrestricted IP addresses, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted Elasticsearch access in EC2 using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to find and modify the security groups associated with your Elasticsearch instances to restrict access.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Define the security group ID and the IP range to restrict access
+   security_group_id = 'your-security-group-id'
+   restricted_ip_range = '203.0.113.0/24'  # Example IP range
+
+   # Revoke all inbound rules for the security group
+   def revoke_all_inbound_rules(security_group_id):
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       security_group = response['SecurityGroups'][0]
+       for permission in security_group['IpPermissions']:
+           ec2.revoke_security_group_ingress(
+               GroupId=security_group_id,
+               IpProtocol=permission['IpProtocol'],
+               FromPort=permission['FromPort'],
+               ToPort=permission['ToPort'],
+               IpRanges=permission['IpRanges'],
+               Ipv6Ranges=permission['Ipv6Ranges'],
+               PrefixListIds=permission['PrefixListIds'],
+               UserIdGroupPairs=permission['UserIdGroupPairs']
+           )
+
+   # Add a new inbound rule to restrict access
+   def add_restricted_inbound_rule(security_group_id, ip_range):
+       ec2.authorize_security_group_ingress(
+           GroupId=security_group_id,
+           IpPermissions=[
+               {
+                   'IpProtocol': 'tcp',
+                   'FromPort': 9200,  # Elasticsearch default port
+                   'ToPort': 9200,
+                   'IpRanges': [{'CidrIp': ip_range}]
+               }
+           ]
+       )
+
+   # Revoke all existing inbound rules
+   revoke_all_inbound_rules(security_group_id)
+
+   # Add the restricted inbound rule
+   add_restricted_inbound_rule(security_group_id, restricted_ip_range)
+
+   print(f"Security group {security_group_id} updated to restrict access to {restricted_ip_range}")
+   ```
+
+4. **Run the Script**:
+   Execute the script to update the security group rules and restrict access to your Elasticsearch instances.
+
+   ```bash
+   python restrict_elasticsearch_access.py
+   ```
+
+This script will revoke all existing inbound rules for the specified security group and then add a new rule to restrict access to the specified IP range. Adjust the `security_group_id` and `restricted_ip_range` variables as needed for your environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select "Security Groups" under the "Network & Security" section.
+3. In the Security Groups page, select the security group associated with your Elasticsearch instance.
+4. In the details pane, check the "Inbound rules" tab. If there are rules that allow access from '0.0.0.0/0' (all IPv4 addresses) or '::/0' (all IPv6 addresses) to port 9200 (default port for Elasticsearch), then unrestricted Elasticsearch access is allowed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all security groups: Use the following command to list all the security groups in your AWS account. This will return a JSON object with details about each security group.
+
+   ```
+   aws ec2 describe-security-groups
+   ```
+
+3. Check for unrestricted access: You need to check if any security group allows unrestricted access to Elasticsearch (port 9200). You can do this by parsing the JSON output from the previous step. Look for IpPermissions where the FromPort is 9200 and the IpRanges includes 0.0.0.0/0 (which means all IP addresses).
+
+   Here is a Python script that uses the `boto3` library to do this:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for security_group in ec2.security_groups.all():
+       for permission in security_group.ip_permissions:
+           if permission['FromPort'] == 9200 and '0.0.0.0/0' in [ip['CidrIp'] for ip in permission['IpRanges']]:
+               print(f"Security group {security_group.id} allows unrestricted Elasticsearch access")
+   ```
+
+4. Review the results: If the script prints out any security group IDs, those are the ones that allow unrestricted Elasticsearch access. You should review these security groups and consider restricting their access to only the necessary IP addresses.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at ~/.aws/credentials. At a minimum, the credentials file should look like this:
+
+```python
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+```
+
+3. Write the Python script: Now you can write a Python script that uses the boto3 library to check for unrestricted Elasticsearch access in EC2. Here is a simple script that does this:
+
+```python
+import boto3
+
+def check_es_access():
+    client = boto3.client('es')
+    domains = client.list_domain_names()
+    for domain in domains['DomainNames']:
+        domain_name = domain['DomainName']
+        domain_config = client.describe_elasticsearch_domain(DomainName=domain_name)
+        access_policy = domain_config['DomainStatus']['AccessPolicies']
+        if 'Principal': '*' in access_policy:
+            print(f"Unrestricted Elasticsearch access is allowed in domain: {domain_name}")
+
+check_es_access()
+```
+
+This script lists all Elasticsearch domains and checks the access policy of each domain. If the access policy allows unrestricted access (i.e., the principal is '*'), it prints a message indicating this.
+
+4. Run the Python script: Finally, you can run the Python script using the Python interpreter:
+
+```python
+python check_es_access.py
+```
+
+This will print a message for each Elasticsearch domain that allows unrestricted access. If no such domains exist, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

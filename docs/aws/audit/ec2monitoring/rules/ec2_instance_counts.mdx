@@ -24,6 +24,222 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instance count from exceeding the limit in AWS using the AWS Management Console, follow these steps:
+
+1. **Set Service Quotas:**
+   - Navigate to the **Service Quotas** dashboard in the AWS Management Console.
+   - Search for **EC2** and select the relevant quota (e.g., "Running On-Demand Standard (A, C, D, H, I, M, R, T, Z) instances").
+   - Set a quota limit that aligns with your organizational policies and requirements.
+
+2. **Enable AWS Budgets:**
+   - Go to the **AWS Budgets** dashboard.
+   - Create a new budget and set it to monitor the number of running EC2 instances.
+   - Configure alerts to notify you when the instance count approaches the set limit.
+
+3. **Use AWS Config Rules:**
+   - Navigate to the **AWS Config** dashboard.
+   - Create a new rule or use an existing managed rule such as `ec2-instance-no-more-than-allowed`.
+   - Set the maximum number of instances allowed and enable the rule to continuously monitor compliance.
+
+4. **Implement IAM Policies:**
+   - Go to the **IAM** dashboard.
+   - Create or modify IAM policies to restrict the creation of new EC2 instances.
+   - Attach these policies to the relevant IAM users, groups, or roles to enforce the instance count limit.
+
+By following these steps, you can effectively prevent the EC2 instance count from exceeding the set limit using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the EC2 instance count from exceeding the limit using AWS CLI, you can follow these steps:
+
+1. **Check Current EC2 Limits:**
+   First, you need to check the current limits for your EC2 instances in your AWS account. This can be done using the `describe-account-attributes` command.
+   ```sh
+   aws ec2 describe-account-attributes --attribute-names max-instances
+   ```
+
+2. **Monitor EC2 Instance Count:**
+   Regularly monitor the number of running EC2 instances in your account. You can use the `describe-instances` command to get the count of running instances.
+   ```sh
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text | wc -l
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to notify you when the number of running instances approaches the limit. This can be done using the `put-metric-alarm` command.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "EC2InstanceCountLimit" --metric-name "RunningInstances" --namespace "AWS/EC2" --statistic "Sum" --period 300 --threshold <YOUR_LIMIT> --comparison-operator "GreaterThanOrEqualToThreshold" --evaluation-periods 1 --alarm-actions <SNS_TOPIC_ARN>
+   ```
+
+4. **Automate Instance Management:**
+   Use AWS Auto Scaling to manage the number of instances automatically. You can create an Auto Scaling group with a maximum number of instances to ensure you do not exceed the limit.
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name <YOUR_ASG_NAME> --launch-configuration-name <YOUR_LAUNCH_CONFIG> --min-size 1 --max-size <YOUR_LIMIT> --desired-capacity 1 --vpc-zone-identifier <YOUR_SUBNETS>
+   ```
+
+By following these steps, you can effectively prevent the EC2 instance count from exceeding the limit using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the EC2 instance count from exceeding the limit in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Configure Credentials:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials using the AWS CLI or by setting environment variables.
+
+   ```bash
+   pip install boto3
+   aws configure
+   ```
+
+2. **Define the Maximum Instance Limit:**
+   - Set a variable for the maximum number of EC2 instances you want to allow.
+
+   ```python
+   MAX_INSTANCE_LIMIT = 10  # Set your desired limit here
+   ```
+
+3. **Create a Python Script to Monitor EC2 Instances:**
+   - Use Boto3 to interact with the EC2 service and count the number of running instances.
+
+   ```python
+   import boto3
+
+   def get_running_instance_count():
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_instances(
+           Filters=[
+               {
+                   'Name': 'instance-state-name',
+                   'Values': ['running']
+               }
+           ]
+       )
+       instances = [reservation['Instances'] for reservation in response['Reservations']]
+       return sum(len(instance) for instance in instances)
+
+   current_instance_count = get_running_instance_count()
+   print(f"Current running instance count: {current_instance_count}")
+   ```
+
+4. **Implement Logic to Prevent Exceeding the Limit:**
+   - Before launching a new instance, check if the current instance count exceeds the limit. If it does, prevent the launch.
+
+   ```python
+   def can_launch_new_instance():
+       current_instance_count = get_running_instance_count()
+       if current_instance_count >= MAX_INSTANCE_LIMIT:
+           print("Instance limit reached. Cannot launch new instance.")
+           return False
+       return True
+
+   if can_launch_new_instance():
+       # Code to launch a new instance
+       ec2 = boto3.resource('ec2')
+       instance = ec2.create_instances(
+           ImageId='ami-0abcdef1234567890',  # Replace with a valid AMI ID
+           MinCount=1,
+           MaxCount=1,
+           InstanceType='t2.micro'
+       )
+       print("New instance launched:", instance[0].id)
+   ```
+
+By following these steps, you can ensure that your EC2 instance count does not exceed the specified limit using a Python script. This script checks the current number of running instances and prevents launching new instances if the limit is reached.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose 'Instances'.
+
+3. On the 'Instances' page, you can see the total number of instances currently running in your account. 
+
+4. Compare this number with the EC2 instance limit for your account. If the number of running instances is close to or exceeds the limit, it indicates a misconfiguration. You can check your account limits by navigating to the 'Limits' page in the EC2 dashboard.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: To get a list of all EC2 instances, you can use the `describe-instances` command. The command is as follows:
+
+   ```
+   aws ec2 describe-instances
+   ```
+
+   This command will return a JSON object that contains information about all your EC2 instances.
+
+3. Count the number of instances: To count the number of instances, you can pipe the output of the `describe-instances` command to the `jq` command. The `jq` command is a command-line JSON processor. You can use it to parse the JSON output and count the number of instances. The command is as follows:
+
+   ```
+   aws ec2 describe-instances | jq '.Reservations[].Instances[] | .InstanceId' | wc -l
+   ```
+
+   This command will return the total number of EC2 instances.
+
+4. Compare the count with the limit: AWS has a limit on the number of EC2 instances that you can run. You can check this limit by using the `describe-account-attributes` command. The command is as follows:
+
+   ```
+   aws ec2 describe-account-attributes --attribute-names max-instances
+   ```
+
+   This command will return the maximum number of instances that you can run. You can then compare this number with the count of your current instances to see if you are exceeding the limit.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your local environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it. You can configure it using AWS CLI:
+   ```
+   aws configure
+   ```
+   It will ask for the AWS Access Key ID, Secret Access Key, Default region name, and Default output format. You can get these details from your AWS account.
+
+2. Import the necessary libraries and create an EC2 resource object:
+   You need to import Boto3 and create an EC2 resource object. This object will allow you to interact with your EC2 instances.
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+   ```
+
+3. Get the count of EC2 instances:
+   You can get the count of EC2 instances using the `instances.all()` method. This method returns a collection of your EC2 instances. You can get the count of this collection using the `len()` function.
+   ```python
+   instances = ec2.instances.all()
+   instance_count = len(list(instances))
+   print("Total EC2 instances: ", instance_count)
+   ```
+
+4. Check if the count exceeds the limit:
+   You can check if the count of EC2 instances exceeds the limit. If it exceeds the limit, you can print a warning message.
+   ```python
+   limit = 20  # Set your limit
+   if instance_count > limit:
+       print("Warning: The count of EC2 instances exceeds the limit!")
+   else:
+       print("The count of EC2 instances is within the limit.")
+   ```
+   This script will print a warning message if the count of EC2 instances exceeds the limit. Otherwise, it will print a message saying that the count is within the limit.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

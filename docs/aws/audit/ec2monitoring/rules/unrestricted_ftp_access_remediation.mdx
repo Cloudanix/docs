@@ -1,6 +1,185 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted FTP access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the security group selected, click on the "Inbound rules" tab.
+   - Click the "Edit inbound rules" button.
+
+4. **Remove or Restrict FTP Rule:**
+   - Look for any rule that allows inbound traffic on port 21 (the default FTP port).
+   - Either remove this rule or modify it to restrict access to specific IP addresses or ranges, rather than allowing unrestricted access (0.0.0.0/0).
+
+By following these steps, you can ensure that FTP access to your EC2 instances is not unrestricted, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted FTP access in EC2 using AWS CLI, you need to modify the security group rules to restrict access to the FTP port (port 21). Here are the steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids <instance-id> --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke Unrestricted Inbound Rule for FTP:**
+   Revoke any existing inbound rule that allows unrestricted access to port 21.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 21 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restricted Inbound Rule for FTP:**
+   Add a more restrictive inbound rule for port 21, specifying a particular IP range or security group.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 21 --cidr <restricted-ip-range>
+   ```
+
+4. **Verify the Security Group Rules:**
+   Verify that the security group rules have been updated correctly.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+Replace `<instance-id>`, `<security-group-id>`, and `<restricted-ip-range>` with your specific values. This will ensure that FTP access is not unrestricted and is limited to a specific IP range or security group.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted FTP access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Check and Update Security Groups**:
+   Write a Python script to identify security groups with unrestricted FTP access (port 21) and update them to restrict access.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Describe all security groups
+   response = ec2.describe_security_groups()
+
+   for sg in response['SecurityGroups']:
+       for permission in sg['IpPermissions']:
+           if permission['IpProtocol'] == 'tcp' and permission['FromPort'] == 21 and permission['ToPort'] == 21:
+               for ip_range in permission['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group {sg['GroupId']} has unrestricted FTP access. Revoking rule...")
+                       # Revoke the unrestricted rule
+                       ec2.revoke_security_group_ingress(
+                           GroupId=sg['GroupId'],
+                           IpProtocol='tcp',
+                           FromPort=21,
+                           ToPort=21,
+                           CidrIp='0.0.0.0/0'
+                       )
+                       print(f"Unrestricted FTP access revoked for Security Group {sg['GroupId']}.")
+   ```
+
+4. **Run the Script**:
+   Execute the script to check and update the security groups. This script will revoke any rules that allow unrestricted access to port 21 (FTP).
+
+   ```bash
+   python prevent_unrestricted_ftp.py
+   ```
+
+This script will help you identify and prevent unrestricted FTP access in your EC2 instances by modifying the security group rules accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all the security groups associated with your EC2 instances. Click on the security group that you want to check.
+4. In the details pane at the bottom, click on the "Inbound" tab. Here, you can see all the inbound rules for the selected security group. If there is a rule that allows unrestricted FTP access (i.e., the protocol is FTP (port 20-21) and the source is set to 0.0.0.0/0 or ::/0), then the EC2 instance has a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all security groups: The next step is to list all the security groups in your AWS account. You can do this by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check for unrestricted FTP access: Now, for each security group, you need to check if it allows unrestricted FTP access. FTP uses port 21, so you need to check if this port is open to the world (0.0.0.0/0). You can do this by running the following command for each security group:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}"
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all IP permissions for the specified security group.
+
+4. Analyze the output: If the output of the previous command includes an entry where `FromPort` is 21, `ToPort` is 21, and `IpRanges` includes 0.0.0.0/0, then the security group allows unrestricted FTP access. If there is no such entry, then the security group does not allow unrestricted FTP access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and import the necessary Python libraries. You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+pip install boto3
+import boto3
+```
+
+2. Create an EC2 resource object using the boto3 library. This object will allow you to interact with your EC2 instances.
+
+```python
+ec2 = boto3.resource('ec2')
+```
+
+3. Iterate over all security groups associated with your EC2 instances. For each security group, check the inbound rules to see if any allow unrestricted FTP access (port 21 open to 0.0.0.0/0).
+
+```python
+for security_group in ec2.security_groups.all():
+    for permission in security_group.ip_permissions:
+        for ip_range in permission['IpRanges']:
+            if '0.0.0.0/0' in ip_range['CidrIp'] and permission['FromPort'] <= 21 and permission['ToPort'] >= 21:
+                print(f"Security Group {security_group.id} allows unrestricted FTP access.")
+```
+
+4. If the script prints out any security group IDs, those are the groups that have misconfigurations allowing unrestricted FTP access. You should investigate these security groups further and modify their inbound rules as necessary to restrict FTP access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,244 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 AMIs from being public in the AWS Management Console, follow these steps:
+
+1. **Navigate to the AMI Section:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the Amazon EC2 Dashboard.
+   - In the left-hand menu, under "Images," select "AMIs."
+
+2. **Check AMI Permissions:**
+   - In the AMIs section, you will see a list of your AMIs.
+   - Select the AMI you want to check.
+   - In the bottom pane, click on the "Permissions" tab to view the current sharing settings.
+
+3. **Modify AMI Permissions:**
+   - If the AMI is public, you will see "Public" under the "Launch Permissions" section.
+   - Click on the "Edit" button to modify the permissions.
+
+4. **Set AMI to Private:**
+   - In the "Edit AMI Permissions" dialog, ensure that "Public" is not selected.
+   - You can specify individual AWS account IDs if you want to share the AMI with specific accounts.
+   - Click "Save" to apply the changes.
+
+By following these steps, you can ensure that your EC2 AMIs are not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 AMIs from being public using the AWS CLI, you can follow these steps:
+
+1. **Describe the AMI to Check its Current Permissions:**
+   First, you need to identify the AMI and check its current permissions to ensure it is not public.
+   ```sh
+   aws ec2 describe-image-attribute --image-id ami-xxxxxxxx --attribute launchPermission
+   ```
+
+2. **Remove Public Launch Permissions:**
+   If the AMI is public, you need to remove the public launch permissions. This command will revoke public access.
+   ```sh
+   aws ec2 reset-image-attribute --image-id ami-xxxxxxxx --attribute launchPermission
+   ```
+
+3. **Set Specific Launch Permissions (Optional):**
+   If you want to set specific launch permissions for certain AWS accounts, you can use the following command. Replace `account-id` with the actual AWS account ID.
+   ```sh
+   aws ec2 modify-image-attribute --image-id ami-xxxxxxxx --launch-permission "Add=[{UserId=account-id}]"
+   ```
+
+4. **Verify the Changes:**
+   Finally, verify that the AMI is no longer public and that the permissions are set correctly.
+   ```sh
+   aws ec2 describe-image-attribute --image-id ami-xxxxxxxx --attribute launchPermission
+   ```
+
+By following these steps, you can ensure that your EC2 AMIs are not publicly accessible using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 AMIs from being public in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your AMIs are not public:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Check AMI Permissions**:
+   Write a Python script to check the permissions of your AMIs and ensure they are not public.
+
+4. **Modify AMI Permissions**:
+   If any AMIs are found to be public, modify their permissions to make them private.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+
+def ensure_ami_not_public():
+    # Create a session using your AWS credentials
+    session = boto3.Session(
+        aws_access_key_id='YOUR_AWS_ACCESS_KEY_ID',
+        aws_secret_access_key='YOUR_AWS_SECRET_ACCESS_KEY',
+        region_name='YOUR_AWS_REGION'
+    )
+
+    ec2_client = session.client('ec2')
+
+    # Describe all AMIs owned by the account
+    response = ec2_client.describe_images(Owners=['self'])
+
+    for image in response['Images']:
+        image_id = image['ImageId']
+        print(f"Checking AMI: {image_id}")
+
+        # Get the current permissions of the AMI
+        permissions = ec2_client.describe_image_attribute(
+            ImageId=image_id,
+            Attribute='launchPermission'
+        )
+
+        # Check if the AMI is public
+        is_public = any(perm.get('Group') == 'all' for perm in permissions['LaunchPermissions'])
+
+        if is_public:
+            print(f"AMI {image_id} is public. Revoking public access...")
+
+            # Revoke public access
+            ec2_client.modify_image_attribute(
+                ImageId=image_id,
+                LaunchPermission={
+                    'Remove': [
+                        {
+                            'Group': 'all'
+                        }
+                    ]
+                }
+            )
+            print(f"Public access revoked for AMI {image_id}.")
+        else:
+            print(f"AMI {image_id} is not public.")
+
+if __name__ == "__main__":
+    ensure_ami_not_public()
+```
+
+### Explanation:
+1. **Install Boto3 Library**: Ensure you have the Boto3 library installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Check AMI Permissions**: The script lists all AMIs owned by your account and checks their launch permissions to see if they are public.
+4. **Modify AMI Permissions**: If any AMIs are found to be public, the script modifies their permissions to remove public access.
+
+This script ensures that all your AMIs are private and not accessible to the public.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, choose 'AMIs'.
+
+3. In the table, find the AMI that you want to check. The 'Visibility' column indicates whether the AMI is public or private.
+
+4. If the 'Visibility' column shows 'Public', then the AMI is publicly accessible. If it shows 'Private', then the AMI is not publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all AMIs: Use the `describe-images` command to list all the AMIs available in your AWS account. The command is as follows:
+
+   ```
+   aws ec2 describe-images --owners self
+   ```
+   This command will return a JSON output with details of all the AMIs.
+
+3. Check the permissions of each AMI: In the JSON output, look for the `Public` field under `ImageAttribute`. If the value of `Public` is `true`, then the AMI is public. Here is a sample command to check if an AMI is public:
+
+   ```
+   aws ec2 describe-image-attribute --image-id <your-ami-id> --attribute launchPermission
+   ```
+   Replace `<your-ami-id>` with the ID of your AMI.
+
+4. Automate the process: If you have many AMIs, it would be tedious to check each one manually. You can write a script to automate the process. Here is a sample Python script using the boto3 library:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_images(Owners=['self'])
+
+   for image in response['Images']:
+       image_id = image['ImageId']
+       attribute = ec2.describe_image_attribute(
+           ImageId=image_id,
+           Attribute='launchPermission'
+       )
+       if attribute['LaunchPermissions']:
+           for permission in attribute['LaunchPermissions']:
+               if 'Group' in permission and permission['Group'] == 'all':
+                   print(f"AMI {image_id} is public")
+   ```
+   This script will print the IDs of all public AMIs.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check for public AMIs: The following script will list all AMIs and check if they are public. If an AMI is public, it will print out its ID.
+
+   ```python
+   import boto3
+
+   def check_public_amis():
+       ec2 = boto3.resource('ec2')
+       images = ec2.images.filter(Owners=['self'])
+
+       for image in images:
+           if image.public == True:
+               print(f'Public AMI detected: {image.id}')
+
+   if __name__ == '__main__':
+       check_public_amis()
+   ```
+
+4. Run the script: You can run the script using the Python interpreter. The script will print out the IDs of any public AMIs it finds.
+
+   ```
+   python check_public_amis.py
+   ```
+
+This script will only check for public AMIs in the default region. If you have AMIs in other regions, you will need to modify the script to check those regions as well.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

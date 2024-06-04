@@ -23,6 +23,208 @@ HIPAA, AWSWAF, GDPR, SOC2, NISTCSF, PCIDSS, FedRAMP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unrestricted DNS access in EC2 using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - Click on the "Inbound rules" tab.
+   - Review the existing rules and identify any rules that allow unrestricted access (0.0.0.0/0 or ::/0) to DNS ports (typically port 53 for both TCP and UDP).
+
+4. **Restrict Access:**
+   - Edit or delete the rules that allow unrestricted access.
+   - Add new rules to restrict DNS access to specific IP addresses or CIDR blocks that are trusted and necessary for your application.
+
+By following these steps, you can ensure that DNS access is restricted to only trusted sources, thereby enhancing the security of your EC2 instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unrestricted DNS access in EC2 instances using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group with Restricted DNS Access:**
+   Create a security group that allows DNS access only from specific IP addresses or ranges.
+
+   ```sh
+   aws ec2 create-security-group --group-name restricted-dns-sg --description "Security group with restricted DNS access"
+   ```
+
+2. **Add Inbound Rules to the Security Group:**
+   Add rules to the security group to allow DNS traffic (port 53) only from specific IP addresses or ranges.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-name restricted-dns-sg --protocol udp --port 53 --cidr <your-allowed-ip-range>
+   aws ec2 authorize-security-group-ingress --group-name restricted-dns-sg --protocol tcp --port 53 --cidr <your-allowed-ip-range>
+   ```
+
+3. **Attach the Security Group to Your EC2 Instances:**
+   Modify the security groups of your existing EC2 instances to include the newly created security group.
+
+   ```sh
+   INSTANCE_ID=<your-instance-id>
+   aws ec2 modify-instance-attribute --instance-id $INSTANCE_ID --groups <existing-security-group-id> <restricted-dns-sg-id>
+   ```
+
+4. **Verify the Security Group Configuration:**
+   Ensure that the security group is correctly configured and attached to the EC2 instances.
+
+   ```sh
+   aws ec2 describe-instances --instance-ids $INSTANCE_ID --query 'Reservations[*].Instances[*].SecurityGroups'
+   ```
+
+Replace `<your-allowed-ip-range>`, `<your-instance-id>`, `<existing-security-group-id>`, and `<restricted-dns-sg-id>` with the appropriate values for your setup. This will ensure that DNS access is restricted to only the specified IP ranges, preventing unrestricted DNS access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unrestricted DNS access in EC2 instances using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Create a Python Script to Modify Security Groups**:
+   Write a Python script to identify and modify security groups to restrict DNS access (port 53). Below is an example script:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   ec2 = boto3.client('ec2')
+
+   # Function to get all security groups
+   def get_security_groups():
+       response = ec2.describe_security_groups()
+       return response['SecurityGroups']
+
+   # Function to revoke unrestricted DNS access
+   def revoke_unrestricted_dns_access(security_group_id, ip_permissions):
+       ec2.revoke_security_group_ingress(
+           GroupId=security_group_id,
+           IpPermissions=ip_permissions
+       )
+
+   # Function to check and revoke unrestricted DNS access
+   def check_and_revoke_dns_access():
+       security_groups = get_security_groups()
+       for sg in security_groups:
+           for permission in sg['IpPermissions']:
+               if permission['IpProtocol'] == 'udp' and permission['FromPort'] == 53 and permission['ToPort'] == 53:
+                   for ip_range in permission['IpRanges']:
+                       if ip_range['CidrIp'] == '0.0.0.0/0':
+                           print(f"Revoking unrestricted DNS access for security group: {sg['GroupId']}")
+                           revoke_unrestricted_dns_access(sg['GroupId'], [permission])
+                           break
+
+   # Execute the function
+   check_and_revoke_dns_access()
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure that it identifies and revokes any unrestricted DNS access in your EC2 security groups.
+
+   ```bash
+   python prevent_unrestricted_dns_access.py
+   ```
+
+This script will help you identify and revoke any security group rules that allow unrestricted DNS access (port 53) to the world (0.0.0.0/0). Make sure to test the script in a safe environment before running it in production.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select "Security Groups" under the "Network & Security" section.
+3. In the Security Groups page, select the security group you want to inspect for unrestricted DNS access.
+4. In the details pane at the bottom, check the "Inbound" and "Outbound" rules. If there are any rules that allow unrestricted (0.0.0.0/0) access to port 53 (DNS), then unrestricted DNS access is allowed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all security groups: The first step to detect unrestricted DNS access is to list all the security groups in your AWS account. You can do this by running the following command: `aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId]" --output text`
+
+3. Check security group rules: For each security group, you need to check the inbound and outbound rules. You can do this by running the following command for each security group: `aws ec2 describe-security-groups --group-ids <security-group-id>`. Replace `<security-group-id>` with the ID of the security group you want to check.
+
+4. Detect unrestricted DNS access: In the output of the previous command, look for rules that allow unrestricted access (0.0.0.0/0) to port 53 (DNS). If such a rule exists, then unrestricted DNS access is allowed. The rule will look something like this:
+
+```
+{
+    "IpProtocol": "tcp",
+    "FromPort": 53,
+    "ToPort": 53,
+    "IpRanges": [
+        {
+            "CidrIp": "0.0.0.0/0"
+        }
+    ]
+}
+```
+
+If you find such a rule, then the security group allows unrestricted DNS access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: You need to configure your AWS credentials. You can configure credentials by using the AWS CLI or by directly placing them in the ~/.aws/credentials file. 
+
+   ```bash
+   aws configure
+   ```
+
+3. Python Script: Now, you can use the following Python script to check if unrestricted DNS access is allowed in EC2. This script retrieves all security groups and checks if they have inbound rules that allow unrestricted (0.0.0.0/0) access to port 53 (DNS).
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   def check_unrestricted_dns_access():
+       security_groups = ec2.security_groups.all()
+       for sg in security_groups:
+           for permission in sg.ip_permissions:
+               for ip_range in permission['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0' and permission['FromPort'] <= 53 and permission['ToPort'] >= 53:
+                       print(f"Security Group {sg.id} allows unrestricted DNS access")
+
+   check_unrestricted_dns_access()
+   ```
+
+4. Run the Script: Finally, run the script using your Python interpreter. If there are any security groups that allow unrestricted DNS access, their IDs will be printed to the console. If no output is produced, then no such security groups were found.
+
+   ```bash
+   python check_dns_access.py
+   ```
+   
+Remember, this script only checks for unrestricted access over IPv4. If your security groups also include IPv6 ranges, you would need to modify the script to also check the 'Ipv6Ranges' field in the ip_permissions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
