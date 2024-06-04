@@ -23,6 +23,331 @@ HIPAA, NIST, SOC2, PCIDSS, HITRUST, NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 buckets from being created without versioning enabled using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Log in to the AWS Management Console.
+   - In the Services menu, select "S3" under the Storage category.
+
+2. **Create a New Bucket with Versioning Enabled:**
+   - Click on the "Create bucket" button.
+   - Follow the steps to configure your bucket settings.
+   - In the "Bucket Versioning" section, select "Enable" to turn on versioning for the new bucket.
+   - Complete the bucket creation process by clicking "Create bucket."
+
+3. **Enable Versioning on Existing Buckets:**
+   - In the S3 console, select the bucket you want to enable versioning for.
+   - Go to the "Properties" tab.
+   - In the "Bucket Versioning" section, click "Edit."
+   - Select "Enable" and then click "Save changes."
+
+4. **Set Up a Bucket Policy to Enforce Versioning:**
+   - Go to the "Permissions" tab of the bucket.
+   - Click on "Bucket Policy" and add a policy that denies actions if versioning is not enabled. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Principal": "*",
+           "Action": "s3:PutObject",
+           "Resource": "arn:aws:s3:::your-bucket-name/*",
+           "Condition": {
+             "StringEquals": {
+               "s3:x-amz-version-id": "null"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Replace `your-bucket-name` with the name of your bucket.
+   - Click "Save" to apply the policy.
+
+By following these steps, you can ensure that versioning is enabled on your S3 buckets, thereby preventing misconfigurations related to versioning.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from being created without versioning enabled using AWS CLI, you can follow these steps:
+
+1. **Create a Bucket with Versioning Enabled:**
+   When creating a new S3 bucket, you can immediately enable versioning using the `aws s3api create-bucket` and `aws s3api put-bucket-versioning` commands.
+
+   ```sh
+   aws s3api create-bucket --bucket my-bucket-name --region us-east-1
+   aws s3api put-bucket-versioning --bucket my-bucket-name --versioning-configuration Status=Enabled
+   ```
+
+2. **Enable Versioning on Existing Buckets:**
+   For existing buckets, you can enable versioning using the `aws s3api put-bucket-versioning` command.
+
+   ```sh
+   aws s3api put-bucket-versioning --bucket existing-bucket-name --versioning-configuration Status=Enabled
+   ```
+
+3. **Use IAM Policies to Enforce Versioning:**
+   Create an IAM policy that denies the creation of S3 buckets without versioning enabled. Attach this policy to the relevant IAM users or roles.
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "s3:CreateBucket",
+               "Resource": "*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "s3:x-amz-bucket-versioning-status": "Enabled"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+4. **Automate Versioning Enforcement with AWS Config Rules:**
+   Use AWS Config to automatically check and enforce that all S3 buckets have versioning enabled. Create a custom AWS Config rule or use the managed rule `S3_BUCKET_VERSIONING_ENABLED`.
+
+   ```sh
+   aws configservice put-config-rule --config-rule file://s3-bucket-versioning-enabled-rule.json
+   ```
+
+   Example `s3-bucket-versioning-enabled-rule.json`:
+
+   ```json
+   {
+       "ConfigRuleName": "s3-bucket-versioning-enabled",
+       "Description": "Checks whether S3 buckets have versioning enabled.",
+       "Scope": {
+           "ComplianceResourceTypes": [
+               "AWS::S3::Bucket"
+           ]
+       },
+       "Source": {
+           "Owner": "AWS",
+           "SourceIdentifier": "S3_BUCKET_VERSIONING_ENABLED"
+       }
+   }
+   ```
+
+By following these steps, you can ensure that S3 buckets are created with versioning enabled and maintain compliance across your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from being created without versioning enabled using Python scripts, you can use the AWS SDK for Python, also known as Boto3. Here are the steps to ensure that S3 buckets are created with versioning enabled:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create an S3 Bucket with Versioning Enabled**:
+   Use the following Python script to create an S3 bucket and enable versioning on it. This script ensures that any new bucket created will have versioning enabled by default.
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   def create_bucket_with_versioning(bucket_name, region=None):
+       # Create S3 client
+       s3_client = boto3.client('s3', region_name=region)
+
+       try:
+           # Create the bucket
+           if region is None:
+               s3_client.create_bucket(Bucket=bucket_name)
+           else:
+               s3_client.create_bucket(
+                   Bucket=bucket_name,
+                   CreateBucketConfiguration={'LocationConstraint': region}
+               )
+
+           # Enable versioning on the bucket
+           s3_client.put_bucket_versioning(
+               Bucket=bucket_name,
+               VersioningConfiguration={
+                   'Status': 'Enabled'
+               }
+           )
+
+           print(f"Bucket {bucket_name} created with versioning enabled.")
+       except ClientError as e:
+           print(f"Error: {e}")
+
+   # Example usage
+   create_bucket_with_versioning('my-unique-bucket-name', 'us-west-2')
+   ```
+
+3. **Check and Enable Versioning on Existing Buckets**:
+   If you want to ensure that existing buckets have versioning enabled, you can use the following script to check and enable versioning on all existing buckets.
+
+   ```python
+   def enable_versioning_on_existing_buckets():
+       # Create S3 client
+       s3_client = boto3.client('s3')
+
+       try:
+           # List all buckets
+           response = s3_client.list_buckets()
+           for bucket in response['Buckets']:
+               bucket_name = bucket['Name']
+               # Get the versioning status of the bucket
+               versioning = s3_client.get_bucket_versioning(Bucket=bucket_name)
+               if versioning.get('Status') != 'Enabled':
+                   # Enable versioning if not already enabled
+                   s3_client.put_bucket_versioning(
+                       Bucket=bucket_name,
+                       VersioningConfiguration={
+                           'Status': 'Enabled'
+                       }
+                   )
+                   print(f"Versioning enabled on bucket {bucket_name}.")
+               else:
+                   print(f"Versioning already enabled on bucket {bucket_name}.")
+       except ClientError as e:
+           print(f"Error: {e}")
+
+   # Example usage
+   enable_versioning_on_existing_buckets()
+   ```
+
+4. **Automate Versioning Enforcement**:
+   To ensure that versioning is always enabled on new buckets, you can create a Lambda function that triggers on bucket creation events and automatically enables versioning. This requires setting up an S3 event notification to trigger the Lambda function.
+
+   ```python
+   import json
+   import boto3
+
+   def lambda_handler(event, context):
+       s3_client = boto3.client('s3')
+
+       for record in event['Records']:
+           bucket_name = record['s3']['bucket']['name']
+           try:
+               # Enable versioning on the new bucket
+               s3_client.put_bucket_versioning(
+                   Bucket=bucket_name,
+                   VersioningConfiguration={
+                       'Status': 'Enabled'
+                   }
+               )
+               print(f"Versioning enabled on bucket {bucket_name}.")
+           except ClientError as e:
+               print(f"Error: {e}")
+
+   # Example event to test locally
+   test_event = {
+       "Records": [
+           {
+               "s3": {
+                   "bucket": {
+                       "name": "my-new-bucket"
+                   }
+               }
+           }
+       ]
+   }
+
+   # Example usage
+   lambda_handler(test_event, None)
+   ```
+
+By following these steps, you can ensure that S3 buckets are created with versioning enabled and that existing buckets are checked and updated accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check.
+
+3. Choose the Properties tab.
+
+4. In the Versioning section, check if it's enabled. If it's not, then the bucket does not have versioning enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation: `pip install awscli`
+   
+   Configuration: `aws configure`
+
+2. List all S3 buckets: Use the following command to list all the S3 buckets in your AWS account:
+
+   `aws s3api list-buckets --query "Buckets[].Name"`
+
+3. Check bucket versioning: For each bucket, you can check if versioning is enabled or not by running the following command:
+
+   `aws s3api get-bucket-versioning --bucket <bucket-name>`
+
+   Replace `<bucket-name>` with the name of your bucket. If versioning is enabled, you will see "Status": "Enabled" in the output.
+
+4. Repeat step 3 for all buckets: You need to repeat the above step for all the buckets listed in step 2. If any bucket does not have versioning enabled, it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3. You can install it using pip:
+
+```python
+pip install boto3
+```
+You also need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+2. Import the necessary modules and create a session using your credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a S3 resource object using the session and get the list of all S3 buckets:
+
+```python
+s3 = session.resource('s3')
+
+for bucket in s3.buckets.all():
+    print(bucket.name)
+```
+
+4. Check if versioning is enabled for each bucket:
+
+```python
+for bucket in s3.buckets.all():
+    versioning = s3.BucketVersioning(bucket.name)
+    if versioning.status != 'Enabled':
+        print(f"Bucket {bucket.name} does not have versioning enabled.")
+```
+
+This script will print the names of all S3 buckets that do not have versioning enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

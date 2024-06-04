@@ -1,6 +1,259 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Buckets from lacking Lifecycle Configuration in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" under the Storage category.
+
+2. **Select the Bucket:**
+   - In the S3 dashboard, you will see a list of your buckets.
+   - Click on the name of the bucket for which you want to enable lifecycle configuration.
+
+3. **Access Lifecycle Rules:**
+   - In the bucket details page, navigate to the "Management" tab.
+   - Under the Management tab, find the "Lifecycle rules" section.
+
+4. **Create a Lifecycle Rule:**
+   - Click on the "Create lifecycle rule" button.
+   - Follow the prompts to define the rule, including specifying the rule name, scope (e.g., apply to all objects or a subset), and actions (e.g., transition to a different storage class, expiration).
+   - Review and save the rule to ensure it is applied to the bucket.
+
+By following these steps, you can ensure that your S3 buckets have lifecycle configurations enabled, which helps in managing the lifecycle of objects in the bucket efficiently.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from lacking a lifecycle configuration using the AWS CLI, you can follow these steps:
+
+1. **Create a Lifecycle Policy JSON File:**
+   First, create a JSON file that defines the lifecycle policy you want to apply to your S3 buckets. For example, create a file named `lifecycle-policy.json` with the following content:
+   ```json
+   {
+     "Rules": [
+       {
+         "ID": "MoveToIAAfter30Days",
+         "Prefix": "",
+         "Status": "Enabled",
+         "Transitions": [
+           {
+             "Days": 30,
+             "StorageClass": "STANDARD_IA"
+           }
+         ],
+         "Expiration": {
+           "Days": 365
+         }
+       }
+     ]
+   }
+   ```
+
+2. **Apply the Lifecycle Policy to an S3 Bucket:**
+   Use the `aws s3api put-bucket-lifecycle-configuration` command to apply the lifecycle policy to your S3 bucket. Replace `your-bucket-name` with the name of your bucket.
+   ```sh
+   aws s3api put-bucket-lifecycle-configuration --bucket your-bucket-name --lifecycle-configuration file://lifecycle-policy.json
+   ```
+
+3. **Verify the Lifecycle Configuration:**
+   To ensure that the lifecycle configuration has been applied correctly, use the `aws s3api get-bucket-lifecycle-configuration` command.
+   ```sh
+   aws s3api get-bucket-lifecycle-configuration --bucket your-bucket-name
+   ```
+
+4. **Automate the Process for Multiple Buckets:**
+   If you have multiple buckets, you can automate the process using a loop in a shell script. For example:
+   ```sh
+   for bucket in bucket1 bucket2 bucket3; do
+     aws s3api put-bucket-lifecycle-configuration --bucket $bucket --lifecycle-configuration file://lifecycle-policy.json
+   done
+   ```
+
+By following these steps, you can ensure that all your S3 buckets have lifecycle configurations enabled, helping to manage the lifecycle of objects within the buckets effectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 Buckets from lacking Lifecycle Configuration in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that Lifecycle Configuration is enabled for your S3 buckets:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script to Check and Apply Lifecycle Configuration**:
+   Write a Python script that checks if Lifecycle Configuration is enabled for each S3 bucket and applies a default configuration if it is not.
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # Define a default lifecycle configuration
+   lifecycle_configuration = {
+       'Rules': [
+           {
+               'ID': 'MoveToIAAfter30Days',
+               'Filter': {
+                   'Prefix': ''
+               },
+               'Status': 'Enabled',
+               'Transitions': [
+                   {
+                       'Days': 30,
+                       'StorageClass': 'STANDARD_IA'
+                   }
+               ],
+               'Expiration': {
+                   'Days': 365
+               }
+           }
+       ]
+   }
+
+   def ensure_lifecycle_configuration(bucket_name):
+       try:
+           # Check if the bucket has a lifecycle configuration
+           response = s3.get_bucket_lifecycle_configuration(Bucket=bucket_name)
+           print(f"Bucket {bucket_name} already has a lifecycle configuration.")
+       except ClientError as e:
+           if e.response['Error']['Code'] == 'NoSuchLifecycleConfiguration':
+               # If no lifecycle configuration exists, apply the default one
+               print(f"Applying lifecycle configuration to bucket {bucket_name}.")
+               s3.put_bucket_lifecycle_configuration(
+                   Bucket=bucket_name,
+                   LifecycleConfiguration=lifecycle_configuration
+               )
+           else:
+               print(f"Error checking lifecycle configuration for bucket {bucket_name}: {e}")
+
+   def main():
+       # List all S3 buckets
+       response = s3.list_buckets()
+       buckets = response['Buckets']
+
+       # Ensure lifecycle configuration for each bucket
+       for bucket in buckets:
+           ensure_lifecycle_configuration(bucket['Name'])
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure that all your S3 buckets have the lifecycle configuration enabled.
+   ```bash
+   python ensure_lifecycle.py
+   ```
+
+This script will iterate through all your S3 buckets and check if they have a lifecycle configuration. If a bucket does not have one, it will apply a default lifecycle configuration that transitions objects to the STANDARD_IA storage class after 30 days and expires them after 365 days. You can customize the lifecycle configuration as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the S3 service by typing 'S3' into the search bar and selecting 'S3' from the dropdown menu.
+3. In the S3 dashboard, you will see a list of all your S3 buckets. Click on the name of the bucket you want to check.
+4. Once inside the bucket, click on the 'Management' tab. Under the 'Lifecycle' section, you can see if there are any lifecycle rules applied. If there are no rules, then the bucket does not have a lifecycle configuration enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all S3 buckets: Use the following command to list all the S3 buckets in your AWS account:
+
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+   This command will return a list of all the S3 bucket names.
+
+3. Check lifecycle configuration for each bucket: For each bucket, you can check if a lifecycle configuration is enabled by running the following command:
+
+   ```
+   aws s3api get-bucket-lifecycle-configuration --bucket <bucket-name>
+   ```
+   Replace `<bucket-name>` with the name of your bucket. If a lifecycle configuration is enabled, this command will return the configuration details. If not, it will return an error.
+
+4. Analyze the output: If the `get-bucket-lifecycle-configuration` command returns an error for a bucket, it means that the bucket does not have a lifecycle configuration enabled. You can use this information to identify the misconfigured buckets.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3. You can install it using pip:
+
+```python
+pip install boto3
+```
+Then, configure your AWS credentials either by setting environment variables:
+
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+```
+Or, by creating a file named `~/.aws/credentials`:
+
+```bash
+[default]
+aws_access_key_id = YOUR_ACCESS_KEY
+aws_secret_access_key = YOUR_SECRET_KEY
+```
+
+2. Use Boto3 to connect to AWS S3: Once Boto3 is installed and configured, you can write a Python script to connect to AWS S3:
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+```
+
+3. List all S3 buckets: You can use the `list_buckets` method to retrieve a list of all your S3 buckets:
+
+```python
+response = s3.list_buckets()
+
+for bucket in response['Buckets']:
+    print(bucket["Name"])
+```
+
+4. Check for lifecycle configuration: For each bucket, you can use the `get_bucket_lifecycle_configuration` method to check if a lifecycle configuration is enabled:
+
+```python
+for bucket in response['Buckets']:
+    try:
+        lifecycle = s3.get_bucket_lifecycle_configuration(Bucket=bucket["Name"])
+        print(f'Bucket: {bucket["Name"]} has lifecycle configuration enabled')
+    except:
+        print(f'Bucket: {bucket["Name"]} does not have lifecycle configuration enabled')
+```
+This script will print out the names of all your S3 buckets and whether or not they have a lifecycle configuration enabled. If a bucket does not have a lifecycle configuration enabled, an exception will be thrown and caught, and a message will be printed indicating that the bucket does not have a lifecycle configuration enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

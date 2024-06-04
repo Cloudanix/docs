@@ -23,6 +23,274 @@ SOC2, HIPAA, NIST, GDPR, ISO27001, HITRUST, AWSWAF, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 buckets from not enforcing server-side encryption using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 dashboard.
+
+2. **Select the Bucket:**
+   - In the S3 dashboard, you will see a list of your buckets.
+   - Click on the name of the bucket you want to configure.
+
+3. **Enable Default Encryption:**
+   - Once inside the bucket, click on the "Properties" tab.
+   - Scroll down to the "Default encryption" section.
+   - Click on "Edit" and then select "Enable" to turn on default encryption.
+   - Choose the encryption method (e.g., Amazon S3-managed keys (SSE-S3) or AWS KMS-managed keys (SSE-KMS)).
+
+4. **Save Changes:**
+   - After selecting the encryption method, click "Save changes" to apply the default encryption settings to the bucket.
+
+By following these steps, you ensure that all objects uploaded to the S3 bucket are automatically encrypted, thereby enforcing server-side encryption.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that S3 buckets enforce server-side encryption using the AWS CLI, you can follow these steps:
+
+1. **Create a Bucket with Default Encryption:**
+   When creating a new S3 bucket, you can specify the default encryption settings to ensure that all objects stored in the bucket are encrypted.
+
+   ```sh
+   aws s3api create-bucket --bucket my-secure-bucket --region us-east-1
+   aws s3api put-bucket-encryption --bucket my-secure-bucket --server-side-encryption-configuration '{
+       "Rules": [
+           {
+               "ApplyServerSideEncryptionByDefault": {
+                   "SSEAlgorithm": "AES256"
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Enable Default Encryption on an Existing Bucket:**
+   If you have an existing bucket, you can enable default encryption to ensure that all new objects are encrypted.
+
+   ```sh
+   aws s3api put-bucket-encryption --bucket my-existing-bucket --server-side-encryption-configuration '{
+       "Rules": [
+           {
+               "ApplyServerSideEncryptionByDefault": {
+                   "SSEAlgorithm": "AES256"
+               }
+           }
+       ]
+   }'
+   ```
+
+3. **Verify Bucket Encryption Configuration:**
+   To verify that the bucket has the correct encryption settings, you can retrieve the bucket encryption configuration.
+
+   ```sh
+   aws s3api get-bucket-encryption --bucket my-secure-bucket
+   ```
+
+4. **Apply Bucket Policy to Enforce Encryption:**
+   You can also apply a bucket policy to enforce that all objects uploaded to the bucket must be encrypted. This ensures that any upload without encryption will be denied.
+
+   ```sh
+   aws s3api put-bucket-policy --bucket my-secure-bucket --policy '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Sid": "DenyUnencryptedObjectUploads",
+               "Effect": "Deny",
+               "Principal": "*",
+               "Action": "s3:PutObject",
+               "Resource": "arn:aws:s3:::my-secure-bucket/*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "s3:x-amz-server-side-encryption": "AES256"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that your S3 buckets enforce server-side encryption, thereby enhancing the security of your stored data.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from being created without server-side encryption in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that all S3 buckets enforce server-side encryption:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Enforce Server-Side Encryption**:
+   Write a Python script that will create an S3 bucket with server-side encryption enabled by default. This script will also check existing buckets and apply server-side encryption if it's not already enabled.
+
+3. **Script to Create S3 Bucket with Server-Side Encryption**:
+   Here is a Python script that creates an S3 bucket with server-side encryption enabled:
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   def create_bucket_with_encryption(bucket_name, region=None):
+       s3_client = boto3.client('s3', region_name=region)
+       try:
+           # Create the bucket
+           if region is None:
+               s3_client.create_bucket(Bucket=bucket_name)
+           else:
+               s3_client.create_bucket(
+                   Bucket=bucket_name,
+                   CreateBucketConfiguration={'LocationConstraint': region}
+               )
+           # Apply server-side encryption by default
+           s3_client.put_bucket_encryption(
+               Bucket=bucket_name,
+               ServerSideEncryptionConfiguration={
+                   'Rules': [
+                       {
+                           'ApplyServerSideEncryptionByDefault': {
+                               'SSEAlgorithm': 'AES256'
+                           }
+                       }
+                   ]
+               }
+           )
+           print(f'Bucket {bucket_name} created with server-side encryption enabled.')
+       except ClientError as e:
+           print(f'Error: {e}')
+
+   # Example usage
+   create_bucket_with_encryption('my-secure-bucket', 'us-west-2')
+   ```
+
+4. **Script to Enforce Encryption on Existing Buckets**:
+   Here is a Python script that checks existing buckets and enforces server-side encryption if it's not already enabled:
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   def enforce_encryption_on_existing_buckets():
+       s3_client = boto3.client('s3')
+       try:
+           # List all buckets
+           response = s3_client.list_buckets()
+           for bucket in response['Buckets']:
+               bucket_name = bucket['Name']
+               try:
+                   # Get the current encryption configuration
+                   encryption = s3_client.get_bucket_encryption(Bucket=bucket_name)
+                   rules = encryption['ServerSideEncryptionConfiguration']['Rules']
+                   print(f'Bucket {bucket_name} already has encryption enabled.')
+               except ClientError as e:
+                   if e.response['Error']['Code'] == 'ServerSideEncryptionConfigurationNotFoundError':
+                       # Apply server-side encryption if not found
+                       s3_client.put_bucket_encryption(
+                           Bucket=bucket_name,
+                           ServerSideEncryptionConfiguration={
+                               'Rules': [
+                                   {
+                                       'ApplyServerSideEncryptionByDefault': {
+                                           'SSEAlgorithm': 'AES256'
+                                       }
+                                   }
+                               ]
+                           }
+                       )
+                       print(f'Server-side encryption enabled for bucket {bucket_name}.')
+                   else:
+                       print(f'Error checking encryption for bucket {bucket_name}: {e}')
+       except ClientError as e:
+           print(f'Error: {e}')
+
+   # Example usage
+   enforce_encryption_on_existing_buckets()
+   ```
+
+These scripts ensure that any new S3 buckets are created with server-side encryption enabled and that existing buckets are checked and updated to enforce server-side encryption if it is not already in place.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check for server-side encryption.
+
+3. Choose the Properties tab, and then choose Default encryption.
+
+4. If the bucket has server-side encryption enabled, you will see the details of the encryption method used (either AWS-managed keys (SSE-S3) or AWS KMS). If there is no encryption, the bucket does not enforce server-side encryption.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can run any AWS CLI commands, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS.
+
+2. List all S3 buckets: Use the following AWS CLI command to list all your S3 buckets:
+
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+
+3. Check the bucket policy: For each bucket, you can check the bucket policy to see if it enforces server-side encryption. Use the following command, replacing "your-bucket-name" with the name of your bucket:
+
+   ```
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+4. Check for server-side encryption: In the output of the previous command, look for a statement with `"Effect": "Deny", "s3:x-amz-server-side-encryption": "aws:kms"` and `"Bool": {"aws:SecureTransport": "false"}`. This indicates that the bucket enforces server-side encryption. If this statement is not present, the bucket does not enforce server-side encryption.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3. You can install it using pip:
+
+```python
+pip install boto3
+```
+You also need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+2. Import the necessary modules and create a session: You need to import Boto3 and create a session using your credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. List all S3 buckets and check their encryption configuration: You can use the `list_buckets` method to get all your S3 buckets. Then, for each bucket, you can use the `get_bucket_encryption` method to check if server-side encryption is enforced.
+
+```python
+s3 = session.resource('s3')
+
+for bucket in s3.buckets.all():
+    try:
+        encryption = s3.meta.client.get_bucket_encryption(Bucket=bucket.name)
+        print(f'Bucket {bucket.name} uses {encryption["ServerSideEncryptionConfiguration"]["Rules"][0]["ApplyServerSideEncryptionByDefault"]["SSEAlgorithm"]} for encryption.')
+    except Exception as e:
+        print(f'Bucket {bucket.name} does not enforce server-side encryption.')
+```
+
+4. Interpret the results: If a bucket does not enforce server-side encryption, the script will print a message saying so. If a bucket does enforce server-side encryption, the script will print the encryption algorithm used.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
