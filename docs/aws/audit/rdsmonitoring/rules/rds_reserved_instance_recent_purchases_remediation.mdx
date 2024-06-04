@@ -1,6 +1,327 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS Reserved Instances Purchases from not being reviewed every 7 days in AWS using the AWS Management Console, follow these steps:
+
+1. **Set Up Billing and Cost Management Alerts:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Select **Budgets** from the left-hand menu.
+   - Create a new budget specifically for RDS Reserved Instances.
+   - Set up alerts to notify you when there are changes or purchases related to RDS Reserved Instances.
+
+2. **Enable AWS Config Rules:**
+   - Go to the **AWS Config** service in the AWS Management Console.
+   - Click on **Rules** in the left-hand menu.
+   - Add a new rule and select a managed rule that monitors RDS Reserved Instances, such as `rds-instance-reserved-instance-coverage`.
+   - Configure the rule to evaluate your RDS instances and notify you of any changes.
+
+3. **Set Up CloudWatch Alarms:**
+   - Navigate to the **CloudWatch** service in the AWS Management Console.
+   - Go to **Alarms** and create a new alarm.
+   - Set the metric to monitor RDS Reserved Instance usage and purchases.
+   - Configure the alarm to send notifications via SNS (Simple Notification Service) to your email or SMS.
+
+4. **Regular Review Schedule:**
+   - Establish a regular review schedule for RDS Reserved Instances.
+   - Use AWS Systems Manager **Automation** to create a scheduled task that runs every 7 days.
+   - This task can trigger a Lambda function or send a notification to remind you to review your RDS Reserved Instances.
+
+By following these steps, you can ensure that RDS Reserved Instances purchases are reviewed regularly, helping to prevent misconfigurations and optimize costs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not reviewing RDS Reserved Instances purchases every 7 days using AWS CLI, you can set up a scheduled task to regularly review your RDS Reserved Instances. Here are the steps:
+
+1. **Create an IAM Role with Necessary Permissions:**
+   Ensure you have an IAM role with the necessary permissions to describe RDS Reserved Instances. You can create a policy with the following permissions:
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "rds:DescribeReservedDBInstances"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }
+   ```
+
+2. **Write a Python Script to Review Reserved Instances:**
+   Create a Python script that uses the AWS SDK (Boto3) to describe and review RDS Reserved Instances. Save the script as `review_rds_reserved_instances.py`.
+   ```python
+   import boto3
+
+   def review_reserved_instances():
+       client = boto3.client('rds')
+       response = client.describe_reserved_db_instances()
+       reserved_instances = response['ReservedDBInstances']
+       for instance in reserved_instances:
+           print(f"Reserved Instance ID: {instance['ReservedDBInstanceId']}, State: {instance['State']}")
+
+   if __name__ == "__main__":
+       review_reserved_instances()
+   ```
+
+3. **Set Up a Scheduled Task Using AWS CLI and CloudWatch Events:**
+   Use AWS CLI to create a CloudWatch Events rule that triggers the Lambda function every 7 days.
+   ```sh
+   aws events put-rule --name "ReviewRDSReservedInstances" --schedule-expression "rate(7 days)"
+   ```
+
+4. **Create a Lambda Function to Run the Python Script:**
+   Package the Python script and its dependencies, then create a Lambda function using AWS CLI.
+   ```sh
+   zip function.zip review_rds_reserved_instances.py
+   aws lambda create-function --function-name ReviewRDSReservedInstances \
+       --zip-file fileb://function.zip --handler review_rds_reserved_instances.review_reserved_instances \
+       --runtime python3.8 --role arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_IAM_ROLE
+   ```
+
+5. **Add the Lambda Function as a Target to the CloudWatch Events Rule:**
+   Link the Lambda function to the CloudWatch Events rule.
+   ```sh
+   aws events put-targets --rule "ReviewRDSReservedInstances" \
+       --targets "Id"="1","Arn"="arn:aws:lambda:YOUR_REGION:YOUR_ACCOUNT_ID:function:ReviewRDSReservedInstances"
+   ```
+
+By following these steps, you will have a scheduled task that reviews your RDS Reserved Instances every 7 days, helping to prevent the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not reviewing RDS Reserved Instances purchases every 7 days using Python scripts, you can set up an automated system to regularly check and alert you about the status of your RDS Reserved Instances. Here are the steps to achieve this:
+
+### 1. Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a Python Script to Check Reserved Instances
+Create a Python script that will check the status of your RDS Reserved Instances and log or alert you if they haven't been reviewed in the last 7 days.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon RDS
+client = boto3.client('rds')
+
+# Get the current date and time
+current_time = datetime.utcnow()
+
+# Define the time window for review (7 days)
+review_window = timedelta(days=7)
+
+# Function to check RDS Reserved Instances
+def check_reserved_instances():
+    # Describe reserved DB instances
+    response = client.describe_reserved_db_instances()
+    
+    for reserved_instance in response['ReservedDBInstances']:
+        # Get the purchase date of the reserved instance
+        purchase_date = reserved_instance['StartTime']
+        
+        # Calculate the time difference
+        time_difference = current_time - purchase_date.replace(tzinfo=None)
+        
+        # Check if the reserved instance has been reviewed in the last 7 days
+        if time_difference > review_window:
+            print(f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} needs review. Purchased on {purchase_date}")
+        else:
+            print(f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} is within the review window.")
+
+# Run the function
+check_reserved_instances()
+```
+
+### 3. Schedule the Script to Run Regularly
+To ensure the script runs every 7 days, you can use a scheduling tool like `cron` on Unix-based systems or Task Scheduler on Windows.
+
+#### Using `cron`:
+1. Open the crontab editor:
+   ```bash
+   crontab -e
+   ```
+2. Add a cron job to run the script every 7 days:
+   ```bash
+   0 0 */7 * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+### 4. Set Up Notifications (Optional)
+To get notified when a review is needed, you can integrate the script with an email service or an AWS service like SNS (Simple Notification Service).
+
+#### Example with AWS SNS:
+1. Create an SNS topic and subscribe your email to it.
+2. Modify the script to publish a message to the SNS topic when a review is needed.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon RDS and SNS
+rds_client = boto3.client('rds')
+sns_client = boto3.client('sns')
+
+# SNS Topic ARN
+sns_topic_arn = 'arn:aws:sns:your-region:your-account-id:your-topic'
+
+# Get the current date and time
+current_time = datetime.utcnow()
+
+# Define the time window for review (7 days)
+review_window = timedelta(days=7)
+
+# Function to check RDS Reserved Instances
+def check_reserved_instances():
+    # Describe reserved DB instances
+    response = rds_client.describe_reserved_db_instances()
+    
+    for reserved_instance in response['ReservedDBInstances']:
+        # Get the purchase date of the reserved instance
+        purchase_date = reserved_instance['StartTime']
+        
+        # Calculate the time difference
+        time_difference = current_time - purchase_date.replace(tzinfo=None)
+        
+        # Check if the reserved instance has been reviewed in the last 7 days
+        if time_difference > review_window:
+            message = f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} needs review. Purchased on {purchase_date}"
+            print(message)
+            # Publish a message to the SNS topic
+            sns_client.publish(
+                TopicArn=sns_topic_arn,
+                Message=message,
+                Subject='RDS Reserved Instance Review Needed'
+            )
+        else:
+            print(f"Reserved Instance {reserved_instance['ReservedDBInstanceId']} is within the review window.")
+
+# Run the function
+check_reserved_instances()
+```
+
+By following these steps, you can automate the process of checking and alerting for RDS Reserved Instances that need review, ensuring compliance with the 7-day review policy.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+2. In the navigation pane, choose "Reserved Instances". This will display a list of all your reserved instances.
+3. Check the "Purchase Date" column for each reserved instance. If the purchase date is more than 7 days ago, it means that the reserved instance purchase has not been reviewed in the last 7 days.
+4. Additionally, you can check the "State" column to see if the reserved instance is active, retired, or expired. If the state is not active, it may indicate a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS resources.
+
+2. Once the AWS CLI is installed and configured, you can use the `describe-reserved-db-instances` command to list all the RDS Reserved Instances. The command is as follows:
+
+   ```
+   aws rds describe-reserved-db-instances
+   ```
+
+   This command will return a JSON output with all the details of the RDS Reserved Instances.
+
+3. To review the RDS Reserved Instances purchases, you need to check the `PurchaseTime` attribute in the output. This attribute indicates the time when the Reserved Instance was purchased.
+
+4. You can use a script to automate this process. The script can parse the JSON output, extract the `PurchaseTime` attribute, and compare it with the current date. If the difference is more than 7 days, the script can raise an alert. Here is a simple Python script that does this:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   # Run the AWS CLI command
+   result = subprocess.run(['aws', 'rds', 'describe-reserved-db-instances'], stdout=subprocess.PIPE)
+
+   # Parse the JSON output
+   data = json.loads(result.stdout)
+
+   # Get the current date
+   now = datetime.now()
+
+   # Check each Reserved Instance
+   for ri in data['ReservedDBInstances']:
+       # Parse the purchase time
+       purchase_time = datetime.strptime(ri['PurchaseTime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+
+       # Check if it's more than 7 days old
+       if now - purchase_time > timedelta(days=7):
+           print(f"Reserved Instance {ri['ReservedDBInstanceId']} should be reviewed")
+   ```
+
+   This script will print the IDs of the Reserved Instances that should be reviewed.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, you need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+2. **Create a Python Script to Fetch RDS Reserved Instances:**
+   You can use the `describe_reserved_db_instances` method provided by the RDS client in boto3 to fetch all the reserved instances. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_rds_reserved_instances():
+       client = boto3.client('rds')
+       response = client.describe_reserved_db_instances()
+       return response['ReservedDBInstances']
+
+   reserved_instances = get_rds_reserved_instances()
+   for instance in reserved_instances:
+       print(instance)
+   ```
+   This script will print all the details of the reserved instances in your AWS account.
+
+3. **Check the Purchase Time of Each Reserved Instance:**
+   Each reserved instance has a `StartTime` attribute which tells when the instance was purchased. You can compare this time with the current time to check if the instance was purchased more than 7 days ago. Here is how you can do it:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   def get_rds_reserved_instances():
+       client = boto3.client('rds')
+       response = client.describe_reserved_db_instances()
+       return response['ReservedDBInstances']
+
+   reserved_instances = get_rds_reserved_instances()
+   for instance in reserved_instances:
+       purchase_time = instance['StartTime']
+       if datetime.now(purchase_time.tzinfo) - purchase_time > timedelta(days=7):
+           print(f"Reserved instance {instance['ReservedDBInstanceId']} should be reviewed.")
+   ```
+   This script will print the IDs of all the reserved instances that were purchased more than 7 days ago.
+
+4. **Schedule the Script:**
+   You can schedule this script to run every 7 days using a cron job or any other task scheduler in your system. This way, you will be notified about the instances that need to be reviewed every 7 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

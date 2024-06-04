@@ -1,6 +1,207 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being publicly accessible in AWS using the AWS Management Console, follow these steps:
+
+1. **Launch the RDS Console:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the RDS service by selecting "RDS" from the "Services" menu.
+
+2. **Modify the DB Instance:**
+   - In the RDS dashboard, select "Databases" from the left-hand menu.
+   - Choose the RDS instance you want to modify by clicking on its identifier.
+
+3. **Edit Connectivity Settings:**
+   - In the "Connectivity & security" tab, click on the "Modify" button.
+   - Scroll down to the "Connectivity" section and locate the "Publicly accessible" setting.
+
+4. **Disable Public Accessibility:**
+   - Ensure the "Publicly accessible" option is set to "No."
+   - Review the changes and click on the "Continue" button, then "Modify DB Instance" to apply the changes.
+
+By following these steps, you can ensure that your RDS instances are not publicly accessible, thereby enhancing the security of your database instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being publicly accessible using the AWS CLI, you can follow these steps:
+
+1. **Describe the RDS Instances**:
+   First, identify the RDS instances that are currently publicly accessible.
+   ```sh
+   aws rds describe-db-instances --query "DBInstances[*].{DBInstanceIdentifier:DBInstanceIdentifier,PubliclyAccessible:PubliclyAccessible}"
+   ```
+
+2. **Modify the RDS Instance**:
+   For each RDS instance that is publicly accessible, modify the instance to disable public accessibility.
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> --publicly-accessible false --apply-immediately
+   ```
+
+3. **Verify the Changes**:
+   After modifying the RDS instance, verify that the changes have been applied.
+   ```sh
+   aws rds describe-db-instances --db-instance-identifier <your-db-instance-identifier> --query "DBInstances[*].PubliclyAccessible"
+   ```
+
+4. **Update Security Groups**:
+   Ensure that the security groups associated with your RDS instances do not allow inbound traffic from the public internet (0.0.0.0/0).
+   ```sh
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port <your-db-port> --cidr 0.0.0.0/0
+   ```
+
+By following these steps, you can ensure that your RDS instances are not publicly accessible, thereby enhancing the security of your database instances.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being publicly accessible using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials and region.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+       aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+       region_name='YOUR_AWS_REGION'
+   )
+   ```
+
+3. **Describe RDS Instances**:
+   Use the RDS client to describe your RDS instances and check their public accessibility.
+
+   ```python
+   rds_client = session.client('rds')
+
+   def get_rds_instances():
+       response = rds_client.describe_db_instances()
+       return response['DBInstances']
+
+   rds_instances = get_rds_instances()
+   ```
+
+4. **Modify RDS Instances to Disable Public Accessibility**:
+   Iterate through the RDS instances and modify those that are publicly accessible to disable this setting.
+
+   ```python
+   def disable_public_accessibility(instance_id):
+       rds_client.modify_db_instance(
+           DBInstanceIdentifier=instance_id,
+           PubliclyAccessible=False,
+           ApplyImmediately=True
+       )
+
+   for instance in rds_instances:
+       if instance['PubliclyAccessible']:
+           print(f"Disabling public accessibility for instance: {instance['DBInstanceIdentifier']}")
+           disable_public_accessibility(instance['DBInstanceIdentifier'])
+   ```
+
+This script will ensure that all your RDS instances are not publicly accessible by modifying their settings if they are found to be publicly accessible.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. Choose the name of the RDS instance that you want to check.
+
+4. In the "Connectivity & security" tab, under "Security" section, look for "Public accessibility". If the value is "Yes", then the RDS instance is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can run any AWS CLI commands, you need to install the AWS CLI on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+
+   During the configuration process, you will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all RDS instances: Use the `describe-db-instances` command to list all your RDS instances. This command returns a JSON object that contains all your RDS instances.
+
+   ```
+   aws rds describe-db-instances
+   ```
+
+3. Parse the output: The output of the previous command includes a lot of information. You are interested in the `DBInstances` array, which contains information about each RDS instance. More specifically, you are interested in the `PubliclyAccessible` attribute of each instance, which indicates whether the instance is publicly accessible or not.
+
+   You can use the `jq` command-line JSON processor to parse the output and filter out the instances that are publicly accessible. Here is an example:
+
+   ```
+   aws rds describe-db-instances | jq -r '.DBInstances[] | select(.PubliclyAccessible == true) | .DBInstanceIdentifier'
+   ```
+
+4. Review the results: The previous command returns the identifiers of all RDS instances that are publicly accessible. If the command doesn't return any identifiers, it means that none of your RDS instances are publicly accessible. If the command returns one or more identifiers, it means that those instances are publicly accessible and you should take action to secure them.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The primary library you need is boto3, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to call any AWS services. You can pass these credentials directly in your python script (not recommended) or you can configure it once using the AWS CLI and then boto3 will automatically use those credentials. Here is how you can configure it:
+
+   ```bash
+   aws configure
+   AWS Access Key ID [None]: YOUR_ACCESS_KEY
+   AWS Secret Access Key [None]: YOUR_SECRET_KEY
+   Default region name [None]: YOUR_REGION_NAME
+   Default output format [None]: json
+   ```
+
+3. Write the Python script: Now you can write a Python script that uses boto3 to check if any RDS instances are publicly accessible. Here is a simple script that does this:
+
+   ```python
+   import boto3
+
+   def check_rds_public_accessibility():
+       rds = boto3.client('rds')
+       instances = rds.describe_db_instances()
+       for instance in instances['DBInstances']:
+           if instance['PubliclyAccessible']:
+               print(f"RDS instance {instance['DBInstanceIdentifier']} is publicly accessible")
+
+   if __name__ == "__main__":
+       check_rds_public_accessibility()
+   ```
+
+   This script first creates a client for the RDS service. It then calls the describe_db_instances method to get a list of all RDS instances. It then iterates over each instance and checks if the 'PubliclyAccessible' attribute is True. If it is, it prints a message with the instance identifier.
+
+4. Run the Python script: Finally, you can run the Python script using the Python interpreter:
+
+   ```bash
+   python check_rds_public_accessibility.py
+   ```
+
+   This will print out the identifiers of any RDS instances that are publicly accessible. If no instances are publicly accessible, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
