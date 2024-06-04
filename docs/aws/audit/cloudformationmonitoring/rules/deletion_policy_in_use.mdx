@@ -24,6 +24,84 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the CloudFormation service.
+
+2. In the CloudFormation dashboard, select the "Stacks" option from the left-hand side menu. This will display a list of all the stacks that are currently deployed in your AWS account.
+
+3. Select the stack you want to inspect and click on the "Template" tab. This will display the JSON or YAML code that was used to create the stack.
+
+4. In the template code, look for the "DeletionPolicy" attribute in each resource definition. If the "DeletionPolicy" attribute is not present or not set to "Retain", then the resource does not have a deletion policy in use.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the CloudFormation stacks.
+
+2. Once the AWS CLI is set up, you can list all the CloudFormation stacks in your account using the following command:
+
+   ```
+   aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE UPDATE_COMPLETE UPDATE_ROLLBACK_COMPLETE --query 'StackSummaries[].StackName' --output text
+   ```
+   This command will list all the CloudFormation stacks that are in a completed state.
+
+3. Now, for each stack, you can describe the stack resources using the following command:
+
+   ```
+   aws cloudformation describe-stack-resources --stack-name <StackName>
+   ```
+   Replace `<StackName>` with the name of your stack. This command will provide a detailed description of all the resources in the specified stack.
+
+4. Finally, you need to check the `DeletionPolicy` attribute for each resource. If the `DeletionPolicy` attribute is not set or is set to `Delete`, then the resource is not protected from deletion. The `DeletionPolicy` attribute is part of the JSON output from the previous command. You can use a tool like `jq` to parse the JSON and check the `DeletionPolicy` attribute:
+
+   ```
+   aws cloudformation describe-stack-resources --stack-name <StackName> | jq -r '.StackResources[] | select(.DeletionPolicy=="Delete" or .DeletionPolicy==null)'
+   ```
+   This command will list all the resources in the specified stack that are not protected from deletion. If this command returns any resources, then the CloudFormation Deletion Policy is not in use for those resources.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. Create a session using your AWS credentials. You can also use the AWS CLI's default configuration.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create a CloudFormation client.
+
+```python
+cf = session.client('cloudformation')
+```
+
+4. Now, you can use the `describe_stacks()` function to get a list of all CloudFormation stacks. For each stack, check if the `DeletionPolicy` attribute is set. If it's not, then the stack is misconfigured.
+
+```python
+response = cf.describe_stacks()
+
+for stack in response['Stacks']:
+    if 'DeletionPolicy' not in stack:
+        print(f"Stack {stack['StackName']} is misconfigured.")
+```
+
+This script will print the names of all stacks that are misconfigured. If no stacks are printed, then all stacks have a `DeletionPolicy` set.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
