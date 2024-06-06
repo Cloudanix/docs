@@ -24,8 +24,6 @@ CBP
 ### Triage and Remediation
 <Tabs>
 <Tab title='Remediation'>
-### Remediation
-
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
 To remediate the issue of having unspecified applications installed on an AWS EC2 instance, you can follow these steps using the AWS Management Console:
@@ -82,61 +80,50 @@ By following these steps, you can remediate the misconfiguration of having unspe
 <Accordion title='Using Python'>
 To remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using Python, you can use the AWS Systems Manager Run Command to execute a script that will uninstall any unwanted applications.
 
-Here are the step-by-step instructions to remediate this issue:
+    # Retrieve EC2 managed instances
+    response = ssm_client.describe_instance_information()
 
-1. **Identify Unspecified Applications**:
-   - Use the following Python script to list all installed applications on the EC2 instance:
-     ```python
-     import subprocess
-     installed_apps = subprocess.check_output("dpkg --get-selections", shell=True).decode()
-     print(installed_apps)
-     ```
-   - Review the list of installed applications to identify the unspecified ones that need to be uninstalled.
+    for instance in response['InstanceInformationList']:
+        instance_id = instance['InstanceId']
+        inventory = ssm_client.get_inventory(
+            Filters=[
+                {
+                    'Key': 'AWS:InstanceInformation.InstanceId',
+                    'Values': [instance_id]
+                },
+            ]
+        )
 
-2. **Create a Python Script to Uninstall Unspecified Applications**:
-   - Create a Python script that will uninstall the identified unspecified applications. For example:
-     ```python
-     import subprocess
-     apps_to_uninstall = ["app1", "app2"]  # List of unspecified applications to uninstall
-     for app in apps_to_uninstall:
-         subprocess.call(f"sudo apt-get remove --purge {app} -y", shell=True)
-     ```
+        if 'Applications' in inventory['Entities'][0]['Data']:
+            installed_applications = inventory['Entities'][0]['Data']['Applications']
 
-3. **Install AWS SDK for Python (Boto3)**:
-   - If you haven't already, install the Boto3 library for Python using pip:
-     ```
-     pip install boto3
-     ```
+            # Check for blacklisted applications
+            for app in installed_applications:
+                if app['Name'] in application_names:
+                    print(f"Blacklisted application '{app['Name']}' found on instance '{instance_id}'.")
+                    # Perform remediation action here (e.g., uninstall or disable the application)
+                    # Example:
+                    # ssm_client.send_command(
+                    #     InstanceIds=[instance_id],
+                    #     DocumentName='AWS-RunShellScript',
+                    #     Parameters={
+                    #         'commands': ['<uninstall-command>']
+                    #     }
+                    # )
+                    break
 
-4. **Use Boto3 to Execute the Script on EC2 Instance**:
-   - Use the following Python script to execute the uninstallation script on the EC2 instance:
-     ```python
-     import boto3
+def main():
+    # Specify the list of blacklisted application names
+    blacklisted_applications = ['application1', 'application2']
 
-     # Specify the EC2 instance ID
-     instance_id = 'your_instance_id'
+    # Remediate EC2 managed instances with blacklisted applications
+    remediate_managed_instance(blacklisted_applications)
 
-     # Specify the path to the uninstall script on the EC2 instance
-     script_path = '/path/to/uninstall_script.py'
+if __name__ == "__main__":
+    main()
+```
 
-     ssm_client = boto3.client('ssm')
-
-     response = ssm_client.send_command(
-         InstanceIds=[instance_id],
-         DocumentName="AWS-RunShellScript",
-         Parameters={'commands': [f'python {script_path}']}
-     )
-
-     print(response)
-     ```
-
-5. **Review the Execution**:
-   - Monitor the execution of the script using the response from the `send_command` function to ensure that the unspecified applications are successfully uninstalled.
-
-By following these steps, you can remediate the misconfiguration of having unspecified applications installed on an AWS EC2 instance using Python and AWS Systems Manager Run Command.
+Replace `'application1', 'application2'` with the names of the blacklisted applications. This script checks for the presence of blacklisted applications on EC2 managed instances using AWS Systems Manager Inventory and takes remediation actions accordingly. Adjust the remediation action (e.g., uninstall command) as per your requirements.
 </Accordion>
-
 </AccordionGroup>
-</Tab>
 </Tabs>
-

@@ -99,32 +99,46 @@ pip install boto3
 
 ```python
 import boto3
+import json
 
-def disable_backup_manual_deletion():
-    # Create a Boto3 EC2 client
-    ec2_client = boto3.client('ec2')
+def disable_manual_deletion_for_recovery_points(vault_name):
+    # Define the new backup vault access policy that disables manual deletion
+    access_policy = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "backup:DeleteRecoveryPoint",
+                "Resource": "*"
+            }
+        ]
+    }
 
-    # Describe all EC2 instances in the account
-    response = ec2_client.describe_instances()
+    # Convert access policy to JSON
+    access_policy_json = json.dumps(access_policy)
 
-    for reservation in response['Reservations']:
-        for instance in reservation['Instances']:
-            instance_id = instance['InstanceId']
-            
-            # Disable the manual deletion of backups for the instance
-            try:
-                ec2_client.modify_instance_attribute(
-                    InstanceId=instance_id,
-                    DisableApiTermination={
-                        'Value': True
-                    }
-                )
-                print(f"Disabled manual deletion of backups for instance: {instance_id}")
-            except Exception as e:
-                print(f"Error disabling manual deletion of backups for instance {instance_id}: {str(e)}")
+    # Initialize the AWS Backup client
+    backup_client = boto3.client('backup')
 
-if __name__ == '__main__':
-    disable_backup_manual_deletion()
+    # Update the backup vault access policy
+    response = backup_client.put_backup_vault_access_policy(
+        BackupVaultName=vault_name,
+        PolicyName='DenyManualDeletion',
+        PolicyDocument=access_policy_json
+    )
+
+    print(f"Manual deletion disabled for recovery points in backup vault '{vault_name}'.")
+
+def main():
+    # Specify the name of the backup vault
+    vault_name = 'your-backup-vault-name'
+
+    # Disable manual deletion for recovery points
+    disable_manual_deletion_for_recovery_points(vault_name)
+
+if __name__ == "__main__":
+    main()
 ```
 
 3. Run the Python script to disable manual deletion of backups for all EC2 instances in your AWS account.
