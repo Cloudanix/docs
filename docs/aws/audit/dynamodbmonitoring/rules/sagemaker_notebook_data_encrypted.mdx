@@ -24,56 +24,108 @@ HIPAA, GDPR, CISAWS, CBP, NIST
 
 #### Using Console
 
-1. Go to the Amazon SQS console.
-2. Navigate to the list of queues.
-3. Select the queue encrypted with `ALIAS/AWS/SQS`.
-4. Click "Configure queue".
-5. Under "Queue encryption", select "Use customer managed CMK".
-6. Choose or create a customer managed CMK from the list.
-7. Click "Save changes".
+1. Log in to the AWS Management Console:
+
+    Open the AWS Management Console and navigate to the SageMaker service.
+
+2. Create or Modify a Notebook Instance:
+
+    To create a new notebook instance, click on "Create notebook instance."
+    To modify an existing instance, select the instance and click "Edit."
+
+3. Configure Encryption:
+
+    In the "Notebook instance settings," scroll down to the "Encryption settings" section.
+    Enable encryption by selecting a KMS key. You can either use the default SageMaker key or specify a custom KMS key.
+    Ensure that both "Encrypt notebook storage" and "Encrypt EBS volume" (if available) are enabled.
+
+4. Save Changes:
+
+    If you're creating a new instance, complete the other required fields and click "Create notebook instance."
+    If you're modifying an existing instance, save the changes and restart the instance for the changes to take effect.
 
 #### Using CLI
-```bash
-aws sqs set-queue-attributes --queue-url <queue-url> --attributes KmsMasterKeyId=<new-cmk-arn>
-```
+
+To encrypt the storage of a SageMaker notebook instance using the AWS CLI, you need to specify the KmsKeyId parameter during creation or update.
+
+1. Create a New Notebook Instance:
+
+    ```bash
+    aws sagemaker create-notebook-instance \
+        --notebook-instance-name <YourNotebookInstanceName> \
+        --instance-type <InstanceType> \
+        --role-arn <IAMRoleARN> \
+        --kms-key-id <KMSKeyID> \
+        --volume-size-in-gb <VolumeSize> \
+        --default-code-repository <CodeRepositoryURL> \
+        --additional-code-repositories <AdditionalCodeRepositories>
+    ```
+
+2. Modify an Existing Notebook Instance:
+
+    ```bash
+    aws sagemaker update-notebook-instance \
+        --notebook-instance-name <YourNotebookInstanceName> \
+        --kms-key-id <KMSKeyID>
+    ```
+
+3. After updating, you may need to stop and then start the notebook instance:
+
+    ```bash
+    aws sagemaker stop-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+    aws sagemaker start-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+    ```
 
 ### Using Python
 
-```python
-import boto3
+To use a Python script to encrypt a SageMaker notebook instance, you'll need the boto3 library:
 
-def enable_queue_encryption(queue_url, new_cmk_arn):
-    client = boto3.client('sqs')
-    response = client.get_queue_attributes(
-        QueueUrl=queue_url,
-        AttributeNames=['All']
-    )
-    client.set_queue_attributes(
-        QueueUrl=queue_url,
-        Attributes={
-            'KmsMasterKeyId': new_cmk_arn
-        }
-    )
-    print(f"Encryption enabled for queue: {queue_url}")
+1. Install boto3 (if not already installed):
+    ```bash
+    pip install boto3
+    ```
 
-def main():
-    client = boto3.client('sqs')
-    response = client.list_queues()
-    for queue_url in response['QueueUrls']:
-        response = client.get_queue_attributes(
-            QueueUrl=queue_url,
-            AttributeNames=['KmsMasterKeyId']
+2. Script to Create or Update a Notebook Instance:
+    ```python
+    import boto3
+
+    sagemaker = boto3.client('sagemaker')
+
+    # Create a new notebook instance
+    def create_notebook_instance():
+        response = sagemaker.create_notebook_instance(
+            NotebookInstanceName='<YourNotebookInstanceName>',
+            InstanceType='<InstanceType>',
+            RoleArn='<IAMRoleARN>',
+            KmsKeyId='<KMSKeyID>',
+            VolumeSizeInGB=<VolumeSize>,
+            DefaultCodeRepository='<CodeRepositoryURL>',
+            AdditionalCodeRepositories=['<AdditionalCodeRepositories>']
         )
-        kms_key_id = response.get('Attributes', {}).get('KmsMasterKeyId', '')
-        if kms_key_id.upper() == 'ALIAS/AWS/SQS':
-            new_cmk_arn = '<new-cmk-arn>'
-            enable_queue_encryption(queue_url, new_cmk_arn)
+        print(response)
 
-if __name__ == "__main__":
-    main()
-```
+    # Update an existing notebook instance
+    def update_notebook_instance():
+        response = sagemaker.update_notebook_instance(
+            NotebookInstanceName='<YourNotebookInstanceName>',
+            KmsKeyId='<KMSKeyID>'
+        )
+        print(response)
 
-Replace `<new-cmk-arn>` with the ARN of the new customer managed CMK.
+    # Stop and start the notebook instance to apply changes
+    def restart_notebook_instance():
+        sagemaker.stop_notebook_instance(NotebookInstanceName='<YourNotebookInstanceName>')
+        waiter = sagemaker.get_waiter('notebook_instance_stopped')
+        waiter.wait(NotebookInstanceName='<YourNotebookInstanceName>')
+        sagemaker.start_notebook_instance(NotebookInstanceName='<YourNotebookInstanceName>')
+
+    # Choose the function to call
+    create_notebook_instance()
+    # or
+    update_notebook_instance()
+    restart_notebook_instance()
+    ```
+    Replace placeholders (`<YourNotebookInstanceName>`, `<InstanceType>`, `<IAMRoleARN>`, `<KMSKeyID>`, `<VolumeSize>`, `<CodeRepositoryURL>`, and `<AdditionalCodeRepositories>`) with appropriate values.
 
 ### Additional Reading:
 
