@@ -23,6 +23,190 @@ CISGCP,HIPAA,SCO2,NISTCSF,NIST,AWSWAF,ISO27001,HITRUST
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent users from having unnecessary Administrator Access in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Review IAM Users and Groups:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Click on "Users" to review the list of IAM users.
+   - Click on each user to review their attached policies and group memberships.
+   - Ensure that only necessary users have policies that grant Administrator Access.
+
+2. **Use IAM Groups for Permissions Management:**
+   - Create IAM groups with specific permissions rather than assigning policies directly to users.
+   - Navigate to the "Groups" section in the IAM Dashboard.
+   - Create groups with least privilege policies and add users to these groups as needed.
+   - Ensure that only a minimal number of groups have Administrator Access policies attached.
+
+3. **Implement IAM Policies with Least Privilege:**
+   - Review and modify existing IAM policies to follow the principle of least privilege.
+   - Navigate to the "Policies" section in the IAM Dashboard.
+   - Edit policies to grant only the permissions necessary for users to perform their job functions.
+   - Avoid using the "AdministratorAccess" managed policy unless absolutely necessary.
+
+4. **Enable and Review IAM Access Analyzer:**
+   - Enable IAM Access Analyzer to continuously monitor and analyze permissions granted to users and roles.
+   - Navigate to the IAM Dashboard and select "Access Analyzer" under the "Access reports" section.
+   - Review findings and take action to reduce overly permissive access.
+   - Regularly review Access Analyzer findings to ensure compliance with least privilege principles.
+
+By following these steps, you can effectively manage and prevent unnecessary Administrator Access in AWS IAM using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent users from having unnecessary Administrator Access in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a Least Privilege Policy:**
+   - Define a policy that grants only the necessary permissions required for the user's role. Save this policy in a JSON file, e.g., `least_privilege_policy.json`.
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "s3:ListBucket",
+                   "s3:GetObject"
+               ],
+               "Resource": [
+                   "arn:aws:s3:::example-bucket",
+                   "arn:aws:s3:::example-bucket/*"
+               ]
+           }
+       ]
+   }
+   ```
+
+2. **Create the Policy in AWS IAM:**
+   - Use the AWS CLI to create the policy from the JSON file.
+   ```sh
+   aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+   ```
+
+3. **Attach the Policy to the User:**
+   - Attach the newly created least privilege policy to the user instead of the AdministratorAccess policy.
+   ```sh
+   aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/LeastPrivilegePolicy
+   ```
+
+4. **Detach the AdministratorAccess Policy:**
+   - Detach the AdministratorAccess policy from the user to ensure they do not have full administrative privileges.
+   ```sh
+   aws iam detach-user-policy --user-name <username> --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+   ```
+
+By following these steps, you ensure that users are granted only the permissions they need, adhering to the principle of least privilege and preventing unnecessary Administrator Access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent users from having Administrator Access in AWS IAM using Python scripts, you can follow these steps:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed and configured. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Create a Python Script to List Users with Administrator Access
+Create a Python script to list all users who have the `AdministratorAccess` policy attached. This will help you identify users with this level of access.
+
+```python
+import boto3
+
+def list_admin_users():
+    iam_client = boto3.client('iam')
+    paginator = iam_client.get_paginator('list_users')
+    for response in paginator.paginate():
+        for user in response['Users']:
+            user_policies = iam_client.list_attached_user_policies(UserName=user['UserName'])
+            for policy in user_policies['AttachedPolicies']:
+                if policy['PolicyName'] == 'AdministratorAccess':
+                    print(f"User {user['UserName']} has AdministratorAccess policy attached.")
+
+if __name__ == "__main__":
+    list_admin_users()
+```
+
+### Step 3: Create a Python Script to Detach Administrator Access Policy
+Create a Python script to detach the `AdministratorAccess` policy from users who have it attached.
+
+```python
+import boto3
+
+def detach_admin_policy(user_name):
+    iam_client = boto3.client('iam')
+    iam_client.detach_user_policy(
+        UserName=user_name,
+        PolicyArn='arn:aws:iam::aws:policy/AdministratorAccess'
+    )
+    print(f"Detached AdministratorAccess policy from user {user_name}")
+
+def remove_admin_access():
+    iam_client = boto3.client('iam')
+    paginator = iam_client.get_paginator('list_users')
+    for response in paginator.paginate():
+        for user in response['Users']:
+            user_policies = iam_client.list_attached_user_policies(UserName=user['UserName'])
+            for policy in user_policies['AttachedPolicies']:
+                if policy['PolicyName'] == 'AdministratorAccess':
+                    detach_admin_policy(user['UserName'])
+
+if __name__ == "__main__":
+    remove_admin_access()
+```
+
+### Step 4: Implement Preventive Measures
+To prevent users from being granted `AdministratorAccess` in the future, you can create an IAM policy that denies attaching this policy to any user and attach it to all IAM users or roles responsible for managing IAM policies.
+
+```python
+import boto3
+import json
+
+def create_prevent_admin_policy():
+    iam_client = boto3.client('iam')
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Deny",
+                "Action": "iam:AttachUserPolicy",
+                "Resource": "*",
+                "Condition": {
+                    "StringEquals": {
+                        "iam:PolicyArn": "arn:aws:iam::aws:policy/AdministratorAccess"
+                    }
+                }
+            }
+        ]
+    }
+
+    response = iam_client.create_policy(
+        PolicyName='PreventAdminAccessPolicy',
+        PolicyDocument=json.dumps(policy_document)
+    )
+    print(f"Created policy: {response['Policy']['Arn']}")
+
+if __name__ == "__main__":
+    create_prevent_admin_policy()
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Ensure Boto3 is installed and configured.
+2. **List Users with Administrator Access**: Create a script to list users with the `AdministratorAccess` policy.
+3. **Detach Administrator Access Policy**: Create a script to detach the `AdministratorAccess` policy from users.
+4. **Implement Preventive Measures**: Create and attach a policy that prevents attaching the `AdministratorAccess` policy to any user.
+
+By following these steps, you can effectively prevent users from having Administrator Access in AWS IAM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

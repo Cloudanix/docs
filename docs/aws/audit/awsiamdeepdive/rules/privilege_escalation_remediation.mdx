@@ -2,6 +2,267 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent privilege escalation in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Implement the Principle of Least Privilege:**
+   - **Step 1:** Navigate to the IAM Dashboard in the AWS Management Console.
+   - **Step 2:** Review all IAM policies and roles to ensure that users and roles have only the permissions they need to perform their tasks.
+   - **Step 3:** Edit policies to remove any unnecessary permissions. For example, avoid using overly permissive policies like `AdministratorAccess` unless absolutely necessary.
+
+2. **Use IAM Access Analyzer:**
+   - **Step 1:** In the IAM Dashboard, go to the "Access Analyzer" section.
+   - **Step 2:** Create an analyzer if you haven't already.
+   - **Step 3:** Review the findings to identify any resources that are shared with an external entity or have overly permissive access.
+   - **Step 4:** Adjust the resource policies based on the findings to limit access.
+
+3. **Enable Multi-Factor Authentication (MFA):**
+   - **Step 1:** In the IAM Dashboard, select "Users" and then choose the user you want to enable MFA for.
+   - **Step 2:** Under the "Security credentials" tab, click on "Manage MFA."
+   - **Step 3:** Follow the prompts to assign a virtual MFA device or hardware MFA device to the user.
+   - **Step 4:** Ensure that MFA is required for users with sensitive permissions.
+
+4. **Regularly Review and Rotate Access Keys:**
+   - **Step 1:** In the IAM Dashboard, select "Users" and then choose the user whose access keys you want to review.
+   - **Step 2:** Under the "Security credentials" tab, review the access keys and their last used dates.
+   - **Step 3:** Delete any unused or old access keys.
+   - **Step 4:** Rotate access keys regularly and ensure that the new keys are securely stored and used.
+
+By following these steps, you can significantly reduce the risk of privilege escalation in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+Preventing privilege escalation in AWS IAM involves setting up proper policies and permissions to ensure that users and roles do not have the ability to escalate their privileges. Here are four key steps to prevent privilege escalation using AWS CLI:
+
+1. **Create a Least Privilege IAM Policy:**
+   Ensure that IAM policies grant the minimum permissions necessary for users to perform their tasks. Avoid using overly permissive policies like `AdministratorAccess`.
+
+   ```sh
+   aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+   ```
+
+   Example `least_privilege_policy.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "s3:ListBucket",
+           "s3:GetObject"
+         ],
+         "Resource": [
+           "arn:aws:s3:::example-bucket",
+           "arn:aws:s3:::example-bucket/*"
+         ]
+       }
+     ]
+   }
+   ```
+
+2. **Restrict IAM Policy Creation and Modification:**
+   Limit who can create or modify IAM policies to prevent users from granting themselves additional permissions.
+
+   ```sh
+   aws iam create-policy --policy-name RestrictPolicyChanges --policy-document file://restrict_policy_changes.json
+   ```
+
+   Example `restrict_policy_changes.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": [
+           "iam:CreatePolicy",
+           "iam:PutRolePolicy",
+           "iam:AttachRolePolicy",
+           "iam:PutUserPolicy",
+           "iam:AttachUserPolicy"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+3. **Use Service Control Policies (SCPs) in AWS Organizations:**
+   If you are using AWS Organizations, apply SCPs to restrict the maximum permissions for accounts within the organization.
+
+   ```sh
+   aws organizations create-policy --name RestrictPrivilegeEscalation --type SERVICE_CONTROL_POLICY --content file://restrict_privilege_escalation_scp.json
+   ```
+
+   Example `restrict_privilege_escalation_scp.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": [
+           "iam:CreatePolicyVersion",
+           "iam:SetDefaultPolicyVersion",
+           "iam:PassRole"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+4. **Enable CloudTrail and Monitor IAM Activities:**
+   Enable AWS CloudTrail to log all IAM activities and set up monitoring to detect any suspicious activities that could indicate an attempt at privilege escalation.
+
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-trail-bucket
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+   Additionally, you can create CloudWatch Alarms to monitor specific IAM actions:
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name IAMPolicyChangeAlarm --metric-name PolicyChanges --namespace AWS/CloudTrail --statistic Sum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --dimensions Name=EventName,Value=PutUserPolicy --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:MySNSTopic
+   ```
+
+By following these steps, you can significantly reduce the risk of privilege escalation in your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent privilege escalation in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Restrict IAM Policy Creation and Modification**
+Ensure that only a limited set of trusted users can create or modify IAM policies. This can be done by creating a policy that denies `iam:CreatePolicy`, `iam:PutRolePolicy`, `iam:PutUserPolicy`, and `iam:PutGroupPolicy` actions for all users except the trusted ones.
+
+```python
+import boto3
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your-profile')
+iam_client = session.client('iam')
+
+# Define the policy
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Action": [
+                "iam:CreatePolicy",
+                "iam:PutRolePolicy",
+                "iam:PutUserPolicy",
+                "iam:PutGroupPolicy"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+# Attach the policy to a group or user
+response = iam_client.put_user_policy(
+    UserName='your-username',
+    PolicyName='DenyPolicyCreation',
+    PolicyDocument=json.dumps(policy_document)
+)
+
+print(response)
+```
+
+### 2. **Restrict Role Assumption**
+Limit which roles can be assumed by users to prevent privilege escalation through role assumption. Create a policy that restricts `sts:AssumeRole` to specific roles.
+
+```python
+import json
+
+# Define the policy
+assume_role_policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Action": "sts:AssumeRole",
+            "Resource": "*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalArn": [
+                        "arn:aws:iam::account-id:role/allowed-role"
+                    ]
+                }
+            }
+        }
+    ]
+}
+
+# Attach the policy to a user
+response = iam_client.put_user_policy(
+    UserName='your-username',
+    PolicyName='RestrictAssumeRole',
+    PolicyDocument=json.dumps(assume_role_policy_document)
+)
+
+print(response)
+```
+
+### 3. **Enforce Least Privilege**
+Regularly audit and enforce the principle of least privilege by ensuring that users, roles, and groups have only the permissions they need. Use AWS IAM Access Analyzer to identify and remove unnecessary permissions.
+
+```python
+# Initialize IAM Access Analyzer client
+access_analyzer_client = session.client('accessanalyzer')
+
+# Create an analyzer
+response = access_analyzer_client.create_analyzer(
+    analyzerName='LeastPrivilegeAnalyzer',
+    type='ACCOUNT'
+)
+
+print(response)
+```
+
+### 4. **Monitor and Alert on Privilege Escalation Attempts**
+Set up CloudWatch Alarms and AWS Config Rules to monitor and alert on any changes to IAM policies or roles that could indicate a privilege escalation attempt.
+
+```python
+import boto3
+
+# Initialize CloudWatch client
+cloudwatch_client = session.client('cloudwatch')
+
+# Create a CloudWatch alarm
+response = cloudwatch_client.put_metric_alarm(
+    AlarmName='IAMPolicyChangeAlarm',
+    MetricName='PolicyChanges',
+    Namespace='AWS/IAM',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=[
+        'arn:aws:sns:region:account-id:your-sns-topic'
+    ],
+    Dimensions=[
+        {
+            'Name': 'PolicyName',
+            'Value': 'your-policy-name'
+        }
+    ]
+)
+
+print(response)
+```
+
+By implementing these steps, you can significantly reduce the risk of privilege escalation in your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

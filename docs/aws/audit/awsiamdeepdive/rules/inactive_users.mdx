@@ -23,6 +23,182 @@ CISGCP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent inactive IAM users in AWS using the AWS Management Console, follow these steps:
+
+1. **Regularly Review IAM Users:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Click on "Users" to see a list of all IAM users.
+   - Regularly review the list of users to identify any that have not been active for a specified period (e.g., 90 days).
+
+2. **Enable CloudTrail Logging:**
+   - Go to the CloudTrail service in the AWS Management Console.
+   - Ensure that CloudTrail is enabled to log all API activity.
+   - This will help you track user activity and identify inactive users.
+
+3. **Set Up IAM Access Advisor:**
+   - In the IAM Dashboard, select a user and go to the "Access Advisor" tab.
+   - Review the last accessed information for each service.
+   - Use this information to determine if the user has been inactive.
+
+4. **Implement Automated Monitoring:**
+   - Use AWS Config to create a rule that checks for inactive IAM users.
+   - Go to the AWS Config service in the AWS Management Console.
+   - Create a new rule with a custom Lambda function that evaluates user activity and flags inactive users.
+
+By following these steps, you can proactively monitor and manage IAM users to prevent inactive accounts from posing a security risk.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent inactive IAM users in AWS using the AWS CLI, you can follow these steps:
+
+1. **List All IAM Users:**
+   First, you need to list all IAM users in your AWS account. This will help you identify which users are inactive.
+   ```sh
+   aws iam list-users
+   ```
+
+2. **Enable CloudTrail for Monitoring:**
+   Ensure that AWS CloudTrail is enabled to monitor and log all IAM activities. This will help you track user activity and identify inactive users.
+   ```sh
+   aws cloudtrail create-trail --name myTrail --s3-bucket-name my-bucket
+   aws cloudtrail start-logging --name myTrail
+   ```
+
+3. **Set Up IAM User Access Keys Rotation Policy:**
+   Implement a policy to rotate IAM user access keys regularly. This will ensure that inactive users are identified and their access keys are rotated or deactivated.
+   ```sh
+   aws iam update-access-key --access-key-id <AccessKeyId> --status Inactive
+   ```
+
+4. **Automate Inactive User Detection:**
+   Use a script to automate the detection of inactive users. You can use AWS CLI commands within a Python script to check the last activity of IAM users and take appropriate actions.
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   iam = boto3.client('iam')
+   cloudtrail = boto3.client('cloudtrail')
+
+   # Define the threshold for inactivity (e.g., 90 days)
+   threshold_date = datetime.now() - timedelta(days=90)
+
+   # List all IAM users
+   users = iam.list_users()['Users']
+
+   for user in users:
+       user_name = user['UserName']
+       # Get the last activity of the user from CloudTrail
+       events = cloudtrail.lookup_events(
+           LookupAttributes=[
+               {
+                   'AttributeKey': 'Username',
+                   'AttributeValue': user_name
+               },
+           ],
+           StartTime=threshold_date,
+           EndTime=datetime.now()
+       )['Events']
+
+       if not events:
+           print(f"User {user_name} is inactive since {threshold_date}")
+           # Take action, e.g., deactivate the user or notify the admin
+   ```
+
+By following these steps, you can effectively prevent inactive IAM users in AWS using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent inactive IAM users in AWS using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to manage IAM users.
+
+```bash
+pip install boto3
+```
+
+### 2. **Identify Inactive Users**
+Create a Python script to identify inactive IAM users. You can define inactivity based on the last activity date, such as the last time they accessed AWS services.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+iam = boto3.client('iam')
+
+# Define the inactivity period (e.g., 90 days)
+inactivity_period = 90
+threshold_date = datetime.now() - timedelta(days=inactivity_period)
+
+# List all IAM users
+users = iam.list_users()
+
+# Check for inactive users
+inactive_users = []
+for user in users['Users']:
+    user_name = user['UserName']
+    last_used = iam.get_user(UserName=user_name)['User'].get('PasswordLastUsed', None)
+    
+    if last_used and last_used < threshold_date:
+        inactive_users.append(user_name)
+
+print(f"Inactive users: {inactive_users}")
+```
+
+### 3. **Automate Inactive User Detection**
+Schedule the script to run periodically (e.g., daily or weekly) using a cron job or AWS Lambda to ensure continuous monitoring.
+
+#### Using AWS Lambda:
+1. Create a Lambda function and upload the script.
+2. Set up a CloudWatch Events rule to trigger the Lambda function on a schedule.
+
+### 4. **Notify or Take Action on Inactive Users**
+You can extend the script to notify administrators or take automated actions such as disabling or deleting inactive users.
+
+#### Example: Disable Inactive Users
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+iam = boto3.client('iam')
+
+# Define the inactivity period (e.g., 90 days)
+inactivity_period = 90
+threshold_date = datetime.now() - timedelta(days=inactivity_period)
+
+# List all IAM users
+users = iam.list_users()
+
+# Check for inactive users and disable them
+for user in users['Users']:
+    user_name = user['UserName']
+    last_used = iam.get_user(UserName=user_name)['User'].get('PasswordLastUsed', None)
+    
+    if last_used and last_used < threshold_date:
+        # Disable the user by removing their login profile
+        iam.delete_login_profile(UserName=user_name)
+        print(f"Disabled user: {user_name}")
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Identify Inactive Users**: Create a script to identify users inactive for a specified period.
+3. **Automate Inactive User Detection**: Schedule the script using AWS Lambda and CloudWatch Events.
+4. **Notify or Take Action on Inactive Users**: Extend the script to disable or notify about inactive users.
+
+By following these steps, you can effectively prevent inactive IAM users in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
