@@ -2,6 +2,210 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not using CloudFormation (or Infrastructure as Code) in AWS, you can follow these steps using the AWS Management Console:
+
+1. **Enable AWS Config Rules:**
+   - Navigate to the AWS Management Console.
+   - Go to the AWS Config service.
+   - Click on "Rules" in the left-hand menu.
+   - Click on "Add rule."
+   - Search for and select the rule named `CLOUDFORMATION_STACK_DRIFT_DETECTION_CHECK`.
+   - Configure the rule as needed and click "Add rule."
+
+2. **Set Up Service Control Policies (SCPs) in AWS Organizations:**
+   - Navigate to the AWS Management Console.
+   - Go to the AWS Organizations service.
+   - Click on "Policies" in the left-hand menu.
+   - Click on "Create policy."
+   - Define a policy that restricts the creation of resources outside of CloudFormation stacks.
+   - Attach this policy to the appropriate Organizational Units (OUs) or accounts.
+
+3. **Enable CloudTrail for Monitoring:**
+   - Navigate to the AWS Management Console.
+   - Go to the CloudTrail service.
+   - Click on "Trails" in the left-hand menu.
+   - Click on "Create trail."
+   - Follow the steps to create a new trail that logs all management events.
+   - Ensure that the trail is applied to all regions and that it logs to an S3 bucket for auditing.
+
+4. **Implement IAM Policies:**
+   - Navigate to the AWS Management Console.
+   - Go to the IAM service.
+   - Click on "Policies" in the left-hand menu.
+   - Click on "Create policy."
+   - Define a policy that allows only CloudFormation actions for resource creation and management.
+   - Attach this policy to the IAM roles and users who are responsible for managing infrastructure.
+
+By following these steps, you can enforce the use of CloudFormation for resource management and prevent manual resource creation that could lead to misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that CloudFormation (or Infrastructure as Code) is used in AWS, you can follow these steps using the AWS CLI:
+
+1. **Create an IAM Policy to Enforce CloudFormation Usage:**
+   - Create an IAM policy that restricts users from creating resources directly and only allows them to create resources through CloudFormation.
+   - Save the following JSON policy document to a file named `cloudformation-only-policy.json`:
+
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": [
+             "ec2:RunInstances",
+             "s3:CreateBucket",
+             "rds:CreateDBInstance",
+             "lambda:CreateFunction",
+             "iam:CreateRole",
+             "iam:CreateUser"
+           ],
+           "Resource": "*",
+           "Condition": {
+             "StringNotEquals": {
+               "aws:CalledVia": "cloudformation.amazonaws.com"
+             }
+           }
+         }
+       ]
+     }
+     ```
+
+2. **Attach the IAM Policy to a User or Group:**
+   - Use the following AWS CLI command to create the policy:
+
+     ```sh
+     aws iam create-policy --policy-name CloudFormationOnlyPolicy --policy-document file://cloudformation-only-policy.json
+     ```
+
+   - Attach the policy to a user or group:
+
+     ```sh
+     aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/CloudFormationOnlyPolicy
+     ```
+
+     or
+
+     ```sh
+     aws iam attach-group-policy --group-name <groupname> --policy-arn arn:aws:iam::<account-id>:policy/CloudFormationOnlyPolicy
+     ```
+
+3. **Monitor CloudFormation Stack Events:**
+   - Use the AWS CLI to monitor CloudFormation stack events to ensure that resources are being created through CloudFormation:
+
+     ```sh
+     aws cloudformation describe-stack-events --stack-name <stack-name>
+     ```
+
+4. **Audit Resource Creation:**
+   - Regularly audit resource creation to ensure compliance. Use AWS Config to track resource creation and ensure they are created via CloudFormation:
+
+     ```sh
+     aws configservice describe-config-rules
+     ```
+
+     Ensure you have a rule that checks for resources created outside of CloudFormation.
+
+By following these steps, you can enforce the use of CloudFormation for resource creation in AWS using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to ensuring that CloudFormation (or Infrastructure as Code, IaC) is used in AWS, you can use Python scripts to enforce policies and automate checks. Below are steps to achieve this:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List CloudFormation Stacks**
+You can create a Python script to list all CloudFormation stacks to ensure that resources are being managed through CloudFormation.
+
+```python
+import boto3
+
+def list_cloudformation_stacks():
+    client = boto3.client('cloudformation')
+    response = client.list_stacks(
+        StackStatusFilter=[
+            'CREATE_COMPLETE', 'UPDATE_COMPLETE', 'ROLLBACK_COMPLETE'
+        ]
+    )
+    stacks = response['StackSummaries']
+    for stack in stacks:
+        print(f"Stack Name: {stack['StackName']}, Status: {stack['StackStatus']}")
+
+if __name__ == "__main__":
+    list_cloudformation_stacks()
+```
+
+### 3. **Enforce Tagging Policies**
+Ensure that all resources are tagged appropriately to indicate they are managed by CloudFormation. You can use AWS Config rules to enforce this, but here is a Python script to check for tags:
+
+```python
+import boto3
+
+def check_resource_tags(resource_id):
+    client = boto3.client('resourcegroupstaggingapi')
+    response = client.get_resources(
+        ResourceARNList=[resource_id]
+    )
+    for resource in response['ResourceTagMappingList']:
+        tags = resource['Tags']
+        if not any(tag['Key'] == 'ManagedBy' and tag['Value'] == 'CloudFormation' for tag in tags):
+            print(f"Resource {resource_id} is not managed by CloudFormation")
+
+if __name__ == "__main__":
+    # Example resource ID
+    resource_id = 'arn:aws:ec2:region:account-id:instance/instance-id'
+    check_resource_tags(resource_id)
+```
+
+### 4. **Automate Compliance Checks**
+You can automate compliance checks using AWS Lambda and CloudWatch Events to periodically run the above scripts and ensure compliance.
+
+```python
+import boto3
+
+def lambda_handler(event, context):
+    client = boto3.client('cloudformation')
+    response = client.list_stacks(
+        StackStatusFilter=[
+            'CREATE_COMPLETE', 'UPDATE_COMPLETE', 'ROLLBACK_COMPLETE'
+        ]
+    )
+    stacks = response['StackSummaries']
+    for stack in stacks:
+        print(f"Stack Name: {stack['StackName']}, Status: {stack['StackStatus']}")
+
+    # Example resource ID
+    resource_id = 'arn:aws:ec2:region:account-id:instance/instance-id'
+    check_resource_tags(resource_id)
+
+def check_resource_tags(resource_id):
+    client = boto3.client('resourcegroupstaggingapi')
+    response = client.get_resources(
+        ResourceARNList=[resource_id]
+    )
+    for resource in response['ResourceTagMappingList']:
+        tags = resource['Tags']
+        if not any(tag['Key'] == 'ManagedBy' and tag['Value'] == 'CloudFormation' for tag in tags):
+            print(f"Resource {resource_id} is not managed by CloudFormation")
+```
+
+Deploy this Lambda function and set up a CloudWatch Event to trigger it periodically.
+
+By following these steps, you can ensure that resources are managed through CloudFormation and prevent misconfigurations related to manual resource management.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
