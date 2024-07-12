@@ -2,6 +2,215 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent CloudFront distributions from lacking field-level encryption using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudFront Distributions:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudFront" and select "CloudFront" from the dropdown.
+
+2. **Select the Distribution:**
+   - In the CloudFront dashboard, you will see a list of your distributions.
+   - Click on the ID of the distribution you want to configure.
+
+3. **Edit Distribution Settings:**
+   - In the distribution settings page, go to the "Behaviors" tab.
+   - Click on the "Edit" button next to the behavior you want to configure.
+
+4. **Enable Field-Level Encryption:**
+   - Scroll down to the "Field-Level Encryption" section.
+   - Select the appropriate Field-Level Encryption Configuration from the dropdown menu.
+   - Click on the "Yes, Edit" button to save your changes.
+
+By following these steps, you ensure that your CloudFront distribution has field-level encryption enabled, enhancing the security of sensitive data in transit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent CloudFront distributions from lacking field-level encryption using AWS CLI, you can follow these steps:
+
+1. **Create a Field-Level Encryption Profile:**
+   First, you need to create a field-level encryption profile. This profile will define the fields that need to be encrypted and the public key to use for encryption.
+
+   ```sh
+   aws cloudfront create-field-level-encryption-profile --field-level-encryption-profile-config file://field-level-encryption-profile-config.json
+   ```
+
+   Ensure that `field-level-encryption-profile-config.json` contains the necessary configuration for your encryption profile.
+
+2. **Create a Field-Level Encryption Configuration:**
+   Next, create a field-level encryption configuration that specifies how CloudFront should handle the encryption.
+
+   ```sh
+   aws cloudfront create-field-level-encryption-config --field-level-encryption-config file://field-level-encryption-config.json
+   ```
+
+   Ensure that `field-level-encryption-config.json` contains the necessary configuration for your encryption settings.
+
+3. **Update CloudFront Distribution to Use Field-Level Encryption:**
+   Update your CloudFront distribution to use the field-level encryption configuration created in the previous step.
+
+   ```sh
+   aws cloudfront update-distribution --id <distribution-id> --distribution-config file://distribution-config.json
+   ```
+
+   Ensure that `distribution-config.json` includes the `FieldLevelEncryptionId` that references the field-level encryption configuration.
+
+4. **Verify the Configuration:**
+   Finally, verify that the CloudFront distribution has been updated to use field-level encryption.
+
+   ```sh
+   aws cloudfront get-distribution-config --id <distribution-id>
+   ```
+
+   Check the output to ensure that the `FieldLevelEncryptionId` is correctly set in the distribution configuration.
+
+By following these steps, you can ensure that your CloudFront distributions have field-level encryption enabled using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent CloudFront distributions from being created without Field-Level Encryption enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that Field-Level Encryption is enabled for CloudFront distributions:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Field-Level Encryption Configuration**:
+   Before you can enable Field-Level Encryption on a CloudFront distribution, you need to create a Field-Level Encryption configuration. This configuration specifies the fields to be encrypted and the public key to use for encryption.
+
+   ```python
+   import boto3
+
+   client = boto3.client('cloudfront')
+
+   response = client.create_field_level_encryption_config(
+       FieldLevelEncryptionConfig={
+           'CallerReference': 'unique-string',
+           'Comment': 'Field-level encryption configuration',
+           'QueryArgProfileConfig': {
+               'ForwardWhenQueryArgProfileIsUnknown': False,
+               'QueryArgProfiles': {
+                   'Items': [
+                       {
+                           'QueryArg': 'sensitive-data',
+                           'ProfileId': 'profile-id'
+                       },
+                   ],
+                   'Quantity': 1
+               }
+           },
+           'ContentTypeProfileConfig': {
+               'ForwardWhenContentTypeIsUnknown': False,
+               'ContentTypeProfiles': {
+                   'Items': [
+                       {
+                           'Format': 'URLEncoded',
+                           'ProfileId': 'profile-id',
+                           'ContentType': 'application/x-www-form-urlencoded'
+                       },
+                   ],
+                   'Quantity': 1
+               }
+           }
+       }
+   )
+
+   field_level_encryption_id = response['FieldLevelEncryption']['Id']
+   ```
+
+3. **Create or Update CloudFront Distribution with Field-Level Encryption**:
+   When creating or updating a CloudFront distribution, ensure that the Field-Level Encryption configuration is associated with the distribution.
+
+   ```python
+   distribution_config = {
+       'CallerReference': 'unique-string',
+       'Comment': 'My CloudFront Distribution',
+       'Enabled': True,
+       'Origins': {
+           'Quantity': 1,
+           'Items': [
+               {
+                   'Id': 'origin-1',
+                   'DomainName': 'example.com',
+                   'OriginPath': '',
+                   'CustomHeaders': {
+                       'Quantity': 0
+                   },
+                   'S3OriginConfig': {
+                       'OriginAccessIdentity': ''
+                   }
+               },
+           ]
+       },
+       'DefaultCacheBehavior': {
+           'TargetOriginId': 'origin-1',
+           'ViewerProtocolPolicy': 'redirect-to-https',
+           'AllowedMethods': {
+               'Quantity': 2,
+               'Items': ['GET', 'HEAD'],
+               'CachedMethods': {
+                   'Quantity': 2,
+                   'Items': ['GET', 'HEAD']
+               }
+           },
+           'FieldLevelEncryptionId': field_level_encryption_id,
+           'ForwardedValues': {
+               'QueryString': False,
+               'Cookies': {
+                   'Forward': 'none'
+               },
+               'Headers': {
+                   'Quantity': 0
+               },
+               'QueryStringCacheKeys': {
+                   'Quantity': 0
+               }
+           },
+           'MinTTL': 0
+       },
+       'ViewerCertificate': {
+           'CloudFrontDefaultCertificate': True
+       },
+       'Restrictions': {
+           'GeoRestriction': {
+               'RestrictionType': 'none',
+               'Quantity': 0
+           }
+       }
+   }
+
+   response = client.create_distribution(
+       DistributionConfig=distribution_config
+   )
+
+   distribution_id = response['Distribution']['Id']
+   ```
+
+4. **Verify Field-Level Encryption is Enabled**:
+   After creating or updating the distribution, verify that the Field-Level Encryption configuration is correctly applied.
+
+   ```python
+   response = client.get_distribution_config(
+       Id=distribution_id
+   )
+
+   distribution_config = response['DistributionConfig']
+   if 'FieldLevelEncryptionId' in distribution_config['DefaultCacheBehavior']:
+       print("Field-Level Encryption is enabled for the distribution.")
+   else:
+       print("Field-Level Encryption is not enabled for the distribution.")
+   ```
+
+By following these steps, you can ensure that Field-Level Encryption is enabled for your CloudFront distributions using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

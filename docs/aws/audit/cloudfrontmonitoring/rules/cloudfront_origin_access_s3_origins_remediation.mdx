@@ -2,6 +2,204 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having Origin Access Identity (OAI) enabled for CloudFront distributions in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudFront Distributions:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudFront" and select "CloudFront" from the dropdown.
+   - In the CloudFront dashboard, click on "Distributions" to view your list of distributions.
+
+2. **Select the Distribution:**
+   - Click on the ID of the CloudFront distribution for which you want to enable OAI.
+
+3. **Edit Origin Settings:**
+   - In the distribution settings, go to the "Origins and Origin Groups" tab.
+   - Select the origin (e.g., your S3 bucket) and click on the "Edit" button.
+
+4. **Enable Origin Access Identity:**
+   - In the "Edit Origin" settings, find the "Restrict Bucket Access" option.
+   - Set "Restrict Bucket Access" to "Yes".
+   - Under "Origin Access Identity," select "Create a New Identity" or choose an existing OAI.
+   - Ensure that "Grant Read Permissions on Bucket" is set to "Yes, Update Bucket Policy".
+   - Save the changes by clicking the "Yes, Edit" button.
+
+By following these steps, you ensure that your CloudFront distribution is configured to use an Origin Access Identity, thereby restricting direct access to your S3 bucket and enhancing security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having Origin Access Identity (OAI) enabled for CloudFront distributions using AWS CLI, follow these steps:
+
+1. **Create an Origin Access Identity (OAI):**
+   Use the following command to create an OAI. This will generate an identity that CloudFront can use to access your S3 bucket.
+
+   ```sh
+   aws cloudfront create-cloud-front-origin-access-identity --cloud-front-origin-access-identity-config CallerReference=$(date +%s) --comment "OAI for CloudFront"
+   ```
+
+2. **Get the OAI ID:**
+   After creating the OAI, you need to retrieve its ID. You can list all OAIs and filter out the one you just created.
+
+   ```sh
+   aws cloudfront list-cloud-front-origin-access-identities
+   ```
+
+   Note the `Id` of the newly created OAI from the output.
+
+3. **Update the CloudFront Distribution:**
+   Modify your CloudFront distribution to include the OAI. First, get the current configuration of your distribution.
+
+   ```sh
+   aws cloudfront get-distribution-config --id <DISTRIBUTION_ID>
+   ```
+
+   Save the output to a file (e.g., `distribution-config.json`). Edit the file to include the OAI in the `Origins` section. The `S3OriginConfig` should look like this:
+
+   ```json
+   "S3OriginConfig": {
+       "OriginAccessIdentity": "origin-access-identity/cloudfront/<OAI_ID>"
+   }
+   ```
+
+4. **Apply the Updated Configuration:**
+   Finally, update the CloudFront distribution with the modified configuration file. Make sure to include the `If-Match` header with the ETag value from the previous `get-distribution-config` command.
+
+   ```sh
+   aws cloudfront update-distribution --id <DISTRIBUTION_ID> --distribution-config file://distribution-config.json --if-match <ETAG>
+   ```
+
+By following these steps, you ensure that your CloudFront distribution is configured to use an Origin Access Identity, thereby preventing unauthorized access to your S3 bucket.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having Origin Access Identity (OAI) enabled for CloudFront distributions using Python scripts, you can follow these steps:
+
+1. **Install AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed in your environment. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a CloudFront Distribution with OAI:**
+   Use Boto3 to create a CloudFront distribution with OAI enabled. Below is a sample Python script to achieve this:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudFront
+   client = boto3.client('cloudfront')
+
+   # Create an Origin Access Identity
+   response = client.create_cloud_front_origin_access_identity(
+       CloudFrontOriginAccessIdentityConfig={
+           'CallerReference': 'unique-string',
+           'Comment': 'OAI for my CloudFront distribution'
+       }
+   )
+
+   # Extract the OAI ID
+   oai_id = response['CloudFrontOriginAccessIdentity']['Id']
+
+   # Create a CloudFront distribution with the OAI
+   distribution_config = {
+       'CallerReference': 'unique-string',
+       'Origins': {
+           'Quantity': 1,
+           'Items': [
+               {
+                   'Id': '1',
+                   'DomainName': 'my-bucket.s3.amazonaws.com',
+                   'S3OriginConfig': {
+                       'OriginAccessIdentity': f'origin-access-identity/cloudfront/{oai_id}'
+                   }
+               }
+           ]
+       },
+       'DefaultCacheBehavior': {
+           'TargetOriginId': '1',
+           'ViewerProtocolPolicy': 'allow-all',
+           'TrustedSigners': {
+               'Enabled': False,
+               'Quantity': 0
+           },
+           'ForwardedValues': {
+               'QueryString': False,
+               'Cookies': {
+                   'Forward': 'none'
+               }
+           },
+           'MinTTL': 0
+       },
+       'Comment': 'My CloudFront distribution with OAI',
+       'Enabled': True
+   }
+
+   # Create the distribution
+   response = client.create_distribution(
+       DistributionConfig=distribution_config
+   )
+
+   print("CloudFront distribution created with OAI enabled.")
+   ```
+
+3. **Update an Existing CloudFront Distribution to Use OAI:**
+   If you need to update an existing CloudFront distribution to use OAI, you can use the following script:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudFront
+   client = boto3.client('cloudfront')
+
+   # Create an Origin Access Identity
+   response = client.create_cloud_front_origin_access_identity(
+       CloudFrontOriginAccessIdentityConfig={
+           'CallerReference': 'unique-string',
+           'Comment': 'OAI for my CloudFront distribution'
+       }
+   )
+
+   # Extract the OAI ID
+   oai_id = response['CloudFrontOriginAccessIdentity']['Id']
+
+   # Get the existing distribution configuration
+   distribution_id = 'your-distribution-id'
+   response = client.get_distribution_config(Id=distribution_id)
+   distribution_config = response['DistributionConfig']
+   etag = response['ETag']
+
+   # Update the origin to use the OAI
+   for origin in distribution_config['Origins']['Items']:
+       if 'S3OriginConfig' in origin:
+           origin['S3OriginConfig']['OriginAccessIdentity'] = f'origin-access-identity/cloudfront/{oai_id}'
+
+   # Update the distribution with the new configuration
+   response = client.update_distribution(
+       DistributionConfig=distribution_config,
+       Id=distribution_id,
+       IfMatch=etag
+   )
+
+   print("CloudFront distribution updated to use OAI.")
+   ```
+
+4. **Verify the Configuration:**
+   After creating or updating the CloudFront distribution, you should verify that the OAI is correctly associated with the distribution. You can do this by checking the distribution configuration in the AWS Management Console or by using the `get_distribution` method in Boto3.
+
+   ```python
+   response = client.get_distribution(Id=distribution_id)
+   print(response['Distribution']['DistributionConfig']['Origins'])
+   ```
+
+By following these steps, you can ensure that your CloudFront distributions have Origin Access Identity enabled, thereby preventing unauthorized access to your S3 buckets.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,232 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent CloudFront distributions from not having Geo Restriction enabled using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudFront Distributions:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudFront" and select "CloudFront" from the dropdown.
+
+2. **Select the Distribution:**
+   - In the CloudFront dashboard, you will see a list of your distributions.
+   - Click on the ID of the distribution you want to configure.
+
+3. **Edit Distribution Settings:**
+   - In the distribution settings page, click on the "Behaviors" tab.
+   - Select the behavior you want to modify (usually the default behavior) and click on the "Edit" button.
+
+4. **Enable Geo Restriction:**
+   - Scroll down to the "Restrictions" section.
+   - Click on the "Edit" button next to "Geo Restriction".
+   - Choose "Whitelist" or "Blacklist" based on your requirements.
+   - Add the countries you want to allow or block.
+   - Click on the "Save Changes" button to apply the settings.
+
+By following these steps, you can ensure that Geo Restriction is enabled for your CloudFront distributions, helping to prevent unauthorized access from specific geographic locations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent CloudFront distributions from being misconfigured without Geo Restriction enabled using AWS CLI, follow these steps:
+
+1. **List Existing CloudFront Distributions:**
+   First, identify the CloudFront distribution you want to configure by listing all distributions.
+   ```sh
+   aws cloudfront list-distributions
+   ```
+
+2. **Get Distribution Configuration:**
+   Retrieve the current configuration of the specific CloudFront distribution you want to modify. Replace `DISTRIBUTION_ID` with the actual ID of your distribution.
+   ```sh
+   aws cloudfront get-distribution-config --id DISTRIBUTION_ID
+   ```
+
+3. **Update Distribution Configuration:**
+   Modify the distribution configuration to include Geo Restriction settings. Create a JSON file (e.g., `geo_restriction_config.json`) with the updated configuration. Here is an example of what the Geo Restriction part of the configuration might look like:
+   ```json
+   {
+     "GeoRestriction": {
+       "RestrictionType": "whitelist",  // or "blacklist"
+       "Items": ["US", "CA"],  // List of country codes
+       "Quantity": 2
+     }
+   }
+   ```
+
+4. **Apply the Updated Configuration:**
+   Use the `update-distribution` command to apply the updated configuration. Ensure you include the `IfMatch` parameter with the ETag value obtained from the `get-distribution-config` command.
+   ```sh
+   aws cloudfront update-distribution --id DISTRIBUTION_ID --distribution-config file://geo_restriction_config.json --if-match ETag
+   ```
+
+By following these steps, you can ensure that Geo Restriction is enabled for your CloudFront distributions using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent CloudFront distributions from being created without Geo Restriction enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to ensure that Geo Restriction is enabled when creating a CloudFront distribution:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a CloudFront Distribution with Geo Restriction**:
+   Use the Boto3 library to create a CloudFront distribution and specify the Geo Restriction settings. Below is a sample script to create a CloudFront distribution with Geo Restriction enabled:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudFront
+   client = boto3.client('cloudfront')
+
+   # Define the Geo Restriction settings
+   geo_restriction = {
+       'RestrictionType': 'whitelist',  # or 'blacklist'
+       'Items': ['US', 'CA'],  # List of country codes to allow or deny
+       'Quantity': 2
+   }
+
+   # Define the distribution configuration
+   distribution_config = {
+       'CallerReference': 'unique-string',
+       'Origins': {
+           'Quantity': 1,
+           'Items': [
+               {
+                   'Id': 'origin-1',
+                   'DomainName': 'example.com',
+                   'OriginPath': '',
+                   'CustomHeaders': {
+                       'Quantity': 0
+                   },
+                   'S3OriginConfig': {
+                       'OriginAccessIdentity': ''
+                   }
+               }
+           ]
+       },
+       'DefaultCacheBehavior': {
+           'TargetOriginId': 'origin-1',
+           'ViewerProtocolPolicy': 'allow-all',
+           'TrustedSigners': {
+               'Enabled': False,
+               'Quantity': 0
+           },
+           'ForwardedValues': {
+               'QueryString': False,
+               'Cookies': {
+                   'Forward': 'none'
+               },
+               'Headers': {
+                   'Quantity': 0
+               },
+               'QueryStringCacheKeys': {
+                   'Quantity': 0
+               }
+           },
+           'MinTTL': 0
+       },
+       'Comment': 'My distribution with Geo Restriction',
+       'Enabled': True,
+       'Restrictions': {
+           'GeoRestriction': geo_restriction
+       }
+   }
+
+   # Create the CloudFront distribution
+   response = client.create_distribution(
+       DistributionConfig=distribution_config
+   )
+
+   print(response)
+   ```
+
+3. **Update an Existing CloudFront Distribution to Enable Geo Restriction**:
+   If you need to update an existing CloudFront distribution to enable Geo Restriction, you can use the following script:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudFront
+   client = boto3.client('cloudfront')
+
+   # Get the current distribution configuration
+   distribution_id = 'your-distribution-id'
+   response = client.get_distribution_config(Id=distribution_id)
+   distribution_config = response['DistributionConfig']
+   etag = response['ETag']
+
+   # Update the Geo Restriction settings
+   distribution_config['Restrictions'] = {
+       'GeoRestriction': {
+           'RestrictionType': 'whitelist',  # or 'blacklist'
+           'Items': ['US', 'CA'],  # List of country codes to allow or deny
+           'Quantity': 2
+       }
+   }
+
+   # Update the distribution with the new configuration
+   response = client.update_distribution(
+       Id=distribution_id,
+       DistributionConfig=distribution_config,
+       IfMatch=etag
+   )
+
+   print(response)
+   ```
+
+4. **Automate the Check and Update Process**:
+   You can automate the process of checking and updating CloudFront distributions to ensure Geo Restriction is always enabled. Below is a sample script to check all distributions and update those without Geo Restriction:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudFront
+   client = boto3.client('cloudfront')
+
+   # List all CloudFront distributions
+   response = client.list_distributions()
+   distributions = response['DistributionList']['Items']
+
+   for distribution in distributions:
+       distribution_id = distribution['Id']
+       config_response = client.get_distribution_config(Id=distribution_id)
+       distribution_config = config_response['DistributionConfig']
+       etag = config_response['ETag']
+
+       # Check if Geo Restriction is enabled
+       if 'GeoRestriction' not in distribution_config['Restrictions']:
+           # Update the Geo Restriction settings
+           distribution_config['Restrictions'] = {
+               'GeoRestriction': {
+                   'RestrictionType': 'whitelist',  # or 'blacklist'
+                   'Items': ['US', 'CA'],  # List of country codes to allow or deny
+                   'Quantity': 2
+               }
+           }
+
+           # Update the distribution with the new configuration
+           update_response = client.update_distribution(
+               Id=distribution_id,
+               DistributionConfig=distribution_config,
+               IfMatch=etag
+           )
+
+           print(f"Updated distribution {distribution_id} with Geo Restriction")
+       else:
+           print(f"Distribution {distribution_id} already has Geo Restriction enabled")
+   ```
+
+These steps and scripts will help you ensure that Geo Restriction is enabled for your CloudFront distributions using Python and Boto3.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
