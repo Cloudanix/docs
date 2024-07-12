@@ -2,6 +2,138 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS ACM Certificates from being renewed under 30 days in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Navigate to API Gateway:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "API Gateway" under the "Networking & Content Delivery" section.
+
+2. **Select Your API:**
+   - In the API Gateway console, select the API for which you want to manage the ACM certificate.
+   - Click on the API name to open its configuration.
+
+3. **Check Custom Domain Names:**
+   - In the left-hand navigation pane, select "Custom domain names."
+   - Review the list of custom domain names associated with your API.
+
+4. **Review and Update ACM Certificates:**
+   - For each custom domain name, check the associated ACM certificate.
+   - Ensure that the certificate is not set to renew within 30 days by verifying the expiration date and renewal settings.
+   - If necessary, update the certificate to one with a longer validity period or adjust the renewal settings to avoid renewal under 30 days.
+
+By following these steps, you can ensure that your ACM certificates associated with API Gateway are managed properly and do not renew under 30 days.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS ACM Certificates from being renewed under 30 days in API Gateway using AWS CLI, you can follow these steps:
+
+1. **List Existing Certificates:**
+   First, identify the ACM certificates that are currently in use by your API Gateway. This will help you understand which certificates need to be monitored for renewal.
+
+   ```sh
+   aws acm list-certificates --query "CertificateSummaryList[*].{CertificateArn:CertificateArn,DomainName:DomainName}"
+   ```
+
+2. **Describe Certificate Details:**
+   For each certificate, get detailed information to check the expiration date. This will help you determine if any certificates are nearing the 30-day renewal window.
+
+   ```sh
+   aws acm describe-certificate --certificate-arn <certificate-arn>
+   ```
+
+3. **Monitor Certificate Expiration:**
+   Implement a monitoring mechanism to regularly check the expiration dates of your certificates. You can use AWS CloudWatch or a custom script to alert you when a certificate is within the 30-day renewal window.
+
+   ```sh
+   aws acm describe-certificate --certificate-arn <certificate-arn> --query "Certificate.NotAfter"
+   ```
+
+4. **Update API Gateway with New Certificate:**
+   If a certificate is nearing the 30-day renewal window, manually update the API Gateway with a new certificate to avoid automatic renewal. This can be done by creating a new certificate and associating it with your API Gateway.
+
+   ```sh
+   aws apigateway update-domain-name --domain-name <your-domain-name> --patch-operations op=replace,path=/certificateArn,value=<new-certificate-arn>
+   ```
+
+By following these steps, you can prevent AWS ACM Certificates from being renewed under 30 days in API Gateway using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS ACM Certificates from being renewed under 30 days in API Gateway using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary permissions to interact with ACM and API Gateway.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **List ACM Certificates:**
+   - Use Boto3 to list all ACM certificates and filter out those that are due for renewal within the next 30 days.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   acm_client = boto3.client('acm')
+
+   def list_certificates_due_for_renewal():
+       response = acm_client.list_certificates()
+       certificates = response['CertificateSummaryList']
+       due_for_renewal = []
+       for cert in certificates:
+           cert_details = acm_client.describe_certificate(CertificateArn=cert['CertificateArn'])
+           not_after = cert_details['Certificate']['NotAfter']
+           if not_after < datetime.now() + timedelta(days=30):
+               due_for_renewal.append(cert)
+       return due_for_renewal
+   ```
+
+3. **Check API Gateway Custom Domain Names:**
+   - Use Boto3 to list all custom domain names in API Gateway and check if they are associated with any of the certificates due for renewal.
+
+   ```python
+   apigateway_client = boto3.client('apigateway')
+
+   def list_custom_domain_names():
+       response = apigateway_client.get_domain_names()
+       return response['items']
+
+   def check_certificates_in_api_gateway(certificates):
+       domain_names = list_custom_domain_names()
+       for domain in domain_names:
+           if 'certificateArn' in domain:
+               for cert in certificates:
+                   if domain['certificateArn'] == cert['CertificateArn']:
+                       print(f"Domain {domain['domainName']} is using a certificate due for renewal: {cert['CertificateArn']}")
+   ```
+
+4. **Prevent Renewal Under 30 Days:**
+   - Implement logic to prevent the renewal of certificates under 30 days by either notifying the responsible team or taking automated actions.
+
+   ```python
+   def prevent_renewal_under_30_days():
+       certificates_due_for_renewal = list_certificates_due_for_renewal()
+       if certificates_due_for_renewal:
+           check_certificates_in_api_gateway(certificates_due_for_renewal)
+           # Add logic to notify or take automated actions
+           # For example, send an email or log the details
+           print("Action required: Some certificates are due for renewal under 30 days.")
+
+   if __name__ == "__main__":
+       prevent_renewal_under_30_days()
+   ```
+
+By following these steps, you can identify and prevent AWS ACM certificates from being renewed under 30 days in API Gateway using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

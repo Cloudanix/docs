@@ -24,6 +24,147 @@ NIST
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the use of AWS ACM Certificates with wildcard domain names in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Navigate to API Gateway:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "API Gateway" under the "Networking & Content Delivery" section.
+
+2. **Select Your API:**
+   - In the API Gateway console, select the API for which you want to configure the custom domain name.
+
+3. **Configure Custom Domain Name:**
+   - In the left-hand navigation pane, click on "Custom domain names."
+   - Click on "Create Custom Domain Name" or select an existing custom domain name to edit.
+
+4. **Specify Certificate:**
+   - In the "Create Custom Domain Name" or "Edit Custom Domain Name" page, ensure that you select an ACM certificate that does not use a wildcard domain name. Instead, use a specific domain name certificate.
+   - Save the changes by clicking on the "Save" or "Create" button.
+
+By following these steps, you can ensure that only specific domain name certificates are used in API Gateway, thereby preventing the use of wildcard domain names.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of AWS ACM Certificates with wildcard domain names in API Gateway using AWS CLI, you can follow these steps:
+
+1. **List Existing Certificates**:
+   First, identify all the ACM certificates in your account to check for any wildcard certificates.
+   ```sh
+   aws acm list-certificates --query "CertificateSummaryList[?DomainName=='*.example.com']"
+   ```
+
+2. **Describe Certificate**:
+   If you find any wildcard certificates, describe them to get more details and ensure they are not used in API Gateway.
+   ```sh
+   aws acm describe-certificate --certificate-arn <certificate-arn>
+   ```
+
+3. **List API Gateway Custom Domain Names**:
+   List all custom domain names in API Gateway to check if any of them are using wildcard certificates.
+   ```sh
+   aws apigateway get-domain-names
+   ```
+
+4. **Update API Gateway Custom Domain Name**:
+   If you find any custom domain names using wildcard certificates, update them to use a specific domain certificate instead.
+   ```sh
+   aws apigateway update-domain-name --domain-name <domain-name> --patch-operations op=replace,path=/certificateArn,value=<new-certificate-arn>
+   ```
+
+By following these steps, you can ensure that wildcard domain names are not used in API Gateway, thereby preventing potential misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the use of AWS ACM Certificates with wildcard domain names in API Gateway using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS ACM and API Gateway.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **List ACM Certificates:**
+   Use Boto3 to list all ACM certificates and filter out those with wildcard domain names.
+
+   ```python
+   import boto3
+
+   acm_client = boto3.client('acm')
+
+   def list_wildcard_certificates():
+       paginator = acm_client.get_paginator('list_certificates')
+       for page in paginator.paginate():
+           for cert in page['CertificateSummaryList']:
+               cert_details = acm_client.describe_certificate(CertificateArn=cert['CertificateArn'])
+               domain_name = cert_details['Certificate']['DomainName']
+               if domain_name.startswith('*.'):
+                   yield cert['CertificateArn']
+
+   wildcard_certs = list(list_wildcard_certificates())
+   ```
+
+3. **Check API Gateway Custom Domain Names:**
+   Use Boto3 to list all custom domain names in API Gateway and check if any of them are using the wildcard certificates identified in the previous step.
+
+   ```python
+   apigateway_client = boto3.client('apigateway')
+
+   def list_custom_domain_names():
+       paginator = apigateway_client.get_paginator('get_domain_names')
+       for page in paginator.paginate():
+           for domain in page['items']:
+               yield domain
+
+   def check_wildcard_cert_usage():
+       for domain in list_custom_domain_names():
+           if 'certificateArn' in domain and domain['certificateArn'] in wildcard_certs:
+               print(f"Custom domain {domain['domainName']} is using a wildcard certificate: {domain['certificateArn']}")
+
+   check_wildcard_cert_usage()
+   ```
+
+4. **Prevent Future Use of Wildcard Certificates:**
+   Implement a policy or automation to prevent the association of wildcard certificates with API Gateway custom domain names. This can be done by creating a Lambda function that triggers on certificate creation or domain name association events and checks for wildcard certificates.
+
+   ```python
+   import json
+
+   def lambda_handler(event, context):
+       for record in event['Records']:
+           if record['eventName'] == 'CreateCertificate':
+               cert_arn = record['responseElements']['certificateArn']
+               cert_details = acm_client.describe_certificate(CertificateArn=cert_arn)
+               domain_name = cert_details['Certificate']['DomainName']
+               if domain_name.startswith('*.'):
+                   raise Exception(f"Wildcard certificates are not allowed: {cert_arn}")
+
+   # Example event structure for testing
+   test_event = {
+       "Records": [
+           {
+               "eventName": "CreateCertificate",
+               "responseElements": {
+                   "certificateArn": "arn:aws:acm:region:account-id:certificate/certificate-id"
+               }
+           }
+       ]
+   }
+
+   lambda_handler(test_event, None)
+   ```
+
+By following these steps, you can prevent the use of wildcard domain names in AWS ACM certificates for API Gateway custom domain names using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

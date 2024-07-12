@@ -2,6 +2,187 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EFS (Elastic File System) Encryption from being disabled in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Navigate to API Gateway:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "API Gateway" under the "Networking & Content Delivery" section.
+
+2. **Select Your API:**
+   - In the API Gateway console, select the API you want to configure from the list of available APIs.
+
+3. **Enable Encryption:**
+   - Go to the "Settings" tab for your selected API.
+   - Look for the "Encryption" settings. Ensure that the "Enable Encryption" option is checked or turned on.
+
+4. **Save Changes:**
+   - After enabling encryption, make sure to save your changes by clicking the "Save" button at the bottom of the settings page.
+
+By following these steps, you can ensure that EFS encryption is enabled for your API Gateway, enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfigurations related to EFS (Elastic File System) encryption in AWS API Gateway using AWS CLI, you can follow these steps:
+
+1. **Create an EFS File System with Encryption Enabled:**
+   Ensure that any new EFS file system you create has encryption enabled by default.
+
+   ```sh
+   aws efs create-file-system --creation-token <unique-token> --encrypted
+   ```
+
+2. **Verify Encryption Status of Existing EFS File Systems:**
+   Regularly check the encryption status of your existing EFS file systems to ensure they are encrypted.
+
+   ```sh
+   aws efs describe-file-systems --query "FileSystems[*].{ID:FileSystemId,Encrypted:Encrypted}"
+   ```
+
+3. **Update API Gateway to Use Encrypted EFS:**
+   When configuring API Gateway to use EFS, ensure that it references an encrypted EFS file system. This step is more about ensuring the correct setup rather than a direct CLI command, but you can verify the EFS ID used in your API Gateway configuration.
+
+   ```sh
+   aws apigateway get-rest-apis --query "items[*].{ID:id,name:name}"
+   ```
+
+4. **Automate Compliance Checks:**
+   Use AWS Config to set up a rule that checks whether your EFS file systems are encrypted. This will help in maintaining compliance and preventing misconfigurations.
+
+   ```sh
+   aws configservice put-config-rule --config-rule file://efs-encryption-enabled-rule.json
+   ```
+
+   Example `efs-encryption-enabled-rule.json`:
+   ```json
+   {
+     "ConfigRuleName": "efs-encryption-enabled",
+     "Description": "Checks whether EFS file systems are encrypted.",
+     "Scope": {
+       "ComplianceResourceTypes": [
+         "AWS::EFS::FileSystem"
+       ]
+     },
+     "Source": {
+       "Owner": "AWS",
+       "SourceIdentifier": "EFS_ENCRYPTION_ENABLED"
+     }
+   }
+   ```
+
+By following these steps, you can ensure that your EFS file systems used with API Gateway are encrypted, thereby preventing misconfigurations related to EFS encryption.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to EFS (Elastic File System) encryption in AWS API Gateway using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Check EFS Encryption:**
+   - Write a Python script that checks if the EFS is encrypted. If not, it should enable encryption.
+
+   ```python
+   import boto3
+
+   def check_and_enable_efs_encryption(efs_id):
+       client = boto3.client('efs')
+       response = client.describe_file_systems(
+           FileSystemId=efs_id
+       )
+       file_system = response['FileSystems'][0]
+       if not file_system['Encrypted']:
+           print(f"EFS {efs_id} is not encrypted. Enabling encryption...")
+           # Note: EFS encryption at rest can only be enabled at creation time.
+           # You would need to create a new EFS with encryption enabled and migrate data.
+           # This is a placeholder for the actual logic.
+           # client.create_file_system(Encrypted=True, ...)
+       else:
+           print(f"EFS {efs_id} is already encrypted.")
+
+   if __name__ == "__main__":
+       efs_id = 'your-efs-id'  # Replace with your EFS ID
+       check_and_enable_efs_encryption(efs_id)
+   ```
+
+3. **Automate the Script Execution:**
+   - Use AWS Lambda or a scheduled task to run the script periodically to ensure compliance.
+
+   ```python
+   import boto3
+   import json
+
+   def lambda_handler(event, context):
+       efs_id = event['efs_id']
+       check_and_enable_efs_encryption(efs_id)
+
+   def check_and_enable_efs_encryption(efs_id):
+       client = boto3.client('efs')
+       response = client.describe_file_systems(
+           FileSystemId=efs_id
+       )
+       file_system = response['FileSystems'][0]
+       if not file_system['Encrypted']:
+           print(f"EFS {efs_id} is not encrypted. Enabling encryption...")
+           # Note: EFS encryption at rest can only be enabled at creation time.
+           # You would need to create a new EFS with encryption enabled and migrate data.
+           # This is a placeholder for the actual logic.
+           # client.create_file_system(Encrypted=True, ...)
+       else:
+           print(f"EFS {efs_id} is already encrypted.")
+
+   if __name__ == "__main__":
+       efs_id = 'your-efs-id'  # Replace with your EFS ID
+       check_and_enable_efs_encryption(efs_id)
+   ```
+
+4. **Integrate with CI/CD Pipeline:**
+   - Integrate the script into your CI/CD pipeline to ensure that any new EFS created is checked for encryption.
+
+   ```yaml
+   # Example GitHub Actions workflow
+   name: Check EFS Encryption
+
+   on:
+     push:
+       branches:
+         - main
+
+   jobs:
+     check-efs-encryption:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Checkout code
+           uses: actions/checkout@v2
+         - name: Set up Python
+           uses: actions/setup-python@v2
+           with:
+             python-version: '3.x'
+         - name: Install dependencies
+           run: |
+             pip install boto3
+         - name: Run script
+           run: |
+             python check_efs_encryption.py
+           env:
+             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+             AWS_DEFAULT_REGION: 'us-west-2'
+   ```
+
+By following these steps, you can ensure that your EFS is always encrypted, thereby preventing misconfigurations related to EFS encryption in AWS API Gateway.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
