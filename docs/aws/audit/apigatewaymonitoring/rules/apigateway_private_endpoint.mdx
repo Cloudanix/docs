@@ -24,6 +24,240 @@ SOC2, NISTCSF, PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent only private endpoints from accessing APIs in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Create a VPC Endpoint for API Gateway:**
+   - Navigate to the VPC Dashboard.
+   - Select "Endpoints" from the left-hand menu.
+   - Click on "Create Endpoint."
+   - Choose the service name for API Gateway (com.amazonaws.<region>.execute-api).
+   - Select the VPC and subnets where you want the endpoint to be accessible.
+   - Configure the security group to control access to the endpoint.
+   - Click "Create Endpoint."
+
+2. **Configure API Gateway to Use the VPC Endpoint:**
+   - Navigate to the API Gateway Console.
+   - Select the API you want to configure.
+   - Go to the "Stages" section and select the stage you want to configure.
+   - In the "Settings" tab, set the "Endpoint Type" to "Private."
+   - Specify the VPC Endpoint ID created in the previous step.
+
+3. **Update Resource Policies:**
+   - In the API Gateway Console, select the API.
+   - Go to the "Resource Policy" section.
+   - Add a policy that allows access only from the VPC Endpoint.
+   - Example policy:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Principal": "*",
+           "Action": "execute-api:Invoke",
+           "Resource": "arn:aws:execute-api:<region>:<account-id>:<api-id>/*",
+           "Condition": {
+             "StringEquals": {
+               "aws:SourceVpce": "<vpc-endpoint-id>"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Save the policy.
+
+4. **Test the Configuration:**
+   - Ensure that the API is only accessible through the VPC Endpoint.
+   - Attempt to access the API from outside the VPC to confirm that it is not accessible.
+
+By following these steps, you can ensure that only private endpoints within your VPC can access your API Gateway, enhancing the security of your APIs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent only private endpoints from accessing APIs in API Gateway using AWS CLI, you can follow these steps:
+
+1. **Create a VPC Endpoint for API Gateway:**
+   Ensure you have a VPC endpoint for API Gateway in your VPC. This allows your API Gateway to be accessed only within your VPC.
+
+   ```sh
+   aws ec2 create-vpc-endpoint --vpc-id <your-vpc-id> --service-name com.amazonaws.<region>.execute-api --vpc-endpoint-type Interface
+   ```
+
+2. **Update API Gateway to Use VPC Endpoint:**
+   Configure your API Gateway to use the VPC endpoint by associating it with the VPC link.
+
+   ```sh
+   aws apigateway create-vpc-link --name <vpc-link-name> --target-arns <vpc-endpoint-arn>
+   ```
+
+3. **Restrict API Gateway Access to VPC:**
+   Update the API Gateway resource policy to restrict access to the VPC endpoint.
+
+   ```sh
+   aws apigateway update-rest-api --rest-api-id <api-id> --patch-operations op=add,path=/policy,value='{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Principal": "*",
+         "Action": "execute-api:Invoke",
+         "Resource": "arn:aws:execute-api:<region>:<account-id>:<api-id>/*",
+         "Condition": {
+           "StringNotEquals": {
+             "aws:SourceVpce": "<vpc-endpoint-id>"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+4. **Verify the Configuration:**
+   Ensure that the API Gateway is correctly configured to only allow access from the specified VPC endpoint.
+
+   ```sh
+   aws apigateway get-rest-api --rest-api-id <api-id>
+   ```
+
+By following these steps, you can ensure that only private endpoints within your VPC can access your API Gateway, thereby preventing public access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent public access to APIs in API Gateway and ensure that only private endpoints can access them, you can use Python scripts to configure the necessary settings in AWS, Azure, and GCP. Below are the steps for each cloud provider:
+
+### AWS (Amazon Web Services)
+
+1. **Create a VPC Endpoint for API Gateway:**
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+
+   response = ec2_client.create_vpc_endpoint(
+       VpcEndpointType='Interface',
+       VpcId='vpc-xxxxxxxx',
+       ServiceName='com.amazonaws.<region>.execute-api',
+       SubnetIds=['subnet-xxxxxxxx'],
+       SecurityGroupIds=['sg-xxxxxxxx']
+   )
+   print(response)
+   ```
+
+2. **Update API Gateway to Use the VPC Endpoint:**
+   ```python
+   import boto3
+
+   apigateway_client = boto3.client('apigateway')
+
+   response = apigateway_client.update_rest_api(
+       restApiId='api-id',
+       patchOperations=[
+           {
+               'op': 'replace',
+               'path': '/endpointConfiguration/types',
+               'value': 'PRIVATE'
+           }
+       ]
+   )
+   print(response)
+   ```
+
+### Azure (Microsoft Azure)
+
+1. **Create a Private Endpoint for API Management:**
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, 'subscription-id')
+
+   response = network_client.private_endpoints.begin_create_or_update(
+       'resource-group-name',
+       'private-endpoint-name',
+       {
+           'location': 'eastus',
+           'private_link_service_connections': [{
+               'name': 'connection-name',
+               'private_link_service_id': '/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.ApiManagement/service/apim-service-name',
+               'group_ids': ['gateway']
+           }],
+           'subnet': {
+               'id': '/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.Network/virtualNetworks/vnet-name/subnets/subnet-name'
+           }
+       }
+   ).result()
+   print(response)
+   ```
+
+2. **Configure API Management to Use the Private Endpoint:**
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.apimanagement import ApiManagementClient
+
+   credential = DefaultAzureCredential()
+   apim_client = ApiManagementClient(credential, 'subscription-id')
+
+   response = apim_client.api_management_service.update(
+       'resource-group-name',
+       'apim-service-name',
+       {
+           'public_network_access': 'Disabled'
+       }
+   )
+   print(response)
+   ```
+
+### GCP (Google Cloud Platform)
+
+1. **Create a Private Service Connect Endpoint:**
+   ```python
+   from google.cloud import compute_v1
+
+   client = compute_v1.GlobalForwardingRulesClient()
+
+   forwarding_rule = compute_v1.ForwardingRule(
+       name='private-endpoint',
+       load_balancing_scheme='INTERNAL',
+       network='projects/project-id/global/networks/network-name',
+       target='projects/project-id/global/targetHttpProxies/target-proxy-name'
+   )
+
+   operation = client.insert(
+       project='project-id',
+       forwarding_rule_resource=forwarding_rule
+   )
+   print(operation)
+   ```
+
+2. **Restrict API Gateway to Use the Private Endpoint:**
+   ```python
+   from google.cloud import apigateway_v1
+
+   client = apigateway_v1.ApiGatewayServiceClient()
+
+   api = client.get_api(name='projects/project-id/locations/global/apis/api-id')
+
+   api.gateway_config = {
+       'endpoint_type': 'PRIVATE'
+   }
+
+   operation = client.update_api(api=api)
+   print(operation)
+   ```
+
+These scripts will help you configure your API Gateways to ensure that only private endpoints can access them, thereby preventing public access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

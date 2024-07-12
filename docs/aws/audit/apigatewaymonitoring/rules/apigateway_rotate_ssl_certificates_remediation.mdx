@@ -2,6 +2,157 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent expiring SSL client certificates in AWS API Gateway using the AWS Management Console, follow these steps:
+
+1. **Navigate to API Gateway:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "API Gateway" under the "Networking & Content Delivery" section.
+
+2. **Select Your API:**
+   - In the API Gateway console, select the API for which you want to manage SSL client certificates.
+   - Click on the API name to open its configuration.
+
+3. **Manage Client Certificates:**
+   - In the left-hand navigation pane, select "Client Certificates."
+   - Here, you can view the list of existing client certificates and their expiration dates.
+
+4. **Rotate Certificates:**
+   - To rotate a certificate, click on the certificate that is nearing expiration.
+   - Choose "Generate Client Certificate" to create a new certificate.
+   - Update your API configurations to use the new certificate and ensure that the old certificate is removed or deactivated once the new one is in place.
+
+By following these steps, you can ensure that your SSL client certificates are rotated before they expire, maintaining the security and integrity of your API Gateway.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent expiring SSL client certificates in AWS API Gateway using AWS CLI, you can follow these steps:
+
+1. **List Existing Client Certificates:**
+   - First, identify the client certificates that are currently in use and their expiration dates.
+   - Command:
+     ```sh
+     aws apigateway get-client-certificates
+     ```
+
+2. **Create a New Client Certificate:**
+   - Generate a new client certificate to replace the expiring one.
+   - Command:
+     ```sh
+     aws apigateway create-client-certificate --description "New client certificate for API Gateway"
+     ```
+
+3. **Update API Gateway to Use the New Certificate:**
+   - Update the API Gateway to use the newly created client certificate.
+   - Command:
+     ```sh
+     aws apigateway update-rest-api --rest-api-id <rest-api-id> --patch-operations op=replace,path=/clientCertificateId,value=<new-client-certificate-id>
+     ```
+
+4. **Delete the Old Client Certificate:**
+   - Once the new certificate is in place and verified, delete the old, expiring client certificate to avoid confusion and potential security risks.
+   - Command:
+     ```sh
+     aws apigateway delete-client-certificate --client-certificate-id <old-client-certificate-id>
+     ```
+
+By following these steps, you can ensure that your SSL client certificates in AWS API Gateway are rotated before they expire, maintaining the security and integrity of your API communications.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent expiring SSL client certificates in API Gateway using Python scripts, you can automate the process of checking and rotating the certificates. Below are the steps to achieve this:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Check Expiry Date of SSL Certificates**
+Create a Python script to check the expiry date of the SSL certificates associated with your API Gateway. This script will list all the certificates and their expiration dates.
+
+```python
+import boto3
+from datetime import datetime, timezone
+
+# Initialize a session using Amazon API Gateway
+client = boto3.client('apigateway')
+
+# List all client certificates
+response = client.get_client_certificates()
+
+# Check the expiration date of each certificate
+for cert in response['items']:
+    cert_id = cert['clientCertificateId']
+    expiration_date = cert['expirationDate']
+    expiration_date = datetime.strptime(expiration_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+    expiration_date = expiration_date.replace(tzinfo=timezone.utc)
+    
+    # Print certificate details
+    print(f"Certificate ID: {cert_id}")
+    print(f"Expiration Date: {expiration_date}")
+
+    # Check if the certificate is expiring within 30 days
+    if expiration_date < datetime.now(timezone.utc) + timedelta(days=30):
+        print(f"Certificate {cert_id} is expiring soon.")
+```
+
+### 3. **Automate Certificate Rotation**
+If a certificate is found to be expiring soon, you can automate the rotation process by creating a new certificate and associating it with the API Gateway.
+
+```python
+from datetime import timedelta
+
+# Function to create a new client certificate
+def create_new_certificate():
+    response = client.generate_client_certificate(
+        description='New client certificate'
+    )
+    return response['clientCertificateId']
+
+# Function to update API Gateway with the new certificate
+def update_api_gateway(api_id, new_cert_id):
+    client.update_rest_api(
+        restApiId=api_id,
+        patchOperations=[
+            {
+                'op': 'replace',
+                'path': '/clientCertificateId',
+                'value': new_cert_id
+            }
+        ]
+    )
+
+# Example usage
+api_id = 'your_api_id_here'
+new_cert_id = create_new_certificate()
+update_api_gateway(api_id, new_cert_id)
+print(f"Updated API Gateway {api_id} with new certificate {new_cert_id}")
+```
+
+### 4. **Schedule the Script**
+To ensure continuous monitoring and rotation, schedule the script to run periodically using a task scheduler like cron (Linux) or Task Scheduler (Windows).
+
+#### Example: Using cron (Linux)
+1. Open the crontab editor:
+    ```bash
+    crontab -e
+    ```
+2. Add a cron job to run the script daily:
+    ```bash
+    0 0 * * * /usr/bin/python3 /path/to/your_script.py
+    ```
+
+By following these steps, you can automate the process of checking and rotating expiring SSL client certificates in API Gateway using Python scripts. This will help prevent any disruptions due to expired certificates.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
