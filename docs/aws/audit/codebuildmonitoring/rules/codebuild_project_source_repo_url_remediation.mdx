@@ -1,7 +1,240 @@
+
+### Triage and Remediation
+<Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Sign-in Credentials from being included in Bitbucket Source Repository URLs in AWS CodeBuild using the AWS Management Console, follow these steps:
+
+1. **Review and Update Environment Variables:**
+   - Navigate to the AWS CodeBuild console.
+   - Select the specific build project you want to configure.
+   - Go to the "Build details" section and click on "Edit."
+   - Under the "Environment" section, ensure that sensitive information such as credentials is not hardcoded in the environment variables. Use AWS Secrets Manager or AWS Systems Manager Parameter Store to securely manage sensitive data.
+
+2. **Use IAM Roles for Authentication:**
+   - Ensure that your CodeBuild project is using an appropriate IAM role with the necessary permissions to access Bitbucket.
+   - Navigate to the "Service role" section in your CodeBuild project settings.
+   - Attach a policy to the IAM role that grants the necessary permissions without embedding credentials in the source repository URL.
+
+3. **Configure Source Repository URL Securely:**
+   - In the "Source" section of your CodeBuild project, ensure that the Bitbucket repository URL does not contain any embedded credentials.
+   - Use HTTPS URLs without credentials and configure authentication through OAuth or personal access tokens stored securely in AWS Secrets Manager.
+
+4. **Enable Logging and Monitoring:**
+   - Enable AWS CloudTrail and AWS Config to monitor changes and access to your CodeBuild projects.
+   - Set up alerts for any unauthorized changes or access patterns that might indicate credentials being exposed or misused.
+
+By following these steps, you can ensure that sign-in credentials are not included in Bitbucket source repository URLs in AWS CodeBuild, thereby enhancing the security of your build processes.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the inclusion of sign-in credentials in Bitbucket source repository URLs in AWS CodeBuild using the AWS CLI, follow these steps:
+
+1. **Create an IAM Role with Least Privilege**:
+   Ensure that the IAM role used by CodeBuild has the least privilege necessary to perform its tasks. This minimizes the risk of exposing sensitive information.
+
+   ```sh
+   aws iam create-role --role-name CodeBuildServiceRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name CodeBuildServiceRole --policy-arn arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess
+   ```
+
+2. **Use AWS Secrets Manager for Storing Credentials**:
+   Store your Bitbucket credentials in AWS Secrets Manager instead of hardcoding them in your source repository URL.
+
+   ```sh
+   aws secretsmanager create-secret --name BitbucketCredentials --secret-string '{"username":"your-username","password":"your-password"}'
+   ```
+
+3. **Reference Secrets in CodeBuild Project Configuration**:
+   When creating or updating your CodeBuild project, reference the stored secrets in the environment variables section.
+
+   ```sh
+   aws codebuild create-project --name MyProject \
+   --source type=BITBUCKET,location=https://bitbucket.org/your-repo \
+   --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:4.0,computeType=BUILD_GENERAL1_SMALL,environmentVariables='[{"name":"BITBUCKET_USERNAME","value":"{{resolve:secretsmanager:BitbucketCredentials:SecretString:username}}"},{"name":"BITBUCKET_PASSWORD","value":"{{resolve:secretsmanager:BitbucketCredentials:SecretString:password}}"}]' \
+   --service-role arn:aws:iam::123456789012:role/CodeBuildServiceRole
+   ```
+
+4. **Enable Logging and Monitoring**:
+   Enable CloudWatch Logs and AWS Config to monitor and log any changes or access to your CodeBuild projects and secrets.
+
+   ```sh
+   aws logs create-log-group --log-group-name /aws/codebuild/MyProject
+   aws codebuild update-project --name MyProject --logs-config cloudWatchLogs={status=ENABLED,groupName=/aws/codebuild/MyProject}
+   aws configservice put-configuration-recorder --configuration-recorder name=default,roleARN=arn:aws:iam::123456789012:role/ConfigRole
+   aws configservice start-configuration-recorder --configuration-recorder-name default
+   ```
+
+By following these steps, you can prevent the inclusion of sign-in credentials in Bitbucket source repository URLs in AWS CodeBuild using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent sign-in credentials from being included in Bitbucket source repository URLs in AWS CodeBuild using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Validate and Prevent Misconfigurations**
+
+Here's a Python script that checks for and prevents the inclusion of sign-in credentials in Bitbucket source repository URLs in AWS CodeBuild:
+
+```python
+import boto3
+import re
+
+# Initialize a session using Amazon CodeBuild
+client = boto3.client('codebuild')
+
+# Regular expression to detect credentials in URL
+credentials_pattern = re.compile(r'(https?:\/\/)([^:@]+:[^:@]+@)')
+
+def validate_source_url(project_name):
+    try:
+        # Get the project details
+        response = client.batch_get_projects(names=[project_name])
+        projects = response['projects']
+        
+        if not projects:
+            print(f"No project found with the name {project_name}")
+            return
+        
+        project = projects[0]
+        source = project['source']
+        
+        # Check if the source type is BITBUCKET
+        if source['type'] == 'BITBUCKET':
+            source_url = source['location']
+            
+            # Validate the URL for credentials
+            if credentials_pattern.search(source_url):
+                print(f"Credentials found in the source URL of project {project_name}.")
+                # Prevent the project from being created or updated
+                raise ValueError("Sign-in credentials should not be included in the Bitbucket source repository URL.")
+            else:
+                print(f"No credentials found in the source URL of project {project_name}.")
+                
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+project_name = 'your-codebuild-project-name'
+validate_source_url(project_name)
+```
+
+### 3. **Automate the Script Execution**
+You can automate the execution of this script to run periodically or integrate it into your CI/CD pipeline to ensure that no new projects are created or updated with credentials in the Bitbucket source repository URL.
+
+### 4. **Integrate with AWS Lambda for Real-Time Validation**
+For real-time validation, you can deploy this script as an AWS Lambda function and trigger it using AWS CloudWatch Events whenever a CodeBuild project is created or updated.
+
+```python
+import json
+
+def lambda_handler(event, context):
+    project_name = event['detail']['project-name']
+    validate_source_url(project_name)
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Validation complete')
+    }
+```
+
+### Summary
+1. Install and set up Boto3.
+2. Create a Python script to validate and prevent credentials in Bitbucket URLs.
+3. Automate the script execution.
+4. Optionally, integrate with AWS Lambda for real-time validation.
+
+By following these steps, you can ensure that sign-in credentials are not included in Bitbucket source repository URLs in AWS CodeBuild projects.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the CodeBuild service.
+2. In the navigation pane, select "Build projects". This will display a list of all the build projects in your AWS account.
+3. Select the build project you want to inspect and click on it to view its details.
+4. In the build project details page, check the "Source" section. If the "Repository URL" field contains any sign-in credentials (username and password), then it is a misconfiguration. The URL should not contain any credentials.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the CodeBuild projects in your account using the following command:
+
+   ```
+   aws codebuild list-projects --region <region-name>
+   ```
+
+   Replace `<region-name>` with the name of the AWS region where your CodeBuild projects are located.
+
+3. After getting the list of projects, you can describe each project to get its details. Use the following command to do this:
+
+   ```
+   aws codebuild batch-get-projects --names <project-name> --region <region-name>
+   ```
+
+   Replace `<project-name>` with the name of your CodeBuild project and `<region-name>` with the name of the AWS region where your CodeBuild project is located.
+
+4. In the output of the above command, look for the `source` field. This field contains the information about the source repository of the CodeBuild project. If the `type` field under `source` is `BITBUCKET` and the `location` field contains the sign-in credentials, then the CodeBuild project is misconfigured. The `location` field should not contain the sign-in credentials.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) and GitPython. You can install these libraries using pip:
+
+   ```python
+   pip install boto3
+   pip install GitPython
+   ```
+
+2. Connect to AWS CodeBuild: Use the Boto3 library to connect to AWS CodeBuild. You will need your AWS access key ID, secret access key, and the region where your CodeBuild project is located.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   codebuild = session.client('codebuild')
+   ```
+
+3. Retrieve and analyze the CodeBuild project configuration: Use the `batch_get_projects` method to retrieve the configuration of your CodeBuild project. Then, check if the source repository URL contains any sign-in credentials.
+
+   ```python
+   response = codebuild.batch_get_projects(names=['YOUR_PROJECT_NAME'])
+
+   for project in response['projects']:
+       source = project['source']
+       if 'auth' in source:
+           auth = source['auth']
+           if auth['type'] == 'OAUTH' and 'resource' in auth:
+               print(f"Sign-in credentials found in source repository URL: {auth['resource']}")
+   ```
+
+4. If the script prints out a message, it means that sign-in credentials are found in the source repository URL, which is a misconfiguration. If the script doesn't print anything, it means that no sign-in credentials are found in the source repository URL, which is the correct configuration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Remediation'>
 ### Remediation
 
-#### Using Console
-
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
 To remediate the issue of sign-in credentials being stored in a Bitbucket source repository URL in AWS CodeBuild, follow these steps using the AWS Management Console:
 
 1. **Access AWS CodeBuild Console**:
@@ -31,8 +264,10 @@ To remediate the issue of sign-in credentials being stored in a Bitbucket source
 
 By following these steps, you can remediate the issue of storing sign-in credentials in the Bitbucket source repository URL in AWS CodeBuild and ensure secure and best practices for handling source code authentication.
 
-#### Using CLI
+#
+</Accordion>
 
+<Accordion title='Using CLI'>
 To remediate the issue of sign-in credentials being in the Bitbucket source repository URL in AWS CodeBuild, you can follow these steps using AWS CLI:
 
 1. **Create a Bitbucket App Password**: Instead of using your Bitbucket account password in the repository URL, create an App Password specifically for CodeBuild. This will allow CodeBuild to access the repository without exposing your actual account password.
@@ -50,9 +285,9 @@ To remediate the issue of sign-in credentials being in the Bitbucket source repo
 4. **Remove Credentials from Bitbucket Source URL**: Make sure to remove any sign-in credentials from the Bitbucket source repository URL in your CodeBuild project settings.
 
 By following these steps, you have remediated the issue of sign-in credentials being in the Bitbucket source repository URL in AWS CodeBuild and improved the security of your AWS environment.
+</Accordion>
 
-#### Using Python
-
+<Accordion title='Using Python'>
 To remediate the issue of sign-in credentials being in the Bitbucket source repository URL in AWS CodeBuild, you can follow these steps using Python:
 
 1. **Store Credentials Securely**: Do not store any sensitive information such as sign-in credentials in your source code or repository. Instead, you can use AWS Secrets Manager to securely store and retrieve credentials.
@@ -108,4 +343,8 @@ response = client.update_project(
 5. **Monitor and Rotate Credentials**: Regularly monitor and rotate your credentials stored in AWS Secrets Manager or IAM roles to enhance security and compliance.
 
 By following these steps and best practices, you can remediate the issue of sign-in credentials being in the Bitbucket source repository URL in AWS CodeBuild securely and effectively.
+</Accordion>
 
+</AccordionGroup>
+</Tab>
+</Tabs>

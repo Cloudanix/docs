@@ -1,7 +1,376 @@
+
+### Triage and Remediation
+<Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where a Code Deployment Pipeline should fan out across regions in AWS CodeBuild using the AWS Management Console, follow these steps:
+
+1. **Create Multiple Build Projects in Different Regions:**
+   - Navigate to the AWS Management Console.
+   - Go to the **CodeBuild** service.
+   - Create a new build project or use an existing one.
+   - Repeat the process to create build projects in the different regions where you want your pipeline to fan out.
+
+2. **Set Up Cross-Region Replication for Artifacts:**
+   - In each build project, configure the buildspec file to store build artifacts in an S3 bucket.
+   - Set up cross-region replication for the S3 bucket to ensure that artifacts are available in all required regions.
+
+3. **Create a CodePipeline with Cross-Region Actions:**
+   - Navigate to the **CodePipeline** service in the AWS Management Console.
+   - Create a new pipeline or edit an existing one.
+   - Add multiple stages to the pipeline, each with actions that point to the build projects in different regions.
+
+4. **Use AWS CodePipeline Cross-Region Support:**
+   - Ensure that your CodePipeline is configured to support cross-region actions.
+   - When adding actions to your pipeline, specify the region for each action to ensure that the pipeline fans out across the desired regions.
+
+By following these steps, you can ensure that your Code Deployment Pipeline fans out across multiple regions, thereby enhancing redundancy and availability.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where a Code Deployment Pipeline should fan out across regions in AWS CodeBuild using AWS CLI, you can follow these steps:
+
+1. **Create a Cross-Region S3 Bucket for Artifacts:**
+   Ensure that your build artifacts are stored in an S3 bucket that is accessible across multiple regions. This allows you to deploy the artifacts to different regions.
+
+   ```sh
+   aws s3api create-bucket --bucket my-cross-region-artifacts --region us-west-2 --create-bucket-configuration LocationConstraint=us-west-2
+   ```
+
+2. **Create a CodeBuild Project with Cross-Region Support:**
+   When creating a CodeBuild project, specify the S3 bucket for storing build artifacts. This bucket should be the cross-region S3 bucket created in the previous step.
+
+   ```sh
+   aws codebuild create-project --name my-codebuild-project \
+       --source type=GITHUB,location=https://github.com/my-repo/my-project \
+       --artifacts type=S3,location=my-cross-region-artifacts \
+       --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:4.0,computeType=BUILD_GENERAL1_SMALL \
+       --service-role arn:aws:iam::123456789012:role/service-role/codebuild-service-role
+   ```
+
+3. **Create Cross-Region Deployment Pipelines:**
+   Create CodePipeline pipelines in each region where you want to deploy your application. Ensure that each pipeline pulls the build artifacts from the cross-region S3 bucket.
+
+   ```sh
+   aws codepipeline create-pipeline --cli-input-json file://pipeline-us-west-2.json
+   aws codepipeline create-pipeline --cli-input-json file://pipeline-us-east-1.json
+   ```
+
+   Example `pipeline-us-west-2.json`:
+   ```json
+   {
+       "pipeline": {
+           "name": "my-pipeline-us-west-2",
+           "roleArn": "arn:aws:iam::123456789012:role/AWS-CodePipeline-Service",
+           "artifactStore": {
+               "type": "S3",
+               "location": "my-cross-region-artifacts"
+           },
+           "stages": [
+               {
+                   "name": "Source",
+                   "actions": [
+                       {
+                           "name": "Source",
+                           "actionTypeId": {
+                               "category": "Source",
+                               "owner": "AWS",
+                               "provider": "S3",
+                               "version": "1"
+                           },
+                           "outputArtifacts": [
+                               {
+                                   "name": "SourceArtifact"
+                               }
+                           ],
+                           "configuration": {
+                               "S3Bucket": "my-cross-region-artifacts",
+                               "S3ObjectKey": "source.zip"
+                           }
+                       }
+                   ]
+               },
+               {
+                   "name": "Deploy",
+                   "actions": [
+                       {
+                           "name": "Deploy",
+                           "actionTypeId": {
+                               "category": "Deploy",
+                               "owner": "AWS",
+                               "provider": "CodeDeploy",
+                               "version": "1"
+                           },
+                           "inputArtifacts": [
+                               {
+                                   "name": "SourceArtifact"
+                               }
+                           ],
+                           "configuration": {
+                               "ApplicationName": "MyApp",
+                               "DeploymentGroupName": "MyDeploymentGroup"
+                           }
+                       }
+                   ]
+               }
+           ]
+       }
+   }
+   ```
+
+4. **Configure IAM Roles and Policies:**
+   Ensure that the IAM roles used by CodeBuild and CodePipeline have the necessary permissions to access the cross-region S3 bucket and perform deployments in multiple regions.
+
+   ```sh
+   aws iam attach-role-policy --role-name codebuild-service-role --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+   aws iam attach-role-policy --role-name codepipeline-service-role --policy-arn arn:aws:iam::aws:policy/AWSCodeDeployFullAccess
+   ```
+
+By following these steps, you can ensure that your Code Deployment Pipeline fans out across multiple regions, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of a Code Deployment Pipeline not fanning out across regions in AWS CodeBuild using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a CodeBuild Project in Multiple Regions**
+You need to create CodeBuild projects in multiple regions to ensure your deployment pipeline fans out across regions. Below is a Python script to create a CodeBuild project in multiple regions:
+
+```python
+import boto3
+
+# List of regions where you want to create the CodeBuild project
+regions = ['us-east-1', 'us-west-2']
+
+# Define the CodeBuild project configuration
+project_config = {
+    'name': 'MyCodeBuildProject',
+    'source': {
+        'type': 'GITHUB',
+        'location': 'https://github.com/my-repo/my-project.git'
+    },
+    'artifacts': {
+        'type': 'NO_ARTIFACTS'
+    },
+    'environment': {
+        'type': 'LINUX_CONTAINER',
+        'image': 'aws/codebuild/standard:4.0',
+        'computeType': 'BUILD_GENERAL1_SMALL'
+    },
+    'serviceRole': 'arn:aws:iam::123456789012:role/service-role/codebuild-service-role'
+}
+
+# Create CodeBuild project in each region
+for region in regions:
+    codebuild_client = boto3.client('codebuild', region_name=region)
+    response = codebuild_client.create_project(**project_config)
+    print(f"Created CodeBuild project in {region}: {response['project']['arn']}")
+```
+
+### 3. **Set Up Cross-Region CodePipeline**
+To ensure the pipeline fans out across regions, you need to set up a cross-region CodePipeline. Below is a Python script to create a cross-region CodePipeline:
+
+```python
+import boto3
+
+# Define the CodePipeline configuration
+pipeline_config = {
+    'pipeline': {
+        'name': 'MyCrossRegionPipeline',
+        'roleArn': 'arn:aws:iam::123456789012:role/service-role/codepipeline-service-role',
+        'artifactStore': {
+            'type': 'S3',
+            'location': 'my-artifact-bucket'
+        },
+        'stages': [
+            {
+                'name': 'Source',
+                'actions': [
+                    {
+                        'name': 'SourceAction',
+                        'actionTypeId': {
+                            'category': 'Source',
+                            'owner': 'AWS',
+                            'provider': 'CodeCommit',
+                            'version': '1'
+                        },
+                        'outputArtifacts': [{'name': 'SourceArtifact'}],
+                        'configuration': {
+                            'RepositoryName': 'my-repo',
+                            'BranchName': 'main'
+                        }
+                    }
+                ]
+            },
+            {
+                'name': 'Build',
+                'actions': [
+                    {
+                        'name': 'BuildAction',
+                        'actionTypeId': {
+                            'category': 'Build',
+                            'owner': 'AWS',
+                            'provider': 'CodeBuild',
+                            'version': '1'
+                        },
+                        'inputArtifacts': [{'name': 'SourceArtifact'}],
+                        'configuration': {
+                            'ProjectName': 'MyCodeBuildProject'
+                        },
+                        'region': 'us-east-1'
+                    },
+                    {
+                        'name': 'BuildActionWest',
+                        'actionTypeId': {
+                            'category': 'Build',
+                            'owner': 'AWS',
+                            'provider': 'CodeBuild',
+                            'version': '1'
+                        },
+                        'inputArtifacts': [{'name': 'SourceArtifact'}],
+                        'configuration': {
+                            'ProjectName': 'MyCodeBuildProject'
+                        },
+                        'region': 'us-west-2'
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+# Create the CodePipeline
+codepipeline_client = boto3.client('codepipeline')
+response = codepipeline_client.create_pipeline(pipeline=pipeline_config)
+print(f"Created CodePipeline: {response['pipeline']['name']}")
+```
+
+### 4. **Verify and Monitor the Pipeline**
+Ensure that the pipeline is correctly set up and monitor it for any issues. You can use CloudWatch for monitoring and set up alarms for any failures.
+
+```python
+import boto3
+
+# Create CloudWatch client
+cloudwatch_client = boto3.client('cloudwatch')
+
+# Define the alarm configuration
+alarm_config = {
+    'AlarmName': 'CodePipelineFailureAlarm',
+    'MetricName': 'PipelineExecutionFailed',
+    'Namespace': 'AWS/CodePipeline',
+    'Statistic': 'Sum',
+    'Period': 300,
+    'EvaluationPeriods': 1,
+    'Threshold': 1,
+    'ComparisonOperator': 'GreaterThanOrEqualToThreshold',
+    'AlarmActions': ['arn:aws:sns:us-east-1:123456789012:my-sns-topic'],
+    'Dimensions': [
+        {
+            'Name': 'PipelineName',
+            'Value': 'MyCrossRegionPipeline'
+        }
+    ]
+}
+
+# Create the alarm
+response = cloudwatch_client.put_metric_alarm(**alarm_config)
+print(f"Created CloudWatch alarm: {response}")
+```
+
+By following these steps, you can ensure that your Code Deployment Pipeline fans out across multiple regions, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the AWS CodeBuild service.
+2. In the navigation pane, select "Build projects". This will display a list of all your build projects.
+3. Select the build project you want to inspect. In the project details page, look for the "Environment" section. Here, you can see the region in which your build project is running.
+4. To check if your code deployment pipeline is fanning out across regions, you would need to repeat the above steps for each region. If the same build project is running in multiple regions, then your code deployment pipeline is fanning out across regions. If not, then it is not. 
+
+Note: AWS CodeBuild does not inherently support fanning out across regions. You would need to manually set up your build projects in each region. Therefore, this misconfiguration check is more about ensuring that you have followed best practices in setting up your build projects.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the CodeBuild projects in your account using the following command:
+
+   ```
+   aws codebuild list-projects --region your-region
+   ```
+   Replace 'your-region' with the region you want to check. This command will return a list of all CodeBuild projects in the specified region.
+
+3. For each project, you can describe the project to get more details about it. Use the following command:
+
+   ```
+   aws codebuild batch-get-projects --names project-name --region your-region
+   ```
+   Replace 'project-name' with the name of the project you want to check and 'your-region' with the region where the project is located. This command will return detailed information about the project, including its configuration.
+
+4. Check the 'artifacts' section in the output of the previous command. If the 'location' field contains an S3 bucket that is not in the same region as the CodeBuild project, it means that the Code Deployment Pipeline is not fanning out across regions. This is a misconfiguration that should be corrected.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules in your Python script. You will need the 'codebuild' module to interact with AWS CodeBuild.
+
+```python
+import boto3
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'aws_session_token' with your actual AWS credentials.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a CodeBuild client from the session.
+
+```python
+codebuild = session.client('codebuild')
+```
+
+4. Now, you can use the 'list_projects' method to get a list of all CodeBuild projects in your account. For each project, use the 'batch_get_projects' method to get detailed information about the project, including the 'serviceRole' and 'artifacts' properties. Check if the 'location' property of the 'artifacts' object is in the same region as your CodeBuild project. If it's not, then the Code Deployment Pipeline is not fanning out across regions.
+
+```python
+projects = codebuild.list_projects()['projects']
+for project in projects:
+    project_details = codebuild.batch_get_projects(names=[project])['projects'][0]
+    project_region = project_details['arn'].split(':')[3]
+    artifact_location = project_details['artifacts']['location']
+    artifact_region = artifact_location.split('/')[2].split('.')[1]
+    if project_region != artifact_region:
+        print(f"Project {project} is not fanning out across regions.")
+```
+
+This script will print the names of all CodeBuild projects that are not fanning out across regions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Remediation'>
 ### Remediation
 
-#### Using Console
-
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
 To remediate the issue of code deployment pipeline not fanning out across regions in AWS CodeBuild, you can follow these steps using the AWS Management Console:
 
 1. **Open AWS CodeBuild Console**: Go to the AWS Management Console, navigate to the CodeBuild service.
@@ -32,8 +401,10 @@ To remediate the issue of code deployment pipeline not fanning out across region
 
 By following these steps, you can remediate the issue of the code deployment pipeline not fanning out across regions in AWS CodeBuild using the AWS Management Console.
 
-#### Using CLI
+#
+</Accordion>
 
+<Accordion title='Using CLI'>
 To remediate the issue of code deployment pipeline not fanning out across regions for AWS CodeBuild using AWS CLI, you can follow these steps:
 
 1. **List Available Regions**: First, you need to list the available regions where you want to fan out the code deployment pipeline. You can use the following AWS CLI command to list all regions:
@@ -53,9 +424,9 @@ To remediate the issue of code deployment pipeline not fanning out across region
 4. **Test the Pipeline**: Once you have updated the CodeBuild project in all desired regions, trigger a new build to ensure that the pipeline is fanning out across regions successfully.
 
 By following these steps, you can remediate the issue of the code deployment pipeline not fanning out across regions for AWS CodeBuild using AWS CLI.
+</Accordion>
 
-#### Using Python
-
+<Accordion title='Using Python'>
 To remediate the misconfiguration of AWS CodeBuild pipeline not fanning out across regions, you can follow these steps:
 
 1. **Create Multiple CodeBuild Projects**:
@@ -78,4 +449,8 @@ To remediate the misconfiguration of AWS CodeBuild pipeline not fanning out acro
    - Monitor the deployment process and ensure that the code is successfully deployed to all regions.
 
 By following these steps, you can remediate the misconfiguration of AWS CodeBuild pipeline not fanning out across regions and ensure that your code is deployed consistently across multiple regions.
+</Accordion>
 
+</AccordionGroup>
+</Tab>
+</Tabs>
