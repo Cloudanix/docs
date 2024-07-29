@@ -1,7 +1,100 @@
+
+### Triage and Remediation
+<Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the CodeBuild service.
+2. In the navigation pane, select "Build projects". This will display a list of all your build projects.
+3. Select the build project you want to check. This will open the project details page.
+4. In the project details page, navigate to the "Environment" section. Here, you can see the "Compute" configuration. If the "Compute type" is set to "Fleet", you can see the "Minimum healthy hosts" setting. This setting should be maintained at a certain percentage to ensure the health of your EC2 instances. If it's not, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can use the `describe-projects` command to list all the CodeBuild projects in your AWS account. The command is as follows:
+
+   ```
+   aws codebuild describe-projects
+   ```
+
+3. After getting the list of projects, you can use the `batch-get-projects` command to get detailed information about each project. You need to provide the names of the projects as input to this command. The command is as follows:
+
+   ```
+   aws codebuild batch-get-projects --names project-name1 project-name2
+   ```
+
+4. In the output of the above command, look for the `computeType` field under the `environment` section. If the `computeType` is set to `BUILD_GENERAL1_SMALL`, it means that the EC2 instance type used for the CodeBuild project is small and may not maintain the minimum healthy hosts fleet percentage. 
+
+Please note that AWS CodeBuild does not directly provide a configuration to maintain a minimum healthy hosts fleet percentage. You may need to manage this at the EC2 Auto Scaling group level or use other AWS services like Elastic Beanstalk or ECS that provide such configurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 'codebuild' service:
+
+```python
+client = session.client('codebuild')
+```
+
+4. Now, you can list all the projects and check the 'minimumHealthyHosts' for each project:
+
+```python
+response = client.list_projects()
+
+for project in response['projects']:
+    project_details = client.batch_get_projects(names=[project])
+    for project in project_details['projects']:
+        if 'vpcConfig' in project:
+            if 'vpcId' in project['vpcConfig']:
+                vpc_id = project['vpcConfig']['vpcId']
+                if vpc_id:
+                    print(f"Project {project['name']} is using VPC {vpc_id}")
+                    if 'minimumHealthyHosts' in project['vpcConfig']:
+                        min_healthy_hosts = project['vpcConfig']['minimumHealthyHosts']
+                        print(f"Minimum healthy hosts for project {project['name']} is {min_healthy_hosts}")
+                    else:
+                        print(f"Project {project['name']} does not have a minimum healthy hosts configuration")
+                else:
+                    print(f"Project {project['name']} is not using a VPC")
+            else:
+                print(f"Project {project['name']} does not have a VPC configuration")
+        else:
+            print(f"Project {project['name']} does not have a VPC configuration")
+```
+
+This script will print the minimum healthy hosts configuration for each project that is using a VPC. If a project is not using a VPC or does not have a minimum healthy hosts configuration, it will print a message indicating this.
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS access key, secret key, and region.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Remediation'>
 ### Remediation
 
-#### Using Console
-
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
 To remediate the misconfiguration of maintaining the Minimum Healthy Hosts Fleet Percentage for AWS CodeBuild in AWS console, you can follow these steps:
 
 1. **Access AWS CodeBuild Console:**
@@ -33,8 +126,10 @@ To remediate the misconfiguration of maintaining the Minimum Healthy Hosts Fleet
 
 By following these steps, you should be able to remediate the misconfiguration of maintaining the Minimum Healthy Hosts Fleet Percentage for AWS CodeBuild in the AWS console.
 
-#### Using CLI
+#
+</Accordion>
 
+<Accordion title='Using CLI'>
 To remediate the EC2 Minimum Healthy Hosts Fleet Percentage misconfiguration for AWS CodeBuild using AWS CLI, follow these steps:
 
 1. **Identify the CodeBuild project**: First, identify the CodeBuild project for which you want to remediate the EC2 Minimum Healthy Hosts Fleet Percentage misconfiguration.
@@ -56,9 +151,9 @@ aws codebuild describe-projects --names <project-name>
 Replace `<project-name>` with the name of your CodeBuild project. Check the output to confirm that the `minimumHealthyHosts` value has been updated to the desired percentage.
 
 By following these steps, you can successfully remediate the EC2 Minimum Healthy Hosts Fleet Percentage misconfiguration for AWS CodeBuild using AWS CLI.
+</Accordion>
 
-#### Using Python
-
+<Accordion title='Using Python'>
 To remediate the misconfiguration of maintaining the minimum healthy hosts fleet percentage for AWS CodeBuild using Python, follow these steps:
 
 1. **Create a Lambda function**: Create a new Lambda function in the AWS Management Console using Python. This Lambda function will be triggered by CloudWatch Events on a schedule.
@@ -93,4 +188,8 @@ def lambda_handler(event, context):
 4. **Test the remediation**: Manually trigger the Lambda function to test if it updates the minimum healthy hosts fleet percentage for the specified CodeBuild project.
 
 By following these steps, you can automatically remediate the misconfiguration of maintaining the minimum healthy hosts fleet percentage for AWS CodeBuild using Python and ensure that it stays within the desired range.
+</Accordion>
 
+</AccordionGroup>
+</Tab>
+</Tabs>
