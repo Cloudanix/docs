@@ -2,6 +2,178 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent DynamoDB Accelerator (DAX) Cluster from being unencrypted in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to the DAX Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the DynamoDB console at [https://console.aws.amazon.com/dynamodb/](https://console.aws.amazon.com/dynamodb/).
+   - In the navigation pane, choose **DAX** to open the DAX dashboard.
+
+2. **Create a New DAX Cluster:**
+   - Click on the **Create cluster** button.
+   - Fill in the required details such as Cluster name, Node type, and Number of nodes.
+
+3. **Enable Encryption:**
+   - In the **Cluster settings** section, locate the **Encryption** option.
+   - Ensure that the **Enable encryption at rest** checkbox is selected. This will encrypt the data stored in the DAX cluster.
+
+4. **Review and Create:**
+   - Review all the settings you have configured.
+   - Click on the **Create** button to create the DAX cluster with encryption enabled.
+
+By following these steps, you ensure that your DAX cluster is encrypted, thereby preventing the misconfiguration of having an unencrypted DAX cluster.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your DynamoDB Accelerator (DAX) clusters are encrypted using the AWS CLI, follow these steps:
+
+1. **Create a New DAX Cluster with Encryption Enabled:**
+   When creating a new DAX cluster, you can specify that the cluster should be encrypted at rest by using the `--sse-specification` parameter.
+
+   ```sh
+   aws dax create-cluster \
+       --cluster-name my-dax-cluster \
+       --node-type dax.r4.large \
+       --replication-factor 3 \
+       --iam-role-arn arn:aws:iam::123456789012:role/DAXServiceRole \
+       --sse-specification Enabled=true
+   ```
+
+2. **Verify Encryption Status of Existing DAX Clusters:**
+   To check if an existing DAX cluster is encrypted, you can describe the cluster and look for the `SSEDescription` field.
+
+   ```sh
+   aws dax describe-clusters --cluster-names my-dax-cluster
+   ```
+
+   Look for the `SSEDescription` in the output to verify if `Status` is `ENABLED`.
+
+3. **Update IAM Policies to Enforce Encryption:**
+   Ensure that IAM policies enforce the creation of encrypted DAX clusters. This can be done by specifying conditions in your IAM policies.
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": "dax:CreateCluster",
+               "Resource": "*",
+               "Condition": {
+                   "Bool": {
+                       "dax:ClusterSSEEnabled": "true"
+                   }
+               }
+           }
+       ]
+   }
+   ```
+
+4. **Automate Compliance Checks:**
+   Use AWS Config rules to automatically check and ensure that all DAX clusters are encrypted. You can create a custom AWS Config rule or use a managed rule if available.
+
+   ```sh
+   aws configservice put-config-rule \
+       --config-rule file://dax-encryption-rule.json
+   ```
+
+   Example `dax-encryption-rule.json`:
+
+   ```json
+   {
+       "ConfigRuleName": "dax-encryption-check",
+       "Description": "Check whether DAX clusters are encrypted",
+       "Scope": {
+           "ComplianceResourceTypes": [
+               "AWS::DAX::Cluster"
+           ]
+       },
+       "Source": {
+           "Owner": "AWS",
+           "SourceIdentifier": "DAX_ENCRYPTION_ENABLED"
+       }
+   }
+   ```
+
+By following these steps, you can ensure that your DAX clusters are encrypted, thereby preventing misconfigurations related to encryption.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that your DynamoDB Accelerator (DAX) clusters are encrypted, you can use the AWS SDK for Python (Boto3) to create DAX clusters with encryption enabled. Here are the steps to prevent the misconfiguration:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by directly configuring the `~/.aws/credentials` file.
+
+3. **Create a DAX Cluster with Encryption Enabled**:
+   Use the following Python script to create a DAX cluster with encryption enabled. This script ensures that the `SSESpecification` parameter is set to enable server-side encryption.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon DynamoDB
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the DAX client
+   dax_client = session.client('dax')
+
+   # Create a DAX cluster with encryption enabled
+   response = dax_client.create_cluster(
+       ClusterName='my-dax-cluster',
+       NodeType='dax.r5.large',
+       ReplicationFactor=3,
+       IamRoleArn='arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_DAX_ROLE',
+       SSESpecification={
+           'Enabled': True
+       },
+       ParameterGroupName='default.dax1.0',
+       SubnetGroupName='my-dax-subnet-group',
+       SecurityGroupIds=[
+           'sg-0123456789abcdef0',
+       ],
+       Tags=[
+           {
+               'Key': 'Name',
+               'Value': 'my-dax-cluster'
+           },
+       ]
+   )
+
+   print("DAX Cluster created with encryption enabled:", response)
+   ```
+
+4. **Verify Encryption**:
+   After creating the DAX cluster, you can verify that encryption is enabled by describing the cluster and checking the `SSEDescription` field.
+
+   ```python
+   response = dax_client.describe_clusters(
+       ClusterNames=['my-dax-cluster']
+   )
+
+   for cluster in response['Clusters']:
+       print("Cluster Name:", cluster['ClusterName'])
+       print("Encryption Enabled:", cluster['SSEDescription']['Status'])
+   ```
+
+This script ensures that any DAX cluster you create will have server-side encryption enabled, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

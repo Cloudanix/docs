@@ -2,6 +2,174 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Notebook Direct Internet Access in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to SageMaker Notebooks:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SageMaker" and select "Amazon SageMaker" from the results.
+   - In the SageMaker dashboard, click on "Notebook instances" under the "Notebook" section.
+
+2. **Modify Notebook Instance Settings:**
+   - Select the notebook instance you want to modify.
+   - Click on the "Actions" dropdown and select "Stop" to stop the notebook instance if it is running.
+   - Once the instance is stopped, click on the notebook instance name to open its details.
+
+3. **Disable Direct Internet Access:**
+   - In the notebook instance details page, click on the "Edit" button.
+   - In the "Network" section, set the "Direct internet access" option to "Disabled".
+   - Ensure that the notebook instance is associated with a VPC (Virtual Private Cloud) that has the necessary configurations to access DynamoDB without direct internet access.
+
+4. **Save Changes and Restart:**
+   - After making the changes, click on the "Save" button to apply the new settings.
+   - Go back to the notebook instance list, select the modified notebook instance, and click on "Actions" > "Start" to restart the instance with the updated configuration.
+
+By following these steps, you can ensure that your SageMaker notebook instances do not have direct internet access, thereby reducing the risk of unauthorized access to DynamoDB.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Notebook Direct Internet Access in DynamoDB using AWS CLI, you can follow these steps:
+
+1. **Create a VPC Endpoint for DynamoDB:**
+   Ensure that your DynamoDB traffic is routed through a VPC endpoint, which allows you to securely connect to DynamoDB without using the public internet.
+
+   ```sh
+   aws ec2 create-vpc-endpoint --vpc-id <your-vpc-id> --service-name com.amazonaws.<region>.dynamodb --route-table-ids <your-route-table-id>
+   ```
+
+2. **Update Security Groups:**
+   Modify the security groups associated with your resources to restrict outbound traffic to the internet and allow traffic only to the VPC endpoint.
+
+   ```sh
+   aws ec2 authorize-security-group-egress --group-id <your-security-group-id> --protocol tcp --port 443 --cidr <vpc-cidr-block>
+   ```
+
+3. **Configure IAM Policies:**
+   Ensure that your IAM policies restrict access to DynamoDB only through the VPC endpoint.
+
+   ```sh
+   aws iam create-policy --policy-name DynamoDBVPCEndpointPolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "dynamodb:*",
+               "Resource": "*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "aws:sourceVpce": "<vpc-endpoint-id>"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+4. **Attach IAM Policy to Roles/Users:**
+   Attach the newly created IAM policy to the roles or users that need access to DynamoDB.
+
+   ```sh
+   aws iam attach-role-policy --role-name <your-role-name> --policy-arn arn:aws:iam::<account-id>:policy/DynamoDBVPCEndpointPolicy
+   ```
+
+By following these steps, you can ensure that your DynamoDB access is restricted to within your VPC, preventing direct internet access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Notebook Direct Internet Access in DynamoDB using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a VPC Endpoint for DynamoDB:**
+   Use Boto3 to create a VPC endpoint for DynamoDB. This ensures that traffic between your VPC and DynamoDB does not go over the public internet.
+
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+
+   response = ec2_client.create_vpc_endpoint(
+       VpcEndpointType='Gateway',
+       VpcId='vpc-xxxxxxxx',  # Replace with your VPC ID
+       ServiceName='com.amazonaws.us-west-2.dynamodb',  # Replace with your region
+       RouteTableIds=[
+           'rtb-xxxxxxxx',  # Replace with your Route Table ID
+       ]
+   )
+
+   print(response)
+   ```
+
+3. **Update Security Groups:**
+   Ensure that the security groups associated with your notebook instances are configured to allow traffic only from within your VPC.
+
+   ```python
+   ec2 = boto3.resource('ec2')
+
+   security_group = ec2.SecurityGroup('sg-xxxxxxxx')  # Replace with your Security Group ID
+
+   response = security_group.authorize_ingress(
+       IpPermissions=[
+           {
+               'IpProtocol': '-1',
+               'IpRanges': [
+                   {
+                       'CidrIp': '10.0.0.0/16',  # Replace with your VPC CIDR block
+                       'Description': 'Allow traffic from VPC'
+                   }
+               ]
+           }
+       ]
+   )
+
+   print(response)
+   ```
+
+4. **Configure IAM Policies:**
+   Ensure that the IAM roles associated with your notebook instances have the necessary permissions to access DynamoDB through the VPC endpoint.
+
+   ```python
+   iam_client = boto3.client('iam')
+
+   policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": "dynamodb:*",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:sourceVpce": "vpce-xxxxxxxx"  # Replace with your VPC Endpoint ID
+                   }
+               }
+           }
+       ]
+   }
+
+   response = iam_client.put_role_policy(
+       RoleName='YourNotebookRole',  # Replace with your IAM Role Name
+       PolicyName='DynamoDBAccessPolicy',
+       PolicyDocument=json.dumps(policy_document)
+   )
+
+   print(response)
+   ```
+
+By following these steps, you can ensure that your notebook instances access DynamoDB through a VPC endpoint, thereby preventing direct internet access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

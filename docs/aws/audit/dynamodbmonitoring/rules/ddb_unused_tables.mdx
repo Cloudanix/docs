@@ -25,6 +25,140 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent having unused DynamoDB tables in your AWS account using the AWS Management Console, follow these steps:
+
+1. **Regular Monitoring:**
+   - Navigate to the **DynamoDB** service in the AWS Management Console.
+   - Regularly review the list of DynamoDB tables to identify any that have not been accessed or used recently.
+
+2. **Enable CloudWatch Metrics:**
+   - Go to the **CloudWatch** service in the AWS Management Console.
+   - Set up CloudWatch metrics and alarms for DynamoDB tables to monitor read/write activity. This will help you identify tables with no recent activity.
+
+3. **Tagging and Documentation:**
+   - Implement a tagging strategy for DynamoDB tables to include metadata such as the owner, purpose, and creation date.
+   - Regularly review these tags to ensure that each table is still needed and in use.
+
+4. **Automated Reports:**
+   - Use AWS Config to create rules that check for unused DynamoDB tables.
+   - Set up periodic reports or notifications to alert you of any tables that have not been accessed within a specified timeframe.
+
+By following these steps, you can proactively monitor and manage your DynamoDB tables to ensure that no unused tables are left in your AWS account.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent having unused DynamoDB tables in your AWS account using AWS CLI, you can follow these steps:
+
+1. **List All DynamoDB Tables:**
+   Use the following command to list all DynamoDB tables in your account. This will help you identify which tables are currently in use and which are not.
+
+   ```sh
+   aws dynamodb list-tables
+   ```
+
+2. **Describe Table to Check Last Accessed Time:**
+   For each table, use the following command to get detailed information, including metrics that can help you determine if the table is being used.
+
+   ```sh
+   aws dynamodb describe-table --table-name <TableName>
+   ```
+
+3. **Enable CloudWatch Metrics:**
+   Ensure that CloudWatch metrics are enabled for your DynamoDB tables. This will help you monitor the usage of each table. You can enable CloudWatch metrics using the following command:
+
+   ```sh
+   aws dynamodb update-table --table-name <TableName> --stream-specification StreamEnabled=true,StreamViewType=NEW_AND_OLD_IMAGES
+   ```
+
+4. **Automate Monitoring and Alerts:**
+   Set up CloudWatch alarms to monitor the usage of your DynamoDB tables. This will help you get notified if a table is not being used. Use the following command to create an alarm:
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "DynamoDBTableUsageAlarm" --metric-name "ConsumedReadCapacityUnits" --namespace "AWS/DynamoDB" --statistic "Sum" --period 86400 --threshold 1 --comparison-operator "LessThanThreshold" --dimensions Name=TableName,Value=<TableName> --evaluation-periods 1 --alarm-actions <SNS_Topic_ARN>
+   ```
+
+By following these steps, you can effectively monitor and prevent having unused DynamoDB tables in your AWS account.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent having unused DynamoDB tables in your AWS account using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **List All DynamoDB Tables:**
+   - Use Boto3 to list all DynamoDB tables in your account.
+
+   ```python
+   import boto3
+
+   def list_dynamodb_tables():
+       dynamodb = boto3.client('dynamodb')
+       response = dynamodb.list_tables()
+       return response['TableNames']
+
+   tables = list_dynamodb_tables()
+   print("DynamoDB Tables:", tables)
+   ```
+
+3. **Check Table Activity:**
+   - Implement a function to check the activity of each table. This can be done by checking the CloudWatch metrics for read/write activity or by checking the last update time of the table.
+
+   ```python
+   import datetime
+
+   def get_table_activity(table_name):
+       cloudwatch = boto3.client('cloudwatch')
+       now = datetime.datetime.utcnow()
+       past = now - datetime.timedelta(days=30)  # Check activity for the past 30 days
+
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/DynamoDB',
+           MetricName='ConsumedReadCapacityUnits',
+           Dimensions=[{'Name': 'TableName', 'Value': table_name}],
+           StartTime=past,
+           EndTime=now,
+           Period=86400,  # Daily statistics
+           Statistics=['Sum']
+       )
+
+       return sum([point['Sum'] for point in metrics['Datapoints']])
+
+   for table in tables:
+       activity = get_table_activity(table)
+       print(f"Table: {table}, Activity: {activity}")
+   ```
+
+4. **Automate Cleanup of Unused Tables:**
+   - Based on the activity data, identify and delete tables that have no activity over a specified period.
+
+   ```python
+   def delete_unused_tables(tables, threshold=0):
+       dynamodb = boto3.client('dynamodb')
+       for table in tables:
+           activity = get_table_activity(table)
+           if activity <= threshold:
+               print(f"Deleting unused table: {table}")
+               dynamodb.delete_table(TableName=table)
+
+   delete_unused_tables(tables)
+   ```
+
+By following these steps, you can automate the process of identifying and deleting unused DynamoDB tables in your AWS account using Python scripts. This helps in preventing the accumulation of unused resources and optimizing your cloud environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,163 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Amazon SageMaker Notebook Instances from being created without a VPC in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to SageMaker in the AWS Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SageMaker" and select "Amazon SageMaker" from the dropdown.
+
+2. **Create or Configure a Notebook Instance:**
+   - In the SageMaker dashboard, click on "Notebook instances" in the left-hand menu.
+   - Click on "Create notebook instance" or select an existing notebook instance to configure.
+
+3. **Specify VPC Settings:**
+   - In the "Network" section of the notebook instance configuration, ensure that you select a VPC.
+   - Choose the appropriate VPC, Subnet, and Security Group(s) that you want the notebook instance to use.
+
+4. **Review and Create/Update:**
+   - Review all the settings to ensure that the VPC configuration is correct.
+   - Click "Create notebook instance" if you are creating a new instance, or "Update" if you are modifying an existing instance.
+
+By following these steps, you ensure that your Amazon SageMaker Notebook Instances are always created within a specified VPC, enhancing security and network control.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Amazon SageMaker Notebook Instances from being created outside of a VPC using AWS CLI, you can follow these steps:
+
+1. **Create a VPC and Subnet:**
+   Ensure you have a VPC and at least one subnet where the SageMaker Notebook Instances will be launched.
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24
+   ```
+
+2. **Create a Security Group:**
+   Create a security group within the VPC to control the inbound and outbound traffic for the SageMaker Notebook Instances.
+
+   ```sh
+   aws ec2 create-security-group --group-name SageMakerSG --description "Security group for SageMaker" --vpc-id <vpc-id>
+   ```
+
+3. **Create an IAM Role:**
+   Create an IAM role with the necessary permissions for SageMaker to access other AWS services.
+
+   ```sh
+   aws iam create-role --role-name SageMakerRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name SageMakerRole --policy-arn arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+   ```
+
+4. **Launch SageMaker Notebook Instance in VPC:**
+   Use the AWS CLI to create a SageMaker Notebook Instance specifying the VPC, Subnet, and Security Group.
+
+   ```sh
+   aws sagemaker create-notebook-instance --notebook-instance-name MyNotebookInstance \
+      --instance-type ml.t2.medium \
+      --role-arn arn:aws:iam::<account-id>:role/SageMakerRole \
+      --subnet-id <subnet-id> \
+      --security-group-ids <security-group-id>
+   ```
+
+By following these steps, you ensure that the SageMaker Notebook Instances are created within a specified VPC, thereby preventing them from being created outside of a VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Amazon SageMaker Notebook Instances from being created outside of a VPC using Python scripts, you can use AWS SDK for Python (Boto3) to enforce the creation of SageMaker Notebook Instances within a VPC. Here are the steps:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a VPC and Subnet:**
+   Ensure you have a VPC and at least one subnet created. You can use Boto3 to create these if they don't already exist.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # Create VPC
+   vpc_response = ec2.create_vpc(CidrBlock='10.0.0.0/16')
+   vpc_id = vpc_response['Vpc']['VpcId']
+
+   # Create Subnet
+   subnet_response = ec2.create_subnet(CidrBlock='10.0.1.0/24', VpcId=vpc_id)
+   subnet_id = subnet_response['Subnet']['SubnetId']
+   ```
+
+3. **Create a SageMaker Notebook Instance within the VPC:**
+   Use Boto3 to create a SageMaker Notebook Instance and specify the VPC and Subnet IDs.
+
+   ```python
+   import boto3
+
+   sagemaker = boto3.client('sagemaker')
+
+   response = sagemaker.create_notebook_instance(
+       NotebookInstanceName='MyNotebookInstance',
+       InstanceType='ml.t2.medium',
+       RoleArn='arn:aws:iam::123456789012:role/service-role/AmazonSageMaker-ExecutionRole-20200101T000001',
+       SubnetId=subnet_id,
+       SecurityGroupIds=[
+           'sg-0123456789abcdef0',
+       ]
+   )
+
+   print(response)
+   ```
+
+4. **Enforce VPC Configuration via IAM Policies:**
+   Ensure that IAM policies enforce the creation of SageMaker Notebook Instances within a VPC. This can be done by creating an IAM policy that denies the creation of notebook instances without specifying a VPC.
+
+   ```python
+   import boto3
+
+   iam = boto3.client('iam')
+
+   policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "sagemaker:CreateNotebookInstance",
+               "Resource": "*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "sagemaker:VpcId": vpc_id
+                   }
+               }
+           }
+       ]
+   }
+
+   response = iam.create_policy(
+       PolicyName='EnforceSageMakerNotebookInVPC',
+       PolicyDocument=json.dumps(policy_document)
+   )
+
+   print(response)
+   ```
+
+By following these steps, you can ensure that all Amazon SageMaker Notebook Instances are created within a specified VPC, thereby preventing misconfigurations related to VPC settings.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
