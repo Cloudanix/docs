@@ -23,6 +23,93 @@ SOC2,NIST,GDPR,ISO27001,HIPAA,HITRUST,NISTCSF,PCIDSS,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the DynamoDB service.
+3. In the navigation pane, choose "DAX Clusters".
+4. Select the DAX cluster that you want to examine, then look for the "Encryption" attribute in the "Details" section. If the attribute's value is set to "Disabled", the selected Amazon DynamoDB Accelerator (DAX) cluster is not encrypted, thus your data is not encrypted at rest.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the DAX clusters in your AWS account. You can do this by using the AWS CLI command `aws dax describe-clusters`. This command will return a JSON output with all the DAX clusters and their details.
+
+    ```
+    aws dax describe-clusters --region <region-name>
+    ```
+
+2. Once you have the list of DAX clusters, you can iterate over each cluster to check if it is encrypted. The encryption status can be found in the 'SSEDescription' field of the JSON output. 
+
+    Here is a sample Python script that uses the AWS SDK (boto3) to check the encryption status of each DAX cluster:
+
+    ```python
+    import boto3
+
+    def check_dax_encryption(region_name):
+        dax = boto3.client('dax', region_name=region_name)
+        clusters = dax.describe_clusters()['Clusters']
+        for cluster in clusters:
+            if 'SSEDescription' in cluster:
+                if cluster['SSEDescription']['Status'] != 'ENABLED':
+                    print(f"DAX cluster {cluster['ClusterName']} is not encrypted.")
+            else:
+                print(f"DAX cluster {cluster['ClusterName']} is not encrypted.")
+
+    check_dax_encryption('<region-name>')
+    ```
+
+3. If the 'SSEDescription' field is not present or if the 'Status' field is not 'ENABLED', then the DAX cluster is not encrypted.
+
+4. Repeat the above steps for all the regions in your AWS account to ensure that all DAX clusters are encrypted.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services including DynamoDB. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # your AWS region
+)
+```
+
+3. Now, create a DynamoDB client and retrieve all the DAX clusters:
+
+```python
+dynamodb = session.client('dax')
+
+clusters = dynamodb.describe_clusters()
+```
+
+4. Iterate over the clusters and check if they are encrypted. If the 'SSEDescription' field is 'ENABLED', then the cluster is encrypted. If not, it's a misconfiguration:
+
+```python
+for cluster in clusters['Clusters']:
+    if 'SSEDescription' in cluster:
+        if cluster['SSEDescription']['Status'] != 'ENABLED':
+            print(f"DAX Cluster {cluster['ClusterName']} is not encrypted.")
+    else:
+        print(f"DAX Cluster {cluster['ClusterName']} is not encrypted.")
+```
+
+This script will print out the names of all DAX clusters that are not encrypted, indicating a misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
