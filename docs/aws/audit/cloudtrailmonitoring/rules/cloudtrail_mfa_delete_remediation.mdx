@@ -2,6 +2,140 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where the CloudTrail logging bucket should use the MFA Delete feature in AWS, follow these steps using the AWS Management Console:
+
+1. **Navigate to S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Logging Bucket:**
+   - In the S3 console, locate and select the bucket that is used for CloudTrail logging.
+
+3. **Enable Versioning:**
+   - Go to the "Properties" tab of the selected bucket.
+   - Under "Bucket Versioning," click "Edit."
+   - Enable versioning by selecting "Enable" and then click "Save changes."
+
+4. **Enable MFA Delete:**
+   - Open the AWS CLI or AWS SDK (since enabling MFA Delete cannot be done directly through the console).
+   - Use the following AWS CLI command to enable MFA Delete:
+     ```sh
+     aws s3api put-bucket-versioning --bucket your-bucket-name --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa "arn:aws:iam::account-id:mfa/device serial number mfa code"
+     ```
+   - Replace `your-bucket-name`, `account-id`, `device serial number`, and `mfa code` with your specific details.
+
+By following these steps, you ensure that the CloudTrail logging bucket is configured to use the MFA Delete feature, enhancing the security of your logging data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the CloudTrail logging bucket should use the MFA Delete feature in AWS, you can follow these steps using the AWS CLI:
+
+1. **Enable Versioning on the S3 Bucket:**
+   Ensure that versioning is enabled on the S3 bucket where CloudTrail logs are stored. MFA Delete can only be enabled on buckets with versioning enabled.
+   ```sh
+   aws s3api put-bucket-versioning --bucket <your-bucket-name> --versioning-configuration Status=Enabled
+   ```
+
+2. **Set Up MFA Delete:**
+   Enable MFA Delete on the S3 bucket. You will need the serial number of your MFA device and an authentication code.
+   ```sh
+   aws s3api put-bucket-versioning --bucket <your-bucket-name> --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa "arn:aws:iam::<account-id>:mfa/<mfa-device> <authentication-code>"
+   ```
+
+3. **Verify Versioning and MFA Delete Configuration:**
+   Confirm that versioning and MFA Delete are enabled on the bucket.
+   ```sh
+   aws s3api get-bucket-versioning --bucket <your-bucket-name>
+   ```
+
+4. **Update IAM Policies:**
+   Ensure that IAM policies are updated to require MFA for delete operations on the S3 bucket.
+   ```sh
+   aws iam put-user-policy --user-name <user-name> --policy-name <policy-name> --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "s3:DeleteObject",
+               "Resource": "arn:aws:s3:::<your-bucket-name>/*",
+               "Condition": {
+                   "Bool": {
+                       "aws:MultiFactorAuthPresent": "false"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that the CloudTrail logging bucket uses the MFA Delete feature, thereby enhancing the security of your CloudTrail logs.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the CloudTrail logging bucket should use the MFA Delete feature in AWS, you can use the Boto3 library in Python. Here are the steps to ensure that the MFA Delete feature is enabled for your CloudTrail logging bucket:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Enable MFA Delete on the S3 Bucket**:
+   Use the following Python script to enable MFA Delete on your CloudTrail logging bucket. Replace `your-bucket-name` and `your-mfa-serial-number` with your actual bucket name and MFA serial number.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # Define the bucket name and MFA serial number
+   bucket_name = 'your-bucket-name'
+   mfa_serial_number = 'your-mfa-serial-number'
+   mfa_code = input("Enter MFA code: ")
+
+   # Get the current bucket versioning configuration
+   versioning = s3.get_bucket_versioning(Bucket=bucket_name)
+
+   # Enable MFA Delete
+   if versioning.get('Status') != 'Enabled':
+       s3.put_bucket_versioning(
+           Bucket=bucket_name,
+           VersioningConfiguration={
+               'Status': 'Enabled',
+               'MFADelete': 'Enabled'
+           },
+           MFA=f'arn:aws:iam::{mfa_serial_number}:{mfa_code}'
+       )
+       print(f"MFA Delete has been enabled on bucket: {bucket_name}")
+   else:
+       print(f"Bucket versioning is already enabled on bucket: {bucket_name}")
+
+   ```
+
+4. **Verify Configuration**:
+   After running the script, you can verify that MFA Delete is enabled by checking the bucket's versioning configuration.
+
+   ```python
+   # Verify the bucket versioning configuration
+   versioning = s3.get_bucket_versioning(Bucket=bucket_name)
+   print(f"Bucket Versioning Status: {versioning.get('Status')}")
+   print(f"MFA Delete Status: {versioning.get('MFADelete')}")
+   ```
+
+By following these steps, you can ensure that the MFA Delete feature is enabled for your CloudTrail logging bucket, thereby preventing unauthorized deletions and enhancing the security of your logging data.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
