@@ -2,6 +2,152 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent plaintext AWS credentials in environment variables for an AWS CodeBuild project using the AWS Management Console, follow these steps:
+
+1. **Navigate to CodeBuild:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CodeBuild" and select it from the dropdown.
+
+2. **Select the Project:**
+   - In the CodeBuild dashboard, locate and select the CodeBuild project you want to configure.
+
+3. **Edit Environment Variables:**
+   - In the project details page, click on the "Edit" button.
+   - Scroll down to the "Environment" section.
+   - Under "Environment variables," ensure that no sensitive information such as AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) is set in plaintext.
+
+4. **Use AWS Secrets Manager or Parameter Store:**
+   - Instead of setting sensitive information directly in environment variables, use AWS Secrets Manager or AWS Systems Manager Parameter Store.
+   - Store your credentials in Secrets Manager or Parameter Store and reference them in your buildspec file or through the CodeBuild project configuration.
+
+By following these steps, you can ensure that plaintext AWS credentials are not set in environment variables for your CodeBuild project, enhancing the security of your build environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent plaintext AWS credentials in environment variables for an AWS CodeBuild project using the AWS CLI, follow these steps:
+
+1. **Create an IAM Role for CodeBuild:**
+   Ensure you have an IAM role with the necessary permissions for your CodeBuild project. This role will be used instead of embedding credentials in environment variables.
+
+   ```sh
+   aws iam create-role --role-name CodeBuildServiceRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+   The `trust-policy.json` should contain the trust relationship policy allowing CodeBuild to assume the role.
+
+2. **Attach Policies to the IAM Role:**
+   Attach the necessary policies to the IAM role to grant it the required permissions.
+
+   ```sh
+   aws iam attach-role-policy --role-name CodeBuildServiceRole --policy-arn arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+   ```
+
+3. **Create or Update the CodeBuild Project Without Plaintext Credentials:**
+   When creating or updating the CodeBuild project, specify the IAM role and avoid setting plaintext credentials in environment variables.
+
+   ```sh
+   aws codebuild create-project --name MyProject \
+   --source type=GITHUB,location=https://github.com/my-repo/my-project \
+   --artifacts type=NO_ARTIFACTS \
+   --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:4.0,computeType=BUILD_GENERAL1_SMALL \
+   --service-role arn:aws:iam::123456789012:role/CodeBuildServiceRole
+   ```
+
+4. **Use AWS Secrets Manager or Parameter Store for Sensitive Data:**
+   If you need to use sensitive data, store it in AWS Secrets Manager or AWS Systems Manager Parameter Store and reference it in your buildspec file.
+
+   ```sh
+   aws secretsmanager create-secret --name MySecret --secret-string '{"username":"myuser","password":"mypassword"}'
+   ```
+
+   In your `buildspec.yml`:
+
+   ```yaml
+   version: 0.2
+
+   phases:
+     build:
+       commands:
+         - secret=$(aws secretsmanager get-secret-value --secret-id MySecret --query SecretString --output text)
+         - echo $secret
+   ```
+
+By following these steps, you can prevent the use of plaintext AWS credentials in environment variables for your CodeBuild projects.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent plaintext AWS credentials in environment variables in an AWS CodeBuild project using Python scripts, you can use the AWS SDK for Python (Boto3) to ensure that sensitive information is not stored in plaintext. Here are the steps to achieve this:
+
+### Step 1: Install Boto3
+Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client for CodeBuild:
+```python
+import boto3
+
+codebuild_client = boto3.client('codebuild')
+```
+
+### Step 3: Create or Update CodeBuild Project Without Plaintext Credentials
+When creating or updating a CodeBuild project, ensure that you do not include plaintext credentials in the environment variables. Instead, use AWS Secrets Manager or AWS Systems Manager Parameter Store to manage sensitive information securely.
+
+Here is an example of how to create a CodeBuild project without plaintext credentials:
+
+```python
+response = codebuild_client.create_project(
+    name='MyCodeBuildProject',
+    source={
+        'type': 'GITHUB',
+        'location': 'https://github.com/my-repo/my-project'
+    },
+    artifacts={
+        'type': 'NO_ARTIFACTS'
+    },
+    environment={
+        'type': 'LINUX_CONTAINER',
+        'image': 'aws/codebuild/standard:4.0',
+        'computeType': 'BUILD_GENERAL1_SMALL',
+        'environmentVariables': [
+            {
+                'name': 'MY_SECRET',
+                'value': 'arn:aws:ssm:us-west-2:123456789012:parameter/my-secret',
+                'type': 'PARAMETER_STORE'
+            }
+        ]
+    },
+    serviceRole='arn:aws:iam::123456789012:role/service-role/codebuild-service-role'
+)
+```
+
+### Step 4: Validate Configuration
+Ensure that the environment variables do not contain plaintext credentials by validating the configuration of the CodeBuild project. You can list the projects and check their environment variables:
+
+```python
+projects = codebuild_client.list_projects()
+
+for project_name in projects['projects']:
+    project = codebuild_client.batch_get_projects(names=[project_name])
+    for env_var in project['projects'][0]['environment']['environmentVariables']:
+        if env_var['type'] == 'PLAINTEXT':
+            print(f"Warning: Project {project_name} has plaintext environment variable {env_var['name']}")
+        else:
+            print(f"Project {project_name} environment variable {env_var['name']} is secure")
+```
+
+By following these steps, you can ensure that plaintext AWS credentials are not set in the environment variables of your CodeBuild projects, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

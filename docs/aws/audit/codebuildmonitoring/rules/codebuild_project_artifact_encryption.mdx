@@ -24,6 +24,174 @@ CBP,SEBI,RBI_UCB
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Artifact Encryption Should Be Enabled" in AWS CodeBuild using the AWS Management Console, follow these steps:
+
+1. **Navigate to CodeBuild:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CodeBuild" and select it from the dropdown list.
+
+2. **Create or Edit a Build Project:**
+   - To create a new build project, click on the "Create build project" button.
+   - To edit an existing build project, select the project from the list and click on the project name to open its details.
+
+3. **Configure Artifacts:**
+   - In the "Create build project" or "Edit build project" page, scroll down to the "Artifacts" section.
+   - Ensure that the "Type" is set to "Amazon S3" or another supported type that allows encryption.
+
+4. **Enable Encryption:**
+   - In the "Encryption" settings within the "Artifacts" section, check the box for "Enable artifact encryption".
+   - Optionally, you can specify a KMS key for encryption by selecting "KMS" and choosing an existing key or creating a new one.
+
+By following these steps, you ensure that the artifacts produced by your CodeBuild project are encrypted, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of "Artifact Encryption Should Be Enabled" in AWS CodeBuild using the AWS CLI, follow these steps:
+
+1. **Create or Update a CodeBuild Project with Encryption Enabled:**
+   Ensure that the `encryptionDisabled` parameter is set to `false` when creating or updating a CodeBuild project. This ensures that the build artifacts are encrypted.
+
+   ```sh
+   aws codebuild create-project \
+       --name my-codebuild-project \
+       --source type=GITHUB,location=https://github.com/my-repo/my-project \
+       --artifacts type=S3,location=my-artifact-bucket,encryptionDisabled=false \
+       --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:4.0,computeType=BUILD_GENERAL1_SMALL \
+       --service-role arn:aws:iam::123456789012:role/service-role/codebuild-service-role
+   ```
+
+2. **Update an Existing CodeBuild Project to Enable Encryption:**
+   If you have an existing CodeBuild project, you can update it to ensure that artifact encryption is enabled.
+
+   ```sh
+   aws codebuild update-project \
+       --name my-codebuild-project \
+       --artifacts type=S3,location=my-artifact-bucket,encryptionDisabled=false
+   ```
+
+3. **Verify the Configuration:**
+   After creating or updating the project, verify that the `encryptionDisabled` parameter is set to `false` to ensure that artifact encryption is enabled.
+
+   ```sh
+   aws codebuild batch-get-projects --names my-codebuild-project
+   ```
+
+   Look for the `encryptionDisabled` field in the output and ensure it is set to `false`.
+
+4. **Use IAM Policies to Enforce Encryption:**
+   Ensure that your IAM policies enforce the use of encryption for CodeBuild artifacts. This can be done by creating a policy that denies the creation or update of CodeBuild projects with `encryptionDisabled` set to `true`.
+
+   ```sh
+   aws iam create-policy \
+       --policy-name EnforceCodeBuildArtifactEncryption \
+       --policy-document '{
+           "Version": "2012-10-17",
+           "Statement": [
+               {
+                   "Effect": "Deny",
+                   "Action": [
+                       "codebuild:CreateProject",
+                       "codebuild:UpdateProject"
+                   ],
+                   "Resource": "*",
+                   "Condition": {
+                       "Bool": {
+                           "codebuild:Artifacts.encryptionDisabled": "true"
+                       }
+                   }
+               }
+           ]
+       }'
+   ```
+
+By following these steps, you can ensure that artifact encryption is enabled for your AWS CodeBuild projects using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of "Artifact Encryption Should Be Enabled" in AWS CodeBuild using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that artifact encryption is enabled for your CodeBuild projects:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by configuring the `~/.aws/credentials` file.
+
+3. **Create a Python Script**:
+   Write a Python script to create or update a CodeBuild project with artifact encryption enabled.
+
+4. **Enable Artifact Encryption**:
+   Use the `create_project` or `update_project` method from Boto3 to ensure artifact encryption is enabled.
+
+Here is a sample Python script to achieve this:
+
+```python
+import boto3
+
+def ensure_artifact_encryption(project_name, bucket_name, encryption_disabled=False):
+    client = boto3.client('codebuild')
+
+    # Define the artifact configuration with encryption enabled
+    artifacts = {
+        'type': 'S3',
+        'location': bucket_name,
+        'packaging': 'ZIP',
+        'encryptionDisabled': encryption_disabled  # Set to False to enable encryption
+    }
+
+    # Check if the project already exists
+    try:
+        response = client.batch_get_projects(names=[project_name])
+        if response['projects']:
+            # Update the existing project
+            client.update_project(
+                name=project_name,
+                artifacts=artifacts
+            )
+            print(f"Updated project '{project_name}' to ensure artifact encryption is enabled.")
+        else:
+            # Create a new project
+            client.create_project(
+                name=project_name,
+                source={
+                    'type': 'GITHUB',
+                    'location': 'https://github.com/your-repo/your-project'
+                },
+                artifacts=artifacts,
+                environment={
+                    'type': 'LINUX_CONTAINER',
+                    'image': 'aws/codebuild/standard:4.0',
+                    'computeType': 'BUILD_GENERAL1_SMALL'
+                },
+                serviceRole='arn:aws:iam::your-account-id:role/your-service-role'
+            )
+            print(f"Created project '{project_name}' with artifact encryption enabled.")
+    except Exception as e:
+        print(f"Error ensuring artifact encryption: {e}")
+
+# Example usage
+ensure_artifact_encryption('my-codebuild-project', 'my-artifact-bucket')
+```
+
+### Key Points:
+1. **Install Boto3**: Ensure Boto3 is installed in your Python environment.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Create/Update Project**: Use the `create_project` or `update_project` method to configure artifact encryption.
+4. **Artifact Configuration**: Set `encryptionDisabled` to `False` to enable encryption for the artifacts.
+
+This script checks if the CodeBuild project exists and either updates it or creates a new one with artifact encryption enabled. Adjust the parameters such as `project_name`, `bucket_name`, and other configurations as needed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

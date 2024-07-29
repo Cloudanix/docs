@@ -2,6 +2,199 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 Minimum Healthy Hosts Fleet Percentage issues in AWS CodeBuild using the AWS Management Console, follow these steps:
+
+1. **Navigate to CodeBuild Project:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CodeBuild" and select it from the list of services.
+   - Choose the specific CodeBuild project you want to configure.
+
+2. **Configure Build Environment:**
+   - In the CodeBuild project settings, go to the "Build environment" section.
+   - Ensure that the environment type and compute type are appropriately configured to handle the expected load and maintain a healthy host percentage.
+
+3. **Set Up Auto Scaling:**
+   - Navigate to the "Auto Scaling" settings within the CodeBuild project.
+   - Configure the minimum and maximum number of instances to ensure that there are always enough healthy hosts available.
+   - Set the desired capacity to a value that maintains the required healthy host percentage.
+
+4. **Monitor and Adjust:**
+   - Use CloudWatch to monitor the health and performance of your CodeBuild instances.
+   - Set up alarms and notifications to alert you if the number of healthy hosts falls below the desired threshold.
+   - Adjust the auto-scaling policies as needed based on the monitoring data to ensure the minimum healthy host percentage is maintained.
+
+By following these steps, you can ensure that your EC2 instances used in CodeBuild maintain the required minimum healthy host percentage, thereby preventing potential misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of EC2 Minimum Healthy Hosts Fleet Percentage in AWS CodeBuild using AWS CLI, follow these steps:
+
+1. **Create or Update a Build Project with Health Check Configuration:**
+   Ensure that your CodeBuild project is configured to maintain a minimum healthy hosts fleet percentage. You can do this by specifying the `vpcConfig` and `environment` settings in your build project configuration.
+
+   ```sh
+   aws codebuild create-project \
+       --name my-build-project \
+       --source type=GITHUB,location=https://github.com/my-repo/my-project \
+       --artifacts type=NO_ARTIFACTS \
+       --environment type=LINUX_CONTAINER,image=aws/codebuild/standard:4.0,computeType=BUILD_GENERAL1_SMALL \
+       --service-role arn:aws:iam::123456789012:role/service-role/codebuild-service-role \
+       --vpc-config subnetIds=subnet-12345678,securityGroupIds=sg-12345678
+   ```
+
+   If updating an existing project, use:
+
+   ```sh
+   aws codebuild update-project \
+       --name my-build-project \
+       --vpc-config subnetIds=subnet-12345678,securityGroupIds=sg-12345678
+   ```
+
+2. **Set Up Auto Scaling for EC2 Instances:**
+   Ensure that your EC2 instances are part of an Auto Scaling group that maintains the desired healthy host percentage. Create or update an Auto Scaling group with the desired configuration.
+
+   ```sh
+   aws autoscaling create-auto-scaling-group \
+       --auto-scaling-group-name my-asg \
+       --instance-id i-1234567890abcdef0 \
+       --min-size 1 \
+       --max-size 5 \
+       --desired-capacity 3 \
+       --vpc-zone-identifier subnet-12345678
+   ```
+
+   If updating an existing group, use:
+
+   ```sh
+   aws autoscaling update-auto-scaling-group \
+       --auto-scaling-group-name my-asg \
+       --desired-capacity 3
+   ```
+
+3. **Configure Health Checks for Auto Scaling Group:**
+   Ensure that the Auto Scaling group has health checks enabled to maintain the minimum healthy hosts.
+
+   ```sh
+   aws autoscaling update-auto-scaling-group \
+       --auto-scaling-group-name my-asg \
+       --health-check-type EC2 \
+       --health-check-grace-period 300
+   ```
+
+4. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor the health of your EC2 instances and trigger actions if the number of healthy hosts falls below the desired threshold.
+
+   ```sh
+   aws cloudwatch put-metric-alarm \
+       --alarm-name HealthyHostsAlarm \
+       --metric-name HealthyHostCount \
+       --namespace AWS/EC2 \
+       --statistic Average \
+       --period 300 \
+       --threshold 2 \
+       --comparison-operator LessThanThreshold \
+       --dimensions Name=AutoScalingGroupName,Value=my-asg \
+       --evaluation-periods 1 \
+       --alarm-actions arn:aws:sns:us-west-2:123456789012:my-sns-topic
+   ```
+
+By following these steps, you can ensure that your EC2 instances in AWS CodeBuild maintain the minimum healthy hosts fleet percentage using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of EC2 Minimum Healthy Hosts Fleet Percentage in AWS CodeBuild using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script**:
+   Write a Python script to configure the minimum healthy hosts fleet percentage for your CodeBuild project.
+
+4. **Implement the Script**:
+   Below is a sample Python script to set the minimum healthy hosts fleet percentage for an AWS CodeBuild project.
+
+```python
+import boto3
+
+def set_minimum_healthy_hosts(project_name, min_healthy_hosts):
+    # Initialize a session using Amazon CodeBuild
+    client = boto3.client('codebuild')
+
+    # Get the current project configuration
+    response = client.batch_get_projects(names=[project_name])
+    if not response['projects']:
+        raise ValueError(f"Project {project_name} not found")
+
+    project = response['projects'][0]
+
+    # Update the project configuration with the minimum healthy hosts
+    updated_project = client.update_project(
+        name=project_name,
+        environment={
+            'type': project['environment']['type'],
+            'image': project['environment']['image'],
+            'computeType': project['environment']['computeType'],
+            'environmentVariables': project['environment'].get('environmentVariables', []),
+            'privilegedMode': project['environment'].get('privilegedMode', False),
+            'certificate': project['environment'].get('certificate', ''),
+            'registryCredential': project['environment'].get('registryCredential', {}),
+            'imagePullCredentialsType': project['environment'].get('imagePullCredentialsType', 'CODEBUILD')
+        },
+        serviceRole=project['serviceRole'],
+        timeoutInMinutes=project['timeoutInMinutes'],
+        queuedTimeoutInMinutes=project.get('queuedTimeoutInMinutes', 480),
+        encryptionKey=project.get('encryptionKey', ''),
+        tags=project.get('tags', []),
+        vpcConfig=project.get('vpcConfig', {}),
+        badgeEnabled=project.get('badgeEnabled', False),
+        logsConfig=project.get('logsConfig', {}),
+        fileSystemLocations=project.get('fileSystemLocations', []),
+        buildBatchConfig={
+            'serviceRole': project['buildBatchConfig']['serviceRole'],
+            'combineArtifacts': project['buildBatchConfig']['combineArtifacts'],
+            'restrictions': {
+                'maximumBuildsAllowed': project['buildBatchConfig']['restrictions']['maximumBuildsAllowed'],
+                'computeTypesAllowed': project['buildBatchConfig']['restrictions']['computeTypesAllowed']
+            },
+            'timeoutInMins': project['buildBatchConfig']['timeoutInMins'],
+            'batchReportMode': project['buildBatchConfig']['batchReportMode'],
+            'minimumHealthyHosts': {
+                'type': 'FLEET_PERCENT',
+                'value': min_healthy_hosts
+            }
+        }
+    )
+
+    print(f"Updated project {project_name} with minimum healthy hosts fleet percentage: {min_healthy_hosts}%")
+
+# Example usage
+project_name = 'your-codebuild-project-name'
+min_healthy_hosts = 50  # Set the desired minimum healthy hosts fleet percentage
+set_minimum_healthy_hosts(project_name, min_healthy_hosts)
+```
+
+### Explanation:
+1. **Install Boto3**: Ensure Boto3 is installed to interact with AWS services.
+2. **Set Up AWS Credentials**: Configure your AWS credentials to allow the script to authenticate with AWS.
+3. **Create a Python Script**: Write a script to interact with the AWS CodeBuild service.
+4. **Implement the Script**: Use the Boto3 client to fetch the current project configuration and update it with the desired minimum healthy hosts fleet percentage.
+
+This script ensures that the minimum healthy hosts fleet percentage is maintained for your CodeBuild project, preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
