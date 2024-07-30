@@ -2,6 +2,154 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations using the AWS Management Console, follow these steps:
+
+1. **Configure Security Groups:**
+   - Navigate to the EC2 Dashboard in the AWS Management Console.
+   - Select "Load Balancers" from the left-hand menu.
+   - Choose the ELB you want to configure.
+   - Under the "Description" tab, find the "Security Groups" section and click on the security group linked to your ELB.
+   - Ensure that the security group rules only allow necessary traffic (e.g., HTTPS on port 443) and restrict any insecure protocols (e.g., HTTP on port 80).
+
+2. **Enable HTTPS/SSL:**
+   - In the "Listeners" tab of your selected ELB, ensure that you have an HTTPS listener configured.
+   - If not, click on "Add listener" and select "HTTPS" from the dropdown menu.
+   - Configure the SSL certificate by either selecting an existing certificate from AWS Certificate Manager (ACM) or uploading a new one.
+
+3. **Use Secure Cipher Suites:**
+   - Under the "Listeners" tab, click on the "View/edit rules" link for your HTTPS listener.
+   - Ensure that the SSL policy is set to a secure option, such as "ELBSecurityPolicy-2016-08" or a more recent policy.
+   - Avoid using outdated or less secure policies like "ELBSecurityPolicy-2015-05".
+
+4. **Enable Access Logs:**
+   - Go to the "Attributes" tab of your selected ELB.
+   - In the "Access logs" section, click on "Edit attributes".
+   - Enable access logging and specify an S3 bucket to store the logs.
+   - This will help you monitor and audit access to your ELB, ensuring that any insecure configurations can be quickly identified and addressed.
+
+By following these steps, you can ensure that your ELBs are configured securely, reducing the risk of misconfigurations that could lead to security vulnerabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations using AWS CLI, you can follow these steps:
+
+1. **Ensure HTTPS Listener:**
+   Make sure your ELB has an HTTPS listener to encrypt data in transit.
+
+   ```sh
+   aws elb create-load-balancer-listeners --load-balancer-name <your-load-balancer-name> --listeners "Protocol=HTTPS,LoadBalancerPort=443,InstanceProtocol=HTTP,InstancePort=80,SSLCertificateId=<your-certificate-arn>"
+   ```
+
+2. **Configure Security Groups:**
+   Attach a security group to your ELB that allows only necessary traffic (e.g., HTTPS on port 443).
+
+   ```sh
+   aws elb apply-security-groups-to-load-balancer --load-balancer-name <your-load-balancer-name> --security-groups <your-security-group-id>
+   ```
+
+3. **Enable SSL Policy:**
+   Apply a secure SSL policy to your ELB to ensure strong encryption.
+
+   ```sh
+   aws elb set-load-balancer-policies-of-listener --load-balancer-name <your-load-balancer-name> --load-balancer-port 443 --policy-names <your-ssl-policy-name>
+   ```
+
+4. **Enable Access Logs:**
+   Enable access logging for your ELB to monitor and audit traffic.
+
+   ```sh
+   aws elb modify-load-balancer-attributes --load-balancer-name <your-load-balancer-name> --load-balancer-attributes '{"AccessLog":{"Enabled":true,"S3BucketName":"<your-s3-bucket-name>","EmitInterval":5,"S3BucketPrefix":"<your-prefix>"}}'
+   ```
+
+Replace placeholders like `<your-load-balancer-name>`, `<your-certificate-arn>`, `<your-security-group-id>`, `<your-ssl-policy-name>`, and `<your-s3-bucket-name>` with your actual values. These steps will help ensure your ELB is configured securely.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure your ELBs are securely configured:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session to interact with AWS services.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   elb_client = session.client('elbv2')
+   ```
+
+3. **Check and Update ELB Security Groups**:
+   Ensure that the security groups associated with your ELBs do not allow insecure access (e.g., open to the world on port 80). You can update the security groups to allow only secure access (e.g., HTTPS on port 443).
+   ```python
+   def update_security_groups(elb_arn, secure_group_ids):
+       elb_client.modify_load_balancer_attributes(
+           LoadBalancerArn=elb_arn,
+           Attributes=[
+               {
+                   'Key': 'deletion_protection.enabled',
+                   'Value': 'true'
+               },
+           ]
+       )
+       elb_client.set_security_groups(
+           LoadBalancerArn=elb_arn,
+           SecurityGroups=secure_group_ids
+       )
+
+   # Example usage
+   elb_arn = 'arn:aws:elasticloadbalancing:YOUR_REGION:YOUR_ACCOUNT_ID:loadbalancer/app/YOUR_ELB_NAME/YOUR_ELB_ID'
+   secure_group_ids = ['sg-0123456789abcdef0']  # Replace with your secure security group IDs
+   update_security_groups(elb_arn, secure_group_ids)
+   ```
+
+4. **Ensure HTTPS Listeners**:
+   Ensure that your ELBs have HTTPS listeners configured and that HTTP listeners are either removed or redirected to HTTPS.
+   ```python
+   def ensure_https_listener(elb_arn):
+       listeners = elb_client.describe_listeners(LoadBalancerArn=elb_arn)['Listeners']
+       for listener in listeners:
+           if listener['Protocol'] == 'HTTP':
+               # Redirect HTTP to HTTPS
+               elb_client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   Port=80,
+                   Protocol='HTTP',
+                   DefaultActions=[
+                       {
+                           'Type': 'redirect',
+                           'RedirectConfig': {
+                               'Protocol': 'HTTPS',
+                               'Port': '443',
+                               'StatusCode': 'HTTP_301'
+                           }
+                       }
+                   ]
+               )
+           elif listener['Protocol'] == 'HTTPS':
+               print(f"HTTPS listener already configured for {elb_arn}")
+
+   # Example usage
+   ensure_https_listener(elb_arn)
+   ```
+
+By following these steps, you can ensure that your ELBs are securely configured using Python scripts. This will help prevent insecure configurations and enhance the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

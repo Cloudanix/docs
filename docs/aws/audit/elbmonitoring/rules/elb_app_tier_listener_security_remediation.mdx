@@ -2,6 +2,127 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having secure listeners in App-tier Elastic Load Balancers (ELBs) using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Load Balancers Section:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the EC2 Dashboard.
+   - Under "Load Balancing," choose "Load Balancers."
+
+2. **Select the App-tier Load Balancer:**
+   - From the list of load balancers, select the App-tier ELB that you want to configure.
+
+3. **Configure Listeners:**
+   - In the selected load balancer's details pane, choose the "Listeners" tab.
+   - Ensure that you have a listener configured for HTTPS (port 443). If not, click on "Add listener" and select "HTTPS" as the protocol. Specify the port (typically 443) and configure the necessary SSL certificate.
+
+4. **Verify Security Groups:**
+   - Go to the "Description" tab of the load balancer.
+   - Ensure that the security groups associated with the load balancer allow inbound traffic on port 443 (HTTPS) and restrict or remove any rules that allow insecure traffic (e.g., HTTP on port 80).
+
+By following these steps, you can ensure that your App-tier ELBs are configured with secure listeners, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of ensuring that secure listeners (HTTPS) are used in App-tier Elastic Load Balancers (ELBs) using AWS CLI, follow these steps:
+
+1. **Create a Security Group for HTTPS:**
+   Ensure you have a security group that allows inbound traffic on port 443 (HTTPS).
+
+   ```sh
+   aws ec2 create-security-group --group-name my-https-sg --description "Security group for HTTPS traffic"
+   aws ec2 authorize-security-group-ingress --group-name my-https-sg --protocol tcp --port 443 --cidr 0.0.0.0/0
+   ```
+
+2. **Create an HTTPS Listener for the ELB:**
+   When creating the ELB, specify an HTTPS listener. If the ELB already exists, you can modify it to add an HTTPS listener.
+
+   ```sh
+   aws elb create-load-balancer-listeners --load-balancer-name my-app-tier-elb --listeners "Protocol=HTTPS,LoadBalancerPort=443,InstanceProtocol=HTTP,InstancePort=80,SSLCertificateId=arn:aws:iam::123456789012:server-certificate/my-server-cert"
+   ```
+
+3. **Ensure SSL Certificate is Attached:**
+   Make sure you have an SSL certificate in AWS Certificate Manager (ACM) or IAM and attach it to the HTTPS listener.
+
+   ```sh
+   aws acm request-certificate --domain-name example.com --validation-method DNS
+   ```
+
+4. **Verify Listener Configuration:**
+   Verify that the ELB has the correct listener configuration to ensure it is using HTTPS.
+
+   ```sh
+   aws elb describe-load-balancers --load-balancer-names my-app-tier-elb
+   ```
+
+By following these steps, you can ensure that your App-tier ELBs are configured to use secure listeners, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having secure listeners in App-tier Elastic Load Balancers (ELBs) in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your ELBs have secure listeners:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for Elastic Load Balancing (ELB).
+   ```python
+   import boto3
+
+   elb_client = boto3.client('elbv2')  # For Application Load Balancer (ALB)
+   ```
+
+3. **Retrieve List of Load Balancers**:
+   Retrieve the list of load balancers and filter for application load balancers.
+   ```python
+   response = elb_client.describe_load_balancers()
+   app_load_balancers = [lb for lb in response['LoadBalancers'] if lb['Type'] == 'application']
+   ```
+
+4. **Check and Ensure Secure Listeners**:
+   Iterate through the load balancers and check their listeners. Ensure that they have secure (HTTPS) listeners.
+   ```python
+   for lb in app_load_balancers:
+       lb_arn = lb['LoadBalancerArn']
+       listeners = elb_client.describe_listeners(LoadBalancerArn=lb_arn)['Listeners']
+       
+       for listener in listeners:
+           if listener['Protocol'] != 'HTTPS':
+               # If a non-secure listener is found, you can modify it to HTTPS
+               # Note: This is a simplified example. In a real-world scenario, you would need to handle certificates and other configurations.
+               elb_client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   Protocol='HTTPS',
+                   Port=443,
+                   SslPolicy='ELBSecurityPolicy-2016-08',  # Example SSL policy
+                   Certificates=[
+                       {
+                           'CertificateArn': 'arn:aws:acm:region:account-id:certificate/certificate-id'
+                       }
+                   ]
+               )
+               print(f"Updated listener {listener['ListenerArn']} to HTTPS")
+   ```
+
+### Summary of Steps:
+1. **Install Boto3 Library**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the Boto3 client for ELB.
+3. **Retrieve List of Load Balancers**: Get the list of application load balancers.
+4. **Check and Ensure Secure Listeners**: Iterate through the load balancers and update non-secure listeners to HTTPS.
+
+This script ensures that all application-tier ELBs have secure listeners by checking their current configuration and updating any non-secure listeners to use HTTPS.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

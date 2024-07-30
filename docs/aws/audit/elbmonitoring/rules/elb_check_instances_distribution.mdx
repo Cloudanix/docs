@@ -25,6 +25,142 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elastic Load Balancers (ELBs) from being unevenly distributed over Availability Zones (AZs) using the AWS Management Console, follow these steps:
+
+1. **Access the Load Balancer Configuration:**
+   - Open the AWS Management Console.
+   - Navigate to the **EC2 Dashboard**.
+   - In the left-hand menu, under **Load Balancing**, click on **Load Balancers**.
+   - Select the load balancer you want to configure.
+
+2. **Enable Cross-Zone Load Balancing:**
+   - With the load balancer selected, go to the **Description** tab.
+   - Click on the **Edit attributes** button.
+   - In the **Attributes** section, ensure that **Cross-Zone Load Balancing** is enabled. This setting helps distribute traffic evenly across all registered instances in all enabled AZs.
+
+3. **Configure Availability Zones:**
+   - Go to the **Availability Zones** tab.
+   - Ensure that all desired AZs are selected. This ensures that the load balancer can distribute traffic across multiple AZs.
+   - If any AZs are not selected, click on **Edit Availability Zones** and select the appropriate AZs.
+
+4. **Review and Save:**
+   - Review the settings to ensure that cross-zone load balancing is enabled and that all desired AZs are selected.
+   - Click **Save** to apply the changes.
+
+By following these steps, you can ensure that your ELBs are evenly distributed across the selected Availability Zones, improving fault tolerance and load distribution.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that Elastic Load Balancers (ELBs) are evenly distributed over Availability Zones (AZs) using AWS CLI, you can follow these steps:
+
+1. **Enable Cross-Zone Load Balancing:**
+   Cross-zone load balancing ensures that each load balancer node distributes traffic evenly across the registered instances in all enabled Availability Zones.
+
+   ```sh
+   aws elb modify-load-balancer-attributes --load-balancer-name <your-load-balancer-name> --load-balancer-attributes "{\"CrossZoneLoadBalancing\":{\"Enabled\":true}}"
+   ```
+
+2. **Enable All Desired Availability Zones:**
+   Ensure that all the required Availability Zones are enabled for your ELB. This helps in distributing the traffic evenly.
+
+   ```sh
+   aws elb enable-availability-zones-for-load-balancer --load-balancer-name <your-load-balancer-name> --availability-zones <az1> <az2> <az3>
+   ```
+
+3. **Register Instances in All Availability Zones:**
+   Make sure that you have registered instances in all the enabled Availability Zones. This ensures that the load balancer can distribute traffic to instances in each AZ.
+
+   ```sh
+   aws elb register-instances-with-load-balancer --load-balancer-name <your-load-balancer-name> --instances <instance-id1> <instance-id2> <instance-id3>
+   ```
+
+4. **Verify Load Balancer Configuration:**
+   Verify the configuration to ensure that cross-zone load balancing is enabled and all desired AZs are active.
+
+   ```sh
+   aws elb describe-load-balancers --load-balancer-names <your-load-balancer-name>
+   ```
+
+By following these steps, you can prevent misconfigurations related to uneven distribution of ELBs across Availability Zones using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elastic Load Balancers (ELBs) from being unevenly distributed over Availability Zones (AZs) in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your ELBs are evenly distributed across AZs:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for Elastic Load Balancing (ELB).
+   ```python
+   import boto3
+
+   elb_client = boto3.client('elb')
+   ```
+
+3. **Describe Load Balancers and Check AZ Distribution**:
+   Fetch the details of your load balancers and check the distribution of instances across AZs.
+   ```python
+   def get_load_balancers():
+       response = elb_client.describe_load_balancers()
+       return response['LoadBalancerDescriptions']
+
+   def check_az_distribution(load_balancer):
+       az_counts = {}
+       for instance in load_balancer['Instances']:
+           instance_id = instance['InstanceId']
+           instance_details = elb_client.describe_instance_health(
+               LoadBalancerName=load_balancer['LoadBalancerName'],
+               Instances=[{'InstanceId': instance_id}]
+           )
+           for state in instance_details['InstanceStates']:
+               az = state['AvailabilityZone']
+               if az in az_counts:
+                   az_counts[az] += 1
+               else:
+                   az_counts[az] = 1
+       return az_counts
+   ```
+
+4. **Ensure Even Distribution**:
+   Implement logic to ensure that instances are evenly distributed across AZs. If not, you can add or remove instances to balance the load.
+   ```python
+   def balance_load_balancer(load_balancer):
+       az_counts = check_az_distribution(load_balancer)
+       max_az = max(az_counts, key=az_counts.get)
+       min_az = min(az_counts, key=az_counts.get)
+
+       if az_counts[max_az] - az_counts[min_az] > 1:
+           # Logic to move instances from max_az to min_az
+           # This is a simplified example; in practice, you would need to handle instance creation and termination
+           print(f"Rebalancing required for {load_balancer['LoadBalancerName']}")
+           # Add instance to min_az and remove from max_az
+           # elb_client.register_instances_with_load_balancer(...)
+           # elb_client.deregister_instances_from_load_balancer(...)
+
+   def main():
+       load_balancers = get_load_balancers()
+       for lb in load_balancers:
+           balance_load_balancer(lb)
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+This script provides a basic framework to check and ensure that your ELBs are evenly distributed across AZs. In a real-world scenario, you would need to handle instance creation, termination, and registration/deregistration with the load balancer more robustly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

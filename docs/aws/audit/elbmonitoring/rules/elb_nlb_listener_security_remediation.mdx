@@ -2,6 +2,147 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Network Load Balancers (NLBs) from having insecure configurations in AWS Elastic Load Balancer using the AWS Management Console, follow these steps:
+
+1. **Configure Secure Listeners:**
+   - Navigate to the **EC2 Dashboard**.
+   - In the left-hand menu, select **Load Balancers**.
+   - Choose the NLB you want to configure.
+   - Under the **Listeners** tab, ensure that you are using secure protocols (e.g., TLS) for your listeners. Avoid using insecure protocols like HTTP or TCP without encryption.
+
+2. **Set Up Security Groups:**
+   - Go to the **Security Groups** section under the **EC2 Dashboard**.
+   - Select the security group associated with your NLB.
+   - Ensure that the security group rules allow only necessary traffic. For example, restrict inbound traffic to specific IP ranges and ports that are required for your application.
+
+3. **Enable Access Logging:**
+   - In the **Load Balancers** section, select your NLB.
+   - Go to the **Attributes** tab.
+   - Enable **Access Logs** and specify an S3 bucket to store the logs. This helps in monitoring and auditing access to your NLB.
+
+4. **Configure Health Checks:**
+   - Select your NLB from the **Load Balancers** list.
+   - Go to the **Target Groups** tab and select the target group associated with your NLB.
+   - Under the **Health checks** tab, configure health checks to ensure that only healthy instances receive traffic. Use secure protocols for health checks if possible.
+
+By following these steps, you can ensure that your Network Load Balancer is configured securely in the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Network Load Balancers (NLBs) from having insecure configurations in Elastic Load Balancer using AWS CLI, you can follow these steps:
+
+1. **Ensure SSL/TLS Termination:**
+   Make sure that your NLB is configured to use SSL/TLS termination to encrypt data in transit. This can be done by creating a listener with an SSL certificate.
+
+   ```sh
+   aws elbv2 create-listener --load-balancer-arn <load-balancer-arn> \
+   --protocol TLS --port 443 \
+   --certificates CertificateArn=<certificate-arn> \
+   --default-actions Type=forward,TargetGroupArn=<target-group-arn>
+   ```
+
+2. **Restrict Listener Ports:**
+   Ensure that only necessary ports are open on your NLB. For example, if you only need HTTPS, ensure that only port 443 is open.
+
+   ```sh
+   aws elbv2 delete-listener --listener-arn <listener-arn-for-port-80>
+   ```
+
+3. **Use Secure Security Groups:**
+   Attach a security group to your NLB that restricts inbound traffic to only necessary IP ranges and ports.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> \
+   --protocol tcp --port 443 --cidr <allowed-ip-range>
+   ```
+
+4. **Enable Access Logging:**
+   Enable access logging for your NLB to monitor and audit traffic, which can help in identifying and mitigating insecure configurations.
+
+   ```sh
+   aws elbv2 modify-load-balancer-attributes --load-balancer-arn <load-balancer-arn> \
+   --attributes Key=access_logs.s3.enabled,Value=true Key=access_logs.s3.bucket,Value=<s3-bucket-name> \
+   Key=access_logs.s3.prefix,Value=<s3-prefix>
+   ```
+
+By following these steps, you can ensure that your NLB is configured securely using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Network Load Balancers (NLBs) from having insecure configurations in AWS Elastic Load Balancer using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure secure configurations:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session and create an ELB client.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   elb_client = session.client('elbv2')
+   ```
+
+3. **Check and Configure Secure Listeners**:
+   Ensure that the NLB listeners are using secure protocols (e.g., TLS) and strong ciphers.
+   ```python
+   def ensure_secure_listeners(load_balancer_arn):
+       response = elb_client.describe_listeners(LoadBalancerArn=load_balancer_arn)
+       for listener in response['Listeners']:
+           if listener['Protocol'] != 'TLS':
+               print(f"Listener {listener['ListenerArn']} is using insecure protocol {listener['Protocol']}. Updating to TLS.")
+               elb_client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   Protocol='TLS',
+                   Port=listener['Port'],
+                   SslPolicy='ELBSecurityPolicy-2016-08'  # Example of a strong security policy
+               )
+           else:
+               print(f"Listener {listener['ListenerArn']} is already using TLS.")
+   ```
+
+4. **Ensure Secure Target Group Health Checks**:
+   Verify that the health checks for the target groups associated with the NLB are configured securely.
+   ```python
+   def ensure_secure_health_checks(target_group_arn):
+       response = elb_client.describe_target_groups(TargetGroupArns=[target_group_arn])
+       for target_group in response['TargetGroups']:
+           health_check_protocol = target_group['HealthCheckProtocol']
+           if health_check_protocol not in ['HTTPS', 'TLS']:
+               print(f"Target group {target_group['TargetGroupArn']} is using insecure health check protocol {health_check_protocol}. Updating to HTTPS.")
+               elb_client.modify_target_group(
+                   TargetGroupArn=target_group['TargetGroupArn'],
+                   HealthCheckProtocol='HTTPS',
+                   HealthCheckPort='443'
+               )
+           else:
+               print(f"Target group {target_group['TargetGroupArn']} is already using a secure health check protocol.")
+
+   # Example usage
+   load_balancer_arn = 'arn:aws:elasticloadbalancing:YOUR_REGION:YOUR_ACCOUNT_ID:loadbalancer/net/YOUR_NLB_NAME/YOUR_NLB_ID'
+   target_group_arn = 'arn:aws:elasticloadbalancing:YOUR_REGION:YOUR_ACCOUNT_ID:targetgroup/YOUR_TARGET_GROUP_NAME/YOUR_TARGET_GROUP_ID'
+
+   ensure_secure_listeners(load_balancer_arn)
+   ensure_secure_health_checks(target_group_arn)
+   ```
+
+These steps and scripts will help you ensure that your NLBs are configured securely by enforcing the use of secure protocols and strong ciphers for both listeners and health checks.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

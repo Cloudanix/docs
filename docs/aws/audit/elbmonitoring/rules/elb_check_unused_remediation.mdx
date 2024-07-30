@@ -2,6 +2,181 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent having unused Elastic Load Balancers (ELBs) in AWS using the AWS Management Console, follow these steps:
+
+1. **Regularly Review ELB Usage:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Under the **Load Balancing** section, click on **Load Balancers**.
+   - Review the list of ELBs and check their **Status** and **Instances** associated with them. Ensure that each ELB is actively being used and has healthy instances attached.
+
+2. **Tagging and Documentation:**
+   - Implement a tagging strategy for all ELBs to include metadata such as the purpose, owner, and project.
+   - In the **Load Balancers** section, select an ELB, go to the **Tags** tab, and add relevant tags.
+   - Maintain documentation that maps ELBs to their respective applications and owners to easily identify and manage them.
+
+3. **Automated Monitoring and Alerts:**
+   - Set up CloudWatch Alarms to monitor ELB metrics such as **RequestCount** and **HealthyHostCount**.
+   - Navigate to the **CloudWatch** service, create a new alarm, and configure it to alert you if an ELB has low or zero traffic over a specified period.
+   - This helps in identifying ELBs that are not being used and can be reviewed for potential decommissioning.
+
+4. **Periodic Audits:**
+   - Schedule regular audits (e.g., monthly or quarterly) to review all ELBs.
+   - During the audit, verify that each ELB is still required and actively serving traffic.
+   - Document the findings and take action on any ELBs that are identified as unused or unnecessary.
+
+By following these steps, you can proactively manage and prevent unused ELBs in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent having unused Elastic Load Balancers (ELBs) in AWS using the AWS CLI, you can follow these steps:
+
+1. **List All ELBs:**
+   First, you need to list all the existing ELBs in your account to identify which ones are currently in use and which ones are not.
+
+   ```sh
+   aws elb describe-load-balancers --query 'LoadBalancerDescriptions[*].LoadBalancerName'
+   ```
+
+2. **Check ELB Usage:**
+   For each ELB, check if there are any instances registered with it. An ELB with no registered instances is likely unused.
+
+   ```sh
+   aws elb describe-load-balancers --load-balancer-names <load-balancer-name> --query 'LoadBalancerDescriptions[*].Instances'
+   ```
+
+3. **Tag ELBs:**
+   Tag your ELBs with metadata that indicates their purpose and owner. This helps in identifying and managing ELBs more effectively.
+
+   ```sh
+   aws elb add-tags --load-balancer-names <load-balancer-name> --tags Key=Purpose,Value=<purpose> Key=Owner,Value=<owner>
+   ```
+
+4. **Automate Monitoring:**
+   Set up a scheduled AWS Lambda function or a CloudWatch rule to periodically check for unused ELBs and notify the relevant stakeholders. This can be done using a Python script executed by AWS Lambda.
+
+   Example Python script snippet for Lambda:
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       client = boto3.client('elb')
+       elbs = client.describe_load_balancers()['LoadBalancerDescriptions']
+       unused_elbs = [elb['LoadBalancerName'] for elb in elbs if not elb['Instances']]
+       
+       if unused_elbs:
+           # Notify stakeholders or take action
+           print(f"Unused ELBs: {unused_elbs}")
+   ```
+
+By following these steps, you can ensure that you are actively monitoring and managing your ELBs to prevent having unused ones in your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused Elastic Load Balancers (ELBs) in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Authentication:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the ELB client
+   elb_client = session.client('elb')
+   ```
+
+2. **List All ELBs and Check for Unused ELBs:**
+   - Retrieve all ELBs and check if they have any instances attached.
+
+   ```python
+   def get_unused_elbs(elb_client):
+       unused_elbs = []
+       elbs = elb_client.describe_load_balancers()
+       for elb in elbs['LoadBalancerDescriptions']:
+           if not elb['Instances']:
+               unused_elbs.append(elb['LoadBalancerName'])
+       return unused_elbs
+
+   unused_elbs = get_unused_elbs(elb_client)
+   print("Unused ELBs:", unused_elbs)
+   ```
+
+3. **Automate the Detection Process:**
+   - Schedule the script to run periodically to ensure continuous monitoring.
+
+   ```python
+   import schedule
+   import time
+
+   def job():
+       unused_elbs = get_unused_elbs(elb_client)
+       if unused_elbs:
+           print("Unused ELBs detected:", unused_elbs)
+       else:
+           print("No unused ELBs detected.")
+
+   # Schedule the job every day at a specific time
+   schedule.every().day.at("00:00").do(job)
+
+   while True:
+       schedule.run_pending()
+       time.sleep(1)
+   ```
+
+4. **Notify or Log the Unused ELBs:**
+   - Integrate with a notification system (e.g., email, Slack) or log the results for further action.
+
+   ```python
+   import smtplib
+   from email.mime.text import MIMEText
+
+   def send_email(unused_elbs):
+       msg = MIMEText(f"Unused ELBs detected: {', '.join(unused_elbs)}")
+       msg['Subject'] = 'Unused ELBs Alert'
+       msg['From'] = 'your_email@example.com'
+       msg['To'] = 'recipient@example.com'
+
+       with smtplib.SMTP('smtp.example.com') as server:
+           server.login('your_email@example.com', 'your_password')
+           server.sendmail(msg['From'], [msg['To']], msg.as_string())
+
+   def job():
+       unused_elbs = get_unused_elbs(elb_client)
+       if unused_elbs:
+           print("Unused ELBs detected:", unused_elbs)
+           send_email(unused_elbs)
+       else:
+           print("No unused ELBs detected.")
+
+   # Schedule the job every day at a specific time
+   schedule.every().day.at("00:00").do(job)
+
+   while True:
+       schedule.run_pending()
+       time.sleep(1)
+   ```
+
+By following these steps, you can automate the detection of unused ELBs and take preventive measures to ensure that no unused ELBs are present in your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

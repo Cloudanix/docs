@@ -2,6 +2,147 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent insecure listeners in Web-tier Elastic Load Balancers (ELBs) using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Load Balancers Section:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the EC2 Dashboard.
+   - In the left-hand menu, under "Load Balancing," choose "Load Balancers."
+
+2. **Select the Target Load Balancer:**
+   - From the list of load balancers, select the web-tier ELB that you want to configure.
+   - Click on the "Listeners" tab to view the current listener configurations.
+
+3. **Add or Modify Listeners:**
+   - To add a secure listener, click on the "Add listener" button.
+   - Choose "HTTPS" from the "Protocol" dropdown menu.
+   - Specify the port (typically 443 for HTTPS).
+   - Select an appropriate SSL certificate from the "SSL certificate" dropdown menu or upload a new one if necessary.
+
+4. **Remove Insecure Listeners:**
+   - Identify any listeners using the "HTTP" protocol (typically on port 80).
+   - Select the insecure listener and click on the "Delete" button to remove it.
+   - Confirm the deletion to ensure that only secure (HTTPS) listeners are configured.
+
+By following these steps, you can ensure that your web-tier ELBs are configured to use secure listeners, thereby enhancing the security of your application.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent insecure listeners in Web-tier Elastic Load Balancers (ELBs) using AWS CLI, you can follow these steps:
+
+1. **Create a Secure Listener**:
+   Ensure that your ELB has a secure listener (HTTPS) configured. You can create a secure listener using the `create-listener` command.
+
+   ```sh
+   aws elbv2 create-listener --load-balancer-arn <load-balancer-arn> \
+   --protocol HTTPS --port 443 \
+   --certificates CertificateArn=<certificate-arn> \
+   --default-actions Type=forward,TargetGroupArn=<target-group-arn>
+   ```
+
+2. **Delete Insecure Listeners**:
+   Identify and delete any insecure listeners (HTTP) on your ELB. First, describe the listeners to get their ARNs.
+
+   ```sh
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Then, delete the insecure listener using the `delete-listener` command.
+
+   ```sh
+   aws elbv2 delete-listener --listener-arn <listener-arn>
+   ```
+
+3. **Modify Security Groups**:
+   Ensure that the security groups associated with your ELB allow traffic only on the secure port (443). Use the `authorize-security-group-ingress` and `revoke-security-group-ingress` commands to update the security group rules.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 80 --cidr 0.0.0.0/0
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+   ```
+
+4. **Enforce HTTPS Redirection**:
+   If you need to support HTTP for legacy reasons, ensure that HTTP traffic is redirected to HTTPS. This can be done by creating a rule in your listener to redirect HTTP requests to HTTPS.
+
+   ```sh
+   aws elbv2 create-rule --listener-arn <http-listener-arn> \
+   --conditions Field=path-pattern,Values='/*' \
+   --actions Type=redirect,RedirectConfig='{"Protocol":"HTTPS","Port":"443","StatusCode":"HTTP_301"}'
+   ```
+
+By following these steps, you can ensure that your Web-tier ELBs are configured to use secure listeners, thereby preventing insecure configurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent insecure listeners in Web-tier Elastic Load Balancers (ELBs) in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that only secure listeners (e.g., HTTPS) are configured for your ELBs:
+
+### Step 1: Install Boto3
+First, ensure that you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client for Elastic Load Balancing (ELB):
+```python
+import boto3
+
+client = boto3.client('elbv2')  # For Application Load Balancer (ALB) and Network Load Balancer (NLB)
+```
+
+### Step 3: List All Load Balancers
+Retrieve a list of all load balancers:
+```python
+def list_load_balancers():
+    response = client.describe_load_balancers()
+    return response['LoadBalancers']
+
+load_balancers = list_load_balancers()
+```
+
+### Step 4: Check and Ensure Secure Listeners
+Iterate through each load balancer and check its listeners. Ensure that only secure listeners (HTTPS) are configured:
+```python
+def ensure_secure_listeners(load_balancers):
+    for lb in load_balancers:
+        lb_arn = lb['LoadBalancerArn']
+        listeners = client.describe_listeners(LoadBalancerArn=lb_arn)['Listeners']
+        
+        for listener in listeners:
+            if listener['Protocol'] != 'HTTPS':
+                print(f"Load Balancer {lb['LoadBalancerName']} has an insecure listener on port {listener['Port']}.")
+                # Optionally, you can delete the insecure listener or modify it to be secure
+                # client.delete_listener(ListenerArn=listener['ListenerArn'])
+                # client.create_listener(
+                #     LoadBalancerArn=lb_arn,
+                #     Protocol='HTTPS',
+                #     Port=listener['Port'],
+                #     SslPolicy='ELBSecurityPolicy-2016-08',
+                #     Certificates=[{'CertificateArn': 'your-certificate-arn'}],
+                #     DefaultActions=listener['DefaultActions']
+                # )
+            else:
+                print(f"Load Balancer {lb['LoadBalancerName']} has a secure listener on port {listener['Port']}.")
+
+ensure_secure_listeners(load_balancers)
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the Boto3 client for ELB.
+3. **List All Load Balancers**: Retrieve all load balancers.
+4. **Check and Ensure Secure Listeners**: Iterate through each load balancer and ensure that only secure listeners (HTTPS) are configured.
+
+This script will help you identify and ensure that only secure listeners are configured for your ELBs. You can extend the script to automatically remediate any insecure listeners by deleting them or modifying them to use HTTPS.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

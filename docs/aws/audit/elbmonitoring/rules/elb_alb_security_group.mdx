@@ -24,6 +24,171 @@ AWSWAF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Application Load Balancers (ALBs) from having insecure configurations in AWS Elastic Load Balancer using the AWS Management Console, follow these steps:
+
+1. **Enable HTTPS Listener:**
+   - Navigate to the **EC2 Dashboard**.
+   - Select **Load Balancers** under the **Load Balancing** section.
+   - Choose your ALB and go to the **Listeners** tab.
+   - Ensure you have an HTTPS listener configured. If not, click on **Add listener**, select **HTTPS**, and configure it with a valid SSL/TLS certificate.
+
+2. **Configure Security Groups:**
+   - In the **Load Balancers** section, select your ALB.
+   - Go to the **Description** tab and click on the **Security Groups** link.
+   - Ensure the security group allows only necessary inbound traffic (e.g., port 443 for HTTPS) and restricts access to trusted IP ranges.
+
+3. **Enable SSL/TLS Protocols:**
+   - In the **Listeners** tab, select the HTTPS listener and click on **View/edit rules**.
+   - Ensure that the SSL/TLS settings are configured to use secure protocols (e.g., TLS 1.2 or higher) and strong ciphers.
+   - You can modify the SSL policy by selecting **Edit** under the **SSL Policy** section and choosing a predefined secure policy like `ELBSecurityPolicy-2016-08`.
+
+4. **Configure Web Application Firewall (WAF):**
+   - Navigate to the **WAF & Shield** section in the AWS Management Console.
+   - Create or select a WAF web ACL and associate it with your ALB.
+   - Configure rules to block common web exploits and vulnerabilities, such as SQL injection and cross-site scripting (XSS).
+
+By following these steps, you can ensure that your ALBs are configured securely and reduce the risk of insecure configurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Application Load Balancers (ALBs) from having insecure configurations in AWS using the AWS CLI, you can follow these steps:
+
+1. **Ensure HTTPS Listener Configuration:**
+   Make sure your ALB has an HTTPS listener to encrypt data in transit.
+
+   ```sh
+   aws elbv2 create-listener --load-balancer-arn <load-balancer-arn> --protocol HTTPS --port 443 --certificates CertificateArn=<certificate-arn> --default-actions Type=forward,TargetGroupArn=<target-group-arn>
+   ```
+
+2. **Enforce Security Policies:**
+   Use a secure SSL policy for your HTTPS listener to ensure strong encryption.
+
+   ```sh
+   aws elbv2 modify-listener --listener-arn <listener-arn> --ssl-policy ELBSecurityPolicy-2016-08
+   ```
+
+3. **Restrict Access to ALB:**
+   Use security groups to restrict access to your ALB to only trusted IP ranges.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr <trusted-ip-range>
+   ```
+
+4. **Enable Access Logging:**
+   Enable access logging to monitor and audit access to your ALB.
+
+   ```sh
+   aws elbv2 modify-load-balancer-attributes --load-balancer-arn <load-balancer-arn> --attributes Key=access_logs.s3.enabled,Value=true Key=access_logs.s3.bucket,Value=<s3-bucket-name> Key=access_logs.s3.prefix,Value=<s3-prefix>
+   ```
+
+Replace placeholders like `<load-balancer-arn>`, `<certificate-arn>`, `<target-group-arn>`, `<listener-arn>`, `<security-group-id>`, `<trusted-ip-range>`, `<s3-bucket-name>`, and `<s3-prefix>` with your actual values. These steps will help ensure your ALB is configured securely.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Application Load Balancers (ALBs) from having insecure configurations in AWS Elastic Load Balancer using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure secure configurations:
+
+1. **Ensure HTTPS Listeners:**
+   Make sure that your ALB has HTTPS listeners instead of HTTP listeners to ensure encrypted communication.
+
+   ```python
+   import boto3
+
+   client = boto3.client('elbv2')
+
+   def ensure_https_listener(alb_arn):
+       response = client.describe_listeners(LoadBalancerArn=alb_arn)
+       for listener in response['Listeners']:
+           if listener['Protocol'] == 'HTTP':
+               print(f"Listener {listener['ListenerArn']} is using HTTP. Updating to HTTPS.")
+               client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   Protocol='HTTPS',
+                   Port=443,
+                   SslPolicy='ELBSecurityPolicy-2016-08',
+                   Certificates=[
+                       {
+                           'CertificateArn': 'arn:aws:acm:region:account-id:certificate/certificate-id'
+                       },
+                   ]
+               )
+
+   alb_arn = 'arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/load-balancer-name/load-balancer-id'
+   ensure_https_listener(alb_arn)
+   ```
+
+2. **Enforce Secure Cipher Suites:**
+   Ensure that the ALB uses a secure SSL policy.
+
+   ```python
+   def enforce_secure_ssl_policy(alb_arn):
+       response = client.describe_listeners(LoadBalancerArn=alb_arn)
+       for listener in response['Listeners']:
+           if listener['Protocol'] == 'HTTPS':
+               print(f"Ensuring secure SSL policy for listener {listener['ListenerArn']}.")
+               client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   SslPolicy='ELBSecurityPolicy-2016-08'
+               )
+
+   enforce_secure_ssl_policy(alb_arn)
+   ```
+
+3. **Restrict Insecure Ciphers:**
+   Ensure that the ALB does not use insecure ciphers by setting a secure SSL policy.
+
+   ```python
+   def restrict_insecure_ciphers(alb_arn):
+       response = client.describe_listeners(LoadBalancerArn=alb_arn)
+       for listener in response['Listeners']:
+           if listener['Protocol'] == 'HTTPS':
+               print(f"Restricting insecure ciphers for listener {listener['ListenerArn']}.")
+               client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   SslPolicy='ELBSecurityPolicy-TLS-1-2-2017-01'
+               )
+
+   restrict_insecure_ciphers(alb_arn)
+   ```
+
+4. **Enable Access Logging:**
+   Ensure that access logging is enabled for the ALB to monitor and audit traffic.
+
+   ```python
+   def enable_access_logging(alb_arn, s3_bucket_name):
+       client.modify_load_balancer_attributes(
+           LoadBalancerArn=alb_arn,
+           Attributes=[
+               {
+                   'Key': 'access_logs.s3.enabled',
+                   'Value': 'true'
+               },
+               {
+                   'Key': 'access_logs.s3.bucket',
+                   'Value': s3_bucket_name
+               },
+               {
+                   'Key': 'access_logs.s3.prefix',
+                   'Value': 'my-alb-logs'
+               }
+           ]
+       )
+       print(f"Access logging enabled for ALB {alb_arn}.")
+
+   s3_bucket_name = 'my-secure-logs-bucket'
+   enable_access_logging(alb_arn, s3_bucket_name)
+   ```
+
+These scripts ensure that your ALB is configured securely by enforcing HTTPS, using secure SSL policies, restricting insecure ciphers, and enabling access logging. Make sure to replace placeholders like `region`, `account-id`, `load-balancer-name`, `load-balancer-id`, and `certificate-id` with actual values from your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

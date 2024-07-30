@@ -2,6 +2,185 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Internet Facing Elastic Load Balancers (ELBs) from being misconfigured in AWS, you can follow these steps using the AWS Management Console:
+
+1. **Regularly Review ELB Configurations:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Select **Load Balancers** from the left-hand menu.
+   - Review the list of Internet-facing ELBs and their configurations, ensuring they meet your security and compliance requirements.
+
+2. **Implement Tagging for Easy Identification:**
+   - Tag your ELBs with relevant information such as environment (e.g., production, staging), owner, and purpose.
+   - This helps in easily identifying and reviewing the ELBs regularly.
+
+3. **Enable Logging and Monitoring:**
+   - Enable **Access Logs** for your ELBs to capture detailed information about the requests sent to your load balancer.
+   - Use **AWS CloudTrail** to log API calls and monitor changes to your ELB configurations.
+
+4. **Set Up Alerts and Notifications:**
+   - Use **Amazon CloudWatch** to set up alarms for any unusual activity or configuration changes in your ELBs.
+   - Configure **SNS (Simple Notification Service)** to send notifications to the relevant teams for immediate review and action.
+
+By following these steps, you can ensure that your Internet-facing ELBs are regularly reviewed and maintained in a secure and compliant state.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Internet-facing Elastic Load Balancers (ELBs) from being misconfigured in AWS, you can follow these steps using the AWS CLI:
+
+1. **List All Internet-Facing ELBs:**
+   First, identify all the internet-facing ELBs in your account. This can be done using the `describe-load-balancers` command and filtering for internet-facing ELBs.
+
+   ```sh
+   aws elb describe-load-balancers --query 'LoadBalancerDescriptions[?Scheme==`internet-facing`].[LoadBalancerName, DNSName, Scheme]' --output table
+   ```
+
+2. **Tagging ELBs for Review:**
+   Tag the internet-facing ELBs with a specific tag to mark them for regular review. This helps in identifying which ELBs need to be reviewed periodically.
+
+   ```sh
+   aws elb add-tags --load-balancer-names <your-elb-name> --tags Key=Review,Value=Pending
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor the traffic and usage of these internet-facing ELBs. This helps in identifying unusual patterns that might indicate a misconfiguration.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ELB-Internet-Facing-Traffic" --metric-name RequestCount --namespace AWS/ELB --statistic Sum --period 300 --threshold 1000 --comparison-operator GreaterThanThreshold --dimensions Name=LoadBalancerName,Value=<your-elb-name> --evaluation-periods 1 --alarm-actions <sns-topic-arn>
+   ```
+
+4. **Automate Regular Reviews:**
+   Use AWS Config to set up a rule that checks for internet-facing ELBs and triggers a Lambda function to review their configurations periodically.
+
+   ```sh
+   aws configservice put-config-rule --config-rule file://internet-facing-elb-rule.json
+   ```
+
+   Example `internet-facing-elb-rule.json`:
+   ```json
+   {
+     "ConfigRuleName": "internet-facing-elb-check",
+     "Description": "Check for internet-facing ELBs",
+     "Scope": {
+       "ComplianceResourceTypes": [
+         "AWS::ElasticLoadBalancing::LoadBalancer"
+       ]
+     },
+     "Source": {
+       "Owner": "AWS",
+       "SourceIdentifier": "ELB_INTERNET_FACING"
+     }
+   }
+   ```
+
+By following these steps, you can ensure that your internet-facing ELBs are regularly reviewed and monitored, reducing the risk of misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Internet-facing Elastic Load Balancers (ELBs) from being misconfigured in AWS, you can use Python scripts to regularly review and manage these resources. Below are the steps to achieve this:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+```bash
+pip install boto3
+```
+
+### 2. **List All Internet-Facing ELBs**
+Create a Python script to list all Internet-facing ELBs. This will help you identify which ELBs need to be reviewed.
+
+```python
+import boto3
+
+def list_internet_facing_elbs():
+    client = boto3.client('elbv2')
+    response = client.describe_load_balancers()
+    
+    internet_facing_elbs = []
+    for elb in response['LoadBalancers']:
+        if elb['Scheme'] == 'internet-facing':
+            internet_facing_elbs.append(elb['LoadBalancerArn'])
+    
+    return internet_facing_elbs
+
+if __name__ == "__main__":
+    elbs = list_internet_facing_elbs()
+    print("Internet-facing ELBs:", elbs)
+```
+
+### 3. **Tagging ELBs for Review**
+Tag the identified Internet-facing ELBs for regular review. This can be done by adding a specific tag to these ELBs.
+
+```python
+def tag_elbs_for_review(elb_arns):
+    client = boto3.client('elbv2')
+    for elb_arn in elb_arns:
+        client.add_tags(
+            ResourceArns=[elb_arn],
+            Tags=[
+                {
+                    'Key': 'Review',
+                    'Value': 'Pending'
+                },
+            ]
+        )
+
+if __name__ == "__main__":
+    elbs = list_internet_facing_elbs()
+    tag_elbs_for_review(elbs)
+    print("Tagged ELBs for review.")
+```
+
+### 4. **Automate Regular Reviews**
+Set up a scheduled job (e.g., using AWS Lambda and CloudWatch Events) to run the above scripts regularly. This ensures that Internet-facing ELBs are reviewed periodically.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+def review_elbs():
+    client = boto3.client('elbv2')
+    elbs = list_internet_facing_elbs()
+    
+    for elb_arn in elbs:
+        response = client.describe_tags(ResourceArns=[elb_arn])
+        tags = response['TagDescriptions'][0]['Tags']
+        
+        for tag in tags:
+            if tag['Key'] == 'Review' and tag['Value'] == 'Pending':
+                # Perform your review logic here
+                print(f"Reviewing ELB: {elb_arn}")
+                # After review, update the tag
+                client.add_tags(
+                    ResourceArns=[elb_arn],
+                    Tags=[
+                        {
+                            'Key': 'Review',
+                            'Value': 'Completed'
+                        },
+                    ]
+                )
+
+if __name__ == "__main__":
+    review_elbs()
+    print("Reviewed and updated ELBs.")
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **List All Internet-Facing ELBs**: Create a script to list all Internet-facing ELBs.
+3. **Tagging ELBs for Review**: Tag these ELBs for regular review.
+4. **Automate Regular Reviews**: Set up a scheduled job to run the review script periodically.
+
+By following these steps, you can ensure that Internet-facing ELBs are regularly reviewed and managed to prevent misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
