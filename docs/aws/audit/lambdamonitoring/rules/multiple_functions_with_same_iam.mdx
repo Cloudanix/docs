@@ -23,6 +23,100 @@ SOC2
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Lambda service. You can do this by typing "Lambda" into the search bar and selecting "Lambda" from the dropdown menu.
+3. Once you're in the Lambda service, you'll see a list of all your functions. Click on a function to view its details.
+4. In the function's details page, scroll down to the "Execution role" section. Here, you can see the IAM role that's associated with the function. Note down this IAM role.
+5. Repeat steps 3 and 4 for all the functions in your list. If you find that multiple functions are using the same IAM role, then you have detected a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the Lambda functions in your AWS account. You can do this by using the AWS CLI command `aws lambda list-functions`. This command will return a JSON object with all your Lambda functions.
+
+    ```
+    aws lambda list-functions --region your-region
+    ```
+
+2. Next, you need to extract the IAM role for each Lambda function. You can do this by parsing the JSON object returned by the previous command. Each function's details are stored in a dictionary, and the IAM role can be found under the 'Role' key.
+
+    ```
+    aws lambda list-functions --region your-region --query 'Functions[*].[FunctionName,Role]' --output text
+    ```
+
+3. Now, you need to check if multiple functions are using the same IAM role. You can do this by storing the IAM roles in a list and then checking if any role appears more than once in the list. This can be done using a Python script. Here is a simple script that does this:
+
+    ```python
+    import subprocess
+    import collections
+
+    command = "aws lambda list-functions --region your-region --query 'Functions[*].[FunctionName,Role]' --output text"
+    output = subprocess.check_output(command, shell=True).decode('utf-8').split('\n')
+
+    roles = [line.split('\t')[1] for line in output if line]
+    duplicates = [item for item, count in collections.Counter(roles).items() if count > 1]
+
+    if duplicates:
+        print(f"The following IAM roles are used by multiple Lambda functions: {', '.join(duplicates)}")
+    else:
+        print("No IAM roles are used by multiple Lambda functions.")
+    ```
+
+4. Run the Python script. If there are any IAM roles used by multiple Lambda functions, they will be printed out. If not, a message will be printed saying that no IAM roles are used by multiple Lambda functions.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries and establish a session with AWS using Boto3. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+2. Create a client for AWS Lambda and IAM. 
+
+```python
+lambda_client = session.client('lambda')
+iam_client = session.client('iam')
+```
+
+3. Get a list of all the Lambda functions and their respective IAM roles. 
+
+```python
+functions = lambda_client.list_functions()['Functions']
+role_dict = {}
+
+for function in functions:
+    role = function['Role']
+    if role not in role_dict:
+        role_dict[role] = [function['FunctionName']]
+    else:
+        role_dict[role].append(function['FunctionName'])
+```
+
+4. Check if any IAM role is associated with more than one Lambda function. If it is, print out the function names and the IAM role.
+
+```python
+for role, functions in role_dict.items():
+    if len(functions) > 1:
+        print(f"IAM Role {role} is associated with multiple Lambda functions: {', '.join(functions)}")
+```
+
+This script will help you identify any IAM roles that are associated with more than one Lambda function, which could be a potential misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
