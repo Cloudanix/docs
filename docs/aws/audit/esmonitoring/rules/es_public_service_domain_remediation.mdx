@@ -1,6 +1,246 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ElasticSearch Domains from being launched with public endpoints and ensure they are launched with private VPC endpoints using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Amazon Elasticsearch Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Elasticsearch Service" and select it from the dropdown.
+
+2. **Create or Modify an Elasticsearch Domain:**
+   - To create a new domain, click on the "Create a new domain" button.
+   - To modify an existing domain, select the domain you want to modify from the list.
+
+3. **Configure Network Settings:**
+   - In the "Network configuration" section, choose "VPC access".
+   - Select the VPC, subnets, and security groups that you want to use for your Elasticsearch domain. Ensure that the subnets are private and not associated with a public IP.
+
+4. **Review and Confirm:**
+   - Review all the settings to ensure that the domain is configured to use VPC access.
+   - Click on "Create" or "Save changes" to apply the configuration.
+
+By following these steps, you ensure that your Elasticsearch domains are launched with private VPC endpoints, enhancing security by restricting public access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ElasticSearch domains from being launched with public endpoints and ensure they are launched with private VPC endpoints using AWS CLI, follow these steps:
+
+1. **Create a VPC and Subnets:**
+   Ensure you have a VPC and subnets where you want to launch your ElasticSearch domain. If you don't have one, you can create it using the following commands:
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24
+   ```
+
+2. **Create Security Groups:**
+   Create security groups that allow the necessary traffic for your ElasticSearch domain. For example:
+
+   ```sh
+   aws ec2 create-security-group --group-name MyESDomainSG --description "Security group for ElasticSearch domain" --vpc-id <vpc-id>
+   aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+   ```
+
+3. **Create the ElasticSearch Domain with VPC Configuration:**
+   Use the `create-elasticsearch-domain` command to create the domain with VPC configuration. Ensure you specify the VPC ID, subnet IDs, and security group IDs.
+
+   ```sh
+   aws es create-elasticsearch-domain --domain-name my-es-domain --elasticsearch-version 7.10 --vpc-options SubnetIds=<subnet-id>,SecurityGroupIds=<sg-id>
+   ```
+
+4. **Verify the Configuration:**
+   Verify that the ElasticSearch domain is created with the VPC configuration by describing the domain.
+
+   ```sh
+   aws es describe-elasticsearch-domain --domain-name my-es-domain
+   ```
+
+By following these steps, you ensure that your ElasticSearch domain is launched with private VPC endpoints, enhancing security and preventing public access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ElasticSearch Domains from being launched without private VPC endpoints using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that your ElasticSearch domains are launched with private VPC endpoints:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with the necessary AWS credentials and region.
+
+3. **Check Existing Domains**:
+   List all existing ElasticSearch domains and check their VPC configuration.
+
+4. **Create/Update Domain with VPC Configuration**:
+   Ensure that any new or existing ElasticSearch domains are created or updated with the appropriate VPC configuration.
+
+Here is a Python script that demonstrates these steps:
+
+```python
+import boto3
+
+# Initialize a Boto3 session
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+# Create an Elasticsearch client
+es_client = session.client('es')
+
+# Function to check and ensure VPC configuration
+def ensure_vpc_endpoint(domain_name, vpc_options):
+    try:
+        # Describe the domain to check its current configuration
+        response = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+        domain_status = response['DomainStatus']
+        
+        # Check if the domain is already in a VPC
+        if 'VPCOptions' in domain_status:
+            print(f"Domain {domain_name} is already in a VPC.")
+        else:
+            print(f"Domain {domain_name} is not in a VPC. Updating configuration...")
+            # Update the domain to include VPC options
+            es_client.update_elasticsearch_domain_config(
+                DomainName=domain_name,
+                VPCOptions=vpc_options
+            )
+            print(f"Domain {domain_name} has been updated to use VPC endpoints.")
+    except Exception as e:
+        print(f"Error ensuring VPC endpoint for domain {domain_name}: {e}")
+
+# Define your VPC options
+vpc_options = {
+    'SubnetIds': ['subnet-xxxxxxxx'],  # Replace with your subnet IDs
+    'SecurityGroupIds': ['sg-xxxxxxxx']  # Replace with your security group IDs
+}
+
+# List of domain names to check
+domain_names = ['your-domain-name-1', 'your-domain-name-2']  # Replace with your domain names
+
+# Ensure each domain is using VPC endpoints
+for domain_name in domain_names:
+    ensure_vpc_endpoint(domain_name, vpc_options)
+```
+
+### Key Points:
+1. **Install Boto3**: Ensure Boto3 is installed in your Python environment.
+2. **Create a Boto3 Session**: Initialize a session with AWS credentials and region.
+3. **Check Existing Domains**: Use `describe_elasticsearch_domain` to check if the domain is already in a VPC.
+4. **Create/Update Domain with VPC Configuration**: Use `update_elasticsearch_domain_config` to update the domain with VPC options if it is not already configured.
+
+This script ensures that your ElasticSearch domains are launched with private VPC endpoints, thereby preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard by choosing "Elasticsearch Service" under the "Analytics" section.
+3. In the Amazon Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains. Click on the domain name that you want to check.
+4. In the domain overview page, look for the "VPC" section. If the "Endpoint" field shows a public IP address, then the Elasticsearch domain is not launched with a private VPC endpoint. If it shows a private IP address, then it is launched with a private VPC endpoint.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, make sure you have AWS CLI installed and configured with the necessary permissions. You can install it using pip (Python package installer). 
+
+   ```
+   pip install awscli
+   ```
+   Then configure it using the following command and provide your AWS credentials (Access Key ID and Secret Access Key), default region name, and default output format when prompted.
+
+   ```
+   aws configure
+   ```
+   
+2. List all Elasticsearch domains: Use the following AWS CLI command to list all the Elasticsearch domains in your AWS account.
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domain names.
+
+3. Describe the Elasticsearch domain: For each domain, use the following AWS CLI command to get detailed configuration information.
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name <your-domain-name>
+   ```
+   Replace `<your-domain-name>` with the name of your Elasticsearch domain. This command will return a JSON output with the configuration details of the specified Elasticsearch domain.
+
+4. Check for VPC options: In the JSON output, look for the "VPCOptions" field. If the "VPCOptions" field is not present or if the "VPCOptions" field does not contain "Endpoint" and "SecurityGroupIds", then the Elasticsearch domain is not launched with a private VPC endpoint. 
+
+   Here is an example of what the "VPCOptions" field should look like for a domain with a private VPC endpoint:
+
+   ```
+   "VPCOptions": {
+       "SubnetIds": [
+           "subnet-0abcd1234efgh5678"
+       ],
+       "VPCId": "vpc-0abcd1234efgh5678",
+       "SecurityGroupIds": [
+           "sg-0abcd1234efgh5678"
+       ],
+       "Endpoint": "vpc-<your-domain-name>-abcd1234efgh5678.es.amazonaws.com"
+   }
+   ```
+   If the "VPCOptions" field is missing or does not contain "Endpoint" and "SecurityGroupIds", then the Elasticsearch domain is not launched with a private VPC endpoint.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+
+   ```python
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write the Python script: Now you can write a Python script that uses the boto3 library to check if ElasticSearch domains are launched with private VPC endpoints. Here is a basic example:
+
+   ```python
+   import boto3
+
+   def check_es_vpc_endpoints():
+       es = boto3.client('es')
+       domains = es.list_domain_names()
+       for domain in domains['DomainNames']:
+           domain_info = es.describe_elasticsearch_domain(DomainName=domain['DomainName'])
+           if 'VPCOptions' in domain_info['DomainStatus']:
+               if 'VPCId' in domain_info['DomainStatus']['VPCOptions']:
+                   print(f"Domain {domain['DomainName']} is launched with a private VPC endpoint.")
+               else:
+                   print(f"Domain {domain['DomainName']} is not launched with a private VPC endpoint.")
+           else:
+               print(f"Domain {domain['DomainName']} is not launched with a private VPC endpoint.")
+
+   if __name__ == "__main__":
+       check_es_vpc_endpoints()
+   ```
+
+4. Run the script: Finally, you can run the script using a Python interpreter. The script will print out the names of all ElasticSearch domains and whether they are launched with a private VPC endpoint or not.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

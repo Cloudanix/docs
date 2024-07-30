@@ -24,6 +24,296 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elasticsearch clusters from being idle in AWS using the AWS Management Console, follow these steps:
+
+1. **Monitor Cluster Activity:**
+   - Navigate to the Amazon Elasticsearch Service in the AWS Management Console.
+   - Select your Elasticsearch domain.
+   - Go to the "Monitoring" tab to review metrics such as CPU utilization, search rate, and indexing rate. Regularly monitor these metrics to ensure the cluster is actively being used.
+
+2. **Set Up CloudWatch Alarms:**
+   - In the AWS Management Console, go to the CloudWatch service.
+   - Create alarms for key Elasticsearch metrics (e.g., CPU utilization, search rate, and indexing rate).
+   - Configure the alarms to notify you when these metrics fall below a certain threshold, indicating potential idleness.
+
+3. **Enable Automated Snapshots:**
+   - In the Amazon Elasticsearch Service console, select your domain.
+   - Go to the "Snapshots" tab and ensure that automated snapshots are enabled.
+   - Regular snapshots can help you understand usage patterns and ensure that data is being actively managed.
+
+4. **Review and Optimize Indexing Strategy:**
+   - In the Elasticsearch Service console, review your indexing strategy.
+   - Ensure that indices are being created and updated regularly.
+   - Optimize your indexing strategy to ensure that data is being ingested and queried efficiently, preventing the cluster from becoming idle.
+
+By following these steps, you can proactively monitor and manage your Elasticsearch clusters to prevent them from becoming idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elasticsearch clusters from being idle in AWS using the AWS CLI, you can follow these steps:
+
+1. **Monitor Cluster Activity:**
+   Regularly monitor the activity of your Elasticsearch clusters to ensure they are being utilized. You can use CloudWatch to set up alarms for low activity.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ElasticsearchClusterIdleAlarm" \
+   --metric-name "ClusterStatus.green" --namespace "AWS/ES" \
+   --statistic "Minimum" --period 300 --threshold 1 \
+   --comparison-operator "LessThanThreshold" --dimensions \
+   Name=DomainName,Value=your-elasticsearch-domain-name \
+   --evaluation-periods 1 --alarm-actions arn:aws:sns:region:account-id:your-sns-topic
+   ```
+
+2. **Automate Scaling:**
+   Use AWS Auto Scaling to automatically adjust the number of nodes in your Elasticsearch cluster based on usage patterns.
+
+   ```sh
+   aws application-autoscaling register-scalable-target --service-namespace es \
+   --resource-id domain/your-elasticsearch-domain-name \
+   --scalable-dimension es:domain:ReadReplicaCount --min-capacity 1 --max-capacity 10
+   ```
+
+3. **Enable Index Lifecycle Management (ILM):**
+   Use Index Lifecycle Management to automate the management of your indices, ensuring that old or unused indices are deleted or moved to less expensive storage.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name your-elasticsearch-domain-name \
+   --elasticsearch-cluster-config '{"InstanceCount": 3, "InstanceType": "m5.large.elasticsearch"}'
+   ```
+
+4. **Set Up Regular Data Ingestion:**
+   Ensure that data is regularly ingested into your Elasticsearch cluster to keep it active. You can use AWS Lambda to automate data ingestion from various sources.
+
+   ```sh
+   aws lambda create-function --function-name IngestDataToES \
+   --runtime python3.8 --role arn:aws:iam::account-id:role/lambda-execution-role \
+   --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+By following these steps, you can help ensure that your Elasticsearch clusters remain active and are not idle, thereby optimizing resource usage and cost.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch clusters from being idle using Python scripts, you can implement monitoring and automation to ensure that the clusters are actively used or appropriately scaled down when not in use. Here are four steps to achieve this:
+
+### 1. **Set Up Monitoring for Cluster Activity**
+
+Use the Elasticsearch Python client to monitor the activity of your clusters. You can periodically check the cluster health and activity metrics.
+
+```python
+from elasticsearch import Elasticsearch
+
+# Initialize the Elasticsearch client
+es = Elasticsearch(['http://localhost:9200'])
+
+# Function to check cluster health
+def check_cluster_health():
+    health = es.cluster.health()
+    print("Cluster Health:", health)
+
+# Function to check cluster activity
+def check_cluster_activity():
+    stats = es.cluster.stats()
+    print("Cluster Activity Stats:", stats)
+
+# Periodically call these functions
+check_cluster_health()
+check_cluster_activity()
+```
+
+### 2. **Automate Alerts for Idle Clusters**
+
+Set up automated alerts to notify you when a cluster has been idle for a certain period. You can use a combination of Elasticsearch and a notification service like AWS SNS, Azure Notification Hubs, or Google Cloud Pub/Sub.
+
+```python
+import boto3
+
+# Function to send alert
+def send_alert(message):
+    sns_client = boto3.client('sns')
+    sns_client.publish(
+        TopicArn='arn:aws:sns:us-east-1:123456789012:MyTopic',
+        Message=message,
+        Subject='Elasticsearch Cluster Idle Alert'
+    )
+
+# Function to check and alert if cluster is idle
+def check_and_alert_idle_cluster():
+    stats = es.cluster.stats()
+    if stats['indices']['docs']['count'] == 0:  # Example condition for idleness
+        send_alert("Elasticsearch cluster is idle.")
+
+check_and_alert_idle_cluster()
+```
+
+### 3. **Implement Auto-Scaling Policies**
+
+Use the Elasticsearch client to implement auto-scaling policies that scale down the cluster when it is idle and scale up when activity increases.
+
+```python
+def scale_down_cluster():
+    # Example: Reduce the number of nodes
+    es.cluster.put_settings(body={
+        "persistent": {
+            "cluster.routing.allocation.enable": "none"
+        }
+    })
+    print("Cluster scaled down.")
+
+def scale_up_cluster():
+    # Example: Increase the number of nodes
+    es.cluster.put_settings(body={
+        "persistent": {
+            "cluster.routing.allocation.enable": "all"
+        }
+    })
+    print("Cluster scaled up.")
+
+# Example usage
+scale_down_cluster()
+scale_up_cluster()
+```
+
+### 4. **Schedule Regular Maintenance Tasks**
+
+Use a scheduling library like `schedule` to run regular maintenance tasks that ensure the cluster is not idle for extended periods.
+
+```python
+import schedule
+import time
+
+# Function to perform maintenance tasks
+def perform_maintenance():
+    check_cluster_health()
+    check_cluster_activity()
+    check_and_alert_idle_cluster()
+
+# Schedule the maintenance tasks
+schedule.every().hour.do(perform_maintenance)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
+```
+
+By following these steps, you can effectively prevent Elasticsearch clusters from being idle using Python scripts. This approach ensures continuous monitoring, automated alerts, auto-scaling, and regular maintenance.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon Elasticsearch Service dashboard. 
+
+2. In the navigation pane, choose "Elasticsearch Service" to open the Amazon Elasticsearch Service dashboard.
+
+3. On the Amazon Elasticsearch Service dashboard, check all the existing Elasticsearch domains (clusters). 
+
+4. For each domain, check the "CPU Utilization" and "Free Storage Space" metrics available in the CloudWatch section. If the CPU Utilization is consistently low (close to 0%) and the Free Storage Space is not decreasing over time, the specific Elasticsearch cluster is likely idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. After installation, you can configure it using the command `aws configure`. You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all Elasticsearch domains: Use the following command to list all the Elasticsearch domains in your AWS account.
+
+   ```
+   aws es list-domain-names
+   ```
+
+   This command will return a list of all Elasticsearch domains.
+
+3. Describe the Elasticsearch domain: For each domain, you can get more detailed information using the `describe-elasticsearch-domain` command. Replace `DomainName` with the name of your domain.
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name DomainName
+   ```
+
+   This command will return a JSON object with detailed information about the domain.
+
+4. Check the domain for idle status: In the returned JSON object, look for the `ElasticsearchClusterConfig` field. If the `InstanceCount` is 0, then the Elasticsearch cluster is idle. You can use a Python script to parse the JSON and check this automatically.
+
+   Here is a simple Python script that checks if the `InstanceCount` is 0:
+
+   ```python
+   import json
+
+   # Load the JSON object
+   with open('domain_info.json', 'r') as f:
+       domain_info = json.load(f)
+
+   # Check if the cluster is idle
+   if domain_info['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == 0:
+       print("The cluster is idle.")
+   else:
+       print("The cluster is not idle.")
+   ```
+
+   Replace `'domain_info.json'` with the path to your JSON file. This script will print "The cluster is idle." if the `InstanceCount` is 0, and "The cluster is not idle." otherwise.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS Elasticsearch, you need to install the `boto3` library. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can set up your AWS credentials by configuring them in your AWS CLI or by setting them as environment variables. Here is how you can set them up in your AWS CLI:
+
+```bash
+aws configure
+AWS Access Key ID [None]: YOUR_ACCESS_KEY
+AWS Secret Access Key [None]: YOUR_SECRET_KEY
+Default region name [None]: YOUR_REGION
+Default output format [None]: json
+```
+
+3. Write a Python script to list all Elasticsearch clusters and check their status:
+
+```python
+import boto3
+
+def check_es_clusters():
+    client = boto3.client('es')
+
+    # List all Elasticsearch clusters
+    clusters = client.list_domain_names()
+
+    for cluster in clusters['DomainNames']:
+        # Get the status of each cluster
+        response = client.describe_elasticsearch_domain(
+            DomainName=cluster['DomainName']
+        )
+
+        # Check if the cluster is idle
+        if response['DomainStatus']['Processing'] == False and response['DomainStatus']['ElasticsearchClusterConfig']['InstanceCount'] == 0:
+            print(f"Elasticsearch cluster {cluster['DomainName']} is idle.")
+
+check_es_clusters()
+```
+
+4. Run the Python script: You can run the Python script using the following command:
+
+```bash
+python check_es_clusters.py
+```
+
+This script will print out the names of all Elasticsearch clusters that are idle. If no clusters are idle, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,246 @@ AWSWAF, HITRUST, SOC2, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ElasticSearch from using HTTP instead of HTTPS in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Amazon Elasticsearch Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Elasticsearch Service" and select it from the dropdown.
+
+2. **Select Your Domain:**
+   - In the Amazon Elasticsearch Service dashboard, locate the domain you want to configure.
+   - Click on the domain name to open its configuration page.
+
+3. **Modify Domain Settings:**
+   - In the domain configuration page, click on the "Modify domain" button.
+   - Scroll down to the "Network configuration" section.
+
+4. **Enable HTTPS:**
+   - In the "Network configuration" section, ensure that the "Require HTTPS" option is checked.
+   - Review your settings and click on the "Save changes" button to apply the configuration.
+
+By following these steps, you ensure that your Elasticsearch domain is configured to use HTTPS only, enhancing the security of your data in transit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Amazon Elasticsearch Service (now known as Amazon OpenSearch Service) domain uses HTTPS only, you can follow these steps using the AWS CLI:
+
+1. **Create or Update the Domain with HTTPS Only:**
+   When creating or updating an Elasticsearch domain, you need to specify the `DomainEndpointOptions` parameter to enforce HTTPS.
+
+   ```sh
+   aws es create-elasticsearch-domain \
+     --domain-name my-domain \
+     --elasticsearch-version 7.10 \
+     --domain-endpoint-options EnforceHTTPS=true
+   ```
+
+   If the domain already exists, you can update it:
+
+   ```sh
+   aws es update-elasticsearch-domain-config \
+     --domain-name my-domain \
+     --domain-endpoint-options EnforceHTTPS=true
+   ```
+
+2. **Verify the Domain Configuration:**
+   After creating or updating the domain, verify that the `EnforceHTTPS` option is set to true.
+
+   ```sh
+   aws es describe-elasticsearch-domain \
+     --domain-name my-domain \
+     --query "DomainStatus.DomainEndpointOptions"
+   ```
+
+3. **Ensure Access Policies are Configured Correctly:**
+   Make sure that your access policies do not allow HTTP access. This can be done by specifying the correct IAM policies.
+
+   ```sh
+   aws es update-elasticsearch-domain-config \
+     --domain-name my-domain \
+     --access-policies '{
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Principal": {
+             "AWS": "*"
+           },
+           "Action": "es:*",
+           "Resource": "arn:aws:es:region:account-id:domain/my-domain/*",
+           "Condition": {
+             "Bool": {
+               "aws:SecureTransport": "true"
+             }
+           }
+         }
+       ]
+     }'
+   ```
+
+4. **Monitor and Audit the Domain:**
+   Regularly monitor and audit your Elasticsearch domain to ensure that HTTPS is enforced. You can use AWS CloudWatch or AWS Config rules to set up continuous monitoring.
+
+   ```sh
+   aws configservice put-config-rule \
+     --config-rule '{"ConfigRuleName": "es-enforce-https", "Source": {"Owner": "AWS", "SourceIdentifier": "ES_DOMAIN_ENFORCE_HTTPS"}}'
+   ```
+
+By following these steps, you can ensure that your Amazon Elasticsearch Service domain uses HTTPS only, enhancing the security of your data in transit.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch from using HTTP instead of HTTPS, you can configure the Elasticsearch cluster to enforce HTTPS. Below are the steps to achieve this using Python scripts:
+
+### 1. **Install Required Libraries**
+First, ensure you have the necessary libraries installed. You will need the `elasticsearch` library to interact with your Elasticsearch cluster.
+
+```bash
+pip install elasticsearch
+```
+
+### 2. **Configure Elasticsearch Client**
+Set up the Elasticsearch client to use HTTPS. This involves specifying the HTTPS protocol and providing the necessary SSL certificates.
+
+```python
+from elasticsearch import Elasticsearch
+
+# Define the Elasticsearch client with HTTPS
+es = Elasticsearch(
+    ['https://your-elasticsearch-domain:9200'],
+    http_auth=('your-username', 'your-password'),
+    scheme="https",
+    port=443,
+    use_ssl=True,
+    verify_certs=True,
+    ca_certs='/path/to/ca-cert.pem',
+    client_cert='/path/to/client-cert.pem',
+    client_key='/path/to/client-key.pem'
+)
+```
+
+### 3. **Enforce HTTPS in Elasticsearch Configuration**
+Ensure that the Elasticsearch configuration enforces HTTPS. This can be done by setting the appropriate settings in the `elasticsearch.yml` configuration file. However, since we are focusing on Python scripts, you can use the Elasticsearch API to update these settings.
+
+```python
+# Define the settings to enforce HTTPS
+settings = {
+    "xpack.security.http.ssl.enabled": True,
+    "xpack.security.http.ssl.keystore.path": "/path/to/keystore.jks",
+    "xpack.security.http.ssl.truststore.path": "/path/to/truststore.jks"
+}
+
+# Apply the settings to the cluster
+es.cluster.put_settings(body=settings)
+```
+
+### 4. **Verify HTTPS Configuration**
+Finally, verify that the Elasticsearch cluster is configured to use HTTPS by making a request and checking the response.
+
+```python
+# Make a request to verify HTTPS configuration
+try:
+    response = es.info()
+    print("Elasticsearch is configured to use HTTPS.")
+    print(response)
+except Exception as e:
+    print("Error: Elasticsearch is not configured to use HTTPS.")
+    print(e)
+```
+
+### Summary
+1. Install the `elasticsearch` library.
+2. Configure the Elasticsearch client to use HTTPS.
+3. Enforce HTTPS in the Elasticsearch configuration using the API.
+4. Verify the HTTPS configuration by making a request to the cluster.
+
+By following these steps, you can ensure that your Elasticsearch cluster uses HTTPS only, thereby enhancing the security of your data in transit.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service (Amazon ES) dashboard.
+3. In the navigation pane, choose "Domains".
+4. In the "Domains" list, select the Elasticsearch domain that you want to examine.
+5. In the "Domain overview" section, check the "Domain endpoint" value. If the protocol is not HTTPS, then the selected Amazon Elasticsearch domain is not using secure communication (HTTPS) for all the traffic to and from the domain.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-elasticsearch-domain-config" command to retrieve the configuration information of the specified Elasticsearch domain. The command syntax is as follows:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name <your_domain_name>
+   ```
+
+   Replace `<your_domain_name>` with the name of your Elasticsearch domain.
+
+3. The output of the command will be in JSON format. You need to check the "DomainConfig" section in the output. Under this section, look for the "ElasticsearchClusterConfig" field. This field contains the configuration settings for the Elasticsearch domain.
+
+4. Specifically, you need to check the "TLSSecurityPolicy" field under the "DomainEndpointOptions" section. If the value of this field is not "Policy-Min-TLS-1-2-2019-07", it means that the Elasticsearch domain is not using HTTPS only.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library for AWS services and the requests library to make HTTP requests.
+
+```python
+import boto3
+import requests
+```
+
+2. Create a session using your AWS credentials and initialize the ElasticSearch client:
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+es_client = session.client('es')
+```
+
+3. Get the list of all ElasticSearch domains and check the domain configuration:
+
+```python
+response = es_client.list_domain_names()
+
+for domain in response['DomainNames']:
+    domain_name = domain['DomainName']
+    domain_config = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+```
+
+4. Check if HTTPS is enabled for the domain:
+
+```python
+domain_endpoint = domain_config['DomainStatus']['Endpoints']['vpc']
+response = requests.get('http://' + domain_endpoint)
+
+if response.status_code == 200:
+    print(f"Domain {domain_name} is not using HTTPS.")
+else:
+    print(f"Domain {domain_name} is using HTTPS.")
+```
+
+This script will print out the names of all ElasticSearch domains that are not using HTTPS. If a domain is using HTTPS, a GET request to the HTTP endpoint should fail, indicating that HTTPS is being used.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
