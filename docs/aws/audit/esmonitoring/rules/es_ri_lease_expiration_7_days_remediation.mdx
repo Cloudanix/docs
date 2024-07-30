@@ -1,6 +1,106 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Elasticsearch service.
+2. In the Elasticsearch dashboard, select "Reserved Instances" from the left-hand side menu.
+3. In the Reserved Instances page, you will see a list of all your reserved instances. Look for the "Expiration Date" column in the table.
+4. Check the dates in the "Expiration Date" column. If any of the dates are within the next 7 days, then those Elasticsearch Reserved Instances are about to expire.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-reserved-elasticsearch-instances" command to list all your reserved Elasticsearch instances. The command is as follows:
+
+   ```
+   aws es describe-reserved-elasticsearch-instances
+   ```
+
+3. This command will return a JSON output with details about all your reserved Elasticsearch instances. You need to look for the "ReservedElasticsearchInstanceOfferingId" field in the output. This field contains the ID of the reserved instance offering.
+
+4. To check if the lease of a reserved Elasticsearch instance will expire in the next 7 days, you need to parse the "End" field in the output. This field contains the date and time when the reserved instance expires. You can use a Python script to parse this field and compare it with the current date and time. If the difference is less than or equal to 7 days, then the lease of the reserved Elasticsearch instance will expire in the next 7 days. Here is a simple Python script that does this:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   # Run the AWS CLI command and get the output
+   output = subprocess.check_output(["aws", "es", "describe-reserved-elasticsearch-instances"])
+   data = json.loads(output)
+
+   # Get the current date and time
+   now = datetime.now()
+
+   # Check each reserved Elasticsearch instance
+   for instance in data["ReservedElasticsearchInstances"]:
+       # Parse the end date and time
+       end = datetime.strptime(instance["End"], "%Y-%m-%dT%H:%M:%S.%fZ")
+       # Check if the lease will expire in the next 7 days
+       if now <= end <= now + timedelta(days=7):
+           print(f"The lease of the reserved Elasticsearch instance {instance['ReservedElasticsearchInstanceId']} will expire in the next 7 days.")
+   ```
+   
+Please note that the Python script assumes that the "End" field in the output is in the ISO 8601 date and time format. If it's in a different format, you need to adjust the script accordingly.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the boto3 library. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a credentials file at ~/.aws/credentials. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the default profile, you can use the following format:
+
+   ```python
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check Elasticsearch Reserved Instance Lease Expiration:
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Create a client
+   client = boto3.client('es')
+
+   # Get the current date
+   current_date = datetime.now()
+
+   # Get all reserved Elasticsearch instances
+   response = client.describe_reserved_elasticsearch_instances()
+
+   # Iterate over all instances
+   for instance in response['ReservedElasticsearchInstances']:
+       # Get the end date of the instance
+       end_date = instance['ReservedElasticsearchInstanceEnd']
+       # Calculate the difference between the current date and the end date
+       difference = end_date - current_date
+       # If the difference is less than 7 days, print a warning
+       if difference.days < 7:
+           print(f"Warning: Elasticsearch Reserved Instance {instance['ReservedElasticsearchInstanceId']} will expire in the next 7 days.")
+   ```
+
+4. Run the Python script: You can run the Python script using the following command:
+
+   ```python
+   python check_es_lease_expiration.py
+   ```
+
+This script will print a warning for each Elasticsearch Reserved Instance that will expire in the next 7 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
