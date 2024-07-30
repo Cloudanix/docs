@@ -2,6 +2,174 @@
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elasticsearch Reserved Instance recent purchases from being overlooked in AWS, you can follow these steps using the AWS Management Console:
+
+1. **Enable Billing Alerts:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Billing and Cost Management Dashboard**.
+   - Select **Billing preferences**.
+   - Enable **Receive Billing Alerts** to get notifications about your billing and usage.
+
+2. **Set Up CloudWatch Alarms:**
+   - Open the **CloudWatch** console.
+   - Click on **Alarms** in the navigation pane.
+   - Choose **Create Alarm**.
+   - Select a metric related to your Elasticsearch Reserved Instances, such as `EstimatedCharges`.
+   - Set the threshold to alert you when there are significant changes in your billing, which could indicate recent purchases.
+
+3. **Review Reserved Instance Utilization Reports:**
+   - Go to the **AWS Cost Explorer**.
+   - Select **Reports** and then choose **Reserved Instance Utilization**.
+   - Regularly review the utilization reports to ensure that your Reserved Instances are being used effectively and to identify any recent purchases.
+
+4. **Enable AWS Config Rules:**
+   - Open the **AWS Config** console.
+   - Click on **Rules** in the navigation pane.
+   - Choose **Add rule**.
+   - Search for and select the rule **elasticsearch-reserved-instance-purchase**.
+   - Configure the rule to monitor and alert you about recent Elasticsearch Reserved Instance purchases.
+
+By following these steps, you can ensure that you are aware of and can review recent Elasticsearch Reserved Instance purchases, helping to prevent misconfigurations and optimize your resource usage.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elasticsearch Reserved Instance recent purchases from being misconfigured in AWS, you can follow these steps using the AWS CLI:
+
+1. **List All Reserved Instances:**
+   Use the following command to list all your Elasticsearch Reserved Instances. This helps you keep track of what you have and review recent purchases.
+
+   ```sh
+   aws es describe-reserved-elasticsearch-instances
+   ```
+
+2. **Monitor Reserved Instance Utilization:**
+   Regularly check the utilization of your Reserved Instances to ensure they are being used effectively. You can use CloudWatch metrics for this purpose.
+
+   ```sh
+   aws cloudwatch get-metric-statistics --namespace AWS/ES --metric-name ReservedInstanceUtilization --start-time <start-time> --end-time <end-time> --period 3600 --statistics Average
+   ```
+
+3. **Set Up Budget Alerts:**
+   Create budget alerts to notify you when spending on Reserved Instances exceeds a certain threshold. This helps in keeping track of unexpected purchases.
+
+   ```sh
+   aws budgets create-budget --account-id <account-id> --budget '{"BudgetName": "ElasticsearchReservedInstanceBudget", "BudgetLimit": {"Amount": "1000", "Unit": "USD"}, "TimeUnit": "MONTHLY", "BudgetType": "COST"}' --notifications-with-subscribers '[{"Notification": {"NotificationType": "ACTUAL", "ComparisonOperator": "GREATER_THAN", "Threshold": 80, "ThresholdType": "PERCENTAGE", "NotificationState": "ALARM"}, "Subscribers": [{"SubscriptionType": "EMAIL", "Address": "your-email@example.com"}]}]'
+   ```
+
+4. **Tagging Reserved Instances:**
+   Implement a tagging strategy for your Reserved Instances to easily identify and manage them. This can help in reviewing and auditing recent purchases.
+
+   ```sh
+   aws es add-tags --arn <reserved-instance-arn> --tag-list Key=Environment,Value=Production Key=Owner,Value=TeamA
+   ```
+
+By following these steps, you can effectively prevent misconfigurations related to Elasticsearch Reserved Instance recent purchases using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch Reserved Instance recent purchases from being misconfigured, you can use Python scripts to automate the review and management of these instances. Below are the steps to achieve this:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, you need to install and set up Boto3, the AWS SDK for Python, to interact with AWS services.
+
+```bash
+pip install boto3
+```
+
+### 2. **Authenticate and Initialize Boto3 Client**
+Create a Python script to authenticate and initialize the Boto3 client for Elasticsearch.
+
+```python
+import boto3
+
+# Initialize a session using Amazon Elasticsearch
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+es_client = session.client('es')
+```
+
+### 3. **Fetch and Review Reserved Instances**
+Write a function to fetch and review the recent purchases of Elasticsearch Reserved Instances.
+
+```python
+def list_reserved_instances():
+    response = es_client.describe_reserved_elasticsearch_instances()
+    reserved_instances = response.get('ReservedElasticsearchInstances', [])
+    
+    for instance in reserved_instances:
+        print(f"Reserved Instance ID: {instance['ReservedElasticsearchInstanceId']}")
+        print(f"Instance Type: {instance['ElasticsearchInstanceType']}")
+        print(f"Start Time: {instance['StartTime']}")
+        print(f"Duration: {instance['Duration']} seconds")
+        print(f"State: {instance['State']}")
+        print(f"Fixed Price: {instance['FixedPrice']}")
+        print(f"Usage Price: {instance['UsagePrice']}")
+        print(f"Instance Count: {instance['InstanceCount']}")
+        print("------")
+
+list_reserved_instances()
+```
+
+### 4. **Automate Alerts for Recent Purchases**
+Create a function to send alerts if there are any recent purchases that need to be reviewed. You can use AWS SNS (Simple Notification Service) for sending alerts.
+
+```python
+import datetime
+
+def send_alert(message):
+    sns_client = session.client('sns')
+    sns_client.publish(
+        TopicArn='YOUR_SNS_TOPIC_ARN',
+        Message=message,
+        Subject='Elasticsearch Reserved Instance Purchase Alert'
+    )
+
+def check_recent_purchases():
+    response = es_client.describe_reserved_elasticsearch_instances()
+    reserved_instances = response.get('ReservedElasticsearchInstances', [])
+    
+    for instance in reserved_instances:
+        purchase_time = instance['StartTime']
+        current_time = datetime.datetime.now(purchase_time.tzinfo)
+        time_diff = current_time - purchase_time
+        
+        # Check if the purchase was made within the last 7 days
+        if time_diff.days <= 7:
+            message = (f"Recent Reserved Instance Purchase Detected:\n"
+                       f"Reserved Instance ID: {instance['ReservedElasticsearchInstanceId']}\n"
+                       f"Instance Type: {instance['ElasticsearchInstanceType']}\n"
+                       f"Start Time: {instance['StartTime']}\n"
+                       f"Duration: {instance['Duration']} seconds\n"
+                       f"State: {instance['State']}\n"
+                       f"Fixed Price: {instance['FixedPrice']}\n"
+                       f"Usage Price: {instance['UsagePrice']}\n"
+                       f"Instance Count: {instance['InstanceCount']}")
+            send_alert(message)
+
+check_recent_purchases()
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Authenticate and Initialize Boto3 Client**: Initialize the Elasticsearch client.
+3. **Fetch and Review Reserved Instances**: Write a function to list and review reserved instances.
+4. **Automate Alerts for Recent Purchases**: Create a function to check for recent purchases and send alerts using AWS SNS.
+
+By following these steps, you can automate the review process for Elasticsearch Reserved Instances and ensure that any recent purchases are promptly reviewed to prevent misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
