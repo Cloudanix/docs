@@ -2,6 +2,211 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of having too many KMS (Key Management Service) admins in AWS, you can follow these steps using the AWS Management Console:
+
+1. **Review Existing Key Policies:**
+   - Navigate to the AWS Management Console.
+   - Go to the KMS service by searching for "KMS" in the search bar.
+   - Select the key you want to review.
+   - Click on the "Key Policy" tab to view the current key policy.
+   - Ensure that the policy is not overly permissive and does not grant administrative privileges to too many users or roles.
+
+2. **Limit Administrative Access:**
+   - Edit the key policy to restrict administrative access.
+   - Click on the "Edit" button in the Key Policy tab.
+   - Remove any unnecessary users, roles, or groups that have administrative permissions.
+   - Ensure that only a minimal number of trusted administrators have the `kms:PutKeyPolicy` and `kms:UpdateKeyDescription` permissions.
+
+3. **Use IAM Policies for Additional Control:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Review the IAM policies attached to users, groups, and roles that have access to KMS.
+   - Ensure that IAM policies do not grant broad administrative permissions to KMS keys.
+   - Use least privilege principles to limit permissions to only what is necessary.
+
+4. **Enable CloudTrail for Monitoring:**
+   - Navigate to the CloudTrail service in the AWS Management Console.
+   - Ensure that CloudTrail is enabled to log all KMS API calls.
+   - Regularly review CloudTrail logs to monitor any changes to key policies and identify any unauthorized access or modifications.
+
+By following these steps, you can ensure that the number of KMS admins is limited and that key policies are designed with the principle of least privilege in mind.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of having too many KMS (Key Management Service) admins in AWS, you can follow these steps using the AWS CLI:
+
+1. **List Current Key Policies:**
+   First, identify the current key policies associated with your KMS keys to understand who has administrative permissions.
+   ```sh
+   aws kms list-keys
+   aws kms get-key-policy --key-id <key-id> --policy-name default
+   ```
+
+2. **Create a New Key Policy:**
+   Design a new key policy that limits the number of KMS admins. Save this policy in a JSON file (e.g., `new-key-policy.json`). Ensure that only the necessary IAM users or roles are included as admins.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Id": "key-default-1",
+     "Statement": [
+       {
+         "Sid": "Allow administration of the key",
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": [
+             "arn:aws:iam::123456789012:user/AdminUser1",
+             "arn:aws:iam::123456789012:role/AdminRole1"
+           ]
+         },
+         "Action": [
+           "kms:Create*",
+           "kms:Describe*",
+           "kms:Enable*",
+           "kms:List*",
+           "kms:Put*",
+           "kms:Update*",
+           "kms:Revoke*",
+           "kms:Disable*",
+           "kms:Get*",
+           "kms:Delete*",
+           "kms:TagResource",
+           "kms:UntagResource",
+           "kms:ScheduleKeyDeletion",
+           "kms:CancelKeyDeletion"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+3. **Apply the New Key Policy:**
+   Use the AWS CLI to apply the new key policy to your KMS key.
+   ```sh
+   aws kms put-key-policy --key-id <key-id> --policy-name default --policy file://new-key-policy.json
+   ```
+
+4. **Verify the New Key Policy:**
+   Confirm that the new key policy has been applied correctly by retrieving and reviewing the key policy.
+   ```sh
+   aws kms get-key-policy --key-id <key-id> --policy-name default
+   ```
+
+By following these steps, you can ensure that the number of KMS admins is limited to only those who absolutely need administrative access, thereby reducing the risk of misconfigurations and enhancing the security of your KMS keys.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of having too many KMS (Key Management Service) admins in AWS, you can use Python scripts to manage and limit the number of KMS admins. Below are the steps to achieve this:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Define the KMS Key Policy
+Create a JSON policy that limits the number of KMS admins. This policy should be designed to grant administrative permissions to a minimal set of users or roles.
+
+```python
+import json
+
+key_policy = {
+    "Version": "2012-10-17",
+    "Id": "key-default-1",
+    "Statement": [
+        {
+            "Sid": "Enable IAM User Permissions",
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::ACCOUNT_ID:root"},
+            "Action": "kms:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "Limit KMS Admins",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::ACCOUNT_ID:user/AdminUser1",
+                    "arn:aws:iam::ACCOUNT_ID:role/AdminRole1"
+                ]
+            },
+            "Action": [
+                "kms:Create*",
+                "kms:Describe*",
+                "kms:Enable*",
+                "kms:List*",
+                "kms:Put*",
+                "kms:Update*",
+                "kms:Revoke*",
+                "kms:Disable*",
+                "kms:Get*",
+                "kms:Delete*",
+                "kms:TagResource",
+                "kms:UntagResource",
+                "kms:ScheduleKeyDeletion",
+                "kms:CancelKeyDeletion"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### Step 3: Apply the Key Policy to a KMS Key
+Use Boto3 to apply this policy to a specific KMS key. Replace `ACCOUNT_ID` and `KEY_ID` with your actual AWS account ID and KMS key ID.
+
+```python
+import boto3
+
+# Initialize a session using Amazon KMS
+kms_client = boto3.client('kms')
+
+# Replace with your actual KMS key ID
+key_id = 'YOUR_KMS_KEY_ID'
+
+# Convert the policy to a JSON string
+key_policy_json = json.dumps(key_policy)
+
+# Apply the key policy
+response = kms_client.put_key_policy(
+    KeyId=key_id,
+    PolicyName='default',
+    Policy=key_policy_json
+)
+
+print(response)
+```
+
+### Step 4: Verify the Key Policy
+After applying the policy, you should verify that it has been correctly applied and that only the specified users or roles have administrative permissions.
+
+```python
+# Retrieve the key policy to verify
+response = kms_client.get_key_policy(
+    KeyId=key_id,
+    PolicyName='default'
+)
+
+# Print the key policy
+print(response['Policy'])
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Ensure Boto3 is installed.
+2. **Define the KMS Key Policy**: Create a JSON policy that limits the number of KMS admins.
+3. **Apply the Key Policy to a KMS Key**: Use Boto3 to apply the policy to a specific KMS key.
+4. **Verify the Key Policy**: Retrieve and verify the key policy to ensure it has been correctly applied.
+
+By following these steps, you can effectively limit the number of KMS admins and prevent misconfigurations using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

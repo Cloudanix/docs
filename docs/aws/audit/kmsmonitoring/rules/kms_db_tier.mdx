@@ -24,6 +24,232 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Database-tier KMS Key Should Be In Use" in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to KMS (Key Management Service):**
+   - Open the AWS Management Console.
+   - In the search bar, type "KMS" and select "Key Management Service" from the results.
+
+2. **Create or Select a KMS Key:**
+   - If you don't have a KMS key, click on "Create a key" and follow the prompts to create a new key.
+   - If you already have a KMS key, select the appropriate key from the list.
+
+3. **Configure Key Policies:**
+   - Ensure that the key policies are correctly configured to allow the necessary IAM roles and users to use the key for database encryption.
+   - Click on the key, go to the "Key Policy" tab, and review or edit the policy as needed.
+
+4. **Enable Encryption for Database Services:**
+   - Navigate to the specific database service you are using (e.g., RDS, DynamoDB).
+   - For RDS, go to the "Databases" section, select your database instance, and choose "Modify."
+   - In the "Encryption" section, select the KMS key you created or identified earlier.
+   - Save the changes and apply them to ensure the database is encrypted using the specified KMS key.
+
+By following these steps, you can ensure that your database-tier is properly encrypted using a KMS key, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not using a KMS key for your database-tier in AWS, you can follow these steps using the AWS CLI:
+
+1. **Create a KMS Key:**
+   First, create a KMS key that will be used to encrypt your database. This key will be used to ensure that your database-tier is properly encrypted.
+
+   ```sh
+   aws kms create-key --description "Database-tier KMS Key" --key-usage ENCRYPT_DECRYPT --origin AWS_KMS
+   ```
+
+2. **Create an Alias for the KMS Key:**
+   Create an alias for easier reference to your KMS key.
+
+   ```sh
+   aws kms create-alias --alias-name alias/database-tier-key --target-key-id <KMS_KEY_ID>
+   ```
+
+   Replace `<KMS_KEY_ID>` with the actual Key ID returned from the previous command.
+
+3. **Enable Encryption on RDS Instance:**
+   When creating a new RDS instance, specify the KMS key to be used for encryption.
+
+   ```sh
+   aws rds create-db-instance \
+       --db-instance-identifier mydbinstance \
+       --allocated-storage 20 \
+       --db-instance-class db.t2.micro \
+       --engine mysql \
+       --master-username admin \
+       --master-user-password password \
+       --kms-key-id <KMS_KEY_ID>
+   ```
+
+   Replace `<KMS_KEY_ID>` with the actual Key ID or alias (e.g., `alias/database-tier-key`).
+
+4. **Modify Existing RDS Instance to Use KMS Key:**
+   If you have an existing RDS instance, modify it to use the KMS key for encryption.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier mydbinstance \
+       --storage-encrypted \
+       --kms-key-id <KMS_KEY_ID> \
+       --apply-immediately
+   ```
+
+   Replace `<KMS_KEY_ID>` with the actual Key ID or alias (e.g., `alias/database-tier-key`).
+
+By following these steps, you ensure that your database-tier is properly encrypted using a KMS key, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that a Database-tier KMS (Key Management Service) key is in use, you can use Python scripts to automate the creation and assignment of KMS keys to your database resources. Below are the steps to prevent the misconfiguration using Python scripts for AWS, Azure, and GCP.
+
+### AWS
+
+1. **Install AWS SDK for Python (Boto3)**
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a KMS Key**
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+
+   response = kms_client.create_key(
+       Description='Key for encrypting database-tier resources',
+       KeyUsage='ENCRYPT_DECRYPT',
+       Origin='AWS_KMS'
+   )
+
+   key_id = response['KeyMetadata']['KeyId']
+   print(f'Created KMS Key with ID: {key_id}')
+   ```
+
+3. **Assign KMS Key to RDS Instance**
+   ```python
+   rds_client = boto3.client('rds')
+
+   response = rds_client.modify_db_instance(
+       DBInstanceIdentifier='your-db-instance-identifier',
+       KmsKeyId=key_id,
+       ApplyImmediately=True
+   )
+
+   print(f'Assigned KMS Key to RDS Instance: {response}')
+   ```
+
+### Azure
+
+1. **Install Azure SDK for Python**
+   ```bash
+   pip install azure-mgmt-keyvault azure-mgmt-sql
+   ```
+
+2. **Create a Key Vault and Key**
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.keyvault import KeyVaultManagementClient
+   from azure.mgmt.keyvault.models import VaultCreateOrUpdateParameters, Sku, SkuName, KeyAttributes
+
+   credential = DefaultAzureCredential()
+   subscription_id = 'your-subscription-id'
+   resource_group_name = 'your-resource-group'
+   vault_name = 'your-key-vault-name'
+
+   kv_client = KeyVaultManagementClient(credential, subscription_id)
+
+   vault_params = VaultCreateOrUpdateParameters(
+       location='your-location',
+       properties={
+           'sku': Sku(name=SkuName.standard),
+           'tenant_id': 'your-tenant-id',
+           'access_policies': []
+       }
+   )
+
+   vault = kv_client.vaults.begin_create_or_update(resource_group_name, vault_name, vault_params).result()
+   print(f'Created Key Vault: {vault.name}')
+
+   key_client = kv_client.keys
+   key = key_client.create_key(vault_name, 'your-key-name', 'RSA', key_attributes=KeyAttributes(enabled=True))
+   print(f'Created Key: {key.name}')
+   ```
+
+3. **Assign Key to SQL Database**
+   ```python
+   from azure.mgmt.sql import SqlManagementClient
+
+   sql_client = SqlManagementClient(credential, subscription_id)
+
+   response = sql_client.databases.begin_create_or_update(
+       resource_group_name,
+       'your-sql-server-name',
+       'your-database-name',
+       {
+           'location': 'your-location',
+           'properties': {
+               'encryption': {
+                   'status': 'Enabled',
+                   'key_vault_uri': vault.properties.vault_uri,
+                   'key_name': key.name
+               }
+           }
+       }
+   ).result()
+
+   print(f'Assigned Key to SQL Database: {response.name}')
+   ```
+
+### GCP
+
+1. **Install Google Cloud SDK**
+   ```bash
+   pip install google-cloud-kms google-cloud-sql
+   ```
+
+2. **Create a KMS Key**
+   ```python
+   from google.cloud import kms
+
+   client = kms.KeyManagementServiceClient()
+   parent = client.location_path('your-project-id', 'your-location')
+
+   key_ring = client.create_key_ring(parent, 'your-key-ring-id', {})
+   print(f'Created Key Ring: {key_ring.name}')
+
+   key = client.create_crypto_key(
+       key_ring.name,
+       'your-key-id',
+       {
+           'purpose': kms.enums.CryptoKey.CryptoKeyPurpose.ENCRYPT_DECRYPT
+       }
+   )
+   print(f'Created KMS Key: {key.name}')
+   ```
+
+3. **Assign KMS Key to Cloud SQL Instance**
+   ```python
+   from google.cloud import sql_v1
+
+   client = sql_v1.SqlAdminServiceClient()
+   instance = client.get_instance('your-project-id', 'your-instance-id')
+
+   instance.settings.data_disk_kms_key_name = key.name
+
+   response = client.update_instance(instance)
+   print(f'Assigned KMS Key to Cloud SQL Instance: {response.name}')
+   ```
+
+By following these steps, you can ensure that your database-tier resources are using KMS keys for encryption, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

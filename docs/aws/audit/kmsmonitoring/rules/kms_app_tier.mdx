@@ -24,6 +24,138 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "App-tier KMS Key Should Be In Use" in AWS Key Management Service (KMS) using the AWS Management Console, follow these steps:
+
+1. **Navigate to KMS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "KMS" and select "Key Management Service" from the results.
+
+2. **Create a New KMS Key:**
+   - In the KMS dashboard, click on "Create a key."
+   - Follow the wizard to create a new symmetric or asymmetric key, depending on your requirements.
+   - Ensure you provide a meaningful alias and description for the key.
+
+3. **Configure Key Policies:**
+   - During the key creation process, configure the key policies to grant appropriate permissions to the necessary IAM users, roles, or services.
+   - Ensure that the key policies are restrictive and follow the principle of least privilege.
+
+4. **Update App-tier Resources to Use KMS Key:**
+   - Identify the app-tier resources (e.g., RDS, S3, EBS) that should use the KMS key for encryption.
+   - Update the configuration of these resources to use the newly created KMS key for encryption.
+   - For example, for an S3 bucket, go to the bucket properties, enable default encryption, and select the KMS key you created.
+
+By following these steps, you can ensure that your app-tier resources are using KMS keys for encryption, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not using a KMS key for the App-tier in AWS, you can follow these steps using the AWS CLI:
+
+1. **Create a KMS Key:**
+   First, create a new KMS key if you don't already have one. This key will be used to encrypt your App-tier resources.
+   ```sh
+   aws kms create-key --description "App-tier KMS Key" --key-usage ENCRYPT_DECRYPT --origin AWS_KMS
+   ```
+
+2. **Create an Alias for the KMS Key:**
+   Create an alias for easier reference to your KMS key.
+   ```sh
+   aws kms create-alias --alias-name alias/app-tier-key --target-key-id <your-key-id>
+   ```
+
+3. **Encrypt App-tier Resources:**
+   Ensure that your App-tier resources (e.g., EBS volumes, S3 buckets, RDS instances) are encrypted using the KMS key. For example, to encrypt an EBS volume:
+   ```sh
+   aws ec2 create-volume --size 10 --region us-west-2 --availability-zone us-west-2a --volume-type gp2 --encrypted --kms-key-id alias/app-tier-key
+   ```
+
+4. **Update Existing Resources:**
+   If you have existing resources that need to be encrypted, you will need to create snapshots and then create new encrypted resources from those snapshots. For example, to encrypt an existing EBS volume:
+   ```sh
+   # Create a snapshot of the existing volume
+   aws ec2 create-snapshot --volume-id <your-volume-id> --description "Snapshot of unencrypted volume"
+
+   # Create a new encrypted volume from the snapshot
+   aws ec2 copy-snapshot --source-region us-west-2 --source-snapshot-id <your-snapshot-id> --encrypted --kms-key-id alias/app-tier-key
+   ```
+
+By following these steps, you can ensure that your App-tier resources are properly encrypted using a KMS key, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not using a KMS key for your app-tier in AWS, you can use the AWS SDK for Python (Boto3) to ensure that your resources are encrypted with a KMS key. Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create or Use an Existing KMS Key**:
+   You can create a new KMS key or use an existing one. Here is a script to create a new KMS key:
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+
+   response = kms_client.create_key(
+       Description='App-tier KMS key',
+       KeyUsage='ENCRYPT_DECRYPT',
+       Origin='AWS_KMS'
+   )
+
+   key_id = response['KeyMetadata']['KeyId']
+   print(f'Created KMS Key with ID: {key_id}')
+   ```
+
+3. **Encrypt App-tier Resources**:
+   Ensure that your app-tier resources (e.g., S3 buckets, EBS volumes, RDS instances) are encrypted using the KMS key. Here is an example for encrypting an S3 bucket:
+   ```python
+   s3_client = boto3.client('s3')
+
+   bucket_name = 'your-app-tier-bucket'
+   kms_key_id = 'your-kms-key-id'
+
+   s3_client.put_bucket_encryption(
+       Bucket=bucket_name,
+       ServerSideEncryptionConfiguration={
+           'Rules': [
+               {
+                   'ApplyServerSideEncryptionByDefault': {
+                       'SSEAlgorithm': 'aws:kms',
+                       'KMSMasterKeyID': kms_key_id
+                   }
+               }
+           ]
+       }
+   )
+
+   print(f'Enabled KMS encryption for bucket: {bucket_name}')
+   ```
+
+4. **Verify Encryption**:
+   Verify that the resources are encrypted using the specified KMS key. Here is an example for verifying the encryption of an S3 bucket:
+   ```python
+   response = s3_client.get_bucket_encryption(Bucket=bucket_name)
+   rules = response['ServerSideEncryptionConfiguration']['Rules']
+
+   for rule in rules:
+       if rule['ApplyServerSideEncryptionByDefault']['SSEAlgorithm'] == 'aws:kms':
+           print(f'Bucket {bucket_name} is encrypted with KMS Key ID: {rule["ApplyServerSideEncryptionByDefault"]["KMSMasterKeyID"]}')
+       else:
+           print(f'Bucket {bucket_name} is not encrypted with KMS')
+   ```
+
+By following these steps, you can ensure that your app-tier resources are properly encrypted using a KMS key, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
