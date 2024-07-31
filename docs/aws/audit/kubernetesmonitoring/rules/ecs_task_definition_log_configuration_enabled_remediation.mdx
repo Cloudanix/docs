@@ -1,6 +1,248 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Task Definition Log Configuration issues in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Navigate to ECS Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "ECS" and select "Elastic Container Service" from the results.
+
+2. **Create or Update Task Definition:**
+   - In the ECS dashboard, click on "Task Definitions" in the left-hand menu.
+   - To create a new task definition, click on the "Create new Task Definition" button. To update an existing one, select the task definition you want to modify and click on the "Create new revision" button.
+
+3. **Configure Log Options:**
+   - In the task definition configuration page, scroll down to the "Container Definitions" section.
+   - Click on "Add container" or select an existing container to edit.
+   - In the container configuration, scroll down to the "Storage and Logging" section.
+   - Under "Log configuration," select the desired log driver (e.g., awslogs) and configure the necessary options such as log group, region, and stream prefix.
+
+4. **Review and Save:**
+   - After configuring the log options, review the rest of the task definition settings.
+   - Click on the "Create" or "Update" button to save the task definition with the log configuration enabled.
+
+By following these steps, you ensure that your ECS task definitions have proper log configurations, which helps in monitoring and troubleshooting your Kubernetes workloads.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS Task Definition Log Configuration issues in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Log Group in CloudWatch:**
+   Ensure you have a CloudWatch log group where your ECS tasks can send their logs.
+
+   ```sh
+   aws logs create-log-group --log-group-name my-log-group
+   ```
+
+2. **Define Log Configuration in Task Definition:**
+   When creating or updating your ECS task definition, specify the log configuration. This includes the log driver and options such as the log group name and region.
+
+   ```sh
+   aws ecs register-task-definition \
+     --family my-task-family \
+     --container-definitions '[
+       {
+         "name": "my-container",
+         "image": "my-image",
+         "logConfiguration": {
+           "logDriver": "awslogs",
+           "options": {
+             "awslogs-group": "my-log-group",
+             "awslogs-region": "us-west-2",
+             "awslogs-stream-prefix": "my-app"
+           }
+         }
+       }
+     ]'
+   ```
+
+3. **Update Existing Task Definitions:**
+   If you have existing task definitions, update them to include the log configuration.
+
+   ```sh
+   aws ecs update-service \
+     --cluster my-cluster \
+     --service my-service \
+     --taskDefinition my-task-family
+   ```
+
+4. **Verify Log Configuration:**
+   Ensure that the log configuration is correctly applied by describing the task definition.
+
+   ```sh
+   aws ecs describe-task-definition --task-definition my-task-family
+   ```
+
+By following these steps, you can ensure that your ECS task definitions have the appropriate log configurations enabled, thereby preventing misconfigurations related to logging.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of ECS Task Definition Log Configuration not being enabled in Kubernetes using Python scripts, you can follow these steps:
+
+1. **Install Required Libraries**:
+   Ensure you have the necessary Python libraries installed. You will need `boto3` for AWS interactions and `kubernetes` for Kubernetes interactions.
+
+   ```bash
+   pip install boto3 kubernetes
+   ```
+
+2. **Set Up AWS and Kubernetes Clients**:
+   Initialize the AWS ECS client and Kubernetes client in your Python script.
+
+   ```python
+   import boto3
+   from kubernetes import client, config
+
+   # Initialize AWS ECS client
+   ecs_client = boto3.client('ecs')
+
+   # Initialize Kubernetes client
+   config.load_kube_config()
+   k8s_client = client.CoreV1Api()
+   ```
+
+3. **Define Function to Check and Enable Log Configuration**:
+   Create a function to check if the log configuration is enabled for ECS Task Definitions and enable it if not.
+
+   ```python
+   def ensure_log_configuration(task_definition):
+       # Describe the task definition
+       response = ecs_client.describe_task_definition(taskDefinition=task_definition)
+       container_definitions = response['taskDefinition']['containerDefinitions']
+
+       for container in container_definitions:
+           if 'logConfiguration' not in container:
+               # Add log configuration if not present
+               container['logConfiguration'] = {
+                   'logDriver': 'awslogs',
+                   'options': {
+                       'awslogs-group': '/ecs/' + task_definition,
+                       'awslogs-region': 'us-west-2',  # Change to your region
+                       'awslogs-stream-prefix': 'ecs'
+                   }
+               }
+
+       # Register the new task definition with log configuration
+       ecs_client.register_task_definition(
+           family=response['taskDefinition']['family'],
+           containerDefinitions=container_definitions,
+           executionRoleArn=response['taskDefinition']['executionRoleArn'],
+           taskRoleArn=response['taskDefinition']['taskRoleArn'],
+           networkMode=response['taskDefinition']['networkMode'],
+           volumes=response['taskDefinition']['volumes'],
+           placementConstraints=response['taskDefinition']['placementConstraints'],
+           requiresCompatibilities=response['taskDefinition']['requiresCompatibilities'],
+           cpu=response['taskDefinition']['cpu'],
+           memory=response['taskDefinition']['memory']
+       )
+   ```
+
+4. **Apply the Function to Your Task Definitions**:
+   Iterate over your ECS Task Definitions and apply the function to ensure log configuration is enabled.
+
+   ```python
+   def main():
+       # List all task definitions
+       task_definitions = ecs_client.list_task_definitions()['taskDefinitionArns']
+
+       for task_definition in task_definitions:
+           ensure_log_configuration(task_definition)
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+This script will ensure that all ECS Task Definitions have log configurations enabled by checking each task definition and updating it if necessary. Adjust the log configuration options as needed for your specific use case.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the "Task Definitions" option from the left-hand side menu. This will display a list of all the task definitions that are currently available in your AWS account.
+
+3. Select the task definition that you want to check. This will open a new page with detailed information about the selected task definition.
+
+4. In the task definition details page, look for the "Container Definitions" section. Here, check if the "Log Configuration" option is enabled. If it is enabled, you will see the log driver (like awslogs, json-file, etc.) and other related configurations. If it is not enabled, then the ECS Task Definition Log Configuration is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS task definitions using the following command:
+
+   ```
+   aws ecs list-task-definitions --region your-region-name
+   ```
+
+   Replace "your-region-name" with the name of your AWS region. This command will return a list of ARNs of all task definitions.
+
+3. Now, for each task definition ARN, you can describe the task definition to get its details. Use the following command:
+
+   ```
+   aws ecs describe-task-definition --task-definition task-definition-arn --region your-region-name
+   ```
+
+   Replace "task-definition-arn" with the ARN of the task definition you want to check. This command will return a JSON object containing all the details of the task definition.
+
+4. Finally, you can check the "logConfiguration" field in the returned JSON object. If this field is not present or if it is not set to "awslogs", then the ECS Task Definition Log Configuration is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if the ECS Task Definition Log Configuration is enabled in Kubernetes using Python scripts, you can follow these steps:
+
+1. **Install Boto3:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. **Set up AWS Credentials:**
+   Before you can start using Boto3, you need to set up authentication credentials. You can do this by creating a new IAM user in your AWS console, then set your credentials in the AWS credentials file, which is located by default at `~/.aws/credentials`. At a minimum, the credentials file should look something like this:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. **Use Boto3 to interact with AWS services:**
+   You can use Boto3 to create, configure, and manage AWS services. For example, you can use it to check if the ECS Task Definition Log Configuration is enabled in Kubernetes. Here is a sample Python script:
+   ```python
+   import boto3
+
+   # Create a low-level service client
+   client = boto3.client('ecs')
+
+   # Call ECS to list current task definitions
+   response = client.list_task_definitions()
+
+   # For each task definition, check if log configuration is enabled
+   for task_definition in response['taskDefinitionArns']:
+       task_def_detail = client.describe_task_definition(
+           taskDefinition=task_definition
+       )
+       container_definitions = task_def_detail['taskDefinition']['containerDefinitions']
+       for container in container_definitions:
+           if 'logConfiguration' not in container:
+               print(f"Log Configuration is not enabled for task definition: {task_definition}")
+   ```
+   
+4. **Interpret the Results:**
+   The script will print out the ARNs of the task definitions where the log configuration is not enabled. If no output is returned, it means that all task definitions have log configuration enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

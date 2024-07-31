@@ -24,6 +24,232 @@ HITRUST, CISEKS, SOC2, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Kubernetes endpoints from being publicly accessible in AWS using the AWS Management Console, follow these steps:
+
+1. **Configure Security Groups:**
+   - Navigate to the **EC2 Dashboard**.
+   - Select **Security Groups** from the left-hand menu.
+   - Identify the security group associated with your Kubernetes nodes and control plane.
+   - Edit the inbound rules to restrict access. Remove any rules that allow public access (e.g., rules with a source of `0.0.0.0/0` or `::/0`).
+   - Add specific IP ranges or CIDR blocks that are allowed to access the Kubernetes endpoints.
+
+2. **Set Up Private Subnets:**
+   - Go to the **VPC Dashboard**.
+   - Select **Subnets** from the left-hand menu.
+   - Ensure that your Kubernetes nodes and control plane are deployed in private subnets. Private subnets do not have a route to an Internet Gateway.
+   - If necessary, create new private subnets and update your Kubernetes cluster configuration to use these subnets.
+
+3. **Configure Network ACLs:**
+   - In the **VPC Dashboard**, select **Network ACLs** from the left-hand menu.
+   - Identify the Network ACL associated with the subnets where your Kubernetes cluster is deployed.
+   - Edit the inbound and outbound rules to restrict access. Ensure that rules do not allow public access (e.g., rules with a source or destination of `0.0.0.0/0` or `::/0`).
+   - Add specific IP ranges or CIDR blocks that are allowed to access the Kubernetes endpoints.
+
+4. **Use AWS PrivateLink:**
+   - Navigate to the **VPC Dashboard**.
+   - Select **Endpoints** from the left-hand menu.
+   - Create a new VPC endpoint for your Kubernetes API server using AWS PrivateLink.
+   - Ensure that the endpoint is associated with the appropriate VPC and subnets.
+   - Update your Kubernetes cluster configuration to use the VPC endpoint for API server communication, ensuring that traffic does not traverse the public internet.
+
+By following these steps, you can ensure that your Kubernetes endpoints are not publicly accessible, thereby enhancing the security of your cluster.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Kubernetes endpoints from being publicly accessible in AWS using the AWS CLI, you can follow these steps:
+
+1. **Create a Private VPC:**
+   Ensure your Kubernetes cluster is deployed within a private VPC. This will prevent the endpoints from being publicly accessible.
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+2. **Create Subnets:**
+   Create private subnets within the VPC for your Kubernetes nodes.
+
+   ```sh
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.2.0/24
+   ```
+
+3. **Configure Security Groups:**
+   Set up security groups to restrict access to the Kubernetes API server. Only allow access from trusted IP addresses or internal networks.
+
+   ```sh
+   aws ec2 create-security-group --group-name k8s-sg --description "Kubernetes security group" --vpc-id <vpc-id>
+   aws ec2 authorize-security-group-ingress --group-id <sg-id> --protocol tcp --port 6443 --cidr <trusted-ip-range>
+   ```
+
+4. **Update EKS Cluster Endpoint Access:**
+   Modify the EKS cluster endpoint access to be private.
+
+   ```sh
+   aws eks update-cluster-config --name <cluster-name> --resources-vpc-config endpointPublicAccess=false,endpointPrivateAccess=true
+   ```
+
+By following these steps, you can ensure that your Kubernetes endpoints are not publicly accessible, thereby enhancing the security of your cluster.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Kubernetes endpoints from being publicly accessible using Python scripts, you can follow these steps:
+
+### 1. **Set Up Kubernetes Client in Python**
+First, you need to install the Kubernetes client library for Python and set up the client to interact with your Kubernetes cluster.
+
+```bash
+pip install kubernetes
+```
+
+```python
+from kubernetes import client, config
+
+# Load kube config from default location
+config.load_kube_config()
+v1 = client.CoreV1Api()
+```
+
+### 2. **Restrict Service Type to ClusterIP**
+Ensure that services are created with the `ClusterIP` type, which is only accessible within the cluster.
+
+```python
+def create_cluster_ip_service(namespace, service_name, labels, port):
+    service = client.V1Service(
+        metadata=client.V1ObjectMeta(name=service_name, labels=labels),
+        spec=client.V1ServiceSpec(
+            type="ClusterIP",
+            ports=[client.V1ServicePort(port=port, target_port=port)],
+            selector=labels
+        )
+    )
+    v1.create_namespaced_service(namespace=namespace, body=service)
+
+# Example usage
+create_cluster_ip_service("default", "my-service", {"app": "my-app"}, 80)
+```
+
+### 3. **Update Existing Services to ClusterIP**
+If there are existing services that are of type `LoadBalancer` or `NodePort`, update them to `ClusterIP`.
+
+```python
+def update_service_to_cluster_ip(namespace, service_name):
+    service = v1.read_namespaced_service(name=service_name, namespace=namespace)
+    service.spec.type = "ClusterIP"
+    v1.patch_namespaced_service(name=service_name, namespace=namespace, body=service)
+
+# Example usage
+update_service_to_cluster_ip("default", "my-service")
+```
+
+### 4. **Ensure Network Policies are in Place**
+Create network policies to restrict traffic to and from your services.
+
+```python
+def create_network_policy(namespace, policy_name, pod_selector, ingress_rules):
+    policy = client.V1NetworkPolicy(
+        metadata=client.V1ObjectMeta(name=policy_name),
+        spec=client.V1NetworkPolicySpec(
+            pod_selector=client.V1LabelSelector(match_labels=pod_selector),
+            ingress=ingress_rules
+        )
+    )
+    v1.create_namespaced_network_policy(namespace=namespace, body=policy)
+
+# Example usage
+ingress_rule = client.V1NetworkPolicyIngressRule(
+    from_=[
+        client.V1NetworkPolicyPeer(
+            pod_selector=client.V1LabelSelector(match_labels={"app": "my-app"})
+        )
+    ]
+)
+create_network_policy("default", "restrict-access", {"app": "my-app"}, [ingress_rule])
+```
+
+By following these steps, you can ensure that your Kubernetes endpoints are not publicly accessible, thereby enhancing the security of your cluster.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon EKS service.
+2. In the left navigation pane, select "Clusters" to view all the existing Kubernetes clusters.
+3. Click on the name of the cluster you want to inspect. This will open the cluster details page.
+4. In the cluster details page, under the "Networking" section, check the "Endpoint Public Access" setting. If it is enabled, it means the Kubernetes API server endpoint is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all the Kubernetes clusters: Use the following command to list all the Kubernetes clusters in your AWS account:
+
+   ```
+   aws eks list-clusters
+   ```
+   This command will return a list of all the EKS clusters in your account.
+
+3. Describe the Kubernetes cluster: For each cluster, use the following command to get detailed information about the cluster:
+
+   ```
+   aws eks describe-cluster --name <cluster-name>
+   ```
+   Replace `<cluster-name>` with the name of your cluster. This command will return a JSON object with detailed information about the cluster.
+
+4. Check the endpoint accessibility: In the output of the previous command, look for the `endpointPublicAccess` field. If this field is set to `true`, then the Kubernetes API server endpoint is publicly accessible. If it's set to `false`, then the endpoint is not publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: You will need the Kubernetes Python client to interact with the Kubernetes API. You can install it using pip:
+
+```python
+pip install kubernetes
+```
+
+2. Connect to the Kubernetes API: Use the `config.load_kube_config()` function from the Kubernetes client to connect to the API. This will use your kubeconfig file to establish a connection.
+
+```python
+from kubernetes import client, config
+
+config.load_kube_config()
+v1 = client.CoreV1Api()
+```
+
+3. Get a list of all services: Use the `list_service_for_all_namespaces()` function to get a list of all services in all namespaces.
+
+```python
+services = v1.list_service_for_all_namespaces().items
+```
+
+4. Check each service for public endpoints: For each service, check the `spec.type` field. If it is set to `LoadBalancer`, the service is publicly accessible. You can print out the name and namespace of any such services.
+
+```python
+for svc in services:
+    if svc.spec.type == 'LoadBalancer':
+        print(f"Publicly accessible service: {svc.metadata.name} in namespace {svc.metadata.namespace}")
+```
+
+This script will print out the names and namespaces of all services that are publicly accessible. You can then take appropriate action to secure these services.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,233 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Tasks from running as the root user in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Create a Pod Security Policy (PSP):**
+   - Navigate to the **Amazon EKS** service in the AWS Management Console.
+   - Select your EKS cluster.
+   - Go to the **Configuration** tab and then select **Add-ons**.
+   - Install the **Pod Security Policy** add-on if it is not already installed.
+   - Create a new Pod Security Policy that disallows running containers as the root user. Ensure the `runAsUser` field is set to a non-root user ID.
+
+2. **Apply the Pod Security Policy:**
+   - Go to the **IAM** section in the AWS Management Console.
+   - Create or update an IAM role for your EKS cluster to include permissions to use the Pod Security Policy.
+   - Attach the Pod Security Policy to your EKS cluster by editing the cluster configuration and specifying the policy in the `podSecurityPolicy` section.
+
+3. **Update Kubernetes Role-Based Access Control (RBAC):**
+   - Navigate to the **Amazon EKS** service and select your cluster.
+   - Go to the **Configuration** tab and then select **Networking**.
+   - Update the RBAC settings to ensure that only authorized users and service accounts can create or modify pods. Bind the Pod Security Policy to the appropriate roles and service accounts.
+
+4. **Review and Update Existing Deployments:**
+   - Go to the **Workloads** section in the AWS Management Console.
+   - Review existing deployments, stateful sets, and daemon sets to ensure they do not specify `runAsUser: 0` in their security context.
+   - Update any existing configurations to specify a non-root user ID in the `runAsUser` field.
+
+By following these steps, you can ensure that ECS tasks in your Kubernetes cluster do not run as the root user, thereby enhancing the security of your environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS tasks from running as the root user in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Role for ECS Tasks:**
+   Ensure that your ECS tasks have an appropriate IAM role that does not require root privileges. This role should have the least privilege necessary to perform its tasks.
+
+   ```sh
+   aws iam create-role --role-name ECS_Task_Role --assume-role-policy-document file://ecs-trust-policy.json
+   ```
+
+2. **Define a Task Definition with Non-Root User:**
+   When creating or updating your ECS task definition, specify a non-root user in the container definition. This can be done by setting the `user` parameter in the container definition.
+
+   ```sh
+   aws ecs register-task-definition \
+       --family my-task-family \
+       --container-definitions '[{
+           "name": "my-container",
+           "image": "my-image",
+           "memory": 512,
+           "cpu": 256,
+           "user": "1000"  # Non-root user ID
+       }]'
+   ```
+
+3. **Update ECS Service to Use the New Task Definition:**
+   Update your ECS service to use the new task definition that specifies a non-root user.
+
+   ```sh
+   aws ecs update-service --cluster my-cluster --service my-service --task-definition my-task-family
+   ```
+
+4. **Set Up IAM Policies to Enforce Non-Root Execution:**
+   Create and attach IAM policies to ensure that ECS tasks cannot be run as the root user. This can be done by defining a policy that denies the use of the root user and attaching it to the ECS task role.
+
+   ```sh
+   aws iam put-role-policy --role-name ECS_Task_Role --policy-name DenyRootUserPolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "ecs:RunTask",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "ecs:User": "0"  # Root user ID
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that your ECS tasks are not running as the root user, thereby enhancing the security of your Kubernetes environment on AWS.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS Tasks from running as the root user in Kubernetes using Python scripts, you can follow these steps:
+
+1. **Set Up Kubernetes Client in Python:**
+   First, you need to set up the Kubernetes client in Python. This will allow you to interact with your Kubernetes cluster programmatically.
+
+   ```python
+   from kubernetes import client, config
+
+   # Load kube config
+   config.load_kube_config()
+   ```
+
+2. **Define a Function to Check and Update Security Context:**
+   Create a function that will check the security context of the containers in your pod specifications and update them to ensure they do not run as the root user.
+
+   ```python
+   def ensure_non_root_user(pod_spec):
+       for container in pod_spec.containers:
+           if container.security_context is None:
+               container.security_context = client.V1SecurityContext()
+           container.security_context.run_as_non_root = True
+           container.security_context.run_as_user = 1000  # Non-root user ID
+   ```
+
+3. **Iterate Over Pods and Apply the Security Context:**
+   Write a function to iterate over all the pods in a namespace and apply the security context to each container.
+
+   ```python
+   def update_pods_security_context(namespace='default'):
+       v1 = client.CoreV1Api()
+       pods = v1.list_namespaced_pod(namespace)
+       for pod in pods.items:
+           ensure_non_root_user(pod.spec)
+           v1.replace_namespaced_pod(pod.metadata.name, namespace, pod)
+   ```
+
+4. **Run the Script:**
+   Finally, run the script to apply the changes to your Kubernetes cluster.
+
+   ```python
+   if __name__ == "__main__":
+       update_pods_security_context('your-namespace')
+   ```
+
+This script ensures that all containers in the specified namespace are configured to run as a non-root user, thereby preventing ECS tasks from running as the root user.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes services are running.
+
+3. Select the service you want to inspect and click on the "Task Definitions" tab.
+
+4. In the Task Definitions section, select the task definition associated with your service. In the task definition details, check the "User" field under the "Container Definitions" section. If the user is set to "root", then the ECS task is running as root.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS access key ID, secret access key, default region name, and default output format.
+
+2. List the ECS tasks: Use the following command to list all the ECS tasks in a specific cluster.
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your cluster. This command will return a list of task ARNs.
+
+3. Describe the tasks: For each task ARN returned by the previous command, use the following command to get more information about the task.
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object containing detailed information about the task.
+
+4. Check the user: In the JSON object returned by the previous command, look for the `user` field under `containerDefinitions`. If the value of this field is `root`, then the task is running as the root user.
+
+   ```
+   "containerDefinitions": [
+       {
+           ...
+           "user": "root",
+           ...
+       }
+   ]
+   ```
+
+   If you see `root` as the user, then the ECS task is misconfigured and is running as the root user.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: You will need the boto3 library to interact with AWS services, and the kubernetes library to interact with Kubernetes. You can install these libraries using pip:
+
+```python
+pip install boto3
+pip install kubernetes
+```
+
+2. Connect to the AWS ECS service: Use the boto3 library to create a client for the ECS service. You will need to provide your AWS credentials (access key, secret access key, and region) to do this:
+
+```python
+import boto3
+
+aws_access_key_id = 'YOUR_ACCESS_KEY'
+aws_secret_access_key = 'YOUR_SECRET_KEY'
+region_name = 'YOUR_REGION'
+
+ecs_client = boto3.client('ecs', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key, region_name=region_name)
+```
+
+3. List all the ECS tasks: Use the list_tasks method of the ECS client to get a list of all the tasks in your ECS cluster:
+
+```python
+cluster = 'YOUR_CLUSTER_NAME'
+tasks = ecs_client.list_tasks(cluster=cluster)
+```
+
+4. Check the user of each task: For each task in the list, use the describe_tasks method to get detailed information about the task, and check the 'user' field of the task definition. If the user is 'root', then the task is misconfigured:
+
+```python
+for task in tasks['taskArns']:
+    task_info = ecs_client.describe_tasks(cluster=cluster, tasks=[task])
+    for task in task_info['tasks']:
+        task_def = ecs_client.describe_task_definition(taskDefinition=task['taskDefinitionArn'])
+        if 'user' in task_def['taskDefinition']['containerDefinitions'][0] and task_def['taskDefinition']['containerDefinitions'][0]['user'] == 'root':
+            print(f"Task {task['taskArn']} is running as root")
+```
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
