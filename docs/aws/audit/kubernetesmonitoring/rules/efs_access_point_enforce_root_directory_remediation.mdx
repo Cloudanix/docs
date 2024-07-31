@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where an EFS (Elastic File System) Access Point should enforce a root directory in Kubernetes using the AWS Console, follow these steps:
+
+1. **Navigate to the EFS Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "EFS" and select "Amazon EFS" from the dropdown.
+
+2. **Create or Modify an Access Point:**
+   - If you are creating a new Access Point, click on "Create access point."
+   - If you are modifying an existing Access Point, select the desired Access Point from the list and click on "Edit."
+
+3. **Set the Root Directory:**
+   - In the "Root directory" section, specify the root directory path that you want to enforce. This ensures that the Access Point enforces a specific root directory for all access.
+
+4. **Configure Permissions:**
+   - Ensure that the "POSIX user" and "Root directory creation permissions" are set correctly to enforce the desired access controls. This includes setting the correct user ID, group ID, and permissions for the root directory.
+
+By following these steps, you can ensure that the EFS Access Point enforces a root directory, thereby preventing misconfigurations in your Kubernetes environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of an EFS Access Point not enforcing the root directory in Kubernetes using AWS CLI, follow these steps:
+
+1. **Create an EFS File System:**
+   Ensure you have an EFS file system created. If not, create one using the following command:
+   ```sh
+   aws efs create-file-system --creation-token <unique-token>
+   ```
+
+2. **Create an EFS Access Point with Root Directory Enforcement:**
+   When creating an EFS Access Point, specify the root directory and enforce its permissions. Use the following command:
+   ```sh
+   aws efs create-access-point \
+       --file-system-id <file-system-id> \
+       --posix-user Uid=1000,Gid=1000 \
+       --root-directory "Path=/,CreationInfo={OwnerUid=1000,OwnerGid=1000,Permissions=755}"
+   ```
+
+3. **Update Kubernetes Manifest to Use EFS Access Point:**
+   Ensure your Kubernetes PersistentVolume (PV) and PersistentVolumeClaim (PVC) configurations reference the EFS Access Point. Here is an example of how to define it in your Kubernetes manifest:
+   ```yaml
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+     name: efs-pv
+   spec:
+     capacity:
+       storage: 5Gi
+     volumeMode: Filesystem
+     accessModes:
+       - ReadWriteMany
+     persistentVolumeReclaimPolicy: Retain
+     storageClassName: efs-sc
+     csi:
+       driver: efs.csi.aws.com
+       volumeHandle: <file-system-id>::<access-point-id>
+   ```
+
+4. **Apply the Kubernetes Manifest:**
+   Apply the Kubernetes manifest to create the PV and PVC using the following command:
+   ```sh
+   kubectl apply -f <path-to-your-manifest>.yaml
+   ```
+
+By following these steps, you ensure that the EFS Access Point enforces the root directory permissions, thereby preventing misconfigurations in your Kubernetes environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of EFS Access Points not enforcing the root directory in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Install Required Libraries**
+First, ensure you have the necessary libraries installed. You will need `boto3` for AWS interactions and `kubernetes` for Kubernetes interactions.
+
+```bash
+pip install boto3 kubernetes
+```
+
+### 2. **Set Up AWS and Kubernetes Clients**
+Initialize the AWS and Kubernetes clients in your Python script.
+
+```python
+import boto3
+from kubernetes import client, config
+
+# Initialize AWS EFS client
+efs_client = boto3.client('efs')
+
+# Initialize Kubernetes client
+config.load_kube_config()
+k8s_client = client.CoreV1Api()
+```
+
+### 3. **Check EFS Access Points Configuration**
+Create a function to check if the EFS Access Points enforce the root directory.
+
+```python
+def check_efs_access_points(efs_client, file_system_id):
+    response = efs_client.describe_access_points(FileSystemId=file_system_id)
+    for access_point in response['AccessPoints']:
+        if access_point['RootDirectory']['Path'] != '/':
+            print(f"Access Point {access_point['AccessPointId']} does not enforce root directory.")
+            return False
+    return True
+```
+
+### 4. **Enforce Root Directory in Kubernetes Persistent Volume**
+Create a function to ensure that the Persistent Volume (PV) in Kubernetes is configured to use the root directory of the EFS.
+
+```python
+def enforce_root_directory_in_pv(k8s_client, pv_name):
+    pv = k8s_client.read_persistent_volume(name=pv_name)
+    if 'efs' in pv.spec.csi.driver:
+        if pv.spec.csi.volume_attributes.get('path') != '/':
+            print(f"Persistent Volume {pv_name} is not using the root directory.")
+            # Update the PV to use the root directory
+            pv.spec.csi.volume_attributes['path'] = '/'
+            k8s_client.replace_persistent_volume(name=pv_name, body=pv)
+            print(f"Persistent Volume {pv_name} updated to use the root directory.")
+        else:
+            print(f"Persistent Volume {pv_name} is already using the root directory.")
+    else:
+        print(f"Persistent Volume {pv_name} is not using EFS.")
+```
+
+### Example Usage
+Combine the above functions to check and enforce the root directory for EFS Access Points and Kubernetes PVs.
+
+```python
+file_system_id = 'your-efs-file-system-id'
+pv_name = 'your-persistent-volume-name'
+
+# Check EFS Access Points
+if check_efs_access_points(efs_client, file_system_id):
+    print("All EFS Access Points enforce the root directory.")
+else:
+    print("Some EFS Access Points do not enforce the root directory.")
+
+# Enforce root directory in Kubernetes PV
+enforce_root_directory_in_pv(k8s_client, pv_name)
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure `boto3` and `kubernetes` libraries are installed.
+2. **Set Up AWS and Kubernetes Clients**: Initialize the clients for AWS and Kubernetes.
+3. **Check EFS Access Points Configuration**: Create a function to check if EFS Access Points enforce the root directory.
+4. **Enforce Root Directory in Kubernetes Persistent Volume**: Create a function to ensure the PV in Kubernetes uses the root directory of the EFS.
+
+By following these steps, you can prevent the misconfiguration of EFS Access Points not enforcing the root directory in Kubernetes using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

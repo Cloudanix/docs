@@ -2,6 +2,185 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Tasks from being configured to run as non-privileged in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Navigate to ECS Cluster:**
+   - Open the AWS Management Console.
+   - Go to the ECS service by searching for "ECS" in the search bar.
+   - Select the ECS cluster where your tasks are running.
+
+2. **Edit Task Definition:**
+   - In the ECS cluster, go to the "Task Definitions" tab.
+   - Select the task definition you want to modify.
+   - Click on the "Create new revision" button to edit the task definition.
+
+3. **Configure Container Definitions:**
+   - In the task definition, scroll down to the "Container Definitions" section.
+   - Select the container you want to configure.
+   - Scroll down to the "Security" section within the container configuration.
+
+4. **Set Non-Privileged Mode:**
+   - Ensure that the "Privileged" checkbox is unchecked. This ensures that the container does not run in privileged mode.
+   - Save the changes and create the new revision of the task definition.
+
+By following these steps, you can ensure that your ECS tasks are configured to run as non-privileged, enhancing the security of your Kubernetes environment on AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS tasks from running as privileged in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Kubernetes Pod Security Policy (PSP):**
+   Ensure that you have a Pod Security Policy that restricts the use of privileged containers. This policy will prevent any pod from running with elevated privileges.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: policy/v1beta1
+   kind: PodSecurityPolicy
+   metadata:
+     name: restricted-psp
+   spec:
+     privileged: false
+     allowPrivilegeEscalation: false
+     runAsUser:
+       rule: 'MustRunAsNonRoot'
+     seLinux:
+       rule: 'RunAsAny'
+     supplementalGroups:
+       rule: 'MustRunAs'
+       ranges:
+       - min: 1
+         max: 65535
+     fsGroup:
+       rule: 'MustRunAs'
+       ranges:
+       - min: 1
+         max: 65535
+   EOF
+   ```
+
+2. **Create a ClusterRole for the PSP:**
+   Create a ClusterRole that grants access to use the Pod Security Policy.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRole
+   metadata:
+     name: psp-user
+   rules:
+   - apiGroups: ['policy']
+     resources: ['podsecuritypolicies']
+     verbs: ['use']
+     resourceNames: ['restricted-psp']
+   EOF
+   ```
+
+3. **Bind the ClusterRole to a ServiceAccount:**
+   Bind the ClusterRole to a ServiceAccount that your ECS tasks will use. This ensures that the tasks adhere to the Pod Security Policy.
+
+   ```sh
+   kubectl create serviceaccount ecs-task-sa
+   kubectl create clusterrolebinding ecs-task-psp-binding --clusterrole=psp-user --serviceaccount=default:ecs-task-sa
+   ```
+
+4. **Configure ECS Task Definition to Use the ServiceAccount:**
+   When defining your ECS task, ensure that it uses the ServiceAccount created in the previous step. This can be done by specifying the `serviceAccountName` in your pod spec.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: ecs-task-pod
+   spec:
+     serviceAccountName: ecs-task-sa
+     containers:
+     - name: ecs-task-container
+       image: your-ecs-task-image
+       securityContext:
+         runAsUser: 1000
+         runAsNonRoot: true
+         allowPrivilegeEscalation: false
+   EOF
+   ```
+
+By following these steps, you ensure that your ECS tasks are configured to run as non-privileged in Kubernetes using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS tasks from running as privileged in Kubernetes using Python scripts, you can use the Kubernetes Python client library to ensure that the security context of your pods and containers is set correctly. Below are the steps to achieve this:
+
+1. **Install Kubernetes Python Client:**
+   First, you need to install the Kubernetes Python client library if you haven't already.
+
+   ```bash
+   pip install kubernetes
+   ```
+
+2. **Load Kubernetes Configuration:**
+   Load the Kubernetes configuration to interact with the cluster. This can be done using the `config` module from the Kubernetes client.
+
+   ```python
+   from kubernetes import client, config
+
+   # Load the kubeconfig file
+   config.load_kube_config()
+   ```
+
+3. **Define the Security Context:**
+   Create a security context that ensures the container is not running as privileged.
+
+   ```python
+   security_context = client.V1SecurityContext(
+       privileged=False
+   )
+   ```
+
+4. **Create or Update Pod Specification:**
+   Apply the security context to your pod or container specification. Here is an example of how to create a pod with the non-privileged security context.
+
+   ```python
+   # Define the container with the security context
+   container = client.V1Container(
+       name="my-container",
+       image="my-image",
+       security_context=security_context
+   )
+
+   # Define the pod spec
+   pod_spec = client.V1PodSpec(
+       containers=[container]
+   )
+
+   # Define the pod metadata
+   metadata = client.V1ObjectMeta(
+       name="my-pod"
+   )
+
+   # Define the pod
+   pod = client.V1Pod(
+       api_version="v1",
+       kind="Pod",
+       metadata=metadata,
+       spec=pod_spec
+   )
+
+   # Create the pod in the specified namespace
+   api_instance = client.CoreV1Api()
+   namespace = "default"
+   api_instance.create_namespaced_pod(namespace=namespace, body=pod)
+   ```
+
+By following these steps, you can ensure that your ECS tasks in Kubernetes are configured to run as non-privileged using Python scripts. This approach helps in preventing potential security risks associated with running containers in privileged mode.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

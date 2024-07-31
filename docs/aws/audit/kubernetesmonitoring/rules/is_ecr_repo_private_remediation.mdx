@@ -2,6 +2,153 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECR (Elastic Container Registry) repositories from being public in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Navigate to ECR:**
+   - Open the AWS Management Console.
+   - In the search bar, type "ECR" and select "Elastic Container Registry" from the dropdown.
+
+2. **Create or Select Repository:**
+   - If you need to create a new repository, click on "Create repository."
+   - If you are modifying an existing repository, select the repository from the list.
+
+3. **Set Repository Permissions:**
+   - For a new repository, during the creation process, ensure that the "Private" option is selected under "Repository settings."
+   - For an existing repository, go to the "Permissions" tab and ensure that the repository policy does not grant public access. You can edit the policy to restrict access to specific IAM roles or users.
+
+4. **Review and Confirm:**
+   - Double-check the repository settings to ensure that the repository is marked as private.
+   - Save any changes and confirm that the repository is not publicly accessible.
+
+By following these steps, you can ensure that your ECR repositories remain private and are not exposed to the public.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Amazon Elastic Container Registry (ECR) repositories are private in Kubernetes using AWS CLI, follow these steps:
+
+1. **Create a Private ECR Repository:**
+   Ensure that when you create an ECR repository, it is set to private by default. Use the following command to create a private repository:
+   ```sh
+   aws ecr create-repository --repository-name <your-repo-name> --region <your-region>
+   ```
+
+2. **Set Repository Policy to Restrict Public Access:**
+   Apply a repository policy that restricts public access. This ensures that only specified IAM users or roles can access the repository. Use the following command to set the repository policy:
+   ```sh
+   aws ecr set-repository-policy --repository-name <your-repo-name> --policy-text '{
+     "Version": "2008-10-17",
+     "Statement": [
+       {
+         "Sid": "AllowSpecificAccount",
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::<account-id>:root"
+         },
+         "Action": [
+           "ecr:GetDownloadUrlForLayer",
+           "ecr:BatchGetImage",
+           "ecr:BatchCheckLayerAvailability"
+         ]
+       }
+     ]
+   }'
+   ```
+
+3. **Verify Repository Settings:**
+   Confirm that the repository is private and the policy is correctly applied. Use the following command to describe the repository:
+   ```sh
+   aws ecr describe-repositories --repository-names <your-repo-name> --region <your-region>
+   ```
+
+4. **Monitor and Audit Repository Access:**
+   Regularly monitor and audit access to your ECR repositories to ensure they remain private. Use AWS CloudTrail to log and monitor API calls made to ECR. Enable CloudTrail with the following command:
+   ```sh
+   aws cloudtrail create-trail --name <trail-name> --s3-bucket-name <s3-bucket-name> --is-multi-region-trail
+   aws cloudtrail start-logging --name <trail-name>
+   ```
+
+By following these steps, you can ensure that your ECR repositories remain private and secure in your Kubernetes environment using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECR (Elastic Container Registry) repositories from being public in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Check and Set ECR Repository Policies**
+You can create a Python script that checks the repository policy and ensures it is private. Below is an example script:
+
+```python
+import boto3
+import json
+
+# Initialize a session using Amazon ECR
+ecr_client = boto3.client('ecr')
+
+def ensure_private_repository(repository_name):
+    try:
+        # Get the repository policy
+        response = ecr_client.get_repository_policy(repositoryName=repository_name)
+        policy_text = response['policyText']
+        policy = json.loads(policy_text)
+
+        # Check if the repository is public
+        is_public = any(
+            statement['Effect'] == 'Allow' and
+            statement['Principal'] == '*' and
+            'ecr:GetDownloadUrlForLayer' in statement['Action']
+            for statement in policy['Statement']
+        )
+
+        if is_public:
+            print(f"Repository {repository_name} is public. Making it private.")
+            # Remove public access
+            policy['Statement'] = [
+                statement for statement in policy['Statement']
+                if not (
+                    statement['Effect'] == 'Allow' and
+                    statement['Principal'] == '*' and
+                    'ecr:GetDownloadUrlForLayer' in statement['Action']
+                )
+            ]
+            # Set the updated policy
+            ecr_client.set_repository_policy(
+                repositoryName=repository_name,
+                policyText=json.dumps(policy)
+            )
+            print(f"Repository {repository_name} is now private.")
+        else:
+            print(f"Repository {repository_name} is already private.")
+    except ecr_client.exceptions.RepositoryPolicyNotFoundException:
+        print(f"No policy found for repository {repository_name}. It is private by default.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+ensure_private_repository('your-repository-name')
+```
+
+### 3. **Automate the Script Execution**
+You can automate the execution of this script using a cron job or a Kubernetes CronJob to periodically check and ensure that your ECR repositories remain private.
+
+### 4. **Integrate with CI/CD Pipeline**
+Integrate this script into your CI/CD pipeline to ensure that every time a new repository is created or updated, it is checked and set to private if necessary. This can be done by adding a step in your pipeline configuration file (e.g., Jenkinsfile, GitHub Actions workflow, etc.) to run the script.
+
+By following these steps, you can ensure that your ECR repositories remain private and secure, preventing unauthorized access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

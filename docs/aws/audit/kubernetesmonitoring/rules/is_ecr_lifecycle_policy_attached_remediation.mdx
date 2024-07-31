@@ -2,6 +2,197 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECR (Elastic Container Registry) Image Repositories from lacking a lifecycle policy in Kubernetes using the AWS Console, follow these steps:
+
+1. **Navigate to the ECR Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "ECR" and select "Elastic Container Registry" from the dropdown.
+
+2. **Select the Repository:**
+   - In the ECR dashboard, you will see a list of your repositories.
+   - Click on the repository for which you want to attach a lifecycle policy.
+
+3. **Access Lifecycle Policies:**
+   - In the repository details page, find and click on the "Lifecycle policies" tab.
+
+4. **Create and Attach a Lifecycle Policy:**
+   - Click on the "Create lifecycle policy" button.
+   - Define the rules for your lifecycle policy (e.g., specify the number of images to retain, the age of images to delete, etc.).
+   - Save the policy to attach it to the repository.
+
+By following these steps, you ensure that your ECR repositories have lifecycle policies attached, which helps in managing the lifecycle of images and preventing unnecessary storage costs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of ECR (Elastic Container Registry) image repositories not having a lifecycle policy attached in Kubernetes using AWS CLI, follow these steps:
+
+1. **Create a Lifecycle Policy JSON File:**
+   First, create a JSON file that defines the lifecycle policy for your ECR repository. For example, create a file named `lifecycle-policy.json` with the following content:
+   ```json
+   {
+     "rules": [
+       {
+         "rulePriority": 1,
+         "description": "Expire images older than 30 days",
+         "selection": {
+           "tagStatus": "any",
+           "countType": "sinceImagePushed",
+           "countUnit": "days",
+           "countNumber": 30
+         },
+         "action": {
+           "type": "expire"
+         }
+       }
+     ]
+   }
+   ```
+
+2. **Create an ECR Repository:**
+   Use the AWS CLI to create an ECR repository if you don't already have one. Replace `my-repo` with your desired repository name.
+   ```sh
+   aws ecr create-repository --repository-name my-repo
+   ```
+
+3. **Attach the Lifecycle Policy to the ECR Repository:**
+   Use the AWS CLI to attach the lifecycle policy to your ECR repository. Replace `my-repo` with your repository name and `lifecycle-policy.json` with the path to your JSON file.
+   ```sh
+   aws ecr put-lifecycle-policy --repository-name my-repo --lifecycle-policy-text file://lifecycle-policy.json
+   ```
+
+4. **Verify the Lifecycle Policy:**
+   Ensure that the lifecycle policy has been successfully attached by describing the lifecycle policy of the repository.
+   ```sh
+   aws ecr get-lifecycle-policy --repository-name my-repo
+   ```
+
+By following these steps, you can ensure that your ECR image repositories have a lifecycle policy attached, which helps in managing the lifecycle of images and preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECR (Elastic Container Registry) Image Repositories from not having a lifecycle policy attached in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Check and Attach Lifecycle Policies**
+
+Here's a Python script that checks if an ECR repository has a lifecycle policy attached and attaches one if it doesn't:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+# Initialize a session using Amazon ECR
+ecr_client = boto3.client('ecr')
+
+# Define the lifecycle policy
+lifecycle_policy = {
+    "rules": [
+        {
+            "rulePriority": 1,
+            "description": "Expire images older than 30 days",
+            "selection": {
+                "tagStatus": "any",
+                "countType": "sinceImagePushed",
+                "countUnit": "days",
+                "countNumber": 30
+            },
+            "action": {
+                "type": "expire"
+            }
+        }
+    ]
+}
+
+def ensure_lifecycle_policy(repository_name):
+    try:
+        # Check if the repository has a lifecycle policy
+        response = ecr_client.get_lifecycle_policy(repositoryName=repository_name)
+        print(f"Lifecycle policy already exists for repository: {repository_name}")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'LifecyclePolicyNotFoundException':
+            # Attach the lifecycle policy if it doesn't exist
+            print(f"Attaching lifecycle policy to repository: {repository_name}")
+            ecr_client.put_lifecycle_policy(
+                repositoryName=repository_name,
+                lifecyclePolicyText=json.dumps(lifecycle_policy)
+            )
+        else:
+            print(f"Unexpected error: {e}")
+
+# List all repositories and ensure they have a lifecycle policy
+def main():
+    try:
+        response = ecr_client.describe_repositories()
+        for repo in response['repositories']:
+            ensure_lifecycle_policy(repo['repositoryName'])
+    except ClientError as e:
+        print(f"Error listing repositories: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
+### 3. **Run the Script Regularly**
+To ensure that all ECR repositories always have a lifecycle policy attached, you can run this script regularly using a cron job or a scheduled task in your CI/CD pipeline.
+
+### 4. **Integrate with Kubernetes**
+To integrate this with your Kubernetes environment, you can create a Kubernetes CronJob that runs this script at regular intervals. Here’s an example Kubernetes CronJob manifest:
+
+```yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: ecr-lifecycle-policy-check
+spec:
+  schedule: "0 0 * * *"  # Runs daily at midnight
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: ecr-lifecycle-policy-check
+            image: amazonlinux:2
+            command: ["python", "/scripts/ecr_lifecycle_policy.py"]
+            volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+          restartPolicy: OnFailure
+          volumes:
+          - name: script-volume
+            configMap:
+              name: ecr-lifecycle-policy-script
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecr-lifecycle-policy-script
+data:
+  ecr_lifecycle_policy.py: |
+    # (Include the Python script content here)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**
+2. **Create a Python Script to Check and Attach Lifecycle Policies**
+3. **Run the Script Regularly**
+4. **Integrate with Kubernetes using a CronJob**
+
+By following these steps, you can ensure that all your ECR repositories have a lifecycle policy attached, preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

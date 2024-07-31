@@ -2,6 +2,240 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EFS (Elastic File System) Access Points User Identity from being misconfigured in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Create an EFS Access Point with IAM Authorization:**
+   - Navigate to the Amazon EFS console.
+   - Select the file system you want to use.
+   - Go to the "Access Points" tab and click "Create access point."
+   - In the "Access Point details" section, ensure that you enable "IAM authorization" by selecting the appropriate IAM role that will enforce user identity.
+
+2. **Configure IAM Policies:**
+   - Go to the IAM console.
+   - Create or update an IAM policy that grants the necessary permissions for the EFS access point.
+   - Attach this policy to the IAM roles that will be used by your Kubernetes pods.
+
+3. **Update Kubernetes Pod Specifications:**
+   - Ensure that your Kubernetes pod specifications include the correct IAM role annotations.
+   - Use the `eks.amazonaws.com/role-arn` annotation in your pod spec to specify the IAM role that has the necessary permissions to access the EFS access point.
+
+4. **Enable EFS CSI Driver:**
+   - Ensure that the EFS CSI (Container Storage Interface) driver is installed and configured in your EKS cluster.
+   - This driver allows Kubernetes to manage EFS volumes and enforces the IAM roles specified in the pod annotations.
+
+By following these steps, you can ensure that EFS Access Points User Identity is enforced in your Kubernetes environment using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EFS Access Points User Identity Should Be Enforced in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create an EFS Access Point with a Specific User Identity:**
+   Ensure that the EFS Access Point is created with a specific user identity (UID and GID) to enforce user identity. This can be done using the `create-access-point` command.
+
+   ```sh
+   aws efs create-access-point \
+       --file-system-id <file-system-id> \
+       --posix-user Uid=<uid>,Gid=<gid> \
+       --root-directory Path=<path>
+   ```
+
+2. **Update Kubernetes Pod Specification to Use the EFS Access Point:**
+   When defining your Kubernetes pod, ensure that the volume uses the EFS Access Point. This can be done by specifying the access point ID in the pod's volume specification.
+
+   ```yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: efs-app
+   spec:
+     containers:
+     - name: app
+       image: amazonlinux
+       volumeMounts:
+       - name: efs-volume
+         mountPath: /data
+     volumes:
+     - name: efs-volume
+       efs:
+         fileSystemId: <file-system-id>
+         accessPointId: <access-point-id>
+   ```
+
+3. **Set Up IAM Policies to Restrict Access:**
+   Ensure that the IAM roles associated with your Kubernetes nodes and pods have the necessary permissions to use the EFS Access Point. This can be done by attaching an IAM policy to the role.
+
+   ```sh
+   aws iam put-role-policy \
+       --role-name <role-name> \
+       --policy-name EFSAccessPolicy \
+       --policy-document '{
+           "Version": "2012-10-17",
+           "Statement": [
+               {
+                   "Effect": "Allow",
+                   "Action": [
+                       "elasticfilesystem:ClientMount",
+                       "elasticfilesystem:ClientWrite",
+                       "elasticfilesystem:ClientRootAccess"
+                   ],
+                   "Resource": "arn:aws:elasticfilesystem:<region>:<account-id>:access-point/<access-point-id>"
+               }
+           ]
+       }'
+   ```
+
+4. **Verify the Configuration:**
+   Verify that the EFS Access Point is correctly configured and that the Kubernetes pods are using it as intended. You can describe the access point and check its configuration.
+
+   ```sh
+   aws efs describe-access-points --access-point-id <access-point-id>
+   ```
+
+By following these steps, you can ensure that the EFS Access Points enforce user identity in your Kubernetes environment using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EFS (Elastic File System) Access Points User Identity misconfigurations in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Install Required Libraries**
+First, ensure you have the necessary libraries installed. You will need `boto3` for AWS interactions and `kubernetes` for Kubernetes interactions.
+
+```bash
+pip install boto3 kubernetes
+```
+
+### 2. **Set Up AWS and Kubernetes Clients**
+Initialize the AWS and Kubernetes clients in your Python script.
+
+```python
+import boto3
+from kubernetes import client, config
+
+# Initialize AWS client
+aws_client = boto3.client('efs')
+
+# Initialize Kubernetes client
+config.load_kube_config()
+k8s_client = client.CoreV1Api()
+```
+
+### 3. **Create EFS Access Point with Enforced User Identity**
+Create an EFS Access Point with enforced user identity settings.
+
+```python
+def create_efs_access_point(file_system_id, posix_user):
+    response = aws_client.create_access_point(
+        FileSystemId=file_system_id,
+        PosixUser=posix_user,
+        RootDirectory={
+            'Path': '/',
+            'CreationInfo': {
+                'OwnerUid': posix_user['Uid'],
+                'OwnerGid': posix_user['Gid'],
+                'Permissions': '755'
+            }
+        }
+    )
+    return response['AccessPointId']
+
+# Example usage
+file_system_id = 'fs-12345678'
+posix_user = {
+    'Uid': '1000',
+    'Gid': '1000',
+    'SecondaryGids': []
+}
+access_point_id = create_efs_access_point(file_system_id, posix_user)
+print(f"Created Access Point ID: {access_point_id}")
+```
+
+### 4. **Mount EFS Access Point in Kubernetes Pod**
+Ensure that the EFS Access Point is mounted in a Kubernetes Pod with the correct user identity.
+
+```python
+def create_pod_with_efs_mount(namespace, pod_name, access_point_id, file_system_id):
+    pod_manifest = {
+        'apiVersion': 'v1',
+        'kind': 'Pod',
+        'metadata': {'name': pod_name},
+        'spec': {
+            'containers': [{
+                'name': 'app',
+                'image': 'nginx',
+                'volumeMounts': [{
+                    'name': 'efs-volume',
+                    'mountPath': '/mnt/efs'
+                }]
+            }],
+            'volumes': [{
+                'name': 'efs-volume',
+                'persistentVolumeClaim': {
+                    'claimName': 'efs-pvc'
+                }
+            }]
+        }
+    }
+
+    # Create PersistentVolume
+    pv_manifest = {
+        'apiVersion': 'v1',
+        'kind': 'PersistentVolume',
+        'metadata': {'name': 'efs-pv'},
+        'spec': {
+            'capacity': {'storage': '5Gi'},
+            'volumeMode': 'Filesystem',
+            'accessModes': ['ReadWriteMany'],
+            'persistentVolumeReclaimPolicy': 'Retain',
+            'storageClassName': 'efs-sc',
+            'csi': {
+                'driver': 'efs.csi.aws.com',
+                'volumeHandle': f"{file_system_id}::${access_point_id}"
+            }
+        }
+    }
+
+    # Create PersistentVolumeClaim
+    pvc_manifest = {
+        'apiVersion': 'v1',
+        'kind': 'PersistentVolumeClaim',
+        'metadata': {'name': 'efs-pvc'},
+        'spec': {
+            'accessModes': ['ReadWriteMany'],
+            'storageClassName': 'efs-sc',
+            'resources': {
+                'requests': {
+                    'storage': '5Gi'
+                }
+            }
+        }
+    }
+
+    k8s_client.create_namespaced_persistent_volume(namespace, pv_manifest)
+    k8s_client.create_namespaced_persistent_volume_claim(namespace, pvc_manifest)
+    k8s_client.create_namespaced_pod(namespace, pod_manifest)
+
+# Example usage
+namespace = 'default'
+pod_name = 'efs-pod'
+create_pod_with_efs_mount(namespace, pod_name, access_point_id, file_system_id)
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure `boto3` and `kubernetes` libraries are installed.
+2. **Set Up AWS and Kubernetes Clients**: Initialize the clients for AWS and Kubernetes.
+3. **Create EFS Access Point with Enforced User Identity**: Use `boto3` to create an EFS Access Point with the specified POSIX user.
+4. **Mount EFS Access Point in Kubernetes Pod**: Create a Kubernetes Pod that mounts the EFS Access Point, ensuring the correct user identity is enforced.
+
+These steps will help you prevent misconfigurations related to EFS Access Points User Identity in Kubernetes using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
