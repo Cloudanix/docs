@@ -1,6 +1,194 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Lambda functions from being publicly accessible using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Lambda Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "Lambda" to go to the Lambda dashboard.
+
+2. **Select the Lambda Function:**
+   - In the Lambda dashboard, find and select the specific Lambda function you want to configure.
+
+3. **Review and Edit Function Permissions:**
+   - Go to the "Configuration" tab of the selected Lambda function.
+   - Under "Permissions," click on the "Execution role" link to view the IAM role associated with the Lambda function.
+   - Ensure that the IAM role does not have policies that allow public access. Specifically, check for policies that grant `lambda:InvokeFunction` permissions to `Principal: "*"` and remove or modify them as necessary.
+
+4. **Check and Configure Resource-Based Policies:**
+   - Still under the "Configuration" tab, navigate to the "Permissions" section.
+   - Click on "Resource-based policy" to review the policy attached to the Lambda function.
+   - Ensure that the policy does not allow public access by checking for statements that grant `lambda:InvokeFunction` permissions to `Principal: "*"` and remove or modify them as necessary.
+
+By following these steps, you can ensure that your Lambda functions are not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Lambda functions from being publicly accessible using the AWS CLI, you can follow these steps:
+
+1. **Create a VPC for Lambda Function:**
+   Ensure that your Lambda function is associated with a Virtual Private Cloud (VPC) to control its network access.
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+2. **Attach Security Groups:**
+   Attach a security group to your Lambda function that restricts inbound and outbound traffic. Ensure that the security group does not allow public access.
+
+   ```sh
+   aws ec2 create-security-group --group-name my-lambda-sg --description "Security group for Lambda function"
+   aws ec2 authorize-security-group-ingress --group-id sg-12345678 --protocol tcp --port 443 --cidr 10.0.0.0/16
+   ```
+
+3. **Update Lambda Function Configuration:**
+   Update the Lambda function configuration to use the VPC and security group created in the previous steps.
+
+   ```sh
+   aws lambda update-function-configuration --function-name my-function --vpc-config SubnetIds=subnet-12345678,SecurityGroupIds=sg-12345678
+   ```
+
+4. **Set Resource-Based Policies:**
+   Ensure that the Lambda function's resource-based policy does not allow public access. Remove any statements that grant permissions to the `Principal` `*`.
+
+   ```sh
+   aws lambda remove-permission --function-name my-function --statement-id PublicAccess
+   ```
+
+By following these steps, you can ensure that your AWS Lambda functions are not publicly accessible, thereby enhancing their security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Lambda functions from being publicly accessible using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) in Python:**
+   Ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Update Lambda Function Policy:**
+   Write a Python script that updates the resource-based policy of your Lambda function to restrict public access. Below is an example script:
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   # Initialize a session using Amazon Lambda
+   client = boto3.client('lambda')
+
+   # Function to update Lambda function policy
+   def restrict_lambda_access(function_name):
+       try:
+           # Get the current policy
+           response = client.get_policy(FunctionName=function_name)
+           policy = response['Policy']
+           
+           # Check if the policy allows public access
+           if '"Principal": "*"' in policy:
+               # Remove the public access statement
+               policy = policy.replace('"Principal": "*"', '"Principal": {"AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"}')
+               
+               # Update the policy
+               client.add_permission(
+                   FunctionName=function_name,
+                   StatementId='PublicAccess',
+                   Action='lambda:InvokeFunction',
+                   Principal='*',
+                   SourceArn='arn:aws:execute-api:YOUR_REGION:YOUR_ACCOUNT_ID:YOUR_API_ID/*/*/*'
+               )
+               print(f"Updated policy for {function_name} to restrict public access.")
+           else:
+               print(f"No public access found for {function_name}.")
+       except ClientError as e:
+           print(f"Error updating policy for {function_name}: {e}")
+
+   # Example usage
+   restrict_lambda_access('your_lambda_function_name')
+   ```
+
+3. **Run the Script:**
+   Execute the script to update the policy of your Lambda function. Ensure you replace placeholders like `YOUR_ACCOUNT_ID`, `YOUR_REGION`, `YOUR_API_ID`, and `your_lambda_function_name` with actual values.
+
+4. **Automate the Script Execution:**
+   To ensure continuous compliance, you can automate the execution of this script using AWS Lambda itself, AWS CloudWatch Events, or any other automation tool you prefer. This will help in regularly checking and updating the policies to prevent public access.
+
+By following these steps, you can programmatically ensure that your AWS Lambda functions are not publicly accessible, thereby enhancing the security of your serverless applications.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the AWS Lambda console.
+
+2. In the navigation pane, choose "Functions". This will display a list of all your Lambda functions.
+
+3. Select the function you want to check for public accessibility. 
+
+4. In the function's detail page, scroll down to the "Designer" section and click on "Amazon API Gateway" or "AWS API Gateway". If the API Gateway is attached, it means the function could be publicly accessible. Check the "Resource Policy" in the "Permissions" tab to see if the function allows access from any source ('Principal': '*'). If it does, then the function is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all your Lambda functions. You can do this by using the AWS CLI command:
+
+```bash
+aws lambda list-functions --region your-region
+```
+Replace "your-region" with your actual AWS region. This command will return a list of all your Lambda functions in the specified region.
+
+2. Once you have the list of Lambda functions, you can check the resource policy of each function. The resource policy controls who can invoke your function. You can retrieve the resource policy by using the following AWS CLI command:
+
+```bash
+aws lambda get-policy --function-name your-function-name --region your-region
+```
+Replace "your-function-name" with the name of your Lambda function and "your-region" with your actual AWS region. This command will return the resource policy of the specified Lambda function.
+
+3. After retrieving the resource policy, you need to check if the policy allows public access. If the "Principal" field in the policy is set to "*", this means the function is publicly accessible. 
+
+4. Repeat steps 2 and 3 for each Lambda function in your list. If any function's resource policy allows public access, then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a new client for AWS Lambda:
+
+```python
+import boto3
+lambda_client = boto3.client('lambda')
+```
+
+2. Retrieve a list of all your Lambda functions:
+
+```python
+response = lambda_client.list_functions()
+```
+
+3. Iterate over each function and check the policy attached to it. If the policy allows the 'lambda:InvokeFunction' action for the 'Principal' '*', then the function is publicly accessible:
+
+```python
+for function in response['Functions']:
+    policy = lambda_client.get_policy(FunctionName=function['FunctionName'])
+    if 'Statement' in policy['Policy']:
+        for statement in policy['Policy']['Statement']:
+            if statement['Action'] == 'lambda:InvokeFunction' and statement['Principal'] == '*':
+                print(f"Function {function['FunctionName']} is publicly accessible.")
+```
+
+4. If the script prints out any function names, those functions are publicly accessible and you have detected a misconfiguration. If the script does not print out any function names, then none of your Lambda functions are publicly accessible.
+
+Please note that this script only checks for public accessibility via the 'lambda:InvokeFunction' action. There may be other ways a function can be made publicly accessible, so this script should be part of a larger security review process.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
