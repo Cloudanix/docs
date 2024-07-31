@@ -2,6 +2,142 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Lambda functions from allowing cross-account access using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Lambda Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "Lambda" to go to the Lambda dashboard.
+
+2. **Select the Lambda Function:**
+   - In the Lambda dashboard, find and select the specific Lambda function you want to configure.
+
+3. **Review and Edit Resource-Based Policy:**
+   - In the Lambda function's configuration page, go to the "Permissions" tab.
+   - Under the "Resource-based policy" section, review the existing policy statements.
+   - Ensure that there are no policy statements that grant permissions to accounts other than your own. If there are, edit or remove those statements to restrict access.
+
+4. **Use IAM Roles for Cross-Account Access:**
+   - If cross-account access is necessary, use IAM roles with specific trust policies instead of directly granting permissions in the Lambda resource-based policy.
+   - Create an IAM role in the target account and specify the trusted entities (the AWS account or specific IAM roles) that can assume the role.
+   - Update the Lambda function to assume this IAM role when necessary, ensuring that the role has the least privilege required for the function to operate.
+
+By following these steps, you can ensure that your Lambda functions do not inadvertently allow cross-account access, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Lambda functions from allowing cross-account access using the AWS CLI, you can follow these steps:
+
+1. **Check Existing Lambda Function Policies:**
+   First, you need to list the existing resource-based policies attached to your Lambda function to identify any cross-account permissions.
+
+   ```sh
+   aws lambda get-policy --function-name <your-lambda-function-name>
+   ```
+
+2. **Remove Cross-Account Permissions:**
+   If you find any cross-account permissions, you should remove them. Use the `remove-permission` command to delete specific permissions.
+
+   ```sh
+   aws lambda remove-permission --function-name <your-lambda-function-name> --statement-id <statement-id>
+   ```
+
+3. **Update Lambda Function Policy:**
+   Ensure that the Lambda function policy only allows access from trusted accounts or roles. You can use the `add-permission` command to add specific permissions.
+
+   ```sh
+   aws lambda add-permission --function-name <your-lambda-function-name> --principal <trusted-account-id> --statement-id <statement-id> --action "lambda:InvokeFunction"
+   ```
+
+4. **Review and Validate Permissions:**
+   After making changes, review the updated policy to ensure that no unintended cross-account access is allowed.
+
+   ```sh
+   aws lambda get-policy --function-name <your-lambda-function-name>
+   ```
+
+By following these steps, you can prevent cross-account access to your Lambda functions using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Lambda functions from allowing cross-account access using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to manage Lambda functions.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to List Lambda Functions:**
+   Use Boto3 to list all Lambda functions in your account.
+
+   ```python
+   import boto3
+
+   def list_lambda_functions():
+       client = boto3.client('lambda')
+       response = client.list_functions()
+       return response['Functions']
+
+   functions = list_lambda_functions()
+   for function in functions:
+       print(function['FunctionName'])
+   ```
+
+3. **Check and Update Lambda Function Policies:**
+   Iterate through each Lambda function and check its resource-based policy for cross-account access. If found, remove or update the policy to restrict access.
+
+   ```python
+   def get_function_policy(function_name):
+       client = boto3.client('lambda')
+       try:
+           response = client.get_policy(FunctionName=function_name)
+           return response['Policy']
+       except client.exceptions.ResourceNotFoundException:
+           return None
+
+   def remove_cross_account_access(function_name):
+       client = boto3.client('lambda')
+       policy = get_function_policy(function_name)
+       if policy:
+           statements = json.loads(policy)['Statement']
+           for statement in statements:
+               if 'AWS' in statement['Principal'] and statement['Principal']['AWS'] != 'arn:aws:iam::YOUR_ACCOUNT_ID:root':
+                   client.remove_permission(FunctionName=function_name, StatementId=statement['Sid'])
+
+   for function in functions:
+       remove_cross_account_access(function['FunctionName'])
+   ```
+
+4. **Automate the Script Execution:**
+   Schedule the script to run periodically using a cron job or AWS Lambda itself to ensure continuous compliance.
+
+   ```python
+   import json
+   import boto3
+
+   def lambda_handler(event, context):
+       functions = list_lambda_functions()
+       for function in functions:
+           remove_cross_account_access(function['FunctionName'])
+
+   # If running as a standalone script
+   if __name__ == "__main__":
+       functions = list_lambda_functions()
+       for function in functions:
+           remove_cross_account_access(function['FunctionName'])
+   ```
+
+By following these steps, you can ensure that your Lambda functions do not allow cross-account access, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

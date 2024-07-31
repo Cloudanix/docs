@@ -2,6 +2,142 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Lambda functions from having an indefinite timeout in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Lambda Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Lambda" and select the Lambda service from the dropdown.
+
+2. **Select the Lambda Function:**
+   - In the Lambda dashboard, you will see a list of your Lambda functions.
+   - Click on the name of the Lambda function you want to configure.
+
+3. **Edit the Function Configuration:**
+   - In the function's configuration page, click on the "Configuration" tab.
+   - In the left-hand menu, select "General configuration."
+
+4. **Set the Timeout:**
+   - In the "General configuration" section, you will see a "Timeout" setting.
+   - Set the timeout to a value that is appropriate for your function's execution time (e.g., 30 seconds, 1 minute).
+   - Click the "Save" button to apply the changes.
+
+By following these steps, you ensure that your Lambda functions have a default timeout set, preventing them from running indefinitely.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of Lambda functions not having a default timeout set using AWS CLI, follow these steps:
+
+1. **Set a Default Timeout When Creating a Lambda Function:**
+   When you create a new Lambda function, specify the `--timeout` parameter to set a default timeout. For example, to set a timeout of 30 seconds:
+   ```sh
+   aws lambda create-function --function-name MyFunction \
+   --runtime python3.8 --role arn:aws:iam::123456789012:role/execution_role \
+   --handler lambda_function.lambda_handler --timeout 30 \
+   --zip-file fileb://function.zip
+   ```
+
+2. **Update Existing Lambda Function to Set Timeout:**
+   If you have an existing Lambda function, you can update its configuration to set a default timeout using the `update-function-configuration` command:
+   ```sh
+   aws lambda update-function-configuration --function-name MyFunction --timeout 30
+   ```
+
+3. **Automate Timeout Configuration with a Script:**
+   Create a script to ensure all Lambda functions have a default timeout set. This script can iterate over all Lambda functions and set a timeout if not already set. Here is a simple example in Bash:
+   ```sh
+   for function in $(aws lambda list-functions --query 'Functions[*].FunctionName' --output text); do
+       aws lambda update-function-configuration --function-name $function --timeout 30
+   done
+   ```
+
+4. **Enforce Timeout Policy Using AWS Config Rules:**
+   Use AWS Config to enforce a policy that ensures all Lambda functions have a timeout set. You can create a custom AWS Config rule or use a managed rule like `lambda-function-settings-check` to monitor and enforce this configuration. This step involves setting up AWS Config, which can be done via the AWS CLI:
+   ```sh
+   aws configservice put-config-rule --config-rule file://lambda-timeout-rule.json
+   ```
+   Here, `lambda-timeout-rule.json` should define the rule to check for Lambda function timeout settings.
+
+By following these steps, you can ensure that all your AWS Lambda functions have a default timeout set, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Lambda functions not having a default timeout set in AWS, you can use a Python script to ensure that all Lambda functions have a timeout value specified. Below are the steps to achieve this:
+
+1. **Install AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials:**
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI:
+   ```bash
+   aws configure
+   ```
+
+3. **Python Script to Check and Set Timeout:**
+   Write a Python script to iterate through all Lambda functions and set a default timeout if it is not already set.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon Lambda
+   session = boto3.Session()
+   lambda_client = session.client('lambda')
+
+   # Define the default timeout (in seconds)
+   DEFAULT_TIMEOUT = 60  # Example: 60 seconds
+
+   def set_default_timeout(function_name):
+       try:
+           # Get the current configuration of the Lambda function
+           response = lambda_client.get_function_configuration(FunctionName=function_name)
+           current_timeout = response.get('Timeout', None)
+
+           # Check if the timeout is not set or is set to 0
+           if current_timeout is None or current_timeout == 0:
+               print(f"Setting default timeout for function: {function_name}")
+               # Update the function configuration to set the default timeout
+               lambda_client.update_function_configuration(
+                   FunctionName=function_name,
+                   Timeout=DEFAULT_TIMEOUT
+               )
+           else:
+               print(f"Function {function_name} already has a timeout set: {current_timeout} seconds")
+       except Exception as e:
+           print(f"Error updating function {function_name}: {e}")
+
+   def main():
+       try:
+           # List all Lambda functions
+           paginator = lambda_client.get_paginator('list_functions')
+           for page in paginator.paginate():
+               for function in page['Functions']:
+                   function_name = function['FunctionName']
+                   set_default_timeout(function_name)
+       except Exception as e:
+           print(f"Error listing functions: {e}")
+
+   if __name__ == "__main__":
+       main()
+   ```
+
+4. **Run the Script:**
+   Execute the script to ensure all Lambda functions have a default timeout set.
+   ```bash
+   python set_lambda_timeout.py
+   ```
+
+This script will iterate through all your Lambda functions and set a default timeout if it is not already set. Adjust the `DEFAULT_TIMEOUT` variable as needed for your specific requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

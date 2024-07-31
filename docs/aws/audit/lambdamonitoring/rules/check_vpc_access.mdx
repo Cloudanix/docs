@@ -24,6 +24,180 @@ HIPAA, SOC2, NISTCSF, PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where an AWS Lambda function should have access to VPC-only resources using the AWS Management Console, follow these steps:
+
+1. **Create or Modify the Lambda Function:**
+   - Navigate to the AWS Management Console.
+   - Go to the **Lambda** service.
+   - Either create a new Lambda function or select an existing one that you want to modify.
+
+2. **Configure VPC Settings:**
+   - In the Lambda function configuration page, scroll down to the **Network** section.
+   - Click on the **Edit** button in the **VPC** section.
+   - Select the **VPC** that contains the resources your Lambda function needs to access.
+
+3. **Select Subnets and Security Groups:**
+   - Choose the appropriate **Subnets** within the selected VPC. Ensure these subnets have the necessary route tables and network access to the VPC-only resources.
+   - Select the **Security Groups** that allow the necessary inbound and outbound traffic for your Lambda function to communicate with the VPC-only resources.
+
+4. **Save Changes:**
+   - After configuring the VPC, subnets, and security groups, click the **Save** button to apply the changes.
+   - Ensure that the Lambda function has the necessary IAM role permissions to access the VPC and its resources.
+
+By following these steps, you can ensure that your AWS Lambda function is properly configured to access VPC-only resources, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where an AWS Lambda function should have access to VPC-only resources, you need to ensure that the Lambda function is properly configured to connect to the appropriate VPC, subnets, and security groups. Here are the steps to achieve this using AWS CLI:
+
+1. **Identify the VPC, Subnets, and Security Groups:**
+   - Ensure you have the VPC ID, Subnet IDs, and Security Group IDs that the Lambda function should use.
+   - You can list your VPCs, subnets, and security groups using the following commands:
+     ```sh
+     aws ec2 describe-vpcs
+     aws ec2 describe-subnets
+     aws ec2 describe-security-groups
+     ```
+
+2. **Create or Update the Lambda Function with VPC Configuration:**
+   - When creating a new Lambda function, use the `--vpc-config` parameter to specify the VPC, subnets, and security groups.
+     ```sh
+     aws lambda create-function \
+       --function-name MyLambdaFunction \
+       --runtime python3.8 \
+       --role arn:aws:iam::123456789012:role/execution_role \
+       --handler lambda_function.lambda_handler \
+       --zip-file fileb://function.zip \
+       --vpc-config SubnetIds=subnet-abc123,subnet-def456,SecurityGroupIds=sg-123abc
+     ```
+
+3. **Update an Existing Lambda Function to Use VPC Configuration:**
+   - If you need to update an existing Lambda function to connect to a VPC, use the `update-function-configuration` command with the `--vpc-config` parameter.
+     ```sh
+     aws lambda update-function-configuration \
+       --function-name MyLambdaFunction \
+       --vpc-config SubnetIds=subnet-abc123,subnet-def456,SecurityGroupIds=sg-123abc
+     ```
+
+4. **Verify the Lambda Function Configuration:**
+   - After creating or updating the Lambda function, verify that the VPC configuration is correctly applied.
+     ```sh
+     aws lambda get-function-configuration --function-name MyLambdaFunction
+     ```
+
+By following these steps, you can ensure that your AWS Lambda function is properly configured to access VPC-only resources, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Lambda from having access to VPC-only resources using Python scripts, you can follow these steps:
+
+1. **Create a Lambda Function Without VPC Configuration:**
+   Ensure that when you create a Lambda function, you do not associate it with a VPC. This can be done using the `boto3` library in Python.
+
+   ```python
+   import boto3
+
+   client = boto3.client('lambda')
+
+   response = client.create_function(
+       FunctionName='myLambdaFunction',
+       Runtime='python3.8',
+       Role='arn:aws:iam::123456789012:role/service-role/MyLambdaRole',
+       Handler='lambda_function.lambda_handler',
+       Code={
+           'S3Bucket': 'my-bucket',
+           'S3Key': 'my-function.zip'
+       },
+       Description='My Lambda function without VPC access',
+       Timeout=15,
+       MemorySize=128,
+       Publish=True
+   )
+
+   print(response)
+   ```
+
+2. **Update Existing Lambda Function to Remove VPC Configuration:**
+   If a Lambda function is already associated with a VPC, you can update it to remove the VPC configuration.
+
+   ```python
+   import boto3
+
+   client = boto3.client('lambda')
+
+   response = client.update_function_configuration(
+       FunctionName='myLambdaFunction',
+       VpcConfig={
+           'SubnetIds': [],
+           'SecurityGroupIds': []
+       }
+   )
+
+   print(response)
+   ```
+
+3. **Ensure IAM Role Does Not Grant VPC Access:**
+   Make sure the IAM role associated with the Lambda function does not have permissions to interact with VPC resources. This can be done by creating or updating the IAM role policy.
+
+   ```python
+   import boto3
+
+   iam = boto3.client('iam')
+
+   policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "logs:CreateLogGroup",
+                   "logs:CreateLogStream",
+                   "logs:PutLogEvents"
+               ],
+               "Resource": "arn:aws:logs:*:*:*"
+           }
+       ]
+   }
+
+   response = iam.put_role_policy(
+       RoleName='MyLambdaRole',
+       PolicyName='LambdaBasicExecution',
+       PolicyDocument=json.dumps(policy_document)
+   )
+
+   print(response)
+   ```
+
+4. **Automate Compliance Checks:**
+   Regularly check your Lambda functions to ensure they are not associated with VPCs. This can be done by listing all Lambda functions and checking their VPC configuration.
+
+   ```python
+   import boto3
+
+   client = boto3.client('lambda')
+
+   response = client.list_functions()
+
+   for function in response['Functions']:
+       function_name = function['FunctionName']
+       config = client.get_function_configuration(FunctionName=function_name)
+       if 'VpcConfig' in config and config['VpcConfig']['SubnetIds']:
+           print(f"Function {function_name} is associated with a VPC.")
+       else:
+           print(f"Function {function_name} is not associated with a VPC.")
+   ```
+
+By following these steps, you can ensure that your AWS Lambda functions do not have access to VPC-only resources, thereby preventing potential misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
