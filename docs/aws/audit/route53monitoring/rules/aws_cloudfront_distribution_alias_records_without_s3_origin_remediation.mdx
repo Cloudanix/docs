@@ -1,6 +1,100 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, select "Hosted zones". Here, you will see a list of all your hosted zones.
+3. Click on the domain name for which you want to check the CloudFront distribution alias record. This will open a list of all the record sets associated with that domain.
+4. Look for the Alias record set that points to a CloudFront distribution (the Alias Target will be something like d12345abcdefg.cloudfront.net). Click on this record to open its details. If the Alias DNS name does not point to an S3 bucket (s3-website-us-east-1.amazonaws.com), then the CloudFront Distribution Alias Record has no S3 origin.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the hosted zones in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+   This command will return a list of all the hosted zones in your AWS account.
+
+2. Next, you need to list all the record sets in a specific hosted zone. You can do this by using the following AWS CLI command:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+   ```
+
+   Replace `<hosted-zone-id>` with the ID of the hosted zone you want to check. This command will return a list of all the record sets in the specified hosted zone.
+
+3. Now, you need to check if any of the record sets are alias records for a CloudFront distribution. You can do this by looking at the `AliasTarget` field in the output of the previous command. If the `AliasTarget` field contains a value that starts with `d3`, it is an alias record for a CloudFront distribution.
+
+4. Finally, you need to check if the CloudFront distribution has an S3 origin. You can do this by using the following AWS CLI command:
+
+   ```
+   aws cloudfront get-distribution --id <distribution-id>
+   ```
+
+   Replace `<distribution-id>` with the ID of the CloudFront distribution you want to check. This command will return the configuration of the specified CloudFront distribution. If the `Origins` field in the output does not contain an S3 bucket, the CloudFront distribution does not have an S3 origin.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. This will allow you to interact with AWS services including Route53 and CloudFront.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Create a Python script that will list all the CloudFront distributions and their origins. This script will use the `list_distributions` method from the CloudFront client.
+
+```python
+import boto3
+
+def list_cloudfront_distributions():
+    client = boto3.client('cloudfront')
+    distributions = client.list_distributions()
+    for distribution in distributions['DistributionList']['Items']:
+        print(f"Distribution ID: {distribution['Id']}")
+        print(f"Origins: {distribution['Origins']['Items']}")
+```
+
+3. Create another Python script that will list all the Route53 alias records. This script will use the `list_resource_record_sets` method from the Route53 client.
+
+```python
+import boto3
+
+def list_route53_alias_records():
+    client = boto3.client('route53')
+    hosted_zones = client.list_hosted_zones()
+    for zone in hosted_zones['HostedZones']:
+        record_sets = client.list_resource_record_sets(HostedZoneId=zone['Id'])
+        for record_set in record_sets['ResourceRecordSets']:
+            if record_set['Type'] == 'A' and 'AliasTarget' in record_set:
+                print(f"Record Name: {record_set['Name']}")
+                print(f"Alias Target: {record_set['AliasTarget']}")
+```
+
+4. Finally, compare the CloudFront distribution origins with the Route53 alias records. If a CloudFront distribution has an alias record in Route53 but does not have an S3 origin, then it is a misconfiguration.
+
+```python
+def detect_misconfiguration():
+    distributions = list_cloudfront_distributions()
+    alias_records = list_route53_alias_records()
+    for record in alias_records:
+        for distribution in distributions:
+            if record['AliasTarget']['DNSName'] == distribution['DomainName']:
+                if not any(origin['DomainName'].endswith('.s3.amazonaws.com') for origin in distribution['Origins']['Items']):
+                    print(f"Misconfiguration detected: CloudFront distribution {distribution['Id']} has an alias record in Route53 but does not have an S3 origin.")
+```
+
+Please note that you need to replace the placeholders with your actual AWS credentials and region. Also, these scripts do not handle pagination. If you have more than the default number of distributions or record sets, you need to handle pagination by using the `NextMarker` from the response.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
