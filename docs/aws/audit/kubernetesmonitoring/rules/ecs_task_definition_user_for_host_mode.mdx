@@ -23,110 +23,51 @@ CBP
 ### Remediation
 
 #### Using Console
-
-To remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS, follow these steps using the AWS Management Console:
-
-1. **Access the AWS Management Console**: Go to the AWS Management Console at https://aws.amazon.com/ and log in with your credentials.
-
-2. **Navigate to ECS**: Click on the "Services" dropdown menu at the top of the console, then select "ECS" under the "Compute" section.
-
-3. **Select Task Definitions**: In the Amazon ECS dashboard, click on "Task Definitions" from the left-hand navigation pane.
-
-4. **Identify Task Definitions**: Review the list of task definitions and identify those using the network mode "host".
-
-5. **Edit Task Definitions**: Click on the task definition that uses network mode "host" to edit it.
-
-6. **Review Container Definitions**: Within the task definition details, navigate to the container definitions section.
-
-7. **Check Container Permissions**: Review the container permissions, specifically the "privileged" and "user" settings.
-
-8. **Update Container Permissions**: If the container is privileged or uses the root user, modify the container definition to remove privileges and use a non-root user.
-
-9. **Save Changes**: After updating the container permissions, save the changes to the task definition.
-
-10. **Re-deploy Tasks**: Re-deploy the ECS tasks associated with the updated task definition to apply the changes.
-
-By following these steps, you can remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS using the AWS Management Console.
+1. Navigate to the Amazon ECS console.
+2. Select "Task Definitions" from the navigation pane.
+3. Identify the task definition using the host network mode.
+4. Click on the task definition to edit it.
+5. Review the container definitions.
+6. Modify the container definitions to specify a non-root user if not already specified.
+7. Save the changes to the task definition.
 
 #### Using CLI
-
-To remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS Kubernetes using AWS CLI, follow these steps:
-
-1. **Identify the ECS tasks with network mode host**: Run the following AWS CLI command to list all ECS tasks with network mode host:
-   ```
-   aws ecs list-tasks --query 'taskArns[*]' --output text
-   ```
-
-2. **Update the task definition**: For each ECS task identified in the previous step, you need to update the task definition to limit the permissions. Run the following AWS CLI command to describe the task definition:
-   ```
-   aws ecs describe-task-definition --task-definition <task-definition-arn>
-   ```
-
-3. **Modify the task definition**: Edit the task definition JSON to remove any unnecessary or overly permissive permissions. Ensure that the task has the least privilege necessary to function properly. Here's an example of modifying the task definition JSON:
-   ```json
-   {
-       "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-       "containerDefinitions": [
-           {
-               "name": "myContainer",
-               "image": "myImage",
-               "networkMode": "host",
-               "essential": true,
-               "portMappings": [
-                   {
-                       "containerPort": 80,
-                       "hostPort": 80
-                   }
-               ],
-               "logConfiguration": {
-                   "logDriver": "awslogs",
-                   "options": {
-                       "awslogs-group": "/ecs/myApp",
-                       "awslogs-region": "us-east-1",
-                       "awslogs-stream-prefix": "myApp"
-                   }
-               }
-           }
-       ]
-   }
-   ```
-
-4. **Update the task definition**: Run the following AWS CLI command to update the task definition with the modified JSON:
-   ```
-   aws ecs register-task-definition --cli-input-json file://updated-task-definition.json
-   ```
-
-5. **Verify the changes**: Run the following AWS CLI command to verify that the task definition has been updated successfully:
-   ```
-   aws ecs describe-task-definition --task-definition <updated-task-definition-arn>
-   ```
-
-By following these steps, you can remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS Kubernetes using AWS CLI.
+```bash
+aws ecs register-task-definition --cli-input-json file://task-definition.json
+```
+Ensure that `task-definition.json` contains the updated task definition with the appropriate user specified for containers using the host network mode.
 
 #### Using Python
+```python
+import boto3
 
-To remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS Kubernetes using Python, you can follow these steps:
+def remediate_ecs_task_definition(task_definition_arn):
+    # Initialize ECS client
+    ecs_client = boto3.client('ecs')
 
-1. **Identify the ECS tasks with network mode host**:
-   - Use the AWS SDK for Python (Boto3) to list all ECS tasks in your cluster.
-   - Filter out the tasks that have the network mode set to host.
+    # Describe task definition
+    response = ecs_client.describe_task_definition(taskDefinition=task_definition_arn)
+    task_definition = response['taskDefinition']
 
-2. **Review and update the IAM roles and policies**:
-   - Identify the IAM role associated with the ECS tasks that have network mode host.
-   - Review the IAM policies attached to this role and ensure that it has only the necessary permissions required for the tasks to function.
-   - Remove any excessive permissions that are not needed for the tasks.
+    # Modify the task definition to ensure user is not "root" or not specified
+    for container_definition in task_definition['containerDefinitions']:
+        if container_definition['networkMode'] == 'host':
+            if container_definition.get('user', '') == 'root' or not container_definition.get('user', ''):
+                container_definition['user'] = 'non-root-user'  # Specify a non-root user
 
-3. **Update the IAM role**:
-   - Use Boto3 to update the IAM role attached to the ECS tasks.
-   - Modify the IAM policies attached to the role to restrict the permissions to the minimum required for the tasks to operate effectively.
+    # Register the updated task definition
+    response = ecs_client.register_task_definition(**task_definition)
+    print(f"Task definition '{task_definition_arn}' remediated.")
 
-4. **Implement least privilege principle**:
-   - Follow the principle of least privilege while updating the IAM policies.
-   - Grant only the permissions necessary for the tasks to function properly and restrict access to other AWS resources.
+def main():
+    # Specify the ARN of the ECS task definition to remediate
+    task_definition_arn = 'your-task-definition-arn'
 
-5. **Test the updated configuration**:
-   - Deploy the updated IAM role configuration to the ECS tasks with network mode host.
-   - Test the tasks to ensure they can still perform their required functions without any issues.
+    # Remediate the ECS task definition
+    remediate_ecs_task_definition(task_definition_arn)
 
-By following these steps, you can remediate the misconfiguration of ECS tasks with network mode host having limited permissions in AWS Kubernetes using Python.
+if __name__ == "__main__":
+    main()
+```
 
+Replace `'your-task-definition-arn'` with the ARN of the ECS task definition you want to remediate. This script retrieves the task definition, modifies it to ensure the user is not "root" or not specified for containers using the host network mode, and registers the updated task definition. Adjust the script to specify a non-root user as needed.

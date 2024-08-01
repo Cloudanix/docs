@@ -2,82 +2,93 @@
 
 #### Using Console
 
-To remediate the misconfiguration of Sagemaker Notebook Instance having root access enabled in AWS, follow these steps using the AWS console:
+1. **Log in to the AWS Management Console:**
+   - Open the AWS Management Console and navigate to the SageMaker service.
 
-1. **Access AWS Sagemaker Console**: Log in to your AWS Management Console and navigate to the Amazon Sagemaker service.
+2. **Identify Notebook Instances with Root Access Enabled:**
+   - Go to the "Notebook instances" section.
+   - Check each notebook instance for the "Root access" setting. Instances with root access enabled will have it specified in their details.
 
-2. **Navigate to Notebook Instances**: In the Amazon Sagemaker console, click on "Notebook instances" from the left-hand menu.
-
-3. **Select the Sagemaker Notebook Instance**: Identify the Notebook Instance that has root access enabled and click on its name to access its details.
-
-4. **Update the IAM Role**: Scroll down to the "Permissions and encryption" section and click on the IAM role link associated with the Notebook Instance.
-
-5. **Edit IAM Role**: In the IAM console, click on "Attach policies" to attach a new policy to the IAM role.
-
-6. **Attach a Policy**: Search for and attach the policy named "AmazonSageMakerFullAccess" to the IAM role. This policy provides full access to Amazon SageMaker resources without granting root access.
-
-7. **Review and Save Changes**: Review the changes and click on "Attach policy" to save the changes.
-
-8. **Verify Root Access**: Go back to the Notebook Instance details page and confirm that root access is no longer enabled for the instance.
-
-By following these steps, you have successfully remediated the misconfiguration of root access being enabled for the Sagemaker Notebook Instance in AWS.
+3. **Disable Root Access:**
+   - Select the notebook instance you want to modify.
+   - Click "Edit."
+   - In the "Notebook instance settings," find the "Root access" setting and change it to "Disabled."
+   - Save the changes and restart the notebook instance for the changes to take effect.
 
 #### Using CLI
 
-To remediate the misconfiguration of Sagemaker Notebook Instance having Root Access enabled in AWS, you can follow these steps using AWS CLI:
+To disable root access for a SageMaker notebook instance using the AWS CLI, you need to update the `RootAccess` parameter.
 
-1. **List the Sagemaker Notebook Instances:**
-   Run the following AWS CLI command to list all the Sagemaker Notebook Instances in your AWS account:
-   ```
-   aws sagemaker list-notebook-instances
-   ```
+**Identify and Update Notebook Instances:**
 
-2. **Identify the Notebook Instance with Root Access Enabled:**
-   Look for the Notebook Instance that has Root Access enabled in the output of the above command. Note down the `NotebookInstanceName` of the instance.
+```sh
+# List all notebook instances
+aws sagemaker list-notebook-instances
 
-3. **Update the IAM Role attached to the Notebook Instance:**
-   Run the following AWS CLI command to update the IAM role attached to the Notebook Instance to remove Root Access:
-   ```
-   aws sagemaker update-notebook-instance --notebook-instance-name <NotebookInstanceName> --iam-role-arn <UpdatedIAMRoleARN>
-   ```
-   Replace `<NotebookInstanceName>` with the actual name of the Notebook Instance and `<UpdatedIAMRoleARN>` with the ARN of the IAM role that does not have Root Access.
+# Describe a specific notebook instance to check its root access setting
+aws sagemaker describe-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
 
-4. **Verify the Changes:**
-   Run the following AWS CLI command to describe the Notebook Instance and verify that Root Access has been disabled:
-   ```
-   aws sagemaker describe-notebook-instance --notebook-instance-name <NotebookInstanceName>
-   ```
-   Ensure that the `RootAccess` parameter is set to `Disabled`.
+# Update the notebook instance to disable root access
+aws sagemaker update-notebook-instance \
+    --notebook-instance-name <YourNotebookInstanceName> \
+    --root-access Disabled
 
-By following these steps, you can successfully remediate the misconfiguration of Sagemaker Notebook Instance having Root Access enabled in AWS.
+# Restart the notebook instance to apply changes
+aws sagemaker stop-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+aws sagemaker start-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+```
 
 #### Using Python
 
-To remediate the misconfiguration of having root access enabled on an AWS SageMaker Notebook Instance, you can follow these steps:
+To disable root access for SageMaker notebook instances using a Python script, you'll need the `boto3` library:
 
-1. **Access the AWS Management Console:**
-   Open your web browser and navigate to the AWS Management Console at https://console.aws.amazon.com.
+1. **Install `boto3` (if not already installed):**
 
-2. **Navigate to SageMaker Service:**
-   Click on the "Services" dropdown menu at the top of the page and select "Amazon SageMaker" under the "Machine Learning" category.
+```sh
+pip install boto3
+```
 
-3. **Select the Notebook Instance:**
-   In the Amazon SageMaker dashboard, click on "Notebook instances" from the left-hand side menu. Select the notebook instance that you want to remediate.
+2. **Script to Identify and Update Notebook Instances:**
 
-4. **Update the IAM Role:**
-   Click on the notebook instance name to view its details. Scroll down to the "Permissions and encryption" section and locate the IAM role attached to the notebook instance.
+```python
+import boto3
 
-5. **Modify the IAM Role Policy:**
-   Click on the IAM role ARN to navigate to the IAM console. Locate the policy attached to the IAM role that grants root access and edit it.
+sagemaker = boto3.client('sagemaker')
 
-6. **Revoke Root Access:**
-   In the policy document, find the permissions that grant root access and remove or restrict them. Ensure that the IAM role only has the necessary permissions required for the SageMaker Notebook Instance to function properly.
+def list_notebook_instances():
+    response = sagemaker.list_notebook_instances()
+    return response['NotebookInstances']
 
-7. **Review and Save Changes:**
-   Review the policy changes to ensure that root access is no longer allowed. Once you are satisfied with the modifications, save the policy.
+def describe_notebook_instance(notebook_instance_name):
+    response = sagemaker.describe_notebook_instance(
+        NotebookInstanceName=notebook_instance_name
+    )
+    return response
 
-8. **Verify Changes:**
-   Go back to the Amazon SageMaker console and refresh the page to ensure that the IAM role updates have been applied to the notebook instance.
+def update_notebook_instance(notebook_instance_name):
+    response = sagemaker.update_notebook_instance(
+        NotebookInstanceName=notebook_instance_name,
+        RootAccess='Disabled'
+    )
+    print(response)
 
-By following these steps, you can remediate the misconfiguration of having root access enabled on an AWS SageMaker Notebook Instance and ensure that the instance is securely configured.
+def restart_notebook_instance(notebook_instance_name):
+    sagemaker.stop_notebook_instance(NotebookInstanceName=notebook_instance_name)
+    waiter = sagemaker.get_waiter('notebook_instance_stopped')
+    waiter.wait(NotebookInstanceName=notebook_instance_name)
+    sagemaker.start_notebook_instance(NotebookInstanceName=notebook_instance_name)
 
+# Identify and update notebook instances with root access enabled
+notebook_instances = list_notebook_instances()
+for instance in notebook_instances:
+    instance_name = instance['NotebookInstanceName']
+    details = describe_notebook_instance(instance_name)
+    if details.get('RootAccess', '').lower() == 'enabled':
+        print(f"Disabling root access for notebook instance: {instance_name}")
+        update_notebook_instance(instance_name)
+        restart_notebook_instance(instance_name)
+```
+
+This script will list all notebook instances, describe each one to check its root access setting, and then disable root access for those with it enabled. Finally, it will restart the modified instances to apply the changes.
+
+Replace placeholders (`<YourNotebookInstanceName>`) with appropriate values.
