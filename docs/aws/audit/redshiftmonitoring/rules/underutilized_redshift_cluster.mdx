@@ -25,6 +25,152 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Redshift clusters from being underutilized using the AWS Management Console, follow these steps:
+
+1. **Monitor Cluster Performance:**
+   - Navigate to the Amazon Redshift console.
+   - Select the cluster you want to monitor.
+   - Go to the "Performance" tab to review metrics such as CPU utilization, disk space usage, and query performance.
+   - Set up CloudWatch alarms to notify you when certain thresholds are breached, indicating underutilization.
+
+2. **Resize the Cluster:**
+   - In the Amazon Redshift console, select the cluster.
+   - Choose "Actions" and then "Resize".
+   - Adjust the number of nodes or the node type to better match your workload requirements.
+
+3. **Enable Concurrency Scaling:**
+   - Go to the Amazon Redshift console and select your cluster.
+   - Navigate to the "Properties" tab.
+   - Under "Concurrency Scaling", enable the feature to automatically add and remove capacity based on your workload demands.
+
+4. **Review and Optimize Workloads:**
+   - Regularly review the types of queries and workloads running on your Redshift cluster.
+   - Use the "Query Monitoring" tab to identify long-running or inefficient queries.
+   - Optimize these queries or consider offloading less critical workloads to other services like Amazon S3 or Amazon Athena.
+
+By following these steps, you can ensure that your Redshift clusters are appropriately sized and utilized, preventing underutilization and optimizing costs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Redshift clusters from being underutilized using AWS CLI, you can follow these steps:
+
+1. **Monitor Cluster Performance:**
+   Regularly monitor the performance of your Redshift clusters to ensure they are being utilized efficiently. Use the `describe-clusters` command to get details about your clusters.
+
+   ```sh
+   aws redshift describe-clusters
+   ```
+
+2. **Enable Enhanced VPC Routing:**
+   Ensure that Enhanced VPC Routing is enabled for your Redshift cluster to optimize data transfer and reduce costs.
+
+   ```sh
+   aws redshift modify-cluster --cluster-identifier <your-cluster-id> --enhanced-vpc-routing-enabled
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor key metrics such as CPU utilization, disk space, and query performance. This will help you identify underutilized clusters.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RedshiftCPUUtilization" --metric-name CPUUtilization --namespace AWS/Redshift --statistic Average --period 300 --threshold 20 --comparison-operator LessThanThreshold --dimensions Name=ClusterIdentifier,Value=<your-cluster-id> --evaluation-periods 1 --alarm-actions <your-sns-topic-arn>
+   ```
+
+4. **Automate Scaling:**
+   Use AWS Lambda and CloudWatch Events to automate the scaling of your Redshift clusters based on utilization metrics. This can help in adjusting the cluster size dynamically to match the workload.
+
+   ```sh
+   aws events put-rule --name "RedshiftScalingRule" --schedule-expression "rate(1 hour)"
+   aws lambda create-function --function-name "RedshiftAutoScaling" --runtime python3.8 --role <your-iam-role-arn> --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   aws events put-targets --rule "RedshiftScalingRule" --targets "Id"="1","Arn"="<your-lambda-function-arn>"
+   ```
+
+By following these steps, you can ensure that your Redshift clusters are not underutilized and are operating efficiently.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Redshift clusters from being underutilized using Python scripts, you can follow these steps:
+
+1. **Install Required Libraries**:
+   Ensure you have the necessary libraries installed. You will need `boto3` to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+   ```bash
+   aws configure
+   ```
+
+3. **Monitor Cluster Utilization**:
+   Write a Python script to monitor the utilization of your Redshift clusters. You can use CloudWatch metrics to get the CPU utilization and other performance metrics.
+
+   ```python
+   import boto3
+
+   def get_redshift_clusters():
+       client = boto3.client('redshift')
+       clusters = client.describe_clusters()
+       return clusters['Clusters']
+
+   def get_cluster_utilization(cluster_identifier):
+       cloudwatch = boto3.client('cloudwatch')
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/Redshift',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'ClusterIdentifier',
+                   'Value': cluster_identifier
+               },
+           ],
+           StartTime=datetime.utcnow() - timedelta(days=1),
+           EndTime=datetime.utcnow(),
+           Period=3600,
+           Statistics=['Average']
+       )
+       return metrics['Datapoints']
+
+   clusters = get_redshift_clusters()
+   for cluster in clusters:
+       utilization = get_cluster_utilization(cluster['ClusterIdentifier'])
+       print(f"Cluster {cluster['ClusterIdentifier']} utilization: {utilization}")
+   ```
+
+4. **Automate Scaling Actions**:
+   Based on the utilization metrics, you can automate actions to scale your Redshift cluster up or down. For example, if the utilization is consistently low, you can resize the cluster to a smaller node type or reduce the number of nodes.
+
+   ```python
+   def resize_cluster(cluster_identifier, node_type, number_of_nodes):
+       client = boto3.client('redshift')
+       response = client.modify_cluster(
+           ClusterIdentifier=cluster_identifier,
+           NodeType=node_type,
+           NumberOfNodes=number_of_nodes
+       )
+       return response
+
+   for cluster in clusters:
+       utilization = get_cluster_utilization(cluster['ClusterIdentifier'])
+       avg_utilization = sum([point['Average'] for point in utilization]) / len(utilization)
+       if avg_utilization < 20:  # Example threshold
+           print(f"Cluster {cluster['ClusterIdentifier']} is underutilized. Resizing...")
+           resize_cluster(cluster['ClusterIdentifier'], 'dc2.large', 2)  # Example resize action
+   ```
+
+By following these steps, you can monitor and prevent your Redshift clusters from being underutilized using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

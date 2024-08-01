@@ -24,6 +24,171 @@ CBP,RBI_MD_ITF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Amazon EMR clusters from being created without Kerberos enabled using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EMR Console:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon EMR console at [https://console.aws.amazon.com/elasticmapreduce/](https://console.aws.amazon.com/elasticmapreduce/).
+
+2. **Create or Edit a Security Configuration:**
+   - In the left-hand navigation pane, choose **Security configurations**.
+   - Click on **Create security configuration** or select an existing security configuration to edit.
+   - Under **Kerberos authentication**, check the box to enable Kerberos authentication.
+   - Provide the necessary details for the Kerberos configuration, such as the KDC (Key Distribution Center) and realm information.
+
+3. **Apply the Security Configuration to Your EMR Cluster:**
+   - When creating a new EMR cluster, in the **Security and access** section, select the security configuration that has Kerberos enabled.
+   - If editing an existing cluster, ensure that the cluster is terminated and then create a new cluster with the appropriate security configuration.
+
+4. **Review and Launch:**
+   - Review all the settings to ensure Kerberos is enabled.
+   - Click **Create cluster** to launch the EMR cluster with the Kerberos-enabled security configuration.
+
+By following these steps, you can ensure that your Amazon EMR clusters have Kerberos enabled, enhancing the security of your data and operations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Amazon EMR clusters from being created without Kerberos enabled using AWS CLI, you can follow these steps:
+
+1. **Create a Security Configuration with Kerberos Enabled:**
+   First, create a security configuration that enables Kerberos. This configuration will be used when creating EMR clusters.
+
+   ```sh
+   aws emr create-security-configuration --name MyKerberosConfig --security-configuration '{
+     "AuthenticationConfiguration": {
+       "KerberosConfiguration": {
+         "Provider": "ClusterDedicatedKdc",
+         "ClusterDedicatedKdcConfiguration": {
+           "TicketLifetimeInHours": 24,
+           "CrossRealmTrustPrincipalPassword": "YourPassword"
+         }
+       }
+     }
+   }'
+   ```
+
+2. **Create an EMR Cluster with the Security Configuration:**
+   When creating an EMR cluster, specify the security configuration that you created in the previous step.
+
+   ```sh
+   aws emr create-cluster --name "MyCluster" --release-label emr-5.30.0 --applications Name=Hadoop Name=Spark --ec2-attributes KeyName=MyKey --instance-type m5.xlarge --instance-count 3 --use-default-roles --security-configuration MyKerberosConfig
+   ```
+
+3. **Set Up IAM Policies to Enforce Security Configuration:**
+   Ensure that IAM policies enforce the use of the security configuration when creating EMR clusters. This can be done by creating a policy that allows only the creation of clusters with the specified security configuration.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceKerberosPolicy --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "elasticmapreduce:RunJobFlow",
+         "Resource": "*",
+         "Condition": {
+           "StringNotEquals": {
+             "elasticmapreduce:SecurityConfiguration": "MyKerberosConfig"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+4. **Attach the IAM Policy to Users or Roles:**
+   Attach the policy to the IAM users or roles that are responsible for creating EMR clusters to ensure compliance.
+
+   ```sh
+   aws iam attach-user-policy --user-name MyUser --policy-arn arn:aws:iam::123456789012:policy/EnforceKerberosPolicy
+   ```
+
+By following these steps, you can ensure that all Amazon EMR clusters are created with Kerberos enabled, thereby preventing misconfigurations related to security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Amazon EMR clusters from being created without Kerberos enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+### Step 1: Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+### Step 3: Create a Python Script to Check and Enable Kerberos
+Here's a Python script that checks if Kerberos is enabled for an EMR cluster and enables it if not:
+
+```python
+import boto3
+from botocore.exceptions import ClientError
+
+# Initialize a session using Amazon EMR
+emr_client = boto3.client('emr')
+
+def enable_kerberos(cluster_id):
+    try:
+        # Describe the cluster to get its current configuration
+        response = emr_client.describe_cluster(ClusterId=cluster_id)
+        security_configuration = response['Cluster']['SecurityConfiguration']
+
+        if 'KerberosAttributes' not in security_configuration:
+            print(f"Kerberos is not enabled for cluster {cluster_id}. Enabling Kerberos...")
+
+            # Define Kerberos attributes
+            kerberos_attributes = {
+                'Realm': 'YOUR.REALM',
+                'KdcAdminPassword': 'YOUR_KDC_ADMIN_PASSWORD',
+                'CrossRealmTrustPrincipalPassword': 'YOUR_CROSS_REALM_TRUST_PRINCIPAL_PASSWORD',
+                'ADDomainJoinUser': 'YOUR_AD_DOMAIN_JOIN_USER',
+                'ADDomainJoinPassword': 'YOUR_AD_DOMAIN_JOIN_PASSWORD'
+            }
+
+            # Enable Kerberos
+            emr_client.modify_cluster(
+                ClusterId=cluster_id,
+                KerberosAttributes=kerberos_attributes
+            )
+            print(f"Kerberos has been enabled for cluster {cluster_id}.")
+        else:
+            print(f"Kerberos is already enabled for cluster {cluster_id}.")
+
+    except ClientError as e:
+        print(f"An error occurred: {e}")
+
+# Example usage
+cluster_id = 'j-XXXXXXXXXXXXX'  # Replace with your cluster ID
+enable_kerberos(cluster_id)
+```
+
+### Step 4: Automate the Script Execution
+You can automate the execution of this script using a cron job, AWS Lambda, or any other scheduling mechanism to ensure that all new clusters are checked and have Kerberos enabled.
+
+#### Example of Automating with AWS Lambda
+1. **Create a Lambda Function**:
+   - Go to the AWS Lambda console.
+   - Create a new Lambda function.
+   - Use the Python runtime.
+
+2. **Upload the Script**:
+   - Copy the script into the Lambda function editor.
+   - Adjust the script to handle multiple clusters if needed.
+
+3. **Set Up a Trigger**:
+   - Set up a CloudWatch Events rule to trigger the Lambda function periodically.
+
+By following these steps, you can ensure that Kerberos is enabled for your Amazon EMR clusters, thereby preventing misconfigurations related to security.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

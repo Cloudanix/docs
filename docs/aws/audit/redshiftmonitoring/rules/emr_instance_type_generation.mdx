@@ -24,6 +24,172 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EMR instances from using outdated generations in Amazon Redshift using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EMR Console:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon EMR console at [https://console.aws.amazon.com/elasticmapreduce/](https://console.aws.amazon.com/elasticmapreduce/).
+
+2. **Create or Edit a Cluster:**
+   - To create a new cluster, click on the "Create cluster" button.
+   - To edit an existing cluster, select the cluster from the list and click on the "Edit" button.
+
+3. **Configure Instance Types:**
+   - In the "Hardware" section, specify the instance types for the Master, Core, and Task nodes.
+   - Ensure you select the latest generation instance types (e.g., `m5`, `c5`, `r5` series) from the dropdown menu.
+
+4. **Review and Launch:**
+   - Review your cluster configuration to ensure that the latest generation instance types are selected.
+   - Click on the "Create cluster" or "Save" button to apply the changes.
+
+By following these steps, you can ensure that your EMR instances are using the latest generation instance types, which can help improve performance and cost-efficiency.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Amazon EMR instances are using the latest generation in Redshift using AWS CLI, you can follow these steps:
+
+1. **Check the Latest Instance Types:**
+   First, you need to identify the latest generation instance types available for EMR. You can use the `describe-instance-types` command to list the instance types and their generations.
+
+   ```sh
+   aws ec2 describe-instance-types --query "InstanceTypes[].[InstanceType, InstanceGeneration]" --output table
+   ```
+
+2. **Create or Update EMR Cluster with Latest Instance Types:**
+   When creating or updating an EMR cluster, specify the latest generation instance types. Use the `create-cluster` or `modify-instance-groups` command to set the instance types.
+
+   ```sh
+   aws emr create-cluster --name "MyCluster" --release-label emr-6.3.0 --applications Name=Hadoop Name=Spark --ec2-attributes KeyName=myKey --instance-type m5.xlarge --instance-count 3
+   ```
+
+   Or, if you are updating an existing cluster:
+
+   ```sh
+   aws emr modify-instance-groups --cluster-id j-2AXXXXXXGAPLF --instance-groups InstanceGroupId=ig-1XXXXXX,InstanceType=m5.xlarge
+   ```
+
+3. **Set Up Instance Fleet with Latest Generation Instances:**
+   Use instance fleets to specify a range of instance types, including the latest generation. This provides flexibility and ensures that the cluster can use the latest instances.
+
+   ```sh
+   aws emr create-cluster --name "MyCluster" --release-label emr-6.3.0 --applications Name=Hadoop Name=Spark --instance-fleets InstanceFleetType=MASTER,InstanceTypeConfigs=[{InstanceType=m5.xlarge,WeightedCapacity=1}] --ec2-attributes KeyName=myKey
+   ```
+
+4. **Automate Instance Type Selection:**
+   Use AWS CLI scripts or automation tools like AWS CloudFormation or AWS SDKs to automate the selection of the latest generation instance types when creating or updating EMR clusters.
+
+   Example Python script using Boto3:
+
+   ```python
+   import boto3
+
+   emr_client = boto3.client('emr')
+
+   response = emr_client.create_cluster(
+       Name='MyCluster',
+       ReleaseLabel='emr-6.3.0',
+       Instances={
+           'InstanceGroups': [
+               {
+                   'Name': 'Master nodes',
+                   'Market': 'ON_DEMAND',
+                   'InstanceRole': 'MASTER',
+                   'InstanceType': 'm5.xlarge',
+                   'InstanceCount': 1,
+               },
+               {
+                   'Name': 'Core nodes',
+                   'Market': 'ON_DEMAND',
+                   'InstanceRole': 'CORE',
+                   'InstanceType': 'm5.xlarge',
+                   'InstanceCount': 2,
+               }
+           ],
+           'Ec2KeyName': 'myKey'
+       },
+       Applications=[
+           {'Name': 'Hadoop'},
+           {'Name': 'Spark'}
+       ]
+   )
+   ```
+
+By following these steps, you can ensure that your EMR instances are using the latest generation instance types, thereby optimizing performance and cost-efficiency.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EMR instances from using outdated generations in Amazon Redshift using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Initialize Boto3 Client**
+Initialize the Boto3 client for EMR and Redshift. This will allow you to interact with AWS services programmatically.
+
+```python
+import boto3
+
+# Initialize the EMR client
+emr_client = boto3.client('emr')
+
+# Initialize the Redshift client
+redshift_client = boto3.client('redshift')
+```
+
+### 3. **Check and List EMR Instances**
+Create a function to list all EMR instances and check their instance types. You can then compare these instance types to a list of the latest generation instance types.
+
+```python
+def get_emr_clusters():
+    clusters = emr_client.list_clusters(ClusterStates=['RUNNING', 'WAITING'])
+    return clusters['Clusters']
+
+def get_instance_groups(cluster_id):
+    instance_groups = emr_client.list_instance_groups(ClusterId=cluster_id)
+    return instance_groups['InstanceGroups']
+
+def check_instance_types(instance_groups):
+    latest_generation_types = ['m5.xlarge', 'c5.xlarge', 'r5.xlarge']  # Example latest generation types
+    for group in instance_groups:
+        if group['InstanceType'] not in latest_generation_types:
+            print(f"Instance group {group['Id']} is using outdated instance type {group['InstanceType']}")
+```
+
+### 4. **Automate Instance Type Validation**
+Create a script to automate the validation of instance types and ensure they are of the latest generation. If not, you can log or take necessary actions.
+
+```python
+def validate_emr_instances():
+    clusters = get_emr_clusters()
+    for cluster in clusters:
+        instance_groups = get_instance_groups(cluster['Id'])
+        check_instance_types(instance_groups)
+
+if __name__ == "__main__":
+    validate_emr_instances()
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and import Boto3.
+2. **Initialize Boto3 Client**: Initialize the EMR and Redshift clients.
+3. **Check and List EMR Instances**: Create functions to list EMR clusters and their instance groups, and check their instance types.
+4. **Automate Instance Type Validation**: Create a script to validate instance types and ensure they are of the latest generation.
+
+By following these steps, you can programmatically ensure that your EMR instances are using the latest generation instance types, thereby preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

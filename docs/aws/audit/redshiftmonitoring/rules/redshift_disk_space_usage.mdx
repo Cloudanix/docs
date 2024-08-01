@@ -25,6 +25,183 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent clusters with high disk usage in Amazon Redshift using the AWS Management Console, follow these steps:
+
+1. **Monitor Disk Space Usage:**
+   - Navigate to the Amazon Redshift console.
+   - Select the cluster you want to monitor.
+   - Go to the "Cluster Performance" tab.
+   - Check the "Disk Space Usage" metrics to monitor the current disk usage of your cluster.
+
+2. **Set Up Alarms:**
+   - Go to the Amazon CloudWatch console.
+   - Create a new alarm for the Redshift cluster.
+   - Set the alarm to trigger when disk space usage exceeds a certain threshold (e.g., 80%).
+   - Configure notifications to alert you when the alarm is triggered.
+
+3. **Enable Auto Scaling:**
+   - In the Amazon Redshift console, select your cluster.
+   - Go to the "Cluster" settings.
+   - Enable "Concurrency Scaling" to automatically add additional compute resources when needed.
+   - Ensure that your cluster is configured to use Elastic Resize to quickly add or remove nodes based on usage.
+
+4. **Regular Maintenance:**
+   - Schedule regular maintenance windows for your Redshift cluster.
+   - During these windows, perform vacuuming and analyze operations to reclaim disk space and optimize query performance.
+   - Use the "Maintenance" tab in the Redshift console to configure and manage these maintenance tasks.
+
+By following these steps, you can proactively monitor and manage disk usage in your Amazon Redshift clusters, helping to prevent high disk usage issues.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent clusters with high disk usage in Amazon Redshift, you can take proactive measures to monitor and scale your clusters appropriately. Here are the steps to prevent high disk usage using AWS CLI:
+
+1. **Monitor Disk Usage:**
+   Regularly monitor the disk usage of your Redshift clusters to identify when they are approaching high usage. You can use the `describe-clusters` command to get information about your clusters.
+
+   ```sh
+   aws redshift describe-clusters --query 'Clusters[*].{ClusterIdentifier:ClusterIdentifier,DiskSpaceUsed:DiskSpaceUsed,TotalDiskSpace:TotalDiskSpace}'
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to notify you when disk usage exceeds a certain threshold. This allows you to take action before the disk usage becomes critical.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RedshiftHighDiskUsage" \
+   --metric-name "PercentageDiskSpaceUsed" --namespace "AWS/Redshift" \
+   --statistic "Average" --period 300 --threshold 80 --comparison-operator "GreaterThanThreshold" \
+   --dimensions Name=ClusterIdentifier,Value=<your-cluster-identifier> \
+   --evaluation-periods 1 --alarm-actions <your-sns-topic-arn>
+   ```
+
+3. **Enable Auto Scaling:**
+   Enable Concurrency Scaling to automatically add additional cluster capacity when needed. This helps in managing workloads and preventing high disk usage.
+
+   ```sh
+   aws redshift modify-cluster --cluster-identifier <your-cluster-identifier> \
+   --enable-concurrency-scaling
+   ```
+
+4. **Automate Scaling with Lambda:**
+   Create an AWS Lambda function that automatically scales your Redshift cluster based on disk usage metrics. You can trigger this Lambda function using CloudWatch Events.
+
+   Example Lambda function (Python):
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       redshift = boto3.client('redshift')
+       cluster_identifier = '<your-cluster-identifier>'
+       
+       # Describe cluster to get current node count
+       response = redshift.describe_clusters(ClusterIdentifier=cluster_identifier)
+       current_node_count = response['Clusters'][0]['NumberOfNodes']
+       
+       # Scale up by adding more nodes
+       new_node_count = current_node_count + 1
+       redshift.modify_cluster(
+           ClusterIdentifier=cluster_identifier,
+           NumberOfNodes=new_node_count
+       )
+   ```
+
+   Deploy this Lambda function and set up a CloudWatch Event rule to trigger it based on disk usage metrics.
+
+By following these steps, you can proactively monitor and scale your Amazon Redshift clusters to prevent high disk usage using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent clusters with high disk usage in Amazon Redshift, you can use Python scripts to monitor and scale your clusters automatically. Here are the steps to achieve this:
+
+### 1. Install Required Libraries
+First, ensure you have the `boto3` library installed, which is the AWS SDK for Python.
+
+```bash
+pip install boto3
+```
+
+### 2. Set Up AWS Credentials
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+```bash
+aws configure
+```
+
+### 3. Monitor Disk Usage
+Create a Python script to monitor the disk usage of your Redshift clusters. You can use CloudWatch metrics to get this information.
+
+```python
+import boto3
+
+def get_redshift_disk_usage(cluster_identifier):
+    cloudwatch = boto3.client('cloudwatch')
+    response = cloudwatch.get_metric_statistics(
+        Namespace='AWS/Redshift',
+        MetricName='PercentageDiskSpaceUsed',
+        Dimensions=[
+            {
+                'Name': 'ClusterIdentifier',
+                'Value': cluster_identifier
+            },
+        ],
+        StartTime=datetime.utcnow() - timedelta(minutes=10),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    for point in response['Datapoints']:
+        return point['Average']
+    return None
+```
+
+### 4. Scale the Cluster
+If the disk usage exceeds a certain threshold, scale the cluster by adding more nodes.
+
+```python
+def scale_redshift_cluster(cluster_identifier, node_type, number_of_nodes):
+    redshift = boto3.client('redshift')
+    response = redshift.modify_cluster(
+        ClusterIdentifier=cluster_identifier,
+        NodeType=node_type,
+        NumberOfNodes=number_of_nodes
+    )
+    return response
+
+def main():
+    cluster_identifier = 'your-cluster-identifier'
+    node_type = 'dc2.large'  # Example node type
+    threshold = 80  # Disk usage threshold in percentage
+
+    disk_usage = get_redshift_disk_usage(cluster_identifier)
+    if disk_usage and disk_usage > threshold:
+        print(f"Disk usage is {disk_usage}%, scaling the cluster...")
+        response = scale_redshift_cluster(cluster_identifier, node_type, number_of_nodes=3)
+        print("Cluster scaled:", response)
+    else:
+        print(f"Disk usage is {disk_usage}%, no scaling needed.")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure `boto3` is installed.
+2. **Set Up AWS Credentials**: Configure your AWS credentials.
+3. **Monitor Disk Usage**: Use CloudWatch to monitor Redshift disk usage.
+4. **Scale the Cluster**: Automatically scale the cluster if disk usage exceeds a threshold.
+
+This script will help you prevent high disk usage in Redshift by automatically scaling the cluster when necessary.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

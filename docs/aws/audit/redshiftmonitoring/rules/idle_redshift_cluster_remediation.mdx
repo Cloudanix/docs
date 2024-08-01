@@ -2,6 +2,162 @@
 ### Triage and Remediation
 <Tabs>
 
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent idle Redshift clusters from remaining active and incurring unnecessary costs using the AWS Management Console, follow these steps:
+
+1. **Enable Cost Allocation Tags:**
+   - Navigate to the AWS Management Console.
+   - Go to the "Billing and Cost Management" dashboard.
+   - Select "Cost Allocation Tags" and activate relevant tags to track Redshift usage and costs.
+
+2. **Set Up CloudWatch Alarms:**
+   - Open the Amazon CloudWatch console.
+   - Create a new alarm by selecting "Alarms" and then "Create Alarm."
+   - Choose the Redshift metrics related to CPU utilization, disk space, or query performance.
+   - Set thresholds for these metrics to identify when a cluster is idle (e.g., CPU utilization below 5% for a certain period).
+
+3. **Enable Enhanced Monitoring:**
+   - Go to the Amazon Redshift console.
+   - Select the cluster you want to monitor.
+   - Enable "Enhanced VPC Routing" and "Enhanced Monitoring" to get detailed metrics and logs.
+   - Use these insights to identify idle clusters.
+
+4. **Automate Notifications:**
+   - In the CloudWatch console, set up SNS (Simple Notification Service) to send alerts when the CloudWatch alarm is triggered.
+   - Configure the SNS topic to notify relevant stakeholders via email or SMS when a cluster is identified as idle.
+
+By following these steps, you can effectively monitor and manage your Redshift clusters to ensure that idle clusters are identified and can be terminated promptly to save costs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent idle Redshift clusters from being left running and incurring unnecessary costs, you can set up automated monitoring and termination using AWS CLI. Here are the steps:
+
+1. **Create a CloudWatch Alarm for Idle Redshift Cluster:**
+   - Use CloudWatch to monitor the CPU utilization of your Redshift clusters. If the CPU utilization is below a certain threshold for a specified period, it can be considered idle.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "IdleRedshiftClusterAlarm" \
+   --metric-name CPUUtilization --namespace AWS/Redshift --statistic Average \
+   --period 300 --threshold 10 --comparison-operator LessThanThreshold \
+   --dimensions Name=ClusterIdentifier,Value=<YourClusterIdentifier> \
+   --evaluation-periods 12 --alarm-actions <SNS_Topic_ARN> \
+   --unit Percent
+   ```
+
+2. **Create an SNS Topic for Alarm Notifications:**
+   - Create an SNS topic to receive notifications when the CloudWatch alarm is triggered.
+   ```sh
+   aws sns create-topic --name IdleRedshiftClusterTopic
+   ```
+
+3. **Subscribe to the SNS Topic:**
+   - Subscribe an email endpoint to the SNS topic to receive notifications.
+   ```sh
+   aws sns subscribe --topic-arn <SNS_Topic_ARN> --protocol email --notification-endpoint <YourEmail@example.com>
+   ```
+
+4. **Create a Lambda Function to Terminate Idle Clusters:**
+   - Create a Lambda function that will be triggered by the SNS topic to terminate the idle Redshift cluster.
+   ```sh
+   aws lambda create-function --function-name TerminateIdleRedshiftCluster \
+   --runtime python3.8 --role <IAM_Role_ARN> --handler lambda_function.lambda_handler \
+   --zip-file fileb://function.zip
+   ```
+
+   - The `lambda_function.py` should contain logic to terminate the Redshift cluster:
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       redshift = boto3.client('redshift')
+       cluster_identifier = '<YourClusterIdentifier>'
+       redshift.delete_cluster(ClusterIdentifier=cluster_identifier, SkipFinalClusterSnapshot=True)
+   ```
+
+By following these steps, you can automate the monitoring and termination of idle Redshift clusters using AWS CLI, ensuring that you do not incur unnecessary costs.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent idle Amazon Redshift clusters from being left running and incurring unnecessary costs, you can use Python scripts to automate the monitoring and termination of these clusters. Below are the steps to achieve this:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Write the Python Script
+Create a Python script to monitor and terminate idle Redshift clusters. Below is an example script:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon Redshift
+client = boto3.client('redshift')
+
+# Define the idle time threshold (e.g., 1 hour)
+idle_time_threshold = timedelta(hours=1)
+
+def get_idle_clusters():
+    # Get the list of clusters
+    clusters = client.describe_clusters()['Clusters']
+    idle_clusters = []
+
+    for cluster in clusters:
+        # Check if the cluster is available
+        if cluster['ClusterStatus'] == 'available':
+            # Get the cluster's last activity time
+            last_activity_time = cluster['ClusterCreateTime']
+            current_time = datetime.utcnow().replace(tzinfo=None)
+            idle_time = current_time - last_activity_time
+
+            # Check if the cluster has been idle for longer than the threshold
+            if idle_time > idle_time_threshold:
+                idle_clusters.append(cluster['ClusterIdentifier'])
+
+    return idle_clusters
+
+def terminate_idle_clusters(idle_clusters):
+    for cluster_id in idle_clusters:
+        print(f"Terminating idle cluster: {cluster_id}")
+        client.delete_cluster(ClusterIdentifier=cluster_id, SkipFinalClusterSnapshot=True)
+
+if __name__ == "__main__":
+    idle_clusters = get_idle_clusters()
+    if idle_clusters:
+        terminate_idle_clusters(idle_clusters)
+    else:
+        print("No idle clusters found.")
+```
+
+### Step 4: Automate the Script Execution
+To ensure this script runs periodically, you can set up a cron job (on Linux) or use AWS Lambda with CloudWatch Events to trigger the script at regular intervals.
+
+#### Using AWS Lambda and CloudWatch Events:
+1. **Create a Lambda Function:**
+   - Go to the AWS Lambda console and create a new function.
+   - Upload the Python script as the function code.
+   - Set up the necessary IAM role with permissions to describe and delete Redshift clusters.
+
+2. **Create a CloudWatch Event Rule:**
+   - Go to the CloudWatch console and create a new rule.
+   - Set the rule to trigger at your desired interval (e.g., every hour).
+   - Set the target to the Lambda function you created.
+
+By following these steps, you can automate the prevention of idle Redshift clusters, ensuring they are terminated promptly to avoid unnecessary costs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
