@@ -2,6 +2,143 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from having open ICMP ports in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section of the EC2 dashboard.
+
+2. **Select the Security Group:**
+   - Identify and select the security group associated with your EC2 instance that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the security group selected, click on the "Inbound rules" tab.
+   - Click the "Edit inbound rules" button to modify the existing rules.
+
+4. **Remove or Restrict ICMP Rules:**
+   - Look for any rules that allow ICMP traffic (typically shown as "All ICMP" or specific ICMP types).
+   - Either remove these rules by clicking the "Remove" button next to them or restrict the source IP range to a more secure and specific range rather than allowing open access (e.g., 0.0.0.0/0).
+
+By following these steps, you can ensure that your EC2 instances are not exposed to open ICMP traffic, thereby enhancing your security posture.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from having open ICMP ports in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance. You can list all security groups and find the relevant one using the following command:
+   ```sh
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName]' --output table
+   ```
+
+2. **Check Existing Rules:**
+   Check the existing inbound rules for the identified security group to see if there are any open ICMP ports:
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions'
+   ```
+
+3. **Revoke Open ICMP Rules:**
+   If you find any open ICMP rules, revoke them using the following command. Replace `<security-group-id>` with your security group ID and adjust the `--protocol`, `--port`, and `--cidr` parameters as needed:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol icmp --port all --cidr 0.0.0.0/0
+   ```
+
+4. **Add Specific ICMP Rules (if needed):**
+   If you need to allow specific ICMP types (e.g., Echo Request), you can add more restrictive rules. For example, to allow only ICMP Echo Request (type 8, code 0) from a specific IP range:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol icmp --port -1 --cidr <specific-cidr> --icmp-type-code 8:0
+   ```
+
+By following these steps, you can ensure that your EC2 instances do not have open ICMP ports in their security groups, thereby enhancing your security posture.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from having open ICMP ports in their security groups using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for EC2.
+
+3. **Describe Security Groups**:
+   Retrieve the security groups and their rules.
+
+4. **Check and Update Security Groups**:
+   Check for open ICMP ports and update the security groups to remove or restrict them.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2 = session.client('ec2')
+
+# Describe all security groups
+response = ec2.describe_security_groups()
+
+for sg in response['SecurityGroups']:
+    sg_id = sg['GroupId']
+    ip_permissions = sg['IpPermissions']
+    
+    for permission in ip_permissions:
+        # Check if the protocol is ICMP (protocol number 1)
+        if permission['IpProtocol'] == 'icmp':
+            print(f"Security Group {sg_id} has open ICMP ports.")
+            
+            # Revoke the ICMP permission
+            ec2.revoke_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        'IpProtocol': 'icmp',
+                        'FromPort': permission['FromPort'],
+                        'ToPort': permission['ToPort'],
+                        'IpRanges': permission['IpRanges']
+                    }
+                ]
+            )
+            print(f"Revoked ICMP permissions from Security Group {sg_id}")
+
+print("Completed checking and updating security groups.")
+```
+
+### Explanation:
+
+1. **Install Boto3**:
+   - Ensure Boto3 is installed to interact with AWS services.
+
+2. **Initialize Boto3 Client**:
+   - Create a session and initialize the EC2 client with your AWS credentials and region.
+
+3. **Describe Security Groups**:
+   - Use `describe_security_groups()` to get all security groups and their rules.
+
+4. **Check and Update Security Groups**:
+   - Iterate through the security groups and their permissions.
+   - Check if the protocol is ICMP (`IpProtocol` is 'icmp').
+   - If ICMP is found, revoke the permission using `revoke_security_group_ingress()`.
+
+This script will help you prevent EC2 instances from having open ICMP ports by automatically identifying and revoking such permissions in the security groups.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

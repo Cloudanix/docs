@@ -24,6 +24,166 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused Virtual Private Gateways (VPGs) in AWS Security Groups using the AWS Management Console, follow these steps:
+
+1. **Identify Unused VPGs:**
+   - Navigate to the **VPC Dashboard** in the AWS Management Console.
+   - In the left-hand navigation pane, select **Virtual Private Gateways**.
+   - Review the list of VPGs and identify any that are not attached to a VPC or are not in use.
+
+2. **Review Security Groups:**
+   - Go to the **EC2 Dashboard**.
+   - In the left-hand navigation pane, select **Security Groups**.
+   - Review the security groups to ensure that they do not have rules that reference the unused VPGs.
+
+3. **Update Security Group Rules:**
+   - For each security group, select the group and navigate to the **Inbound Rules** and **Outbound Rules** tabs.
+   - Remove any rules that reference the unused VPGs.
+
+4. **Monitor and Automate:**
+   - Set up AWS Config rules to monitor for unused VPGs and security group rules referencing them.
+   - Use AWS CloudWatch to create alarms and notifications for any detected unused VPGs.
+
+By following these steps, you can ensure that unused Virtual Private Gateways are identified and removed from security groups, thereby maintaining a secure and efficient AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused Virtual Private Gateways (VPGs) in AWS using the AWS CLI, you can follow these steps:
+
+1. **List All Virtual Private Gateways:**
+   First, identify all the Virtual Private Gateways in your account to determine which ones are currently in use and which ones are not.
+
+   ```sh
+   aws ec2 describe-vpn-gateways --query 'VpnGateways[*].{ID:VpnGatewayId,State:State,Attachments:VpcAttachments}'
+   ```
+
+2. **Check Attachments:**
+   For each Virtual Private Gateway, check if it is attached to any VPC. If a VPG is not attached to any VPC, it is considered unused.
+
+   ```sh
+   aws ec2 describe-vpn-gateways --vpn-gateway-ids <vpn-gateway-id> --query 'VpnGateways[*].VpcAttachments'
+   ```
+
+3. **Tagging for Monitoring:**
+   Tag the Virtual Private Gateways with a specific tag to indicate their status (e.g., "Status: Unused" or "Status: InUse"). This helps in monitoring and managing them effectively.
+
+   ```sh
+   aws ec2 create-tags --resources <vpn-gateway-id> --tags Key=Status,Value=Unused
+   ```
+
+4. **Automate Monitoring:**
+   Set up a scheduled AWS Lambda function or a CloudWatch rule to periodically check for unused Virtual Private Gateways and alert you or take action based on the tags.
+
+   Example Lambda function snippet (Python):
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_vpn_gateways()
+       for vpn_gateway in response['VpnGateways']:
+           if not vpn_gateway['VpcAttachments']:
+               ec2.create_tags(
+                   Resources=[vpn_gateway['VpnGatewayId']],
+                   Tags=[{'Key': 'Status', 'Value': 'Unused'}]
+               )
+   ```
+
+By following these steps, you can effectively prevent and manage unused Virtual Private Gateways in your AWS environment using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused Virtual Private Gateways (VPGs) in security groups using Python scripts, you can follow these steps:
+
+### 1. **Set Up Your Environment**
+Ensure you have the necessary libraries installed and configured for AWS, Azure, and GCP. For AWS, you will use `boto3`, for Azure, you will use `azure-mgmt-network`, and for GCP, you will use `google-cloud-compute`.
+
+```bash
+pip install boto3 azure-mgmt-network google-cloud-compute
+```
+
+### 2. **AWS: Identify and Remove Unused VPGs**
+
+```python
+import boto3
+
+def remove_unused_vpgs_aws():
+    ec2_client = boto3.client('ec2')
+    
+    # Describe all VPGs
+    vpgs = ec2_client.describe_vpn_gateways()
+    
+    for vpg in vpgs['VpnGateways']:
+        if vpg['State'] == 'available' and not vpg['VpcAttachments']:
+            # Delete the unused VPG
+            ec2_client.delete_vpn_gateway(VpnGatewayId=vpg['VpnGatewayId'])
+            print(f"Deleted unused VPG: {vpg['VpnGatewayId']}")
+
+remove_unused_vpgs_aws()
+```
+
+### 3. **Azure: Identify and Remove Unused VPGs**
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.network import NetworkManagementClient
+
+def remove_unused_vpgs_azure(subscription_id):
+    credential = DefaultAzureCredential()
+    network_client = NetworkManagementClient(credential, subscription_id)
+    
+    # List all VPGs
+    vpgs = network_client.virtual_network_gateways.list_all()
+    
+    for vpg in vpgs:
+        if not vpg.ip_configurations:
+            # Delete the unused VPG
+            network_client.virtual_network_gateways.begin_delete(vpg.resource_group_name, vpg.name)
+            print(f"Deleted unused VPG: {vpg.name}")
+
+subscription_id = 'your_subscription_id'
+remove_unused_vpgs_azure(subscription_id)
+```
+
+### 4. **GCP: Identify and Remove Unused VPGs**
+
+```python
+from google.cloud import compute_v1
+
+def remove_unused_vpgs_gcp(project_id):
+    client = compute_v1.VpnGatewaysClient()
+    
+    # List all VPGs
+    vpgs = client.list(project=project_id, region='your-region')
+    
+    for vpg in vpgs:
+        if not vpg.vpn_tunnels:
+            # Delete the unused VPG
+            client.delete(project=project_id, region='your-region', vpn_gateway=vpg.name)
+            print(f"Deleted unused VPG: {vpg.name}")
+
+project_id = 'your_project_id'
+remove_unused_vpgs_gcp(project_id)
+```
+
+### Summary
+1. **Set Up Your Environment**: Install necessary libraries.
+2. **AWS**: Use `boto3` to identify and remove unused VPGs.
+3. **Azure**: Use `azure-mgmt-network` to identify and remove unused VPGs.
+4. **GCP**: Use `google-cloud-compute` to identify and remove unused VPGs.
+
+These scripts will help you automate the process of identifying and removing unused Virtual Private Gateways in AWS, Azure, and GCP, thereby preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

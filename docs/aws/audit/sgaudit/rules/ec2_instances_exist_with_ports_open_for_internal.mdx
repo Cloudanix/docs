@@ -24,6 +24,171 @@ NIST
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ports from being open for internal traffic in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section of the EC2 dashboard.
+
+2. **Select the Security Group:**
+   - From the list of security groups, select the security group you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the security group selected, choose the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+
+4. **Restrict Internal Traffic:**
+   - Review the existing rules and identify any rules that allow internal traffic (e.g., rules with a source of `10.0.0.0/8`, `172.16.0.0/12`, or `192.168.0.0/16`).
+   - Modify or remove these rules to restrict internal traffic. You can specify more restrictive CIDR ranges or specific IP addresses as needed.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your security groups are configured to prevent unnecessary internal traffic, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ports from being open for internal traffic in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the Security Group that you want to modify. You can list all Security Groups to find the relevant one.
+   ```sh
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName]' --output table
+   ```
+
+2. **Revoke Inbound Rules:**
+   Revoke any inbound rules that allow internal traffic on specific ports. Replace `<group-id>` with your Security Group ID and `<port>` with the port number you want to restrict.
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <group-id> --protocol tcp --port <port> --cidr 10.0.0.0/8
+   ```
+
+3. **Revoke Outbound Rules:**
+   Similarly, revoke any outbound rules that allow internal traffic on specific ports.
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id <group-id> --protocol tcp --port <port> --cidr 10.0.0.0/8
+   ```
+
+4. **Add Specific Rules:**
+   If necessary, add more specific rules to allow traffic only from trusted sources. For example, to allow traffic only from a specific IP range:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <group-id> --protocol tcp --port <port> --cidr <trusted-cidr>
+   ```
+
+By following these steps, you can ensure that ports are not open for internal traffic in your AWS Security Groups using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ports from being open for internal traffic in Security Groups using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and example scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python script to check and update Security Groups**:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def close_internal_ports(security_group_id):
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       security_group = response['SecurityGroups'][0]
+
+       for permission in security_group['IpPermissions']:
+           for ip_range in permission.get('IpRanges', []):
+               if ip_range['CidrIp'] == '10.0.0.0/8':  # Example internal range
+                   ec2.revoke_security_group_ingress(
+                       GroupId=security_group_id,
+                       IpProtocol=permission['IpProtocol'],
+                       FromPort=permission['FromPort'],
+                       ToPort=permission['ToPort'],
+                       CidrIp=ip_range['CidrIp']
+                   )
+                   print(f"Closed port {permission['FromPort']} for internal traffic in {security_group_id}")
+
+   # Example usage
+   close_internal_ports('sg-0123456789abcdef0')
+   ```
+
+### Azure (Using Azure SDK)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Create a Python script to check and update Network Security Groups (NSGs)**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your_subscription_id'
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def close_internal_ports(resource_group_name, nsg_name):
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+
+       for rule in nsg.security_rules:
+           if rule.source_address_prefix == '10.0.0.0/8':  # Example internal range
+               rule.access = 'Deny'
+               network_client.security_rules.create_or_update(
+                   resource_group_name,
+                   nsg_name,
+                   rule.name,
+                   rule
+               )
+               print(f"Closed port {rule.destination_port_range} for internal traffic in {nsg_name}")
+
+   # Example usage
+   close_internal_ports('your_resource_group', 'your_nsg_name')
+   ```
+
+### GCP (Using Google Cloud SDK)
+
+1. **Install Google Cloud SDK**:
+   ```bash
+   pip install google-api-python-client google-auth
+   ```
+
+2. **Create a Python script to check and update Firewall Rules**:
+   ```python
+   from googleapiclient import discovery
+   from google.oauth2 import service_account
+
+   credentials = service_account.Credentials.from_service_account_file('path_to_your_service_account.json')
+   service = discovery.build('compute', 'v1', credentials=credentials)
+
+   def close_internal_ports(project, firewall_rule_name):
+       firewall_rule = service.firewalls().get(project=project, firewall=firewall_rule_name).execute()
+
+       for allowed in firewall_rule.get('allowed', []):
+           for ip_range in firewall_rule.get('sourceRanges', []):
+               if ip_range == '10.0.0.0/8':  # Example internal range
+                   firewall_rule['allowed'].remove(allowed)
+                   service.firewalls().update(
+                       project=project,
+                       firewall=firewall_rule_name,
+                       body=firewall_rule
+                   ).execute()
+                   print(f"Closed port {allowed['ports']} for internal traffic in {firewall_rule_name}")
+
+   # Example usage
+   close_internal_ports('your_project_id', 'your_firewall_rule_name')
+   ```
+
+These scripts will help you identify and close ports that are open for internal traffic in the respective cloud environments. Make sure to replace placeholders like `your_subscription_id`, `your_resource_group`, `your_nsg_name`, `path_to_your_service_account.json`, `your_project_id`, and `your_firewall_rule_name` with actual values from your cloud environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

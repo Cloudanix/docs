@@ -2,6 +2,165 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an Amazon MQ Broker from being publicly accessible in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Amazon MQ Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Amazon MQ" and select it from the list of services.
+
+2. **Select the Broker:**
+   - In the Amazon MQ console, you will see a list of your brokers.
+   - Click on the name of the broker you want to configure.
+
+3. **Modify Security Groups:**
+   - In the broker details page, locate the "Security and network" section.
+   - Click on the security group associated with your broker to open the Amazon EC2 console.
+
+4. **Edit Inbound Rules:**
+   - In the Amazon EC2 console, select the security group associated with your broker.
+   - Click on the "Inbound rules" tab.
+   - Ensure that there are no rules allowing public access (i.e., 0.0.0.0/0 or ::/0) to the broker ports.
+   - Modify or remove any such rules to restrict access to specific IP addresses or CIDR blocks that are trusted.
+
+By following these steps, you can ensure that your Amazon MQ Broker is not publicly accessible, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an Amazon MQ Broker from being publicly accessible in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group associated with the MQ Broker:**
+   First, you need to identify the security group that is associated with your MQ Broker. You can do this by describing the MQ Broker and noting the security group ID.
+
+   ```sh
+   aws mq describe-broker --broker-id <your-broker-id>
+   ```
+
+2. **Describe the Security Group to check for public access:**
+   Once you have the security group ID, describe the security group to check for any rules that allow public access (i.e., CIDR range `0.0.0.0/0`).
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <your-security-group-id>
+   ```
+
+3. **Revoke Inbound Rules that allow public access:**
+   If you find any inbound rules that allow public access, revoke them. For example, if there is a rule allowing access from `0.0.0.0/0` on port 5671 (default port for MQ), you can revoke it using the following command:
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 5671 --cidr 0.0.0.0/0
+   ```
+
+4. **Add Inbound Rules to restrict access:**
+   Add more restrictive inbound rules to allow access only from specific IP addresses or CIDR ranges that you trust. For example, to allow access only from a specific IP address `203.0.113.0` on port 5671:
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <your-security-group-id> --protocol tcp --port 5671 --cidr 203.0.113.0/32
+   ```
+
+By following these steps, you can ensure that your Amazon MQ Broker is not publicly accessible and is only accessible from trusted IP addresses.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an MQ Broker from being publicly accessible in Security Groups using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and example scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python script to modify the security group**:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def make_mq_broker_private(security_group_id):
+       # Revoke public access (0.0.0.0/0) for all ports
+       ec2.revoke_security_group_ingress(
+           GroupId=security_group_id,
+           IpPermissions=[
+               {
+                   'IpProtocol': '-1',
+                   'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+               }
+           ]
+       )
+       print(f"Public access revoked for security group {security_group_id}")
+
+   # Example usage
+   make_mq_broker_private('sg-0123456789abcdef0')
+   ```
+
+### Azure (Using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Create a Python script to modify the network security group**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your_subscription_id'
+   resource_group_name = 'your_resource_group_name'
+   nsg_name = 'your_nsg_name'
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def make_mq_broker_private():
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+       for rule in nsg.security_rules:
+           if rule.destination_address_prefix == 'Internet':
+               rule.destination_address_prefix = 'Private'
+               network_client.security_rules.create_or_update(resource_group_name, nsg_name, rule.name, rule)
+               print(f"Updated rule {rule.name} to be private")
+
+   # Example usage
+   make_mq_broker_private()
+   ```
+
+### GCP (Using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Python Client Library**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Create a Python script to modify the firewall rules**:
+   ```python
+   from google.cloud import compute_v1
+
+   def make_mq_broker_private(project_id, firewall_rule_name):
+       client = compute_v1.FirewallsClient()
+       firewall = client.get(project=project_id, firewall=firewall_rule_name)
+       
+       # Remove 0.0.0.0/0 from allowed IP ranges
+       for allowed in firewall.allowed:
+           if '0.0.0.0/0' in allowed.source_ranges:
+               allowed.source_ranges.remove('0.0.0.0/0')
+               allowed.source_ranges.append('10.0.0.0/8')  # Example private range
+       
+       client.update(project=project_id, firewall=firewall_rule_name, firewall_resource=firewall)
+       print(f"Updated firewall rule {firewall_rule_name} to be private")
+
+   # Example usage
+   make_mq_broker_private('your_project_id', 'your_firewall_rule_name')
+   ```
+
+These scripts will help you modify the security configurations to ensure that your MQ Broker is not publicly accessible. Make sure to replace placeholders with your actual cloud resource identifiers.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,224 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused Security Groups in AWS using the AWS Management Console, follow these steps:
+
+1. **Identify Unused Security Groups:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - In the left-hand menu, select **Security Groups** under the **Network & Security** section.
+   - Review the list of security groups and identify those that are not associated with any network interfaces, instances, or other resources.
+
+2. **Filter Unused Security Groups:**
+   - Use the **filter options** to display only the security groups that are not in use. You can do this by selecting the **"Unused"** filter or by manually checking the **"Associated Instances"** column for a value of zero.
+
+3. **Tagging for Review:**
+   - For better management, tag the identified unused security groups with a specific tag (e.g., `Key: Status, Value: Unused`) to mark them for review or deletion. This helps in tracking and managing them easily.
+
+4. **Automate Monitoring:**
+   - Set up AWS Config rules or CloudWatch alarms to continuously monitor and alert you about unused security groups. AWS Config provides a managed rule called `ec2-security-group-attached` that can help in identifying security groups that are not associated with any resources.
+
+By following these steps, you can effectively manage and prevent the accumulation of unused security groups in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused security groups in AWS using the AWS CLI, you can follow these steps:
+
+1. **List All Security Groups:**
+   Use the following command to list all security groups in your AWS account. This will help you identify which security groups are currently in use and which are not.
+
+   ```sh
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName]' --output table
+   ```
+
+2. **Identify Unused Security Groups:**
+   To identify unused security groups, you need to check which security groups are not associated with any network interfaces. Use the following command to list all network interfaces and their associated security groups:
+
+   ```sh
+   aws ec2 describe-network-interfaces --query 'NetworkInterfaces[*].Groups[*].GroupId' --output text
+   ```
+
+   Compare the output with the list of all security groups to identify the unused ones.
+
+3. **Tag Security Groups:**
+   To prevent future misconfigurations, you can tag your security groups with metadata indicating their purpose. This helps in identifying and managing them more effectively. Use the following command to tag a security group:
+
+   ```sh
+   aws ec2 create-tags --resources <SecurityGroupId> --tags Key=Purpose,Value=<Description>
+   ```
+
+4. **Automate Monitoring:**
+   Set up a scheduled AWS Lambda function or a CloudWatch rule to periodically check for unused security groups and alert you. This can be done using a Python script executed by AWS Lambda. Here is a basic example of how you might set up such a script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def lambda_handler(event, context):
+       all_sgs = ec2.describe_security_groups()['SecurityGroups']
+       used_sgs = set()
+       
+       for ni in ec2.describe_network_interfaces()['NetworkInterfaces']:
+           for group in ni['Groups']:
+               used_sgs.add(group['GroupId'])
+       
+       unused_sgs = [sg for sg in all_sgs if sg['GroupId'] not in used_sgs]
+       
+       if unused_sgs:
+           print("Unused Security Groups:")
+           for sg in unused_sgs:
+               print(f"GroupId: {sg['GroupId']}, GroupName: {sg['GroupName']}")
+   ```
+
+   Deploy this script as a Lambda function and set up a CloudWatch rule to trigger it periodically.
+
+By following these steps, you can effectively prevent unused security groups from lingering in your AWS environment, thereby reducing potential security risks.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused security groups from lingering in your cloud environment, you can use Python scripts to identify and remove them. Below are the steps to achieve this for AWS, Azure, and GCP:
+
+### AWS
+
+1. **Install Boto3 Library**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Identify Unused Security Groups**:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   # Get all security groups
+   all_security_groups = ec2.describe_security_groups()['SecurityGroups']
+
+   # Get all network interfaces
+   all_network_interfaces = ec2.describe_network_interfaces()['NetworkInterfaces']
+
+   # Find used security groups
+   used_security_groups = set()
+   for interface in all_network_interfaces:
+       for group in interface['Groups']:
+           used_security_groups.add(group['GroupId'])
+
+   # Find unused security groups
+   unused_security_groups = [sg['GroupId'] for sg in all_security_groups if sg['GroupId'] not in used_security_groups]
+
+   print("Unused Security Groups:", unused_security_groups)
+   ```
+
+3. **Remove Unused Security Groups**:
+   ```python
+   for sg_id in unused_security_groups:
+       try:
+           ec2.delete_security_group(GroupId=sg_id)
+           print(f"Deleted Security Group: {sg_id}")
+       except Exception as e:
+           print(f"Error deleting {sg_id}: {e}")
+   ```
+
+### Azure
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Identify Unused Security Groups**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   credential = DefaultAzureCredential()
+   subscription_id = 'your_subscription_id'
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   # Get all network security groups
+   all_nsgs = network_client.network_security_groups.list_all()
+
+   # Get all network interfaces
+   all_nics = network_client.network_interfaces.list_all()
+
+   # Find used security groups
+   used_nsgs = set()
+   for nic in all_nics:
+       if nic.network_security_group:
+           used_nsgs.add(nic.network_security_group.id)
+
+   # Find unused security groups
+   unused_nsgs = [nsg.id for nsg in all_nsgs if nsg.id not in used_nsgs]
+
+   print("Unused Security Groups:", unused_nsgs)
+   ```
+
+3. **Remove Unused Security Groups**:
+   ```python
+   for nsg_id in unused_nsgs:
+       try:
+           resource_group_name = nsg_id.split('/')[4]
+           nsg_name = nsg_id.split('/')[-1]
+           network_client.network_security_groups.begin_delete(resource_group_name, nsg_name)
+           print(f"Deleted Security Group: {nsg_id}")
+       except Exception as e:
+           print(f"Error deleting {nsg_id}: {e}")
+   ```
+
+### GCP
+
+1. **Install Google Cloud SDK**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Identify Unused Security Groups**:
+   ```python
+   from google.cloud import compute_v1
+
+   client = compute_v1.FirewallsClient()
+
+   # Get all firewall rules
+   all_firewalls = client.list(project='your_project_id')
+
+   # Get all instances
+   instances_client = compute_v1.InstancesClient()
+   all_instances = instances_client.aggregated_list(project='your_project_id')
+
+   # Find used security groups
+   used_firewalls = set()
+   for instance in all_instances:
+       for network_interface in instance.network_interfaces:
+           for access_config in network_interface.access_configs:
+               used_firewalls.add(access_config.name)
+
+   # Find unused security groups
+   unused_firewalls = [fw.name for fw in all_firewalls if fw.name not in used_firewalls]
+
+   print("Unused Security Groups:", unused_firewalls)
+   ```
+
+3. **Remove Unused Security Groups**:
+   ```python
+   for fw_name in unused_firewalls:
+       try:
+           client.delete(project='your_project_id', firewall=fw_name)
+           print(f"Deleted Security Group: {fw_name}")
+       except Exception as e:
+           print(f"Error deleting {fw_name}: {e}")
+   ```
+
+These scripts will help you identify and remove unused security groups in AWS, Azure, and GCP, thereby preventing potential security risks associated with unused security groups.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
