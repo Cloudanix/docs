@@ -24,6 +24,200 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS S3 CNAME records from being vulnerable in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Use Alias Records Instead of CNAME:**
+   - Navigate to the Route 53 console.
+   - Select the hosted zone for your domain.
+   - Create a new record or edit an existing one.
+   - Choose "Alias" as the record type instead of "CNAME".
+   - Select the S3 bucket endpoint from the list of alias targets.
+
+2. **Enable S3 Bucket Policy for HTTPS:**
+   - Go to the S3 console.
+   - Select the bucket you want to secure.
+   - Navigate to the "Permissions" tab.
+   - Edit the bucket policy to enforce HTTPS by adding a condition that denies requests that are not using HTTPS.
+
+3. **Ensure Bucket Name Matches the CNAME:**
+   - Ensure that the S3 bucket name exactly matches the CNAME record in Route 53.
+   - This prevents potential hijacking by ensuring that only the correct bucket can be accessed via the CNAME.
+
+4. **Enable S3 Block Public Access:**
+   - In the S3 console, select the bucket.
+   - Go to the "Permissions" tab.
+   - Click on "Block public access" and enable all options to block public access.
+   - This ensures that the bucket is not publicly accessible, reducing the risk of exposure.
+
+By following these steps, you can enhance the security of your S3 CNAME records in Route 53 and mitigate potential vulnerabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS S3 CNAME records from being vulnerable in Route 53 using the AWS CLI, you can follow these steps:
+
+1. **Create a Hosted Zone in Route 53:**
+   Ensure you have a hosted zone created in Route 53 for your domain. If you don't have one, you can create it using the following command:
+   ```sh
+   aws route53 create-hosted-zone --name example.com --caller-reference unique-string
+   ```
+
+2. **Create an Alias Record for S3 Bucket:**
+   Instead of using a CNAME record, create an alias record that points directly to your S3 bucket. This ensures that the DNS resolution is handled correctly and securely by AWS. Use the following command to create an alias record:
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE --change-batch '{
+     "Changes": [{
+       "Action": "CREATE",
+       "ResourceRecordSet": {
+         "Name": "www.example.com",
+         "Type": "A",
+         "AliasTarget": {
+           "HostedZoneId": "Z3AQBSTGFYJSTF",  # S3 website endpoint hosted zone ID
+           "DNSName": "s3-website-us-east-1.amazonaws.com",
+           "EvaluateTargetHealth": false
+         }
+       }
+     }]
+   }'
+   ```
+
+3. **Verify S3 Bucket Policy:**
+   Ensure that your S3 bucket policy is correctly configured to allow access only from your domain. This can be done by updating the bucket policy using the following command:
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy '{
+     "Version": "2012-10-17",
+     "Statement": [{
+       "Effect": "Allow",
+       "Principal": "*",
+       "Action": "s3:GetObject",
+       "Resource": "arn:aws:s3:::your-bucket-name/*",
+       "Condition": {
+         "StringLike": {
+           "aws:Referer": "http://www.example.com/*"
+         }
+       }
+     }]
+   }'
+   ```
+
+4. **Enable S3 Bucket Website Hosting:**
+   Ensure that your S3 bucket is configured for static website hosting. This can be done using the following command:
+   ```sh
+   aws s3 website s3://your-bucket-name/ --index-document index.html --error-document error.html
+   ```
+
+By following these steps, you can prevent vulnerabilities associated with S3 CNAME records in Route 53 using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS S3 CNAME records from being vulnerable in Route53 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with Route53 and S3.
+
+```bash
+pip install boto3
+```
+
+### 2. **List All S3 Buckets and Route53 Hosted Zones**
+Create a Python script to list all S3 buckets and Route53 hosted zones. This will help you identify which S3 buckets are being used with CNAME records.
+
+```python
+import boto3
+
+# Initialize the S3 and Route53 clients
+s3_client = boto3.client('s3')
+route53_client = boto3.client('route53')
+
+# List all S3 buckets
+buckets = s3_client.list_buckets()
+print("S3 Buckets:")
+for bucket in buckets['Buckets']:
+    print(f" - {bucket['Name']}")
+
+# List all Route53 hosted zones
+hosted_zones = route53_client.list_hosted_zones()
+print("\nRoute53 Hosted Zones:")
+for zone in hosted_zones['HostedZones']:
+    print(f" - {zone['Name']}")
+```
+
+### 3. **Check for Vulnerable CNAME Records**
+Create a function to check if any CNAME records in Route53 are pointing to S3 buckets that are not properly configured or do not exist.
+
+```python
+def check_vulnerable_cname_records():
+    for zone in hosted_zones['HostedZones']:
+        zone_id = zone['Id']
+        records = route53_client.list_resource_record_sets(HostedZoneId=zone_id)
+        for record in records['ResourceRecordSets']:
+            if record['Type'] == 'CNAME':
+                cname_value = record['ResourceRecords'][0]['Value']
+                if cname_value.endswith('.s3.amazonaws.com'):
+                    bucket_name = cname_value.split('.')[0]
+                    try:
+                        s3_client.head_bucket(Bucket=bucket_name)
+                        print(f"Bucket {bucket_name} exists and is properly configured.")
+                    except s3_client.exceptions.NoSuchBucket:
+                        print(f"Vulnerable CNAME record found: {record['Name']} -> {cname_value}")
+
+check_vulnerable_cname_records()
+```
+
+### 4. **Automate the Prevention**
+Automate the script to run periodically and alert you if any vulnerable CNAME records are found. You can use AWS Lambda and CloudWatch Events to schedule the script.
+
+```python
+import boto3
+import logging
+
+# Initialize the S3 and Route53 clients
+s3_client = boto3.client('s3')
+route53_client = boto3.client('route53')
+
+# Set up logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+def lambda_handler(event, context):
+    # List all Route53 hosted zones
+    hosted_zones = route53_client.list_hosted_zones()
+    
+    for zone in hosted_zones['HostedZones']:
+        zone_id = zone['Id']
+        records = route53_client.list_resource_record_sets(HostedZoneId=zone_id)
+        for record in records['ResourceRecordSets']:
+            if record['Type'] == 'CNAME':
+                cname_value = record['ResourceRecords'][0]['Value']
+                if cname_value.endswith('.s3.amazonaws.com'):
+                    bucket_name = cname_value.split('.')[0]
+                    try:
+                        s3_client.head_bucket(Bucket=bucket_name)
+                        logger.info(f"Bucket {bucket_name} exists and is properly configured.")
+                    except s3_client.exceptions.NoSuchBucket:
+                        logger.warning(f"Vulnerable CNAME record found: {record['Name']} -> {cname_value}")
+
+# Test the function locally
+if __name__ == "__main__":
+    lambda_handler(None, None)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **List All S3 Buckets and Route53 Hosted Zones**: Identify S3 buckets and Route53 hosted zones.
+3. **Check for Vulnerable CNAME Records**: Verify if CNAME records point to non-existent or misconfigured S3 buckets.
+4. **Automate the Prevention**: Use AWS Lambda and CloudWatch Events to automate the script and alert on vulnerabilities.
+
+By following these steps, you can proactively prevent AWS S3 CNAME records from being vulnerable in Route53 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

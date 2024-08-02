@@ -2,6 +2,168 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an AWS CloudFront Distribution Alias Record from having no S3 origin in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Create an S3 Bucket:**
+   - Navigate to the S3 service in the AWS Management Console.
+   - Click on "Create bucket" and follow the prompts to create a new S3 bucket.
+   - Ensure the bucket name matches the alias you plan to use in Route 53.
+
+2. **Configure the S3 Bucket for Static Website Hosting:**
+   - Select the newly created S3 bucket.
+   - Go to the "Properties" tab.
+   - Enable "Static website hosting" and configure the necessary settings (index document, error document).
+
+3. **Create a CloudFront Distribution:**
+   - Navigate to the CloudFront service in the AWS Management Console.
+   - Click on "Create Distribution" and choose "Web" for the delivery method.
+   - In the "Origin Settings," set the "Origin Domain Name" to the S3 bucket you created.
+   - Complete the remaining settings as required and create the distribution.
+
+4. **Create an Alias Record in Route 53:**
+   - Navigate to the Route 53 service in the AWS Management Console.
+   - Select the hosted zone for your domain.
+   - Click on "Create Record" and choose "A - IPv4 address" or "AAAA - IPv6 address" as the record type.
+   - Select "Yes" for "Alias" and choose the CloudFront distribution from the dropdown list.
+   - Enter the alias name (which should match the S3 bucket name) and save the record.
+
+By following these steps, you ensure that the CloudFront distribution alias record in Route 53 is correctly associated with an S3 origin.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an AWS CloudFront Distribution Alias Record from having no S3 origin in Route 53 using AWS CLI, you can follow these steps:
+
+1. **Create an S3 Bucket:**
+   Ensure you have an S3 bucket that will serve as the origin for your CloudFront distribution.
+   ```sh
+   aws s3 mb s3://your-bucket-name
+   ```
+
+2. **Create a CloudFront Distribution with S3 Origin:**
+   Create a CloudFront distribution and specify the S3 bucket as the origin.
+   ```sh
+   aws cloudfront create-distribution --origin-domain-name your-bucket-name.s3.amazonaws.com
+   ```
+
+3. **Create a Route 53 Hosted Zone:**
+   If you don't already have a hosted zone, create one in Route 53.
+   ```sh
+   aws route53 create-hosted-zone --name yourdomain.com --caller-reference unique-string
+   ```
+
+4. **Create an Alias Record in Route 53:**
+   Create an alias record in Route 53 that points to your CloudFront distribution.
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE --change-batch '{
+     "Changes": [{
+       "Action": "CREATE",
+       "ResourceRecordSet": {
+         "Name": "www.yourdomain.com",
+         "Type": "A",
+         "AliasTarget": {
+           "HostedZoneId": "Z2FDTNDATAQYW2",  # CloudFront Hosted Zone ID
+           "DNSName": "d1234.cloudfront.net",  # CloudFront Distribution Domain Name
+           "EvaluateTargetHealth": false
+         }
+       }
+     }]
+   }'
+   ```
+
+By following these steps, you ensure that your CloudFront distribution has an S3 origin and is correctly configured with an alias record in Route 53.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an AWS CloudFront Distribution Alias Record from having no S3 origin in Route 53 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+```bash
+pip install boto3
+```
+
+### 2. **Check Existing CloudFront Distributions**
+Write a Python script to list all CloudFront distributions and check if they have an S3 origin.
+
+```python
+import boto3
+
+def list_cloudfront_distributions():
+    client = boto3.client('cloudfront')
+    distributions = client.list_distributions()
+
+    for distribution in distributions['DistributionList']['Items']:
+        has_s3_origin = any(
+            origin['DomainName'].endswith('.s3.amazonaws.com')
+            for origin in distribution['Origins']['Items']
+        )
+        if not has_s3_origin:
+            print(f"Distribution {distribution['Id']} has no S3 origin.")
+        else:
+            print(f"Distribution {distribution['Id']} is correctly configured with an S3 origin.")
+
+if __name__ == "__main__":
+    list_cloudfront_distributions()
+```
+
+### 3. **Validate Route 53 Alias Records**
+Write a Python script to validate that the Route 53 alias records point to CloudFront distributions with S3 origins.
+
+```python
+def validate_route53_alias_records():
+    route53_client = boto3.client('route53')
+    cloudfront_client = boto3.client('cloudfront')
+
+    hosted_zones = route53_client.list_hosted_zones()
+    for zone in hosted_zones['HostedZones']:
+        records = route53_client.list_resource_record_sets(HostedZoneId=zone['Id'])
+        for record in records['ResourceRecordSets']:
+            if record['Type'] == 'A' and 'AliasTarget' in record:
+                distribution_id = record['AliasTarget']['DNSName'].split('.')[0]
+                distribution = cloudfront_client.get_distribution(Id=distribution_id)
+                has_s3_origin = any(
+                    origin['DomainName'].endswith('.s3.amazonaws.com')
+                    for origin in distribution['Distribution']['DistributionConfig']['Origins']['Items']
+                )
+                if not has_s3_origin:
+                    print(f"Alias record {record['Name']} points to a CloudFront distribution without an S3 origin.")
+                else:
+                    print(f"Alias record {record['Name']} is correctly configured.")
+
+if __name__ == "__main__":
+    validate_route53_alias_records()
+```
+
+### 4. **Automate the Validation Process**
+Schedule the above scripts to run periodically using AWS Lambda and CloudWatch Events to ensure continuous compliance.
+
+```python
+import boto3
+
+def lambda_handler(event, context):
+    list_cloudfront_distributions()
+    validate_route53_alias_records()
+
+# Deploy this function to AWS Lambda and set up a CloudWatch Event to trigger it periodically.
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Check Existing CloudFront Distributions**: Write a script to list and check CloudFront distributions for S3 origins.
+3. **Validate Route 53 Alias Records**: Write a script to validate Route 53 alias records pointing to CloudFront distributions.
+4. **Automate the Validation Process**: Use AWS Lambda and CloudWatch Events to automate the validation process.
+
+By following these steps, you can ensure that your CloudFront distributions are correctly configured with S3 origins and that your Route 53 alias records are pointing to the appropriate distributions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

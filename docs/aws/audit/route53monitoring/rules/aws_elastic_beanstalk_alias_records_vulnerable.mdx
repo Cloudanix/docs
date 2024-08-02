@@ -24,6 +24,175 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS Elastic Beanstalk Alias Records from being vulnerable in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Review and Update Route 53 Alias Records:**
+   - Open the [Amazon Route 53 console](https://console.aws.amazon.com/route53/).
+   - In the navigation pane, choose **Hosted zones**.
+   - Select the hosted zone that contains the alias record you want to review.
+   - Check the alias records pointing to your Elastic Beanstalk environment. Ensure they are correctly configured and pointing to the appropriate Elastic Beanstalk environment.
+
+2. **Enable DNSSEC for Hosted Zones:**
+   - In the Route 53 console, select the hosted zone you want to secure.
+   - Choose the **Enable DNSSEC** button to enable DNS Security Extensions (DNSSEC) for the hosted zone. This helps protect against DNS spoofing and ensures the integrity of DNS responses.
+
+3. **Use IAM Policies to Restrict Access:**
+   - Open the [IAM console](https://console.aws.amazon.com/iam/).
+   - Create or update IAM policies to restrict who can create, modify, or delete Route 53 records.
+   - Attach these policies to IAM users, groups, or roles to ensure only authorized personnel can make changes to DNS records.
+
+4. **Monitor and Audit DNS Changes:**
+   - Enable AWS CloudTrail to log all Route 53 API calls.
+   - Open the [CloudTrail console](https://console.aws.amazon.com/cloudtrail/).
+   - Ensure that CloudTrail is logging Route 53 API calls and review the logs regularly to monitor for any unauthorized or unexpected changes to DNS records.
+
+By following these steps, you can enhance the security of your AWS Elastic Beanstalk Alias Records in Route 53 and reduce the risk of misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Elastic Beanstalk Alias Records from being vulnerable in Route 53 using AWS CLI, you can follow these steps:
+
+1. **Create a Hosted Zone:**
+   Ensure you have a hosted zone created in Route 53 for your domain. If you don't have one, you can create it using the following command:
+   ```sh
+   aws route53 create-hosted-zone --name example.com --caller-reference unique-string
+   ```
+
+2. **Create an Alias Record:**
+   When creating an alias record, ensure it points to the correct Elastic Beanstalk environment. Use the following command to create an alias record:
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE --change-batch '{
+     "Changes": [{
+       "Action": "CREATE",
+       "ResourceRecordSet": {
+         "Name": "myapp.example.com",
+         "Type": "A",
+         "AliasTarget": {
+           "HostedZoneId": "Z3DZXE0EXAMPLE",
+           "DNSName": "myapp.elasticbeanstalk.com",
+           "EvaluateTargetHealth": false
+         }
+       }
+     }]
+   }'
+   ```
+
+3. **Enable DNSSEC:**
+   Enable DNSSEC (Domain Name System Security Extensions) for your hosted zone to add an additional layer of security. Note that this step involves multiple sub-steps, including creating a key-signing key (KSK) and enabling DNSSEC. Here is a simplified command to enable DNSSEC:
+   ```sh
+   aws route53 enable-hosted-zone-dnssec --hosted-zone-id Z3M3LMPEXAMPLE
+   ```
+
+4. **Regularly Audit and Update Records:**
+   Regularly audit your DNS records to ensure they are up-to-date and pointing to the correct resources. Use the following command to list all records in a hosted zone:
+   ```sh
+   aws route53 list-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE
+   ```
+
+By following these steps, you can help prevent vulnerabilities associated with AWS Elastic Beanstalk Alias Records in Route 53 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Elastic Beanstalk Alias Records from being vulnerable in Route 53 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary permissions to interact with Route 53 and Elastic Beanstalk.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to List Alias Records:**
+   - Write a script to list all the alias records in your Route 53 hosted zones. This will help you identify any potentially vulnerable records.
+
+   ```python
+   import boto3
+
+   def list_alias_records():
+       client = boto3.client('route53')
+       hosted_zones = client.list_hosted_zones()
+       
+       for zone in hosted_zones['HostedZones']:
+           zone_id = zone['Id']
+           records = client.list_resource_record_sets(HostedZoneId=zone_id)
+           
+           for record in records['ResourceRecordSets']:
+               if 'AliasTarget' in record:
+                   print(f"Alias Record: {record['Name']} -> {record['AliasTarget']['DNSName']}")
+
+   if __name__ == "__main__":
+       list_alias_records()
+   ```
+
+3. **Validate Alias Records:**
+   - Add logic to validate that the alias records are pointing to the correct Elastic Beanstalk environment and not to any unintended targets.
+
+   ```python
+   def validate_alias_records():
+       client = boto3.client('route53')
+       beanstalk_client = boto3.client('elasticbeanstalk')
+       
+       hosted_zones = client.list_hosted_zones()
+       for zone in hosted_zones['HostedZones']:
+           zone_id = zone['Id']
+           records = client.list_resource_record_sets(HostedZoneId=zone_id)
+           
+           for record in records['ResourceRecordSets']:
+               if 'AliasTarget' in record:
+                   dns_name = record['AliasTarget']['DNSName']
+                   # Add your validation logic here
+                   # For example, check if the DNS name matches your Elastic Beanstalk environment
+                   environments = beanstalk_client.describe_environments()
+                   valid = any(env['CNAME'] == dns_name for env in environments['Environments'])
+                   if not valid:
+                       print(f"Vulnerable Alias Record: {record['Name']} -> {dns_name}")
+
+   if __name__ == "__main__":
+       validate_alias_records()
+   ```
+
+4. **Automate the Prevention:**
+   - Automate the process to periodically check and validate alias records, and take action if any vulnerabilities are found. This can be done using AWS Lambda and CloudWatch Events to trigger the script at regular intervals.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       validate_alias_records()
+
+   def validate_alias_records():
+       client = boto3.client('route53')
+       beanstalk_client = boto3.client('elasticbeanstalk')
+       
+       hosted_zones = client.list_hosted_zones()
+       for zone in hosted_zones['HostedZones']:
+           zone_id = zone['Id']
+           records = client.list_resource_record_sets(HostedZoneId=zone_id)
+           
+           for record in records['ResourceRecordSets']:
+               if 'AliasTarget' in record:
+                   dns_name = record['AliasTarget']['DNSName']
+                   environments = beanstalk_client.describe_environments()
+                   valid = any(env['CNAME'] == dns_name for env in environments['Environments'])
+                   if not valid:
+                       print(f"Vulnerable Alias Record: {record['Name']} -> {dns_name}")
+                       # Optionally, take action to correct the record
+
+   if __name__ == "__main__":
+       validate_alias_records()
+   ```
+
+By following these steps, you can use Python scripts to prevent AWS Elastic Beanstalk Alias Records from being vulnerable in Route 53.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

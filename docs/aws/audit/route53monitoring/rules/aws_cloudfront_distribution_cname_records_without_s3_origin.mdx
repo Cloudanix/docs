@@ -24,6 +24,171 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an AWS CloudFront Distribution CNAME record from having no S3 origin in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Create an S3 Bucket:**
+   - Navigate to the S3 service in the AWS Management Console.
+   - Click on "Create bucket."
+   - Provide a unique bucket name and select the appropriate region.
+   - Configure the bucket settings as needed and click "Create bucket."
+
+2. **Configure the S3 Bucket for Static Website Hosting:**
+   - Select the newly created S3 bucket.
+   - Go to the "Properties" tab.
+   - Enable "Static website hosting" and specify the index document (e.g., `index.html`).
+   - Save the changes.
+
+3. **Create a CloudFront Distribution with S3 Origin:**
+   - Navigate to the CloudFront service in the AWS Management Console.
+   - Click on "Create Distribution."
+   - Choose "Web" and click "Get Started."
+   - Under "Origin Settings," set the "Origin Domain Name" to the S3 bucket you created.
+   - Configure other settings as needed and click "Create Distribution."
+
+4. **Update Route 53 with CloudFront Distribution CNAME:**
+   - Navigate to the Route 53 service in the AWS Management Console.
+   - Select the hosted zone for your domain.
+   - Click on "Create Record Set."
+   - Enter the name (CNAME) you want to use.
+   - Set the "Type" to "CNAME - Canonical name."
+   - In the "Value" field, enter the CloudFront distribution domain name (e.g., `d1234567890.cloudfront.net`).
+   - Click "Create" to save the record.
+
+By following these steps, you ensure that the CNAME record in Route 53 points to a CloudFront distribution that has an S3 bucket as its origin, thus preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an AWS CloudFront distribution CNAME record from having no S3 origin in Route 53 using AWS CLI, follow these steps:
+
+1. **Create an S3 Bucket:**
+   Ensure you have an S3 bucket that will serve as the origin for your CloudFront distribution.
+   ```sh
+   aws s3 mb s3://your-bucket-name
+   ```
+
+2. **Create a CloudFront Distribution with S3 Origin:**
+   Create a CloudFront distribution and specify the S3 bucket as the origin.
+   ```sh
+   aws cloudfront create-distribution --origin-domain-name your-bucket-name.s3.amazonaws.com --default-root-object index.html
+   ```
+
+3. **Update Route 53 Record Set:**
+   Create or update a Route 53 record set to point to the CloudFront distribution.
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE --change-batch '{
+     "Changes": [{
+       "Action": "UPSERT",
+       "ResourceRecordSet": {
+         "Name": "your-cname.example.com",
+         "Type": "CNAME",
+         "TTL": 300,
+         "ResourceRecords": [{
+           "Value": "your-distribution-id.cloudfront.net"
+         }]
+       }
+     }]
+   }'
+   ```
+
+4. **Verify the Configuration:**
+   Ensure that the CloudFront distribution is correctly associated with the S3 bucket and the Route 53 CNAME record is pointing to the CloudFront distribution.
+   ```sh
+   aws cloudfront get-distribution --id your-distribution-id
+   aws route53 list-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE
+   ```
+
+By following these steps, you can ensure that your CloudFront distribution CNAME record has an S3 origin configured in Route 53 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an AWS CloudFront Distribution CNAME record from having no S3 origin in Route 53 using Python scripts, you can follow these steps:
+
+### 1. Install Required Libraries
+First, ensure you have the `boto3` library installed, which is the AWS SDK for Python.
+
+```bash
+pip install boto3
+```
+
+### 2. Initialize Boto3 Clients
+Initialize the Boto3 clients for CloudFront and Route 53.
+
+```python
+import boto3
+
+cloudfront_client = boto3.client('cloudfront')
+route53_client = boto3.client('route53')
+```
+
+### 3. Validate CloudFront Distribution CNAMEs
+Fetch the CloudFront distributions and validate that each CNAME has a corresponding S3 origin.
+
+```python
+def validate_cloudfront_cnames():
+    distributions = cloudfront_client.list_distributions()
+    for distribution in distributions['DistributionList']['Items']:
+        distribution_id = distribution['Id']
+        cnames = distribution['Aliases']['Items']
+        origins = distribution['Origins']['Items']
+        
+        s3_origins = [origin for origin in origins if origin['DomainName'].endswith('.s3.amazonaws.com')]
+        
+        if not s3_origins:
+            print(f"Distribution {distribution_id} has CNAMEs but no S3 origin.")
+            # Add logic to handle this case, e.g., notify, log, or remediate
+
+validate_cloudfront_cnames()
+```
+
+### 4. Ensure Route 53 Records Point to S3 Origin
+Check that the Route 53 records for the CNAMEs point to the S3 origin.
+
+```python
+def ensure_route53_records(cname, s3_origin):
+    hosted_zones = route53_client.list_hosted_zones()
+    for zone in hosted_zones['HostedZones']:
+        zone_id = zone['Id']
+        records = route53_client.list_resource_record_sets(HostedZoneId=zone_id)
+        
+        for record in records['ResourceRecordSets']:
+            if record['Name'] == cname and record['Type'] == 'CNAME':
+                if record['ResourceRecords'][0]['Value'] != s3_origin:
+                    print(f"Route 53 record for {cname} does not point to the S3 origin {s3_origin}.")
+                    # Add logic to update the record, notify, log, or remediate
+
+def validate_and_ensure_route53():
+    distributions = cloudfront_client.list_distributions()
+    for distribution in distributions['DistributionList']['Items']:
+        cnames = distribution['Aliases']['Items']
+        origins = distribution['Origins']['Items']
+        
+        s3_origins = [origin for origin in origins if origin['DomainName'].endswith('.s3.amazonaws.com')]
+        
+        if s3_origins:
+            s3_origin = s3_origins[0]['DomainName']
+            for cname in cnames:
+                ensure_route53_records(cname, s3_origin)
+
+validate_and_ensure_route53()
+```
+
+### Summary
+1. **Install Required Libraries**: Ensure `boto3` is installed.
+2. **Initialize Boto3 Clients**: Set up clients for CloudFront and Route 53.
+3. **Validate CloudFront Distribution CNAMEs**: Check that each CloudFront distribution with CNAMEs has an S3 origin.
+4. **Ensure Route 53 Records Point to S3 Origin**: Verify that Route 53 records for the CNAMEs point to the S3 origin and take necessary actions if they do not.
+
+These steps will help you prevent the misconfiguration where a CloudFront distribution CNAME record has no S3 origin in Route 53 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -24,6 +24,172 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS S3 Alias Records from being vulnerable in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Enable S3 Bucket Policies and Permissions:**
+   - Navigate to the S3 service in the AWS Management Console.
+   - Select the bucket you want to secure.
+   - Go to the "Permissions" tab.
+   - Ensure that the bucket policy and access control list (ACL) are configured to allow access only to trusted entities. Avoid using overly permissive policies such as `s3:*` for `Principal: *`.
+
+2. **Use HTTPS for S3 Bucket Access:**
+   - Ensure that your S3 bucket is configured to enforce HTTPS connections.
+   - In the S3 bucket settings, under the "Properties" tab, enable "Static website hosting" and ensure that the endpoint uses HTTPS.
+
+3. **Configure Route 53 Alias Records Correctly:**
+   - Navigate to the Route 53 service in the AWS Management Console.
+   - Select the hosted zone for your domain.
+   - When creating or editing an alias record, ensure that the alias target is correctly pointing to the S3 bucket endpoint.
+   - Verify that the alias record is set to the correct S3 bucket region to avoid misrouting.
+
+4. **Enable Logging and Monitoring:**
+   - Enable S3 server access logging to track requests for access to your bucket.
+   - In the S3 bucket settings, under the "Properties" tab, enable "Server access logging" and specify a target bucket for the logs.
+   - Use AWS CloudTrail to monitor API calls made to Route 53 and S3. Navigate to the CloudTrail service in the AWS Management Console and ensure that logging is enabled for both Route 53 and S3.
+
+By following these steps, you can enhance the security of your S3 Alias Records in Route 53 and reduce the risk of vulnerabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS S3 Alias Records from being vulnerable in Route 53 using AWS CLI, you can follow these steps:
+
+1. **Create a Hosted Zone:**
+   Ensure you have a hosted zone created in Route 53 for your domain. If you don't have one, you can create it using the following command:
+   ```sh
+   aws route53 create-hosted-zone --name example.com --caller-reference unique-string
+   ```
+
+2. **Create an S3 Bucket with the Correct Name:**
+   Ensure your S3 bucket name matches the domain name you want to use. For example, if your domain is `example.com`, your S3 bucket should also be named `example.com`.
+   ```sh
+   aws s3api create-bucket --bucket example.com --region us-east-1
+   ```
+
+3. **Configure the S3 Bucket for Static Website Hosting:**
+   Configure your S3 bucket to host a static website. This is necessary for the bucket to serve content over HTTP.
+   ```sh
+   aws s3 website s3://example.com/ --index-document index.html --error-document error.html
+   ```
+
+4. **Create an Alias Record in Route 53:**
+   Create an alias record in Route 53 that points to your S3 bucket. This ensures that requests to your domain are correctly routed to the S3 bucket.
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id Z3M3LMPEXAMPLE --change-batch '{
+     "Changes": [{
+       "Action": "CREATE",
+       "ResourceRecordSet": {
+         "Name": "example.com",
+         "Type": "A",
+         "AliasTarget": {
+           "HostedZoneId": "Z3AQBSTGFYJSTF",  # This is the hosted zone ID for S3 website endpoints in the us-east-1 region
+           "DNSName": "s3-website-us-east-1.amazonaws.com",
+           "EvaluateTargetHealth": false
+         }
+       }
+     }]
+   }'
+   ```
+
+By following these steps, you ensure that your S3 Alias Records are correctly configured and not vulnerable in Route 53.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS S3 Alias Records from being vulnerable in Route53 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with Route53 and S3.
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List S3 Alias Records**
+Create a script to list all the Route53 records and identify S3 Alias records.
+
+```python
+import boto3
+
+def list_s3_alias_records():
+    client = boto3.client('route53')
+    hosted_zones = client.list_hosted_zones()
+    
+    for zone in hosted_zones['HostedZones']:
+        zone_id = zone['Id']
+        records = client.list_resource_record_sets(HostedZoneId=zone_id)
+        
+        for record in records['ResourceRecordSets']:
+            if record['Type'] == 'A' and 'AliasTarget' in record:
+                if 's3-website' in record['AliasTarget']['DNSName']:
+                    print(f"Found S3 Alias Record: {record['Name']} -> {record['AliasTarget']['DNSName']}")
+
+list_s3_alias_records()
+```
+
+### 3. **Validate S3 Bucket Policy**
+Ensure that the S3 bucket has the correct bucket policy to prevent unauthorized access. You can use Boto3 to check the bucket policy.
+
+```python
+def validate_s3_bucket_policy(bucket_name):
+    s3 = boto3.client('s3')
+    try:
+        policy = s3.get_bucket_policy(Bucket=bucket_name)
+        print(f"Bucket Policy for {bucket_name}: {policy['Policy']}")
+    except s3.exceptions.NoSuchBucketPolicy:
+        print(f"No bucket policy found for {bucket_name}")
+
+# Example usage
+validate_s3_bucket_policy('your-bucket-name')
+```
+
+### 4. **Update Route53 Records to Use CloudFront**
+Instead of directly pointing to S3, use CloudFront distributions for better security and performance. Update the Route53 Alias records to point to CloudFront distributions.
+
+```python
+def update_route53_record_to_cloudfront(zone_id, record_name, cloudfront_domain_name):
+    client = boto3.client('route53')
+    
+    response = client.change_resource_record_sets(
+        HostedZoneId=zone_id,
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': record_name,
+                        'Type': 'A',
+                        'AliasTarget': {
+                            'HostedZoneId': 'Z2FDTNDATAQYW2',  # CloudFront Hosted Zone ID
+                            'DNSName': cloudfront_domain_name,
+                            'EvaluateTargetHealth': False
+                        }
+                    }
+                }
+            ]
+        }
+    )
+    print(f"Updated {record_name} to point to {cloudfront_domain_name}")
+
+# Example usage
+update_route53_record_to_cloudfront('your-hosted-zone-id', 'example.com', 'd1234567890.cloudfront.net')
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Create a Python Script to List S3 Alias Records**: Identify S3 Alias records in Route53.
+3. **Validate S3 Bucket Policy**: Ensure the S3 bucket policy is secure.
+4. **Update Route53 Records to Use CloudFront**: Point Route53 Alias records to CloudFront distributions for enhanced security.
+
+By following these steps, you can prevent AWS S3 Alias Records from being vulnerable in Route53 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
