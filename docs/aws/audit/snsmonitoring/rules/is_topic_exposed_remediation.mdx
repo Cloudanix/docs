@@ -1,6 +1,227 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SNS Topics from being exposed in Amazon SNS using the AWS Management Console, follow these steps:
+
+1. **Navigate to Amazon SNS:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SNS" and select "Simple Notification Service" from the list.
+
+2. **Select the SNS Topic:**
+   - In the SNS dashboard, click on "Topics" in the left-hand navigation pane.
+   - Select the SNS topic you want to configure from the list of topics.
+
+3. **Modify Access Policy:**
+   - In the topic details page, click on the "Access policy" tab.
+   - Review the existing access policy and ensure that it does not grant public access. Specifically, check for any `"Effect": "Allow"` statements that include `"Principal": "*"` which would allow access to everyone.
+
+4. **Restrict Access:**
+   - Edit the access policy to restrict access to only specific AWS accounts or IAM roles/users that require it. You can use the AWS Policy Generator to help create a more restrictive policy if needed.
+   - Save the changes to the access policy.
+
+By following these steps, you can ensure that your SNS topics are not exposed to unauthorized access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SNS Topics from being exposed in AWS using the AWS CLI, you can follow these steps:
+
+1. **List SNS Topics**:
+   First, identify the SNS topics in your account.
+   ```sh
+   aws sns list-topics
+   ```
+
+2. **Get Topic Attributes**:
+   For each topic, retrieve its attributes to check the current policy.
+   ```sh
+   aws sns get-topic-attributes --topic-arn <topic-arn>
+   ```
+
+3. **Update Topic Policy**:
+   Modify the topic policy to restrict access. Ensure that only specific AWS accounts or IAM roles/users have access. Here is an example of a restrictive policy:
+   ```sh
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::<account-id>:root"
+         },
+         "Action": "SNS:Publish",
+         "Resource": "<topic-arn>"
+       }
+     ]
+   }'
+   ```
+
+4. **Verify Policy Update**:
+   Confirm that the policy has been updated correctly by retrieving the topic attributes again.
+   ```sh
+   aws sns get-topic-attributes --topic-arn <topic-arn>
+   ```
+
+By following these steps, you can ensure that your SNS topics are not exposed and are only accessible by authorized entities.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SNS Topics from being exposed in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure that your SNS topics are not exposed:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials and region.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   sns_client = session.client('sns')
+   ```
+
+3. **List SNS Topics**:
+   Retrieve the list of all SNS topics in your account.
+   ```python
+   response = sns_client.list_topics()
+   topics = response['Topics']
+   ```
+
+4. **Check and Update SNS Topic Policies**:
+   Iterate through each topic and ensure that the policy does not allow public access. If it does, update the policy to restrict access.
+   ```python
+   import json
+
+   for topic in topics:
+       topic_arn = topic['TopicArn']
+       policy_response = sns_client.get_topic_attributes(TopicArn=topic_arn)
+       policy = json.loads(policy_response['Attributes']['Policy'])
+
+       # Check if the policy allows public access
+       statements = policy.get('Statement', [])
+       for statement in statements:
+           if statement.get('Effect') == 'Allow' and statement.get('Principal') == '*':
+               # Update the policy to restrict access
+               statement['Principal'] = {'AWS': 'SPECIFIC_AWS_ACCOUNT_ID'}
+       
+       # Update the topic policy
+       sns_client.set_topic_attributes(
+           TopicArn=topic_arn,
+           AttributeName='Policy',
+           AttributeValue=json.dumps(policy)
+       )
+   ```
+
+This script ensures that your SNS topics are not publicly accessible by checking and updating the topic policies to restrict access to specific AWS accounts. Make sure to replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, `'YOUR_REGION'`, and `'SPECIFIC_AWS_ACCOUNT_ID'` with your actual AWS credentials, region, and the specific AWS account ID you want to allow access to.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon SNS console at https://console.aws.amazon.com/sns/v3/home.
+
+2. In the navigation pane, choose 'Topics'. This will display a list of all the SNS topics in your account.
+
+3. Click on the ARN of the topic you want to check. This will open the details page for that topic.
+
+4. In the 'Topic policy' section, check the 'Principal' and 'Action' fields. If the 'Principal' is set to '*' (which means everyone) and the 'Action' is set to 'SNS:Publish', it means the SNS topic is exposed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access and manage SNS topics.
+
+2. Once AWS CLI is installed and configured, you can list all the SNS topics in your account by running the following command:
+
+   ```
+   aws sns list-topics
+   ```
+   This command will return a list of all SNS topics in your account.
+
+3. For each SNS topic, you can get the topic attributes which include the policy by running the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN>
+   ```
+   Replace `<TopicARN>` with the ARN of the SNS topic. This command will return the attributes of the specified SNS topic.
+
+4. Check the policy of each SNS topic. If the policy allows the `sns:Publish` action for `Principal: "*"`, then the SNS topic is exposed. You can do this manually or write a script to automate the process. Here is a simple Python script that uses the `boto3` library to check for exposed SNS topics:
+
+   ```python
+   import boto3
+
+   sns = boto3.client('sns')
+
+   response = sns.list_topics()
+
+   for topic in response['Topics']:
+       attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+       policy = attributes['Attributes']['Policy']
+       if 'sns:Publish' in policy and '"Principal":"*"' in policy:
+           print(f"Exposed SNS Topic: {topic['TopicArn']}")
+   ```
+   This script lists all SNS topics, gets the policy for each topic, and checks if the policy allows the `sns:Publish` action for `Principal: "*"`. If it does, it prints the ARN of the exposed SNS topic.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, and more. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it with your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+Enter your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Import the necessary libraries and create a session:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+3. Use the SNS client to retrieve all the SNS topics:
+
+```python
+sns = session.client('sns')
+response = sns.list_topics()
+```
+4. Check the policy of each SNS topic to see if it's exposed:
+
+```python
+for topic in response['Topics']:
+    attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+    policy = json.loads(attributes['Attributes']['Policy'])
+    for statement in policy['Statement']:
+        if statement['Effect'] == 'Allow' and statement['Principal'] == '*':
+            print(f"Exposed SNS Topic: {topic['TopicArn']}")
+```
+This script will print the ARN of all SNS topics that are exposed to the public.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
