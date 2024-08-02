@@ -24,6 +24,165 @@ CBP
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SES Identities from allowing cross-account access in Amazon SES using the AWS Management Console, follow these steps:
+
+1. **Navigate to Amazon SES:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon SES console at [https://console.aws.amazon.com/ses/](https://console.aws.amazon.com/ses/).
+
+2. **Select Verified Identities:**
+   - In the left navigation pane, choose "Verified identities."
+   - Select the identity (email address or domain) that you want to configure.
+
+3. **Review and Edit Identity Policies:**
+   - Under the "Identity details" section, find the "Policies" tab.
+   - Review the existing policies attached to the identity.
+   - Click on the policy you want to edit or create a new policy by clicking "Create policy."
+
+4. **Restrict Access in Policy Document:**
+   - Ensure that the policy document does not include any statements that allow cross-account access.
+   - Specifically, check for any `Principal` elements that specify accounts other than your own.
+   - Modify the policy to restrict access to only your AWS account or specific IAM roles/users within your account.
+
+By following these steps, you can ensure that your SES identities are not inadvertently allowing cross-account access, thereby enhancing the security of your email sending capabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SES Identities from allowing cross-account access using AWS CLI, you can follow these steps:
+
+1. **List SES Identities**:
+   First, list all SES identities (email addresses and domains) to identify which ones are configured.
+   ```sh
+   aws ses list-identities
+   ```
+
+2. **Get Identity Policies**:
+   For each SES identity, retrieve the existing policies to review and ensure they do not allow cross-account access.
+   ```sh
+   aws ses get-identity-policies --identity <identity>
+   ```
+
+3. **Update Identity Policy**:
+   If any policy allows cross-account access, update the policy to restrict it. Create a JSON file (e.g., `policy.json`) with the appropriate policy that does not allow cross-account access.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"
+         },
+         "Action": "ses:SendEmail",
+         "Resource": "arn:aws:ses:YOUR_REGION:YOUR_ACCOUNT_ID:identity/YOUR_IDENTITY"
+       }
+     ]
+   }
+   ```
+   Then, apply the updated policy using the following command:
+   ```sh
+   aws ses put-identity-policy --identity <identity> --policy-name <policy-name> --policy file://policy.json
+   ```
+
+4. **Verify Policy Changes**:
+   Finally, verify that the policy changes have been applied correctly by retrieving the identity policies again.
+   ```sh
+   aws ses get-identity-policies --identity <identity>
+   ```
+
+By following these steps, you can ensure that SES identities do not allow cross-account access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SES Identities from allowing cross-account access using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+### 1. Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### 2. Initialize Boto3 Client
+Initialize the Boto3 client for SES:
+```python
+import boto3
+
+# Initialize SES client
+ses_client = boto3.client('ses', region_name='your-region')
+```
+
+### 3. List SES Identities
+List all SES identities (email addresses and domains) to check their policies:
+```python
+def list_ses_identities():
+    response = ses_client.list_identities(
+        IdentityType='EmailAddress'  # or 'Domain'
+    )
+    return response['Identities']
+
+identities = list_ses_identities()
+print("SES Identities:", identities)
+```
+
+### 4. Check and Update Identity Policies
+Check the policies of each identity and update them to prevent cross-account access:
+```python
+def update_identity_policy(identity):
+    policy_name = 'default'  # Assuming the default policy name
+    try:
+        # Get the existing policy
+        response = ses_client.get_identity_policy(
+            Identity=identity,
+            PolicyName=policy_name
+        )
+        policy = response['Policy']
+        
+        # Parse the policy JSON
+        import json
+        policy_json = json.loads(policy)
+        
+        # Check for cross-account access and remove it
+        statements = policy_json.get('Statement', [])
+        for statement in statements:
+            if 'AWS' in statement['Principal']:
+                if statement['Principal']['AWS'] != 'arn:aws:iam::your-account-id:root':
+                    statements.remove(statement)
+        
+        # Update the policy if changes were made
+        if len(statements) < len(policy_json.get('Statement', [])):
+            policy_json['Statement'] = statements
+            ses_client.put_identity_policy(
+                Identity=identity,
+                PolicyName=policy_name,
+                Policy=json.dumps(policy_json)
+            )
+            print(f"Updated policy for identity: {identity}")
+        else:
+            print(f"No cross-account access found for identity: {identity}")
+    except ses_client.exceptions.PolicyNotFoundException:
+        print(f"No policy found for identity: {identity}")
+
+for identity in identities:
+    update_identity_policy(identity)
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the SES client.
+3. **List SES Identities**: Retrieve all SES identities.
+4. **Check and Update Identity Policies**: Inspect and update policies to remove cross-account access.
+
+This script will help you prevent SES identities from allowing cross-account access by ensuring that only your account has permissions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
