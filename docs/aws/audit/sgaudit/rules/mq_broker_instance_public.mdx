@@ -23,6 +23,248 @@ HITRUST,CISEKS,SOC2,NISTCSF,PCIDSS,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an Amazon MQ Broker instance from being public in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Amazon MQ Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Amazon MQ" and select it from the list of services.
+
+2. **Select the Broker:**
+   - In the Amazon MQ console, locate and select the broker instance you want to configure.
+
+3. **Modify Security Groups:**
+   - In the broker details page, find the "Security Groups" section.
+   - Click on the security group associated with your broker instance to open the Amazon EC2 Security Groups console.
+
+4. **Edit Inbound Rules:**
+   - In the Security Groups console, select the security group and navigate to the "Inbound rules" tab.
+   - Ensure that there are no rules allowing public access (i.e., 0.0.0.0/0 or ::/0) to the broker instance. Remove or modify any such rules to restrict access to specific IP addresses or CIDR blocks that are trusted.
+
+By following these steps, you can ensure that your Amazon MQ Broker instance is not publicly accessible, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an MQ Broker instance from being public in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group associated with the MQ Broker instance:**
+   Use the `describe-instances` command to find the security group ID associated with your MQ Broker instance.
+
+   ```sh
+   aws ec2 describe-instances --filters "Name=tag:Name,Values=YourMQBrokerInstanceName" --query "Reservations[*].Instances[*].SecurityGroups[*].GroupId" --output text
+   ```
+
+2. **Revoke public access rules from the Security Group:**
+   Use the `revoke-security-group-ingress` command to remove any rules that allow public access (e.g., rules with `0.0.0.0/0` as the source).
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id sg-xxxxxxxx --protocol tcp --port 5671 --cidr 0.0.0.0/0
+   ```
+
+3. **Add restrictive rules to the Security Group:**
+   Use the `authorize-security-group-ingress` command to add more restrictive rules, such as allowing access only from specific IP addresses or CIDR blocks.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id sg-xxxxxxxx --protocol tcp --port 5671 --cidr 192.168.1.0/24
+   ```
+
+4. **Verify the Security Group rules:**
+   Use the `describe-security-groups` command to verify that the security group rules have been updated correctly and no public access is allowed.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids sg-xxxxxxxx
+   ```
+
+By following these steps, you can ensure that your MQ Broker instance is not publicly accessible, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an MQ Broker instance from being public in security groups using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and sample Python scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Script to Ensure MQ Broker Security Group is Not Public**:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def make_security_group_private(security_group_id):
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       for sg in response['SecurityGroups']:
+           for permission in sg['IpPermissions']:
+               for ip_range in permission['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       ec2.revoke_security_group_ingress(
+                           GroupId=security_group_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIp=ip_range['CidrIp']
+                       )
+                       print(f"Revoked public access from security group {security_group_id}")
+
+   # Example usage
+   make_security_group_private('sg-0123456789abcdef0')
+   ```
+
+### Azure (Using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Script to Ensure MQ Broker Network Security Group is Not Public**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your_subscription_id'
+   resource_group_name = 'your_resource_group_name'
+   nsg_name = 'your_nsg_name'
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def make_nsg_private(resource_group_name, nsg_name):
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+       for rule in nsg.security_rules:
+           if rule.destination_address_prefix == '*' and rule.access == 'Allow':
+               rule.access = 'Deny'
+               network_client.security_rules.create_or_update(resource_group_name, nsg_name, rule.name, rule)
+               print(f"Updated rule {rule.name} to deny public access in NSG {nsg_name}")
+
+   # Example usage
+   make_nsg_private(resource_group_name, nsg_name)
+   ```
+
+### GCP (Using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Python Client Library**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Script to Ensure MQ Broker Firewall Rule is Not Public**:
+   ```python
+   from google.cloud import compute_v1
+
+   def make_firewall_rule_private(project_id, firewall_rule_name):
+       client = compute_v1.FirewallsClient()
+       firewall = client.get(project=project_id, firewall=firewall_rule_name)
+       if '0.0.0.0/0' in firewall.source_ranges:
+           firewall.source_ranges.remove('0.0.0.0/0')
+           operation = client.patch(project=project_id, firewall=firewall_rule_name, firewall_resource=firewall)
+           print(f"Updated firewall rule {firewall_rule_name} to remove public access")
+
+   # Example usage
+   make_firewall_rule_private('your_project_id', 'your_firewall_rule_name')
+   ```
+
+### Summary
+
+1. **AWS**: Use Boto3 to revoke public ingress rules from the security group.
+2. **Azure**: Use Azure SDK to update NSG rules to deny public access.
+3. **GCP**: Use Google Cloud Python Client Library to remove '0.0.0.0/0' from firewall source ranges.
+
+These scripts ensure that the MQ Broker instances are not publicly accessible by modifying the respective security configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon MQ dashboard.
+2. In the navigation pane, select "Brokers". This will display a list of all your Amazon MQ brokers.
+3. Select the broker that you want to check. This will open the broker's details page.
+4. In the broker's details page, check the "Public accessibility" setting. If it is set to "Yes", then the broker instance is public.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the Amazon MQ brokers in your account. Use the following AWS CLI command:
+
+```bash
+aws mq list-brokers
+```
+
+This command will return a list of all the Amazon MQ brokers in your account.
+
+2. For each broker in the list, describe the broker to get its details. Use the following AWS CLI command:
+
+```bash
+aws mq describe-broker --broker-id <Broker-ID>
+```
+
+Replace `<Broker-ID>` with the ID of the broker you want to check. This command will return the details of the specified broker.
+
+3. From the broker details, get the list of security groups associated with the broker. The security groups are listed in the `SecurityGroups` field of the broker details.
+
+4. For each security group in the list, describe the security group to get its details. Use the following AWS CLI command:
+
+```bash
+aws ec2 describe-security-groups --group-ids <Security-Group-ID>
+```
+
+Replace `<Security-Group-ID>` with the ID of the security group you want to check. This command will return the details of the specified security group.
+
+5. From the security group details, check the `IpPermissions` field. If this field contains an entry with `IpProtocol` set to `0`, `FromPort` set to `0`, `ToPort` set to `65535`, and `IpRanges` containing an entry with `CidrIp` set to `0.0.0.0/0`, then the MQ broker instance is public.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and establish a client connection to AWS. 
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+try:
+    mq_client = boto3.client('mq')
+except Exception as e:
+    print("Error establishing connection with AWS: ", e)
+```
+
+2. Fetch the list of all the Amazon MQ brokers in your account.
+
+```python
+try:
+    brokers = mq_client.list_brokers()
+except ClientError as e:
+    print("Error fetching brokers: ", e)
+```
+
+3. For each broker, get the details of the broker and check if the broker instances are public.
+
+```python
+for broker in brokers['BrokerSummaries']:
+    try:
+        broker_details = mq_client.describe_broker(BrokerId=broker['BrokerId'])
+        for instance in broker_details['BrokerInstances']:
+            if instance['PubliclyAccessible']:
+                print(f"Broker {broker['BrokerId']} instance {instance['BrokerId']} is public.")
+    except ClientError as e:
+        print("Error fetching broker details: ", e)
+```
+
+4. If the broker instance is public, it means there is a misconfiguration. The script will print out the broker ID and instance ID of the public instances. You can then take the necessary steps to secure these instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

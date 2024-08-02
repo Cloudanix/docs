@@ -23,6 +23,223 @@ HIPAA, NIST, SOC2
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent EC2 instances from being publicly accessible in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section.
+
+2. **Select the Security Group:**
+   - Identify and select the Security Group associated with your EC2 instances that you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the Security Group selected, go to the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+
+4. **Remove or Restrict Public Access:**
+   - Review the existing inbound rules. Look for rules that allow access from `0.0.0.0/0` (which means any IP address can access the instance).
+   - Remove these rules or modify them to restrict access to specific IP addresses or ranges that you trust.
+   - Click "Save rules" to apply the changes.
+
+By following these steps, you can ensure that your EC2 instances are not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent EC2 instances from being publicly accessible in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your EC2 instance. You can list all security groups and their details using the following command:
+   ```sh
+   aws ec2 describe-security-groups
+   ```
+
+2. **Revoke Inbound Rules Allowing Public Access:**
+   Revoke any inbound rules that allow public access (i.e., rules with a source of `0.0.0.0/0` for IPv4 or `::/0` for IPv6). For example, to revoke an inbound rule that allows SSH (port 22) from any IP address, use:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port 22 --cidr 0.0.0.0/0
+   ```
+
+3. **Add Restrictive Inbound Rules:**
+   Add more restrictive inbound rules to allow access only from specific IP addresses or CIDR blocks. For example, to allow SSH access only from a specific IP address (e.g., `203.0.113.0`), use:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 22 --cidr 203.0.113.0/32
+   ```
+
+4. **Verify Security Group Rules:**
+   Verify that the security group rules have been updated correctly and no rules allow public access. You can describe the security group again to check the current rules:
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+By following these steps, you can ensure that your EC2 instances are not publicly accessible through their associated security groups.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent EC2 instances from being publicly accessible in Security Groups using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session and create an EC2 client to interact with the AWS EC2 service.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ec2 = session.client('ec2')
+   ```
+
+3. **Describe Security Groups**:
+   Retrieve the security groups and their rules to identify any that allow public access (i.e., 0.0.0.0/0 or ::/0).
+   ```python
+   def get_public_security_groups(ec2):
+       public_sgs = []
+       response = ec2.describe_security_groups()
+       for sg in response['SecurityGroups']:
+           for permission in sg['IpPermissions']:
+               for ip_range in permission.get('IpRanges', []):
+                   if ip_range.get('CidrIp') == '0.0.0.0/0':
+                       public_sgs.append(sg['GroupId'])
+               for ipv6_range in permission.get('Ipv6Ranges', []):
+                   if ipv6_range.get('CidrIpv6') == '::/0':
+                       public_sgs.append(sg['GroupId'])
+       return public_sgs
+
+   public_sgs = get_public_security_groups(ec2)
+   ```
+
+4. **Revoke Public Access**:
+   Revoke the public access rules from the identified security groups.
+   ```python
+   def revoke_public_access(ec2, security_group_id):
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       for sg in response['SecurityGroups']:
+           for permission in sg['IpPermissions']:
+               for ip_range in permission.get('IpRanges', []):
+                   if ip_range.get('CidrIp') == '0.0.0.0/0':
+                       ec2.revoke_security_group_ingress(
+                           GroupId=security_group_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIp='0.0.0.0/0'
+                       )
+               for ipv6_range in permission.get('Ipv6Ranges', []):
+                   if ipv6_range.get('CidrIpv6') == '::/0':
+                       ec2.revoke_security_group_ingress(
+                           GroupId=security_group_id,
+                           IpProtocol=permission['IpProtocol'],
+                           FromPort=permission['FromPort'],
+                           ToPort=permission['ToPort'],
+                           CidrIpv6='::/0'
+                       )
+
+   for sg_id in public_sgs:
+       revoke_public_access(ec2, sg_id)
+   ```
+
+This script will identify security groups that allow public access and revoke those permissions, thereby preventing EC2 instances from being publicly accessible.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, select the security group you want to inspect. In the lower part of the screen, click on the "Inbound rules" tab.
+4. Check the "Source" column for any rules that have a source of "0.0.0.0/0" or "::/0". This indicates that the EC2 instance is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI using pip (Python package manager) by running the command `pip install awscli`. After installation, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Security Groups: Use the following AWS CLI command to list all the security groups in your AWS account.
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId,GroupName]" --output text
+   ```
+
+   This command will return a list of all security groups along with their GroupId and GroupName.
+
+3. Check Security Group Rules: For each security group, check the inbound rules to see if they allow unrestricted access (0.0.0.0/0). Use the following AWS CLI command to describe the rules of a security group.
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions[*].IpRanges[*].CidrIp" --output text
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of CIDR blocks that are allowed to access the resources in the security group.
+
+4. Identify Publicly Accessible EC2 Instances: If the returned list from the previous step contains 0.0.0.0/0, it means that the security group allows unrestricted access, and any EC2 instances associated with this security group are publicly accessible. You can use the following AWS CLI command to list all EC2 instances associated with a security group.
+
+   ```
+   aws ec2 describe-instances --filters "Name=instance.group-id,Values=<security-group-id>" --query "Reservations[*].Instances[*].InstanceId" --output text
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of instance IDs that are associated with the security group.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The Boto3 library is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. Write the Python script: The following Python script uses Boto3 to retrieve all security groups and checks if they have rules that allow inbound traffic from the internet (0.0.0.0/0).
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   def check_public_access_security_groups():
+       security_groups = ec2.security_groups.all()
+       for sg in security_groups:
+           for rule in sg.ip_permissions:
+               for ip_range in rule['IpRanges']:
+                   if ip_range['CidrIp'] == '0.0.0.0/0':
+                       print(f"Security Group {sg.id} allows public access")
+
+   check_public_access_security_groups()
+   ```
+
+4. Run the Python script: Save the script to a file, for example, check_sg.py, and then run it using Python:
+
+   ```bash
+   python check_sg.py
+   ```
+
+   The script will print out the IDs of the security groups that allow public access. If no such security groups are found, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

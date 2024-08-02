@@ -1,6 +1,261 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent default security groups from allowing all traffic in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the VPC Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "VPC" and select "VPC" from the dropdown list to go to the VPC Dashboard.
+
+2. **Access Security Groups:**
+   - In the left-hand navigation pane, click on "Security Groups" under the "Security" section.
+
+3. **Identify Default Security Groups:**
+   - Look for the security groups that are marked as "default" in the "Group Name" column. These are the default security groups created by AWS for each VPC.
+
+4. **Modify Inbound and Outbound Rules:**
+   - Select a default security group by clicking on its checkbox.
+   - Click on the "Actions" button and select "Edit inbound rules."
+     - Remove any rules that allow unrestricted access (e.g., rules with 0.0.0.0/0 or ::/0 as the source).
+     - Add rules that restrict access to specific IP addresses or ranges as needed.
+   - Click "Save rules."
+   - Repeat the same process for "Edit outbound rules" to ensure outbound traffic is also restricted appropriately.
+
+By following these steps, you can ensure that the default security groups do not allow unrestricted traffic, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent default security groups from allowing all traffic in AWS using the AWS CLI, you can follow these steps:
+
+1. **Identify the Default Security Group:**
+   First, identify the default security group for your VPC. You can list all security groups and filter by the default group.
+
+   ```sh
+   aws ec2 describe-security-groups --filters Name=group-name,Values=default
+   ```
+
+2. **Revoke Inbound Rules:**
+   Revoke any inbound rules that allow traffic. This command will remove all inbound rules from the default security group.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <default-security-group-id> --protocol all --port all --cidr 0.0.0.0/0
+   ```
+
+3. **Revoke Outbound Rules:**
+   Similarly, revoke any outbound rules that allow traffic. This command will remove all outbound rules from the default security group.
+
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id <default-security-group-id> --protocol all --port all --cidr 0.0.0.0/0
+   ```
+
+4. **Verify Changes:**
+   Finally, verify that the rules have been removed by describing the security group again.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <default-security-group-id>
+   ```
+
+By following these steps, you can ensure that the default security group does not allow any traffic, thereby preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent default security groups from allowing all traffic in AWS, Azure, and GCP using Python scripts, you can follow these steps:
+
+### AWS (using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Python Script to Update Default Security Group**:
+   ```python
+   import boto3
+
+   def block_all_traffic_in_default_sg(region):
+       ec2 = boto3.client('ec2', region_name=region)
+       response = ec2.describe_security_groups(
+           Filters=[{'Name': 'group-name', 'Values': ['default']}]
+       )
+       for sg in response['SecurityGroups']:
+           sg_id = sg['GroupId']
+           # Revoke all inbound rules
+           if sg['IpPermissions']:
+               ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=sg['IpPermissions'])
+           # Revoke all outbound rules
+           if sg['IpPermissionsEgress']:
+               ec2.revoke_security_group_egress(GroupId=sg_id, IpPermissions=sg['IpPermissionsEgress'])
+
+   block_all_traffic_in_default_sg('us-west-2')
+   ```
+
+### Azure (using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Python Script to Update Default Security Group**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   def block_all_traffic_in_default_sg(subscription_id, resource_group_name, nsg_name):
+       credential = DefaultAzureCredential()
+       network_client = NetworkManagementClient(credential, subscription_id)
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+       
+       # Remove all security rules
+       nsg.security_rules = []
+       network_client.network_security_groups.create_or_update(resource_group_name, nsg_name, nsg)
+
+   block_all_traffic_in_default_sg('your_subscription_id', 'your_resource_group', 'default-nsg')
+   ```
+
+### GCP (using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Python Client Library**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Python Script to Update Default Security Group**:
+   ```python
+   from google.cloud import compute_v1
+
+   def block_all_traffic_in_default_sg(project, network):
+       firewall_client = compute_v1.FirewallsClient()
+       firewalls = firewall_client.list(project=project)
+       
+       for firewall in firewalls:
+           if firewall.network.endswith(network) and firewall.name.startswith('default'):
+               firewall_client.delete(project=project, firewall=firewall.name)
+
+   block_all_traffic_in_default_sg('your_project_id', 'default')
+   ```
+
+### Summary
+
+1. **AWS**: Use Boto3 to revoke all inbound and outbound rules in the default security group.
+2. **Azure**: Use Azure SDK to remove all security rules from the default network security group.
+3. **GCP**: Use Google Cloud Python Client Library to delete all firewall rules associated with the default network.
+
+These scripts ensure that the default security groups in AWS, Azure, and GCP block all traffic by removing or revoking all existing rules.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon VPC console at https://console.aws.amazon.com/vpc/.
+
+2. In the navigation pane, choose 'Security Groups'. 
+
+3. In the list of security groups, find the default security group. The name starts with 'default' and the description is 'default VPC security group'. 
+
+4. Select the default security group and check the 'Inbound Rules' and 'Outbound Rules' tabs. If the rules allow all inbound or outbound traffic, then the default security group is misconfigured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation: `pip install awscli`
+   
+   Configuration: `aws configure`
+
+2. List all Security Groups: Use the following command to list all the security groups in your AWS account:
+
+   `aws ec2 describe-security-groups --query "SecurityGroups[*].[GroupId]" --output text`
+
+3. Check Inbound Rules: For each security group, check the inbound rules to see if they allow all traffic. You can do this by running the following command:
+
+   `aws ec2 describe-security-groups --group-ids <Security_Group_ID> --query "SecurityGroups[*].IpPermissions[*]"`
+
+4. Analyze the Output: If the output of the above command includes "0.0.0.0/0" in the "IpRanges" field, it means that the security group allows all inbound traffic. If not, the security group blocks all traffic.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. AWS:
+   - Install and configure AWS SDK for Python (Boto3).
+   - Use the `describe_security_groups` function to retrieve all security groups.
+   - For each security group, check if it is the default security group by comparing its name with 'default'.
+   - If it is the default security group, check its inbound and outbound rules. If any rule allows all traffic (0.0.0.0/0), it is a misconfiguration.
+
+Python script:
+```python
+import boto3
+ec2 = boto3.resource('ec2')
+security_groups = ec2.describe_security_groups()
+for group in security_groups['SecurityGroups']:
+    if group['GroupName'] == 'default':
+        for rule in group['IpPermissions']:
+            for ip_range in rule['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Default security group {group['GroupId']} allows all inbound traffic.")
+        for rule in group['IpPermissionsEgress']:
+            for ip_range in rule['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    print(f"Default security group {group['GroupId']} allows all outbound traffic.")
+```
+
+2. Azure:
+   - Install and configure Azure SDK for Python.
+   - Use the `network_client.security_groups.list` function to retrieve all security groups.
+   - For each security group, check if it is the default security group by comparing its name with 'default'.
+   - If it is the default security group, check its inbound and outbound rules. If any rule allows all traffic (0.0.0.0/0), it is a misconfiguration.
+
+Python script:
+```python
+from azure.mgmt.network import NetworkManagementClient
+from azure.identity import DefaultAzureCredential
+
+credential = DefaultAzureCredential()
+subscription_id = 'your-subscription-id'
+network_client = NetworkManagementClient(credential, subscription_id)
+
+security_groups = network_client.security_groups.list('your-resource-group')
+for group in security_groups:
+    if group.name == 'default':
+        for rule in group.security_rules:
+            if rule.destination_address_prefix == '0.0.0.0/0' or rule.source_address_prefix == '0.0.0.0/0':
+                print(f"Default security group {group.id} allows all traffic.")
+```
+
+3. GCP:
+   - Install and configure Google Cloud SDK for Python.
+   - Use the `compute.firewalls().list` function to retrieve all firewall rules.
+   - For each rule, check if it is the default rule by comparing its name with 'default-allow-all'.
+   - If it is the default rule, check its source ranges. If any range includes all IPs (0.0.0.0/0), it is a misconfiguration.
+
+Python script:
+```python
+from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
+
+credentials = GoogleCredentials.get_application_default()
+compute = discovery.build('compute', 'v1', credentials=credentials)
+project = 'your-project-id'
+firewall_rules = compute.firewalls().list(project=project).execute()
+
+for rule in firewall_rules['items']:
+    if rule['name'] == 'default-allow-all':
+        for range in rule['sourceRanges']:
+            if range == '0.0.0.0/0':
+                print(f"Default firewall rule {rule['id']} allows all traffic.")
+```
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

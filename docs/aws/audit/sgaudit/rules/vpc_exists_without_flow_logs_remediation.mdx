@@ -1,6 +1,278 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having Flow Logs enabled on VPCs in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the VPC Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top search bar, type "VPC" and select "VPC" from the dropdown to go to the VPC Dashboard.
+
+2. **Select Your VPC:**
+   - In the VPC Dashboard, click on "Your VPCs" in the left-hand menu.
+   - Select the VPC for which you want to enable Flow Logs.
+
+3. **Create Flow Log:**
+   - With the VPC selected, click on the "Actions" dropdown menu and select "Create Flow Log."
+   - In the "Create Flow Log" dialog, configure the necessary settings:
+     - **Filter:** Choose the type of traffic to log (e.g., All, Accept, Reject).
+     - **Destination:** Choose where to send the logs (e.g., CloudWatch Logs, S3 bucket).
+     - **IAM Role:** Select or create an IAM role that has the necessary permissions to publish flow logs.
+
+4. **Review and Create:**
+   - Review the settings you have configured.
+   - Click the "Create Flow Log" button to enable Flow Logs for the selected VPC.
+
+By following these steps, you ensure that Flow Logs are enabled for your VPC, which helps in monitoring and securing your network traffic.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having Flow Logs enabled on VPCs in AWS using the AWS CLI, follow these steps:
+
+1. **Identify the VPC ID:**
+   First, you need to identify the VPC ID for which you want to enable Flow Logs. You can list all VPCs to find the relevant VPC ID.
+   ```sh
+   aws ec2 describe-vpcs --query 'Vpcs[*].{ID:VpcId,State:State,Tags:Tags}' --output table
+   ```
+
+2. **Create an IAM Role for VPC Flow Logs:**
+   Ensure you have an IAM role that allows VPC Flow Logs to publish logs to CloudWatch Logs or S3. If you don't have one, create it using the following command:
+   ```sh
+   aws iam create-role --role-name VPCFlowLogsRole --assume-role-policy-document file://trust-policy.json
+   aws iam attach-role-policy --role-name VPCFlowLogsRole --policy-arn arn:aws:iam::aws:policy/service-role/AmazonEC2FlowLogsRole
+   ```
+
+3. **Create a CloudWatch Log Group (if using CloudWatch Logs):**
+   If you are using CloudWatch Logs to store your flow logs, create a log group.
+   ```sh
+   aws logs create-log-group --log-group-name VPCFlowLogsGroup
+   ```
+
+4. **Enable VPC Flow Logs:**
+   Finally, enable Flow Logs for the VPC using the `create-flow-logs` command. Replace `<VPC_ID>`, `<IAM_ROLE_ARN>`, and `<LOG_GROUP_NAME>` with your specific values.
+   ```sh
+   aws ec2 create-flow-logs --resource-type VPC --resource-ids <VPC_ID> --traffic-type ALL --log-group-name <LOG_GROUP_NAME> --deliver-logs-permission-arn <IAM_ROLE_ARN>
+   ```
+
+By following these steps, you can ensure that Flow Logs are enabled for your VPCs, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having Flow Logs enabled on VPCs in Security Groups using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and example scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Enable VPC Flow Logs**:
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+   logs_client = boto3.client('logs')
+
+   def enable_vpc_flow_logs(vpc_id, log_group_name, iam_role_arn):
+       # Create a log group if it doesn't exist
+       try:
+           logs_client.create_log_group(logGroupName=log_group_name)
+       except logs_client.exceptions.ResourceAlreadyExistsException:
+           pass
+
+       response = ec2_client.create_flow_logs(
+           ResourceIds=[vpc_id],
+           ResourceType='VPC',
+           TrafficType='ALL',
+           LogGroupName=log_group_name,
+           DeliverLogsPermissionArn=iam_role_arn
+       )
+       return response
+
+   vpc_id = 'vpc-12345678'
+   log_group_name = 'my-vpc-flow-logs'
+   iam_role_arn = 'arn:aws:iam::123456789012:role/FlowLogsRole'
+
+   enable_vpc_flow_logs(vpc_id, log_group_name, iam_role_arn)
+   ```
+
+### Azure (Using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network azure-identity
+   ```
+
+2. **Enable Network Watcher Flow Logs**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your-subscription-id'
+   resource_group_name = 'your-resource-group'
+   network_watcher_name = 'your-network-watcher'
+   nsg_name = 'your-nsg-name'
+   storage_account_id = 'your-storage-account-id'
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def enable_flow_logs():
+       flow_log_parameters = {
+           'location': 'eastus',
+           'enabled': True,
+           'storage_id': storage_account_id,
+           'retention_policy': {
+               'days': 7,
+               'enabled': True
+           }
+       }
+
+       network_client.flow_logs.create_or_update(
+           resource_group_name,
+           network_watcher_name,
+           nsg_name,
+           flow_log_parameters
+       )
+
+   enable_flow_logs()
+   ```
+
+### GCP (Using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Client Library**:
+   ```bash
+   pip install google-cloud-logging
+   ```
+
+2. **Enable VPC Flow Logs**:
+   ```python
+   from google.cloud import logging_v2
+   from google.cloud.logging_v2 import LogSink
+
+   client = logging_v2.LoggingServiceV2Client()
+   project_id = 'your-project-id'
+   vpc_name = 'your-vpc-name'
+   log_sink_name = 'your-log-sink-name'
+   destination = f'logging.googleapis.com/projects/{project_id}/logs/{vpc_name}-flow-logs'
+
+   def enable_vpc_flow_logs():
+       sink = LogSink(
+           name=log_sink_name,
+           destination=destination,
+           filter_=f'resource.type="gce_subnetwork" AND resource.labels.subnetwork_id="{vpc_name}"'
+       )
+       client.create_sink(parent=f'projects/{project_id}', sink=sink)
+
+   enable_vpc_flow_logs()
+   ```
+
+These scripts will help you enable VPC Flow Logs in AWS, Azure, and GCP, thereby preventing the misconfiguration of not having Flow Logs enabled on VPCs in Security Groups.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon VPC console at https://console.aws.amazon.com/vpc/.
+
+2. In the navigation pane, choose 'Your VPCs'.
+
+3. Select the VPC for which you want to check the flow logs. 
+
+4. In the details pane, on the 'Flow logs' tab, check if there are any flow logs enabled for the selected VPC. If there are no flow logs or if they are not properly configured, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the VPCs in your account using the following command:
+   ```
+   aws ec2 describe-vpcs
+   ```
+   This command will return a JSON output with details of all the VPCs.
+
+3. To check if flow logs are enabled for a specific VPC, you need to use the following command:
+   ```
+   aws ec2 describe-flow-logs --filter Name=resource-id,Values=<vpc-id>
+   ```
+   Replace `<vpc-id>` with the ID of the VPC you want to check. This command will return a JSON output with details of the flow logs. If the output is empty, it means that flow logs are not enabled for the VPC.
+
+4. To check flow logs for all VPCs, you can use a script to loop through all the VPCs and check if flow logs are enabled. Here is a simple script in bash:
+   ```
+   for vpc in $(aws ec2 describe-vpcs --query 'Vpcs[].VpcId' --output text)
+   do
+     echo "Checking VPC: $vpc"
+     aws ec2 describe-flow-logs --filter Name=resource-id,Values=$vpc
+   done
+   ```
+   This script will print the details of the flow logs for each VPC. If the output for a VPC is empty, it means that flow logs are not enabled for that VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your Python environment. You can do this using pip:
+   ```
+   pip install boto3
+   ```
+   After installing Boto3, you need to configure it with your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. Use Boto3 to list all VPCs:
+   You can use the `describe_vpcs` method of the EC2 client in Boto3 to list all VPCs. Here is a sample script:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_vpcs()
+
+   for vpc in response['Vpcs']:
+       print(vpc['VpcId'])
+   ```
+
+3. Use Boto3 to check if flow logs are enabled for each VPC:
+   You can use the `describe_flow_logs` method of the EC2 client in Boto3 to check if flow logs are enabled for each VPC. Here is a sample script:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_vpcs()
+
+   for vpc in response['Vpcs']:
+       flow_logs_response = ec2.describe_flow_logs(
+           Filter=[
+               {
+                   'Name': 'resource-id',
+                   'Values': [
+                       vpc['VpcId'],
+                   ]
+               },
+           ]
+       )
+
+       if not flow_logs_response['FlowLogs']:
+           print(f"Flow logs are not enabled for VPC {vpc['VpcId']}")
+   ```
+
+4. Interpret the results:
+   If the script prints out any VPC IDs, then flow logs are not enabled for those VPCs. If the script does not print out any VPC IDs, then flow logs are enabled for all VPCs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
