@@ -24,6 +24,175 @@ CBP,RBI_MD_ITF
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent GuardDuty Centralized Enablement in AWS Shield using the AWS Management Console, follow these steps:
+
+1. **Navigate to GuardDuty:**
+   - Sign in to the AWS Management Console.
+   - Open the GuardDuty console by searching for "GuardDuty" in the AWS Management Console search bar and selecting it from the results.
+
+2. **Disable GuardDuty in Member Accounts:**
+   - In the GuardDuty console, go to the "Settings" section.
+   - Under "Accounts," review the list of member accounts.
+   - For each member account, select the account and choose "Disassociate" to remove it from centralized management.
+
+3. **Review and Adjust IAM Policies:**
+   - Navigate to the IAM (Identity and Access Management) console.
+   - Review the IAM policies and roles associated with GuardDuty.
+   - Ensure that policies do not grant permissions for centralized enablement of GuardDuty across multiple accounts.
+
+4. **Configure AWS Organizations:**
+   - If you are using AWS Organizations, navigate to the AWS Organizations console.
+   - Review the service control policies (SCPs) applied to your organizational units (OUs).
+   - Ensure that SCPs do not allow for the centralized enablement of GuardDuty across multiple accounts.
+
+By following these steps, you can prevent the centralized enablement of GuardDuty in AWS Shield using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfigurations related to GuardDuty Centralized Enablement in AWS Shield using the AWS CLI, you can follow these steps:
+
+1. **Create a GuardDuty Detector in the Master Account:**
+   Ensure that you have a GuardDuty detector created in the master account. This is necessary to enable centralized management.
+   ```sh
+   aws guardduty create-detector --enable
+   ```
+
+2. **Enable GuardDuty in Member Accounts:**
+   Use the master account to invite member accounts to GuardDuty. This ensures that all member accounts are monitored centrally.
+   ```sh
+   aws guardduty create-members --account-details AccountId=<MemberAccountId>,Email=<MemberEmail>
+   ```
+
+3. **Accept Invitations in Member Accounts:**
+   In each member account, accept the invitation from the master account to join GuardDuty.
+   ```sh
+   aws guardduty accept-invitation --detector-id <DetectorId> --master-id <MasterAccountId> --invitation-id <InvitationId>
+   ```
+
+4. **Enable GuardDuty Findings Publishing to S3:**
+   Configure GuardDuty to publish findings to an S3 bucket for centralized logging and monitoring.
+   ```sh
+   aws guardduty create-publishing-destination --detector-id <DetectorId> --destination-type S3 --destination-arn <S3BucketArn> --kms-key-arn <KMSKeyArn>
+   ```
+
+By following these steps, you can ensure that GuardDuty is centrally enabled and managed across all your AWS accounts, preventing misconfigurations related to its deployment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to GuardDuty Centralized Enablement in AWS Shield using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Enable GuardDuty Centrally:**
+   Write a Python script to enable GuardDuty in a centralized manner across multiple AWS accounts. This involves creating a GuardDuty detector in the master account and inviting member accounts.
+
+   ```python
+   import boto3
+
+   # Initialize GuardDuty client
+   guardduty_client = boto3.client('guardduty')
+
+   # Function to create a detector in the master account
+   def create_detector():
+       response = guardduty_client.create_detector(Enable=True)
+       detector_id = response['DetectorId']
+       return detector_id
+
+   # Function to invite member accounts
+   def invite_members(detector_id, account_ids, email_addresses):
+       accounts = [{'AccountId': account_id, 'Email': email} for account_id, email in zip(account_ids, email_addresses)]
+       response = guardduty_client.create_members(DetectorId=detector_id, AccountDetails=accounts)
+       guardduty_client.invite_members(DetectorId=detector_id, AccountIds=account_ids)
+       return response
+
+   # Main function
+   if __name__ == "__main__":
+       master_detector_id = create_detector()
+       member_account_ids = ['123456789012', '234567890123']  # Replace with actual account IDs
+       member_emails = ['member1@example.com', 'member2@example.com']  # Replace with actual email addresses
+       invite_members(master_detector_id, member_account_ids, member_emails)
+   ```
+
+3. **Ensure Proper IAM Permissions:**
+   Make sure the IAM role or user running the script has the necessary permissions to manage GuardDuty and invite member accounts. The required permissions include:
+   - `guardduty:CreateDetector`
+   - `guardduty:CreateMembers`
+   - `guardduty:InviteMembers`
+
+   Example IAM policy:
+
+   ```json
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "guardduty:CreateDetector",
+                   "guardduty:CreateMembers",
+                   "guardduty:InviteMembers"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }
+   ```
+
+4. **Automate the Script Execution:**
+   To ensure GuardDuty is always enabled centrally, you can automate the execution of the script using AWS Lambda or a scheduled task (e.g., using AWS CloudWatch Events).
+
+   Example of setting up a CloudWatch Event rule to trigger the Lambda function:
+
+   ```python
+   import boto3
+
+   # Initialize CloudWatch Events client
+   events_client = boto3.client('events')
+
+   # Create a rule to trigger the Lambda function periodically
+   response = events_client.put_rule(
+       Name='GuardDutyCentralizedEnablementRule',
+       ScheduleExpression='rate(1 day)',  # Adjust the schedule as needed
+       State='ENABLED'
+   )
+
+   # Add the Lambda function as the target of the rule
+   lambda_client = boto3.client('lambda')
+   lambda_client.add_permission(
+       FunctionName='YourLambdaFunctionName',
+       StatementId='AllowExecutionFromCloudWatch',
+       Action='lambda:InvokeFunction',
+       Principal='events.amazonaws.com',
+       SourceArn=response['RuleArn']
+   )
+
+   events_client.put_targets(
+       Rule='GuardDutyCentralizedEnablementRule',
+       Targets=[
+           {
+               'Id': '1',
+               'Arn': 'arn:aws:lambda:region:account-id:function:YourLambdaFunctionName'
+           }
+       ]
+   )
+   ```
+
+By following these steps, you can prevent misconfigurations related to GuardDuty Centralized Enablement in AWS Shield using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

@@ -2,6 +2,151 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent non-archived findings in AWS GuardDuty for Shield using the AWS Management Console, follow these steps:
+
+1. **Enable GuardDuty:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the GuardDuty service by searching for "GuardDuty" in the search bar.
+   - If GuardDuty is not already enabled, click on "Get Started" and follow the prompts to enable it for your account.
+
+2. **Configure Findings Auto-Archiving:**
+   - In the GuardDuty console, go to the "Settings" section.
+   - Look for the "Findings" settings.
+   - Enable auto-archiving for findings by setting the appropriate criteria and duration for which findings should be automatically archived.
+
+3. **Set Up Notifications:**
+   - Navigate to the "Findings" section in the GuardDuty console.
+   - Set up notifications for new findings by integrating with Amazon SNS (Simple Notification Service).
+   - Create an SNS topic and subscribe to it to receive notifications about new findings, ensuring timely action can be taken.
+
+4. **Regular Monitoring and Review:**
+   - Regularly monitor the GuardDuty dashboard for any new findings.
+   - Periodically review the archived findings to ensure that the auto-archiving settings are working as expected and adjust the criteria if necessary.
+
+By following these steps, you can ensure that non-archived findings are managed effectively in AWS GuardDuty for Shield, helping to maintain a secure cloud environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent non-archived findings in AWS GuardDuty from being enabled in AWS Shield using the AWS CLI, you can follow these steps:
+
+1. **Enable GuardDuty:**
+   Ensure that GuardDuty is enabled in your AWS account. If it is not already enabled, you can enable it using the following command:
+   ```sh
+   aws guardduty create-detector --enable
+   ```
+
+2. **Configure GuardDuty to Archive Findings Automatically:**
+   GuardDuty does not have a direct feature to automatically archive findings, but you can set up a CloudWatch Event rule to trigger a Lambda function that archives findings. First, create a CloudWatch Event rule:
+   ```sh
+   aws events put-rule --name ArchiveGuardDutyFindingsRule --event-pattern '{"source": ["aws.guardduty"], "detail-type": ["GuardDuty Finding"]}'
+   ```
+
+3. **Create a Lambda Function to Archive Findings:**
+   Write a Lambda function that archives GuardDuty findings. Here is a sample Python script for the Lambda function:
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       client = boto3.client('guardduty')
+       detector_id = 'your-detector-id'  # Replace with your actual detector ID
+       finding_ids = [finding['id'] for finding in event['detail']['findings']]
+       response = client.archive_findings(
+           DetectorId=detector_id,
+           FindingIds=finding_ids
+       )
+       return response
+   ```
+   Deploy this Lambda function and note its ARN.
+
+4. **Add the Lambda Function as a Target to the CloudWatch Event Rule:**
+   Link the Lambda function to the CloudWatch Event rule to ensure it triggers on new GuardDuty findings:
+   ```sh
+   aws events put-targets --rule ArchiveGuardDutyFindingsRule --targets "Id"="1","Arn"="arn:aws:lambda:region:account-id:function:function-name"
+   ```
+
+By following these steps, you can ensure that GuardDuty findings are automatically archived, preventing non-archived findings from being enabled in AWS Shield.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent non-archived findings in AWS GuardDuty for Shield using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Initialize Boto3 Client for GuardDuty:**
+   Create a Boto3 client for GuardDuty.
+
+   ```python
+   import boto3
+
+   guardduty_client = boto3.client('guardduty')
+   ```
+
+3. **List All Findings:**
+   Retrieve all findings from GuardDuty to identify which ones are not archived.
+
+   ```python
+   def list_findings(detector_id):
+       response = guardduty_client.list_findings(
+           DetectorId=detector_id,
+           FindingCriteria={
+               'Criterion': {
+                   'service.archived': {
+                       'Eq': ['false']
+                   }
+               }
+           }
+       )
+       return response['FindingIds']
+   ```
+
+4. **Archive Non-Archived Findings:**
+   Archive the findings that are not archived.
+
+   ```python
+   def archive_findings(detector_id, finding_ids):
+       if finding_ids:
+           response = guardduty_client.update_findings(
+               DetectorId=detector_id,
+               FindingIds=finding_ids,
+               Status='ARCHIVED'
+           )
+           return response
+       else:
+           print("No non-archived findings to archive.")
+
+   # Example usage
+   detector_id = 'your-detector-id'  # Replace with your actual detector ID
+   non_archived_findings = list_findings(detector_id)
+   archive_findings(detector_id, non_archived_findings)
+   ```
+
+### Summary of Steps:
+1. **Set Up Boto3 and AWS Credentials:** Install Boto3 and configure AWS credentials.
+2. **Initialize Boto3 Client for GuardDuty:** Create a Boto3 client for GuardDuty.
+3. **List All Findings:** Retrieve all non-archived findings.
+4. **Archive Non-Archived Findings:** Archive the non-archived findings.
+
+By following these steps, you can ensure that all GuardDuty findings are archived, preventing non-archived findings from remaining in your AWS Shield environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
