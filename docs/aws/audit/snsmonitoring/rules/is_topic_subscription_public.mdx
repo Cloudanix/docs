@@ -24,6 +24,138 @@ HITRUST, AWSWAF, SOC2, NISTCSF, PCIDSS
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SNS Topics from allowing global subscribe in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to SNS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SNS" and select "Simple Notification Service" from the list of services.
+
+2. **Select the SNS Topic:**
+   - In the SNS dashboard, click on "Topics" in the left-hand navigation pane.
+   - Find and select the SNS topic you want to configure.
+
+3. **Edit Access Policy:**
+   - Once you have selected the topic, click on the "Actions" button and choose "Edit topic policy."
+   - Review the existing policy and ensure that it does not include a wildcard (`*`) for the `Principal` element in the `Subscribe` action. This wildcard allows any AWS account to subscribe to the topic.
+
+4. **Restrict Access:**
+   - Modify the policy to specify only the AWS accounts or IAM roles that should have permission to subscribe to the topic.
+   - Save the changes by clicking the "Save changes" button.
+
+By following these steps, you can ensure that your SNS topics do not allow global subscribe permissions, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SNS Topics from allowing global subscribe permissions using AWS CLI, you can follow these steps:
+
+1. **List SNS Topics**:
+   First, identify the SNS topics in your AWS account.
+   ```sh
+   aws sns list-topics
+   ```
+
+2. **Get Topic Attributes**:
+   For each SNS topic, retrieve the current access policy to review and modify it.
+   ```sh
+   aws sns get-topic-attributes --topic-arn <topic-arn>
+   ```
+
+3. **Modify the Access Policy**:
+   Update the access policy to restrict global subscribe permissions. Create a JSON file (e.g., `sns-policy.json`) with the appropriate policy that restricts global access. Here is an example policy that denies global subscribe permissions:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Principal": "*",
+         "Action": "SNS:Subscribe",
+         "Resource": "<topic-arn>",
+         "Condition": {
+           "StringNotEquals": {
+             "aws:PrincipalOrgID": "<your-org-id>"
+           }
+         }
+       }
+     ]
+   }
+   ```
+
+4. **Set the Updated Policy**:
+   Apply the updated policy to the SNS topic.
+   ```sh
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value file://sns-policy.json
+   ```
+
+By following these steps, you can ensure that your SNS topics do not allow global subscribe permissions, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SNS Topics from allowing global subscribe permissions using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for SNS. This will allow you to interact with the SNS service.
+   ```python
+   import boto3
+
+   sns_client = boto3.client('sns')
+   ```
+
+3. **Retrieve SNS Topics**:
+   Retrieve the list of SNS topics in your AWS account.
+   ```python
+   response = sns_client.list_topics()
+   topics = response['Topics']
+   ```
+
+4. **Check and Update Topic Policies**:
+   For each SNS topic, retrieve its policy, check for global subscribe permissions, and update the policy to remove such permissions if they exist.
+   ```python
+   import json
+
+   for topic in topics:
+       topic_arn = topic['TopicArn']
+       
+       # Get the current policy of the topic
+       policy_response = sns_client.get_topic_attributes(TopicArn=topic_arn)
+       policy = json.loads(policy_response['Attributes'].get('Policy', '{}'))
+       
+       # Check if the policy allows global subscribe
+       statements = policy.get('Statement', [])
+       for statement in statements:
+           if statement.get('Effect') == 'Allow' and 'sns:Subscribe' in statement.get('Action', []):
+               principal = statement.get('Principal', {})
+               if principal == '*' or principal.get('AWS') == '*':
+                   # Remove or modify the statement to prevent global subscribe
+                   statements.remove(statement)
+       
+       # Update the policy if changes were made
+       if statements != policy.get('Statement', []):
+           policy['Statement'] = statements
+           sns_client.set_topic_attributes(
+               TopicArn=topic_arn,
+               AttributeName='Policy',
+               AttributeValue=json.dumps(policy)
+           )
+   ```
+
+This script will ensure that no SNS topic in your AWS account allows global subscribe permissions by checking and updating the topic policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

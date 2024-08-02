@@ -2,6 +2,133 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SNS Topics from allowing global publishing in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to SNS Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "Simple Notification Service" (SNS) to go to the SNS dashboard.
+
+2. **Select the SNS Topic:**
+   - In the SNS dashboard, click on "Topics" in the left-hand navigation pane.
+   - Find and select the SNS topic you want to configure.
+
+3. **Edit Access Policy:**
+   - Once you have selected the topic, click on the "Actions" button and choose "Edit topic policy."
+   - Review the existing policy and ensure that it does not include a wildcard (`*`) for the `Principal` element, which would allow global access.
+
+4. **Restrict Access:**
+   - Modify the policy to specify the AWS accounts or IAM roles that are allowed to publish to the topic.
+   - Ensure that the `Principal` element is restricted to specific AWS account IDs or IAM roles, rather than using a wildcard.
+
+By following these steps, you can ensure that your SNS topics are not configured to allow global publishing, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SNS Topics from allowing global publishing using AWS CLI, you can follow these steps:
+
+1. **List SNS Topics**:
+   First, identify the SNS topics in your AWS account.
+   ```sh
+   aws sns list-topics
+   ```
+
+2. **Get Topic Attributes**:
+   For each SNS topic, retrieve the current access policy to review and modify it.
+   ```sh
+   aws sns get-topic-attributes --topic-arn <topic-arn>
+   ```
+
+3. **Modify the Access Policy**:
+   Update the access policy to restrict publishing permissions. Ensure that only specific AWS accounts or IAM roles/users are allowed to publish to the topic. Create a JSON policy file (e.g., `sns-policy.json`) with the appropriate restrictions.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::123456789012:root"
+         },
+         "Action": "SNS:Publish",
+         "Resource": "<topic-arn>"
+       }
+     ]
+   }
+   ```
+
+4. **Set the Updated Policy**:
+   Apply the updated policy to the SNS topic.
+   ```sh
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value file://sns-policy.json
+   ```
+
+By following these steps, you can ensure that your SNS topics do not allow global publishing and are restricted to specific AWS accounts or IAM roles/users.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SNS Topics from allowing global publishing using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for SNS. This will allow you to interact with the SNS service.
+   ```python
+   import boto3
+
+   sns_client = boto3.client('sns')
+   ```
+
+3. **List SNS Topics**:
+   Retrieve the list of all SNS topics in your AWS account.
+   ```python
+   response = sns_client.list_topics()
+   topics = response['Topics']
+   ```
+
+4. **Check and Update Topic Policies**:
+   Iterate through each topic, retrieve its policy, and ensure that it does not allow global publishing. If it does, update the policy to restrict it.
+   ```python
+   import json
+
+   for topic in topics:
+       topic_arn = topic['TopicArn']
+       
+       # Get the current policy of the topic
+       policy_response = sns_client.get_topic_attributes(TopicArn=topic_arn)
+       policy = json.loads(policy_response['Attributes'].get('Policy', '{}'))
+       
+       # Check if the policy allows global publishing
+       statements = policy.get('Statement', [])
+       for statement in statements:
+           if statement.get('Effect') == 'Allow' and statement.get('Principal') == '*':
+               # Modify the statement to restrict global publishing
+               statement['Principal'] = {'AWS': 'arn:aws:iam::YOUR_ACCOUNT_ID:root'}
+       
+       # Update the topic policy
+       updated_policy = json.dumps(policy)
+       sns_client.set_topic_attributes(
+           TopicArn=topic_arn,
+           AttributeName='Policy',
+           AttributeValue=updated_policy
+       )
+   ```
+
+**Note**: Replace `YOUR_ACCOUNT_ID` with your actual AWS account ID to restrict publishing to your account only.
+
+This script ensures that SNS topics do not allow global publishing by checking and updating their policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
