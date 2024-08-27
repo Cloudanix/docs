@@ -40,7 +40,11 @@ To remediate the misconfiguration of EMR in-transit and at-rest encryption for A
 
 1. Enable in-transit encryption for Redshift clusters:
 ```bash
-aws redshift modify-cluster --cluster-identifier <your-cluster-identifier> --encrypted --region <your-region>
+# Step 1: Create a security configuration if you don't have one
+aws emr create-security-configuration --name <security-config-name> --security-configuration <path-to-json-file>
+
+# Step 2: Update your EMR cluster to use the security configuration
+aws emr modify-cluster --cluster-id <cluster-id> --security-configuration <security-config-name>
 ```
 
 2. Enable at-rest encryption for Redshift clusters:
@@ -71,27 +75,40 @@ To remediate the misconfiguration of lacking in-transit and at-rest encryption f
 
 ```python
 import boto3
+import json
 
-# Initialize the Redshift client
-redshift = boto3.client('redshift')
+def create_security_configuration(config_name, config_file_path):
+    client = boto3.client('emr')
+    with open(config_file_path, 'r') as config_file:
+        config = json.load(config_file)
+    response = client.create_security_configuration(
+        Name=config_name,
+        SecurityConfiguration=json.dumps(config)
+    )
+    print("Security configuration created:", response['Name'])
+    return response['Name']
 
-# Get the cluster parameter group family
-response = redshift.describe_cluster_parameter_groups(ParameterGroupName='default.redshift-1.0')
-parameter_group_family = response['ParameterGroups'][0]['ParameterGroupFamily']
+def update_emr_cluster_security_config(cluster_id, security_config_name):
+    client = boto3.client('emr')
+    response = client.modify_cluster(
+        ClusterId=cluster_id,
+        SecurityConfiguration=security_config_name
+    )
+    print("EMR cluster updated with security configuration:", response['ClusterId'])
 
-# Modify the parameter group to require SSL
-response = redshift.modify_cluster_parameter_group(
-    ParameterGroupName='default.redshift-1.0',
-    Parameters=[
-        {
-            'ParameterName': 'require_ssl',
-            'ParameterValue': 'true',
-            'ApplyType': 'dynamic'
-        },
-    ]
-)
+def main():
+    security_config_name = '<security-config-name>'
+    config_file_path = '<path-to-json-file>'
+    cluster_id = '<cluster-id>'
+    
+    # Step 1: Create or update security configuration
+    create_security_configuration(security_config_name, config_file_path)
+    
+    # Step 2: Update EMR cluster with the security configuration
+    update_emr_cluster_security_config(cluster_id, security_config_name)
 
-print('SSL enabled for Redshift clusters.')
+if __name__ == "__main__":
+    main()
 ```
 
 2. **At-Rest Encryption**:
@@ -124,3 +141,6 @@ By following these steps and running the Python scripts provided, you can remedi
 </AccordionGroup>
 </Tab>
 </Tabs>
+### Additional Reading:
+
+- [https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-data-encryption-options.html](https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-data-encryption-options.html) 
