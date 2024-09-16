@@ -22,6 +22,269 @@ CISGCP,HIPAA,SCO2,NISTCSF,NIST,AWSWAF,ISO27001,HITRUST,CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent roles from being assumable by compute services in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Review and Edit Trust Policies:**
+   - Navigate to the IAM console.
+   - In the left navigation pane, choose "Roles."
+   - Select the role you want to review.
+   - Under the "Trust relationships" tab, click "Edit trust relationship."
+   - Ensure that the trust policy does not include compute services (e.g., `ec2.amazonaws.com`, `lambda.amazonaws.com`) unless explicitly required. Remove or restrict any unnecessary services.
+
+2. **Use IAM Conditions:**
+   - While editing the trust policy, use IAM conditions to restrict the role assumption.
+   - For example, you can add conditions to limit the role assumption to specific IP addresses, VPCs, or other criteria.
+   - Example condition:
+     ```json
+     "Condition": {
+       "StringEquals": {
+         "aws:SourceVpc": "vpc-12345678"
+       }
+     }
+     ```
+
+3. **Review Attached Policies:**
+   - Under the "Permissions" tab, review the policies attached to the role.
+   - Ensure that the policies grant the minimum necessary permissions and do not include broad permissions that could be exploited by compute services.
+
+4. **Enable Access Analyzer:**
+   - In the IAM console, navigate to "Access Analyzer" under the "Access management" section.
+   - Create an analyzer if you haven't already.
+   - Use Access Analyzer to identify roles that are overly permissive or have trust policies that allow assumption by compute services.
+   - Regularly review the findings and adjust the trust policies and permissions accordingly.
+
+By following these steps, you can minimize the risk of roles being improperly assumed by compute services in AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent roles from being assumable by compute services in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a Role with Specific Trust Policy:**
+   Ensure that the role's trust policy does not allow compute services (like EC2, Lambda, etc.) to assume the role. You can create a role with a specific trust policy that only allows certain principals (like specific users or other roles) to assume it.
+
+   ```sh
+   aws iam create-role --role-name MySecureRole --assume-role-policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "arn:aws:iam::123456789012:user/SpecificUser"
+               },
+               "Action": "sts:AssumeRole"
+           }
+       ]
+   }'
+   ```
+
+2. **Update an Existing Role's Trust Policy:**
+   If you have an existing role, you can update its trust policy to ensure it does not allow compute services to assume the role.
+
+   ```sh
+   aws iam update-assume-role-policy --role-name MyExistingRole --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "arn:aws:iam::123456789012:user/SpecificUser"
+               },
+               "Action": "sts:AssumeRole"
+           }
+       ]
+   }'
+   ```
+
+3. **List Roles and Check Trust Policies:**
+   Regularly list roles and check their trust policies to ensure no roles are inadvertently allowing compute services to assume them.
+
+   ```sh
+   aws iam list-roles
+   ```
+
+   For each role, you can get the trust policy:
+
+   ```sh
+   aws iam get-role --role-name MyRole
+   ```
+
+4. **Use IAM Policy Conditions:**
+   Apply conditions in the trust policy to restrict the role assumption further. For example, you can restrict the role assumption to specific IP addresses or MFA authentication.
+
+   ```sh
+   aws iam update-assume-role-policy --role-name MyRoleWithConditions --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "arn:aws:iam::123456789012:user/SpecificUser"
+               },
+               "Action": "sts:AssumeRole",
+               "Condition": {
+                   "IpAddress": {
+                       "aws:SourceIp": "203.0.113.0/24"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that roles are not assumable by compute services unless explicitly intended.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent roles from being assumable by compute services in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to manage IAM roles.
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List Roles**
+Create a Python script to list all IAM roles and identify those that are assumable by compute services (e.g., EC2, Lambda).
+
+```python
+import boto3
+
+def list_roles():
+    iam_client = boto3.client('iam')
+    response = iam_client.list_roles()
+    return response['Roles']
+
+roles = list_roles()
+for role in roles:
+    print(role['RoleName'])
+```
+
+### 3. **Check and Update Trust Policies**
+Modify the script to check the trust policies of each role and ensure they do not allow compute services to assume them.
+
+```python
+def get_role_trust_policy(role_name):
+    iam_client = boto3.client('iam')
+    response = iam_client.get_role(RoleName=role_name)
+    return response['Role']['AssumeRolePolicyDocument']
+
+def update_trust_policy(role_name, new_policy):
+    iam_client = boto3.client('iam')
+    iam_client.update_assume_role_policy(
+        RoleName=role_name,
+        PolicyDocument=new_policy
+    )
+
+roles = list_roles()
+for role in roles:
+    trust_policy = get_role_trust_policy(role['RoleName'])
+    # Check if the trust policy allows compute services
+    for statement in trust_policy['Statement']:
+        if 'Service' in statement['Principal'] and 'ec2.amazonaws.com' in statement['Principal']['Service']:
+            print(f"Role {role['RoleName']} is assumable by EC2")
+            # Modify the trust policy to remove EC2
+            statement['Principal']['Service'].remove('ec2.amazonaws.com')
+            if not statement['Principal']['Service']:
+                del statement['Principal']['Service']
+            new_policy = json.dumps(trust_policy)
+            update_trust_policy(role['RoleName'], new_policy)
+            print(f"Updated trust policy for role {role['RoleName']}")
+```
+
+### 4. **Run the Script and Verify**
+Run the script to ensure it updates the trust policies correctly. Verify by checking the roles in the AWS Management Console or using the AWS CLI.
+
+```bash
+python prevent_compute_assumable_roles.py
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Create a Python Script to List Roles**: List all IAM roles.
+3. **Check and Update Trust Policies**: Identify and update trust policies that allow compute services to assume roles.
+4. **Run the Script and Verify**: Execute the script and verify the changes.
+
+This approach ensures that roles are not assumable by compute services unless explicitly intended.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Roles". This will open a list of all the IAM roles that are currently configured in your AWS environment.
+
+3. Click on the role that you want to inspect. This will open the summary page for that role. Here, you can see details about the role, including its policies and trust relationships.
+
+4. Click on the "Trust relationships" tab. Here, you can see which AWS services or accounts are allowed to assume the role. If a compute service like EC2 or Lambda is listed here, it means that the role is assumable by that service.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List IAM Roles**: Once your AWS CLI is set up, you can list all the IAM roles in your AWS account by running the command `aws iam list-roles`. This command will return a JSON object that contains information about all the IAM roles in your account.
+
+3. **Check Trust Relationship**: For each role, you need to check the trust relationship to see if it can be assumed by AWS compute services. You can do this by running the command `aws iam get-role --role-name <role-name>`. Replace `<role-name>` with the name of the role you want to check. This command will return a JSON object that contains information about the role, including its trust relationship.
+
+4. **Parse Trust Relationship**: The trust relationship is contained in the "AssumeRolePolicyDocument" field of the JSON object. You need to parse this field to see if it allows AWS compute services to assume the role. You can do this using a tool like `jq` or a scripting language like Python. For example, in Python, you can use the `json` module to parse the JSON object and check the trust relationship. If the "Principal" field of the trust relationship contains "ec2.amazonaws.com" or "ecs-tasks.amazonaws.com", then the role can be assumed by AWS compute services.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a session**: To start with, you need to import the necessary libraries in your Python script. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. 
+
+```python
+import boto3
+session = boto3.Session(profile_name='your_profile_name')
+client = session.client('iam')
+```
+
+2. **List all IAM roles**: The next step is to list all the IAM roles in your AWS account. You can do this using the `list_roles` function in the IAM client.
+
+```python
+roles = client.list_roles()
+```
+
+3. **Check for roles assumable by compute services**: Now, you need to check if any of these roles are assumable by compute services. You can do this by checking the `AssumeRolePolicyDocument` of each role. If the `Service` in the `AssumeRolePolicyDocument` is `ec2.amazonaws.com` or `ecs-tasks.amazonaws.com`, then the role is assumable by compute services.
+
+```python
+for role in roles['Roles']:
+    assume_role_policy_document = role['AssumeRolePolicyDocument']
+    for statement in assume_role_policy_document['Statement']:
+        if statement['Effect'] == 'Allow' and 'Service' in statement['Principal']:
+            if 'ec2.amazonaws.com' in statement['Principal']['Service'] or 'ecs-tasks.amazonaws.com' in statement['Principal']['Service']:
+                print(f"Role {role['RoleName']} is assumable by compute services")
+```
+
+4. **Handle pagination**: AWS API results are paginated. If you have more than 100 roles, you need to handle pagination by using a paginator.
+
+```python
+paginator = client.get_paginator('list_roles')
+for page in paginator.paginate():
+    for role in page['Roles']:
+        assume_role_policy_document = role['AssumeRolePolicyDocument']
+        for statement in assume_role_policy_document['Statement']:
+            if statement['Effect'] == 'Allow' and 'Service' in statement['Principal']:
+                if 'ec2.amazonaws.com' in statement['Principal']['Service'] or 'ecs-tasks.amazonaws.com' in statement['Principal']['Service']:
+                    print(f"Role {role['RoleName']} is assumable by compute services")
+```
+
+This script will print out all the roles that are assumable by compute services.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
