@@ -23,6 +23,99 @@ ISO27001, HIPAA
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the API Gateway console. You can do this by typing "API Gateway" in the search bar and selecting it from the dropdown menu.
+3. In the API Gateway console, select the API you want to check.
+4. In the API details page, select the "Stages" option from the left-hand side menu. Here, you can see all the stages of your API. Click on the stage you want to check.
+5. In the stage editor, select the "Logs/Tracing" tab. Here, you can see the "CloudWatch Settings". If the "Enable CloudWatch Logs" option is not selected, it means that AWS KMS Customer Master Keys for EFS Encryption is not enabled in API Gateway.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once AWS CLI is installed and configured, you can use the following command to list all the API Gateways:
+
+   ```
+   aws apigateway get-rest-apis
+   ```
+
+   This command will return a list of all the API Gateways along with their details.
+
+3. Now, to check the AWS KMS Customer Master Keys for EFS Encryption, you need to list all the resources of each API Gateway. You can do this by using the following command:
+
+   ```
+   aws apigateway get-resources --rest-api-id <rest-api-id>
+   ```
+
+   Replace `<rest-api-id>` with the ID of the API Gateway you want to check. This command will return a list of all the resources of the specified API Gateway.
+
+4. Finally, for each resource, you need to check the `aws:kms:KeyArn` property. If this property is not set or is set to a key that is not a Customer Master Key, then the EFS Encryption is misconfigured. You can do this by using the following command:
+
+   ```
+   aws apigateway get-integration --rest-api-id <rest-api-id> --resource-id <resource-id> --http-method <http-method>
+   ```
+
+   Replace `<rest-api-id>`, `<resource-id>`, and `<http-method>` with the ID of the API Gateway, the ID of the resource, and the HTTP method of the integration, respectively. This command will return the details of the integration, including the `aws:kms:KeyArn` property.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services using Python.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Create a Python script that uses Boto3 to list all the API Gateways in your AWS account.
+
+```python
+import boto3
+
+def list_api_gateways():
+    client = boto3.client('apigateway')
+    response = client.get_rest_apis()
+    return response['items']
+
+api_gateways = list_api_gateways()
+```
+
+3. For each API Gateway, check if the EFS encryption is enabled. If the EFS encryption is not enabled, the API Gateway is misconfigured.
+
+```python
+def check_efs_encryption(api_gateways):
+    client = boto3.client('kms')
+    misconfigured_gateways = []
+    for gateway in api_gateways:
+        try:
+            response = client.describe_key(KeyId=gateway['id'])
+            if response['KeyMetadata']['KeyState'] != 'Enabled':
+                misconfigured_gateways.append(gateway['name'])
+        except Exception as e:
+            print(f"Error checking EFS encryption for {gateway['name']}: {e}")
+    return misconfigured_gateways
+
+misconfigured_gateways = check_efs_encryption(api_gateways)
+```
+
+4. Print out the names of the misconfigured API Gateways.
+
+```python
+print("Misconfigured API Gateways:")
+for gateway in misconfigured_gateways:
+    print(gateway)
+```
+
+This script will list all the API Gateways in your AWS account and check if the EFS encryption is enabled for each one. If the EFS encryption is not enabled, the script will print out the name of the API Gateway.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

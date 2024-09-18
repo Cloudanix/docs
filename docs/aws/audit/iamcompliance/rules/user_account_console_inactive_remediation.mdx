@@ -1,6 +1,323 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent User Console Access Inactive in IAM using the AWS Management Console, follow these steps:
+
+1. **Enable Multi-Factor Authentication (MFA):**
+   - Navigate to the IAM dashboard.
+   - Select "Users" from the left-hand menu.
+   - Click on the username of the user you want to enable MFA for.
+   - Under the "Security credentials" tab, click on "Manage" next to "Assigned MFA device."
+   - Follow the prompts to assign an MFA device to the user.
+
+2. **Set Up Password Policies:**
+   - Go to the IAM dashboard.
+   - Click on "Account settings" in the left-hand menu.
+   - Under "Password policy," click on "Set password policy."
+   - Configure the password policy to enforce strong passwords, password expiration, and password reuse prevention.
+
+3. **Regularly Review and Rotate Access Keys:**
+   - In the IAM dashboard, select "Users" from the left-hand menu.
+   - Click on the username of the user whose access keys you want to review.
+   - Under the "Security credentials" tab, review the access keys and rotate them regularly.
+   - Ensure that old access keys are deactivated and deleted.
+
+4. **Monitor and Audit User Activity:**
+   - Enable AWS CloudTrail to log all API calls made in your account.
+   - Go to the CloudTrail dashboard.
+   - Click on "Trails" in the left-hand menu and ensure a trail is created and enabled.
+   - Configure CloudTrail to send logs to an S3 bucket and enable log file validation.
+   - Regularly review CloudTrail logs to monitor user activity and detect any inactive or suspicious behavior.
+
+By following these steps, you can help ensure that user console access remains active and secure, reducing the risk of misconfigurations and unauthorized access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent User Console Access Inactive in IAM using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Policy to Enforce MFA:**
+   Ensure that users are required to use Multi-Factor Authentication (MFA) to access the AWS Management Console. This can help in reducing the risk of inactive user accounts being compromised.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceMFA --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "aws:iam:*",
+         "Resource": "*",
+         "Condition": {
+           "BoolIfExists": {
+             "aws:MultiFactorAuthPresent": "false"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+2. **Attach the Policy to All Users:**
+   Attach the newly created policy to all IAM users to enforce MFA.
+
+   ```sh
+   for user in $(aws iam list-users --query 'Users[*].UserName' --output text); do
+     aws iam attach-user-policy --user-name $user --policy-arn arn:aws:iam::aws:policy/EnforceMFA
+   done
+   ```
+
+3. **Set Password Policy:**
+   Set a strong password policy to ensure that users have to change their passwords regularly, which can help in identifying inactive users.
+
+   ```sh
+   aws iam update-account-password-policy --minimum-password-length 12 --require-symbols --require-numbers --require-uppercase-characters --require-lowercase-characters --allow-users-to-change-password --max-password-age 90 --password-reuse-prevention 5
+   ```
+
+4. **Enable CloudTrail Logging:**
+   Enable AWS CloudTrail to log all IAM activities. This will help in monitoring user activities and identifying inactive users.
+
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-trail-bucket
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+By following these steps, you can help prevent user console access from becoming inactive in IAM using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent User Console Access Inactive in IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3) for AWS:**
+
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Script to Monitor and Deactivate Inactive Users:**
+
+Here's a Python script that checks for inactive IAM users and deactivates their console access if they haven't logged in for a specified number of days.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+iam = boto3.client('iam')
+
+# Define the number of days of inactivity
+INACTIVITY_DAYS = 90
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# List all IAM users
+users = iam.list_users()
+
+for user in users['Users']:
+    user_name = user['UserName']
+    
+    # Get the user's login profile
+    try:
+        login_profile = iam.get_login_profile(UserName=user_name)
+        last_login = login_profile['LoginProfile']['CreateDate']
+        
+        # Calculate the number of days since the last login
+        days_inactive = (current_date - last_login.replace(tzinfo=None)).days
+        
+        if days_inactive > INACTIVITY_DAYS:
+            # Deactivate the user's console access
+            iam.delete_login_profile(UserName=user_name)
+            print(f"Deactivated console access for user: {user_name} due to {days_inactive} days of inactivity.")
+    except iam.exceptions.NoSuchEntityException:
+        # The user does not have a login profile (console access)
+        continue
+```
+
+### 3. **Set Up Azure SDK (Azure Identity and Management) for Azure:**
+
+First, ensure you have the Azure SDK for Python installed. You can install it using pip:
+
+```bash
+pip install azure-identity azure-mgmt-authorization
+```
+
+### 4. **Create a Script to Monitor and Deactivate Inactive Users:**
+
+Here's a Python script that checks for inactive Azure AD users and deactivates their console access if they haven't logged in for a specified number of days.
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.authorization import AuthorizationManagementClient
+from datetime import datetime, timedelta
+
+# Initialize the Azure credentials and client
+credential = DefaultAzureCredential()
+client = AuthorizationManagementClient(credential, '<subscription_id>')
+
+# Define the number of days of inactivity
+INACTIVITY_DAYS = 90
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# List all users
+users = client.users.list()
+
+for user in users:
+    user_name = user.user_principal_name
+    last_login = user.sign_in_activity.last_sign_in_date_time
+    
+    if last_login:
+        # Calculate the number of days since the last login
+        days_inactive = (current_date - last_login.replace(tzinfo=None)).days
+        
+        if days_inactive > INACTIVITY_DAYS:
+            # Deactivate the user's console access
+            client.users.update(user.object_id, {'accountEnabled': False})
+            print(f"Deactivated console access for user: {user_name} due to {days_inactive} days of inactivity.")
+```
+
+### 5. **Set Up Google Cloud SDK (Google API Client) for GCP:**
+
+First, ensure you have the Google Cloud SDK for Python installed. You can install it using pip:
+
+```bash
+pip install google-api-python-client google-auth
+```
+
+### 6. **Create a Script to Monitor and Deactivate Inactive Users:**
+
+Here's a Python script that checks for inactive GCP IAM users and deactivates their console access if they haven't logged in for a specified number of days.
+
+```python
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from datetime import datetime, timedelta
+
+# Initialize the Google Cloud credentials and service
+credentials = service_account.Credentials.from_service_account_file('path/to/your/service-account-file.json')
+service = build('admin', 'directory_v1', credentials=credentials)
+
+# Define the number of days of inactivity
+INACTIVITY_DAYS = 90
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# List all users
+results = service.users().list(customer='my_customer', orderBy='email').execute()
+users = results.get('users', [])
+
+for user in users:
+    user_name = user['primaryEmail']
+    last_login = user.get('lastLoginTime')
+    
+    if last_login:
+        last_login_date = datetime.strptime(last_login, '%Y-%m-%dT%H:%M:%S.%fZ')
+        # Calculate the number of days since the last login
+        days_inactive = (current_date - last_login_date).days
+        
+        if days_inactive > INACTIVITY_DAYS:
+            # Deactivate the user's console access
+            user['suspended'] = True
+            service.users().update(userKey=user_name, body=user).execute()
+            print(f"Deactivated console access for user: {user_name} due to {days_inactive} days of inactivity.")
+```
+
+These scripts will help you monitor and deactivate inactive user console access across AWS, Azure, and GCP. Make sure to replace placeholders like `<subscription_id>` and `'path/to/your/service-account-file.json'` with your actual values.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users". This will display a list of all IAM users in your account.
+
+3. For each user, check the "Last activity" column. This column shows the time when the user last accessed the AWS Management Console, used the AWS CLI, or made a programmatic request to AWS.
+
+4. If the "Last activity" column shows "None" or a date that is older than your organization's inactivity threshold, then the user console access is inactive.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation: `pip install awscli`
+   
+   Configuration: `aws configure`
+
+2. List all IAM users: Use the `list-users` command to get a list of all IAM users in your AWS account. The command is as follows:
+
+   `aws iam list-users`
+
+3. Get login profile for each user: For each user, you need to check if they have a login profile. A login profile is required for a user to login to the AWS Management Console. You can do this by running the `get-login-profile` command for each user:
+
+   `aws iam get-login-profile --user-name <username>`
+
+4. Check last used password: For each user with a login profile, you need to check when they last used their password to login to the AWS Management Console. You can do this by running the `get-user` command:
+
+   `aws iam get-user --user-name <username>`
+
+   In the output, look for the `PasswordLastUsed` field. If this field is not present or the date is older than your organization's inactivity threshold, the user console access is inactive.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the Boto3 library. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the very least, the contents of the file should be:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Create a Python script: The following Python script uses the Boto3 library to interact with AWS IAM service. It lists all the IAM users and checks if they have console access. If they do, it checks when they last used it. If it's more than 90 days, it prints the username.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   def check_inactive_users():
+       client = boto3.client('iam')
+       users = client.list_users()
+       for user in users['Users']:
+           username = user['UserName']
+           login_profile = client.get_login_profile(UserName=username)
+           if 'LoginProfile' in login_profile:
+               last_used = client.get_user(UserName=username)['User']['PasswordLastUsed']
+               if last_used < datetime.now() - timedelta(days=90):
+                   print(username)
+
+   if __name__ == "__main__":
+       check_inactive_users()
+   ```
+
+4. Run the Python script: You can run the Python script from your terminal using the following command:
+
+   ```bash
+   python check_inactive_users.py
+   ```
+   
+This script will print the usernames of all IAM users who have console access but haven't used it in the last 90 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

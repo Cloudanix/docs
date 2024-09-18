@@ -23,6 +23,291 @@ HIPAA, PCIDSS, GDPR, CISAWS, CBP, NIST, SOC2, ISO27001, AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in AWS Identity and Access Management (IAM) using the AWS Management Console, follow these steps:
+
+1. **Navigate to IAM Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top navigation bar, select "Services" and then choose "IAM" under the "Security, Identity, & Compliance" section.
+
+2. **Select Users:**
+   - In the IAM dashboard, click on "Users" in the left-hand navigation pane.
+   - This will display a list of all IAM users in your AWS account.
+
+3. **Enable MFA for Each User:**
+   - Click on the username of the user for whom you want to enable MFA.
+   - In the user details page, select the "Security credentials" tab.
+   - Under the "Multi-factor authentication (MFA)" section, click on the "Manage" button.
+   - Follow the on-screen instructions to assign and activate an MFA device for the user. This typically involves scanning a QR code with an MFA app (like Google Authenticator) and entering the generated code to verify.
+
+4. **Enforce MFA Policy:**
+   - To ensure that all users have MFA enabled, you can create an IAM policy that requires MFA for specific actions.
+   - Go to the "Policies" section in the IAM dashboard.
+   - Click on "Create policy" and use the JSON editor to define a policy that requires MFA. For example:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Deny",
+           "Action": "*",
+           "Resource": "*",
+           "Condition": {
+             "BoolIfExists": {
+               "aws:MultiFactorAuthPresent": "false"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Attach this policy to all IAM users or groups to enforce MFA.
+
+By following these steps, you can ensure that MFA is enabled for all IAM user accounts, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in AWS IAM using the AWS CLI, follow these steps:
+
+1. **Create an MFA Device for the User:**
+   First, you need to create an MFA device for the user. This can be a virtual MFA device or a hardware MFA device. Here, we'll use a virtual MFA device.
+
+   ```sh
+   aws iam create-virtual-mfa-device --virtual-mfa-device-name <VirtualMFADeviceName> --outfile /path/to/qr-code.png
+   ```
+
+   This command will create a virtual MFA device and output a QR code that can be scanned by an MFA application (like Google Authenticator).
+
+2. **Enable MFA for the User:**
+   Once the virtual MFA device is created, you need to enable it for the user by associating it with the user account. You will need two consecutive MFA codes from the MFA device.
+
+   ```sh
+   aws iam enable-mfa-device --user-name <UserName> --serial-number arn:aws:iam::<AccountID>:mfa/<VirtualMFADeviceName> --authentication-code1 <MFA_Code1> --authentication-code2 <MFA_Code2>
+   ```
+
+3. **Update User's Login Profile to Require MFA:**
+   Ensure that the user's login profile is updated to require MFA. This can be done by setting up an IAM policy that enforces MFA.
+
+   ```sh
+   aws iam put-user-policy --user-name <UserName> --policy-name MFARequired --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "*",
+         "Resource": "*",
+         "Condition": {
+           "BoolIfExists": {
+             "aws:MultiFactorAuthPresent": "false"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+4. **Verify MFA Device Association:**
+   Finally, verify that the MFA device is correctly associated with the user.
+
+   ```sh
+   aws iam list-mfa-devices --user-name <UserName>
+   ```
+
+   This command will list all MFA devices associated with the specified user, allowing you to confirm that the MFA device is properly set up.
+
+By following these steps, you can ensure that MFA is enabled on user accounts in AWS IAM using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled on user accounts in IAM using Python scripts, you can follow these steps for AWS, Azure, and GCP:
+
+### AWS
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed, which is the AWS SDK for Python.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Enable MFA**:
+   Use the following script to enforce MFA on IAM user accounts. This script lists all users and attaches an MFA device to each user if not already attached.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon IAM
+   iam_client = boto3.client('iam')
+
+   # List all IAM users
+   users = iam_client.list_users()
+
+   for user in users['Users']:
+       user_name = user['UserName']
+       mfa_devices = iam_client.list_mfa_devices(UserName=user_name)
+
+       if not mfa_devices['MFADevices']:
+           # Create a virtual MFA device
+           mfa_device = iam_client.create_virtual_mfa_device(VirtualMFADeviceName=f'{user_name}_mfa')
+
+           # Enable MFA for the user
+           iam_client.enable_mfa_device(
+               UserName=user_name,
+               SerialNumber=mfa_device['VirtualMFADevice']['SerialNumber'],
+               AuthenticationCode1='123456',  # Replace with actual MFA code
+               AuthenticationCode2='789012'   # Replace with actual MFA code
+           )
+
+           print(f'MFA enabled for user: {user_name}')
+       else:
+           print(f'MFA already enabled for user: {user_name}')
+   ```
+
+### Azure
+
+1. **Install Azure SDK for Python**:
+   Ensure you have the Azure Identity and Management libraries installed.
+   ```bash
+   pip install azure-identity azure-mgmt-authorization
+   ```
+
+2. **Create a Python Script to Enforce MFA**:
+   Use the following script to enforce MFA on Azure user accounts. This script assumes you have the necessary permissions to manage user settings.
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.authorization import AuthorizationManagementClient
+
+   # Initialize credentials and client
+   credential = DefaultAzureCredential()
+   client = AuthorizationManagementClient(credential, '<subscription_id>')
+
+   # List all users and enforce MFA
+   users = client.users.list()
+
+   for user in users:
+       # Check if MFA is enabled (this is a simplified example)
+       if not user.additional_properties.get('mfaEnabled'):
+           # Enforce MFA (this is a placeholder, actual implementation may vary)
+           user.additional_properties['mfaEnabled'] = True
+           client.users.create_or_update(user.object_id, user)
+           print(f'MFA enforced for user: {user.display_name}')
+       else:
+           print(f'MFA already enabled for user: {user.display_name}')
+   ```
+
+### GCP
+
+1. **Install Google Cloud SDK**:
+   Ensure you have the Google Cloud SDK installed.
+   ```bash
+   pip install google-auth google-api-python-client
+   ```
+
+2. **Create a Python Script to Enforce MFA**:
+   Use the following script to enforce MFA on GCP user accounts. This script assumes you have the necessary permissions to manage user settings.
+
+   ```python
+   from google.oauth2 import service_account
+   from googleapiclient.discovery import build
+
+   # Initialize credentials and service
+   credentials = service_account.Credentials.from_service_account_file('path/to/your/service-account-file.json')
+   service = build('admin', 'directory_v1', credentials=credentials)
+
+   # List all users and enforce MFA
+   results = service.users().list(customer='my_customer', maxResults=200).execute()
+   users = results.get('users', [])
+
+   for user in users:
+       # Check if MFA is enabled (this is a simplified example)
+       if not user.get('isEnrolledIn2Sv'):
+           # Enforce MFA (this is a placeholder, actual implementation may vary)
+           user['isEnrolledIn2Sv'] = True
+           service.users().update(userKey=user['id'], body=user).execute()
+           print(f'MFA enforced for user: {user["primaryEmail"]}')
+       else:
+           print(f'MFA already enabled for user: {user["primaryEmail"]}')
+   ```
+
+These scripts provide a basic framework to enforce MFA on user accounts in AWS, Azure, and GCP. You may need to adjust the scripts based on your specific requirements and environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users". This will display a list of all IAM users associated with the current AWS account.
+
+3. Select a user from the list. This will open the summary page for the selected user.
+
+4. In the "Security credentials" tab, check the "Assigned MFA device" column. If it says "None", then MFA is not enabled for that user. Repeat this process for all users to ensure MFA is enabled on all user accounts.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all IAM users: Once AWS CLI is set up, you can list all IAM users in your AWS account by running the following command:
+   ```
+   aws iam list-users
+   ```
+   This command will return a JSON object containing details of all IAM users.
+
+3. Check MFA status: For each user, you need to check if MFA is enabled. You can do this by running the following command for each user:
+   ```
+   aws iam list-mfa-devices --user-name <username>
+   ```
+   Replace `<username>` with the name of the user. This command will return a JSON object containing details of all MFA devices associated with the user.
+
+4. Analyze the output: If the output from the previous command is an empty list, it means that MFA is not enabled for that user. If the output contains one or more MFA devices, it means that MFA is enabled for that user. Repeat steps 3 and 4 for each user in your AWS account.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3). You can do this by running the command `pip install boto3` in your terminal.
+
+2. Once Boto3 is installed, you can use it to interact with AWS services. To check if MFA is enabled on IAM user accounts, you can use the `list_mfa_devices` method. Here is a sample script:
+
+```python
+import boto3
+
+def check_mfa():
+    client = boto3.client('iam')
+    users = client.list_users()
+    for user in users['Users']:
+        mfa = client.list_mfa_devices(UserName=user['UserName'])
+        if not mfa['MFADevices']:
+            print(f"MFA not enabled for {user['UserName']}")
+
+check_mfa()
+```
+
+3. This script first lists all the IAM users in your AWS account. Then, for each user, it checks if any MFA devices are associated with the user. If no MFA devices are found, it prints a message indicating that MFA is not enabled for that user.
+
+4. To run the script, save it to a file (e.g., `check_mfa.py`), then run `python check_mfa.py` in your terminal. You'll need to have your AWS credentials configured (either by setting the `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` environment variables, or by configuring them using the AWS CLI or AWS SDKs).
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,247 @@ HIPAA, GDPR, CISAWS, CBP, NIST, SOC2, PCIDSS, HITRUST, AWSWAF, NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled for the root account in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Sign in to the AWS Management Console:**
+   - Log in to the AWS Management Console using your root account credentials.
+
+2. **Navigate to the IAM Dashboard:**
+   - In the AWS Management Console, go to the **Services** menu and select **IAM** (Identity and Access Management).
+
+3. **Enable MFA for the Root Account:**
+   - In the IAM Dashboard, you will see a section labeled **Security Status**. Look for the item that says **MFA on your root account**.
+   - Click on the **Manage MFA** button next to this item.
+
+4. **Follow the MFA Setup Wizard:**
+   - Follow the on-screen instructions to set up MFA. You will need to choose the type of MFA device (e.g., virtual MFA device, U2F security key, or hardware MFA device) and complete the setup process by scanning a QR code or entering a code provided by your MFA device.
+
+By following these steps, you can ensure that MFA is enabled for your AWS root account, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the root account does not have Multi-Factor Authentication (MFA) enabled in AWS IAM using the AWS CLI, follow these steps:
+
+1. **Create a Virtual MFA Device:**
+   First, create a virtual MFA device for the root account. This will generate a QR code that you can scan with an MFA application (like Google Authenticator).
+
+   ```sh
+   aws iam create-virtual-mfa-device --virtual-mfa-device-name root-account-mfa --outfile /path/to/qr-code.png
+   ```
+
+2. **Enable MFA for the Root Account:**
+   After scanning the QR code with your MFA application, you will receive two consecutive MFA codes. Use these codes to enable MFA for the root account.
+
+   ```sh
+   aws iam enable-mfa-device --user-name root --serial-number arn:aws:iam::account-id:mfa/root-account-mfa --authentication-code1 <MFA_CODE_1> --authentication-code2 <MFA_CODE_2>
+   ```
+
+3. **Verify MFA Device:**
+   To ensure that the MFA device is correctly associated with the root account, you can list the MFA devices for the root account.
+
+   ```sh
+   aws iam list-mfa-devices --user-name root
+   ```
+
+4. **Enforce MFA Usage:**
+   Optionally, you can create an IAM policy that enforces the use of MFA for sensitive operations. Attach this policy to the root account or other IAM users as needed.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceMFA --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "*",
+               "Resource": "*",
+               "Condition": {
+                   "BoolIfExists": {
+                       "aws:MultiFactorAuthPresent": "false"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+By following these steps, you can ensure that the root account in AWS IAM has MFA enabled, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having Multi-Factor Authentication (MFA) enabled for the root account in AWS IAM using Python scripts, you can follow these steps:
+
+1. **Install AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Check MFA Status:**
+   Write a Python script that uses Boto3 to check if MFA is enabled for the root account. This script will help you identify if the root account does not have MFA enabled.
+
+   ```python
+   import boto3
+
+   def check_root_mfa():
+       client = boto3.client('iam')
+       response = client.get_account_summary()
+       mfa_devices = client.list_mfa_devices(UserName='root')
+       
+       if response['SummaryMap']['AccountMFAEnabled'] == 1 and len(mfa_devices['MFADevices']) > 0:
+           print("MFA is enabled for the root account.")
+       else:
+           print("MFA is NOT enabled for the root account. Please enable it.")
+
+   if __name__ == "__main__":
+       check_root_mfa()
+   ```
+
+3. **Automate the Script Execution:**
+   Schedule the script to run at regular intervals using a task scheduler like cron (Linux) or Task Scheduler (Windows) to ensure continuous monitoring.
+
+   For example, to run the script every day at midnight using cron, you can add the following line to your crontab:
+
+   ```bash
+   0 0 * * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+4. **Notify Administrators:**
+   Enhance the script to send notifications (e.g., via email or Slack) if MFA is not enabled. This ensures that administrators are alerted immediately and can take action.
+
+   ```python
+   import boto3
+   import smtplib
+   from email.mime.text import MIMEText
+
+   def send_notification(message):
+       # Set up the server and login details
+       smtp_server = 'smtp.example.com'
+       smtp_port = 587
+       smtp_user = 'your_email@example.com'
+       smtp_password = 'your_password'
+       
+       # Create the email content
+       msg = MIMEText(message)
+       msg['Subject'] = 'AWS Root Account MFA Status Alert'
+       msg['From'] = smtp_user
+       msg['To'] = 'admin@example.com'
+       
+       # Send the email
+       with smtplib.SMTP(smtp_server, smtp_port) as server:
+           server.starttls()
+           server.login(smtp_user, smtp_password)
+           server.sendmail(smtp_user, 'admin@example.com', msg.as_string())
+
+   def check_root_mfa():
+       client = boto3.client('iam')
+       response = client.get_account_summary()
+       mfa_devices = client.list_mfa_devices(UserName='root')
+       
+       if response['SummaryMap']['AccountMFAEnabled'] == 1 and len(mfa_devices['MFADevices']) > 0:
+           print("MFA is enabled for the root account.")
+       else:
+           message = "MFA is NOT enabled for the root account. Please enable it."
+           print(message)
+           send_notification(message)
+
+   if __name__ == "__main__":
+       check_root_mfa()
+   ```
+
+By following these steps, you can proactively prevent the misconfiguration of not having MFA enabled for the root account in AWS IAM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console as a root user.
+2. In the navigation pane, choose "IAM" to open the IAM dashboard.
+3. In the IAM dashboard, you will find the "Security Status" section. Here, you can see the status of MFA on your root account. If it's not enabled, it will show a warning sign.
+4. To confirm, click on the "Manage MFA" button. If MFA is not enabled, it will show "Multi-factor authentication (MFA): Not enabled".
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all IAM users: Use the following AWS CLI command to list all the IAM users in your AWS account:
+
+   ```
+   aws iam list-users
+   ```
+
+   This command will return a list of all IAM users along with their details.
+
+3. Check MFA devices for each user: For each user returned in the previous step, you need to check if they have any MFA devices enabled. You can do this by running the following command:
+
+   ```
+   aws iam list-mfa-devices --user-name <username>
+   ```
+
+   Replace `<username>` with the name of the IAM user. This command will return a list of all MFA devices associated with the specified user.
+
+4. Analyze the output: If the output from the previous command is empty, it means that the user does not have MFA enabled. If the output contains one or more MFA devices, it means that the user has MFA enabled. Repeat this process for all IAM users to check if the root account has MFA enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Now, you can use the IAM client to list all the virtual MFA devices:
+
+```python
+iam = session.client('iam')
+
+mfa_devices = iam.list_virtual_mfa_devices()
+```
+
+4. Finally, you can iterate over the MFA devices and check if the root account has one:
+
+```python
+root_account_mfa = False
+
+for device in mfa_devices['VirtualMFADevices']:
+    if 'RootAccountMFADevice' in device['SerialNumber']:
+        root_account_mfa = True
+        break
+
+if root_account_mfa:
+    print("Root account has MFA enabled.")
+else:
+    print("Root account does not have MFA enabled.")
+```
+
+This script will print whether the root account has MFA enabled or not. If it does not, then this is a misconfiguration that should be fixed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

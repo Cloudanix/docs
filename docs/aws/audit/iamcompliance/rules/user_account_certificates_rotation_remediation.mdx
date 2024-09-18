@@ -1,6 +1,258 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of user account certificates not being rotated in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Enable IAM Access Analyzer:**
+   - Navigate to the IAM dashboard in the AWS Management Console.
+   - In the left-hand navigation pane, select "Access Analyzer."
+   - Click on "Create analyzer" and follow the prompts to enable IAM Access Analyzer. This tool helps you identify and mitigate security risks, including certificate rotation.
+
+2. **Set Up Certificate Expiration Alerts:**
+   - Go to the AWS Certificate Manager (ACM) in the AWS Management Console.
+   - Select the certificate you want to monitor.
+   - Configure CloudWatch Alarms to notify you before the certificate expires. This can be done by setting up a CloudWatch Event Rule that triggers an SNS notification.
+
+3. **Implement IAM Policies for Certificate Rotation:**
+   - Navigate to the IAM dashboard.
+   - In the left-hand navigation pane, select "Policies."
+   - Create a new policy that enforces certificate rotation by specifying conditions related to certificate age.
+   - Attach this policy to the relevant IAM users or roles.
+
+4. **Regularly Review and Rotate Certificates:**
+   - Periodically review the list of active certificates in the AWS Certificate Manager (ACM).
+   - Manually rotate certificates that are nearing expiration or have been in use for an extended period.
+   - Document and follow a regular schedule for certificate rotation to ensure compliance.
+
+By following these steps, you can proactively manage and rotate user account certificates, thereby preventing potential security risks associated with expired or outdated certificates.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of user account certificates not being rotated in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a Policy to Enforce Certificate Rotation:**
+   Create an IAM policy that enforces the rotation of user account certificates. This policy can be attached to IAM users or roles to ensure compliance.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceCertificateRotation --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "iam:UploadSigningCertificate",
+               "Resource": "*",
+               "Condition": {
+                   "DateGreaterThan": {
+                       "aws:CurrentTime": "2023-12-31T23:59:59Z"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+2. **Attach the Policy to IAM Users or Groups:**
+   Attach the created policy to the IAM users or groups that need to comply with the certificate rotation policy.
+
+   ```sh
+   aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/EnforceCertificateRotation
+   ```
+
+3. **Set Up a CloudWatch Rule to Monitor Certificate Age:**
+   Create a CloudWatch rule to monitor the age of IAM user certificates and trigger an alert or Lambda function if a certificate is older than a specified threshold.
+
+   ```sh
+   aws events put-rule --name "MonitorCertificateAge" --schedule-expression "rate(1 day)"
+   ```
+
+4. **Create a Lambda Function to Check and Notify:**
+   Create a Lambda function that checks the age of IAM user certificates and sends notifications if they are older than the allowed threshold. Ensure the Lambda function has the necessary permissions to access IAM and send notifications.
+
+   ```sh
+   aws lambda create-function --function-name CheckCertificateAge --runtime python3.8 --role arn:aws:iam::<account-id>:role/<lambda-execution-role> --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+By following these steps, you can enforce and monitor the rotation of user account certificates in AWS IAM using the AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not rotating user account certificates in IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List IAM Users and Their Certificates**
+You need to create a script that lists all IAM users and their associated certificates. This will help you identify which certificates need to be rotated.
+
+```python
+import boto3
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam_client = session.client('iam')
+
+# List all IAM users
+users = iam_client.list_users()
+
+for user in users['Users']:
+    user_name = user['UserName']
+    # List signing certificates for each user
+    certs = iam_client.list_signing_certificates(UserName=user_name)
+    for cert in certs['Certificates']:
+        print(f"User: {user_name}, Certificate ID: {cert['CertificateId']}, Status: {cert['Status']}, Upload Date: {cert['UploadDate']}")
+```
+
+### 3. **Automate Certificate Rotation**
+Create a script to automate the rotation of certificates. This script will deactivate old certificates and create new ones.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam_client = session.client('iam')
+
+# Define the rotation period (e.g., 90 days)
+rotation_period = timedelta(days=90)
+
+# List all IAM users
+users = iam_client.list_users()
+
+for user in users['Users']:
+    user_name = user['UserName']
+    # List signing certificates for each user
+    certs = iam_client.list_signing_certificates(UserName=user_name)
+    for cert in certs['Certificates']:
+        upload_date = cert['UploadDate'].replace(tzinfo=None)
+        if datetime.now() - upload_date > rotation_period:
+            # Deactivate the old certificate
+            iam_client.update_signing_certificate(
+                UserName=user_name,
+                CertificateId=cert['CertificateId'],
+                Status='Inactive'
+            )
+            # Create a new certificate
+            new_cert = iam_client.upload_signing_certificate(
+                UserName=user_name,
+                CertificateBody='new_certificate_body_here'
+            )
+            print(f"Rotated certificate for user: {user_name}, New Certificate ID: {new_cert['Certificate']['CertificateId']}")
+```
+
+### 4. **Schedule the Script to Run Periodically**
+Use a task scheduler like cron (Linux/macOS) or Task Scheduler (Windows) to run the script periodically, ensuring certificates are rotated regularly.
+
+#### Example for cron (Linux/macOS):
+1. Open the crontab editor:
+   ```bash
+   crontab -e
+   ```
+2. Add a cron job to run the script every 90 days:
+   ```bash
+   0 0 */90 * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+By following these steps, you can automate the process of rotating user account certificates in IAM using Python scripts, ensuring compliance and security.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+   
+2. In the navigation pane, choose "Users". This will display a list of all the IAM users associated with the account.
+
+3. Click on the user name for which you want to check the certificate rotation. This will open the summary page for the selected user.
+
+4. In the user summary page, navigate to the "Security Credentials" tab. Here, you can see the signing certificates for the user. Check the creation date of the certificate. If the certificate is older than your organization's certificate rotation policy (for example, 90 days), then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all IAM users: Use the following command to list all IAM users in your AWS account:
+
+   ```
+   aws iam list-users
+   ```
+   This command will return a list of all IAM users in your AWS account.
+
+3. Get the login profile for each user: For each user returned in the previous step, run the following command to get their login profile:
+
+   ```
+   aws iam get-login-profile --user-name <username>
+   ```
+   Replace `<username>` with the name of the user. This command will return the login profile for the specified user, including the date when the password was last used.
+
+4. Check the password last used date: From the output of the previous command, check the `PasswordLastUsed` field. If this date is more than 90 days ago, the user's password has not been rotated in the last 90 days and is a potential misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) to interact with AWS services. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+
+   ~/.aws/credentials:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+   ~/.aws/config:
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+3. Write a Python script to list all IAM users and their respective access keys:
+
+   ```python
+   import boto3
+   from datetime import datetime, timezone
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the pagination interface
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List all access keys
+           paginator = iam.get_paginator('list_access_keys')
+           for response in paginator.paginate(UserName=user['UserName']):
+               for key in response['AccessKeyMetadata']:
+                   print("User: {0}\nAccess Key: {1}\nStatus: {2}\nCreated On: {3}\n".format(
+                       user['UserName'],
+                       key['AccessKeyId'],
+                       key['Status'],
+                       key['CreateDate']
+                   ))
+   ```
+
+4. Analyze the output: The script will print out the username, access key, status, and creation date of each access key. If the creation date is older than 90 days, the key should be rotated. You can add additional logic to the script to automatically flag keys that are older than 90 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

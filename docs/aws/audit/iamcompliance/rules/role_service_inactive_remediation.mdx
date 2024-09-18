@@ -1,6 +1,286 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Role Service Inactivity in IAM using the AWS Management Console, follow these steps:
+
+1. **Enable Access Advisor:**
+   - Navigate to the IAM dashboard in the AWS Management Console.
+   - Select the "Roles" tab.
+   - Choose the specific role you want to monitor.
+   - Go to the "Access Advisor" tab to review the services that the role has accessed and the last accessed time.
+   - Regularly review this information to identify and take action on inactive roles.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch dashboard.
+   - Create a new alarm based on IAM metrics.
+   - Set the alarm to trigger if a role has not been used for a specified period.
+   - Configure notifications to alert administrators when the alarm is triggered.
+
+3. **Enable AWS Config Rules:**
+   - Navigate to the AWS Config dashboard.
+   - Ensure that AWS Config is enabled in your account.
+   - Add a managed rule such as `iam-role-last-used` to monitor the last time an IAM role was used.
+   - Set up notifications for compliance changes to be alerted when a role becomes inactive.
+
+4. **Implement IAM Role Policies:**
+   - Go to the IAM dashboard and select the "Roles" tab.
+   - Choose the role you want to configure.
+   - Attach a policy that includes conditions to limit the role's permissions based on time or usage.
+   - Use the `aws:RequestTag` or `aws:PrincipalTag` conditions to enforce policies that disable or restrict roles after a period of inactivity.
+
+By following these steps, you can proactively monitor and manage IAM role activity to prevent role service inactivity in AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Role Service Inactivity in IAM using AWS CLI, you can follow these steps:
+
+1. **Create a Role with Specific Permissions:**
+   Ensure that the role you create has the necessary permissions and is not overly permissive. Use the `create-role` command to create a role with a specific policy.
+
+   ```sh
+   aws iam create-role --role-name MyRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+2. **Attach a Policy to the Role:**
+   Attach a policy to the role that grants only the necessary permissions. Use the `attach-role-policy` command to attach a managed policy or `put-role-policy` to attach an inline policy.
+
+   ```sh
+   aws iam attach-role-policy --role-name MyRole --policy-arn arn:aws:iam::aws:policy/ReadOnlyAccess
+   ```
+
+3. **Enable CloudTrail to Monitor Role Activity:**
+   Enable AWS CloudTrail to monitor and log all activities associated with the role. This helps in identifying any inactivity or misuse.
+
+   ```sh
+   aws cloudtrail create-trail --name MyTrail --s3-bucket-name my-bucket
+   aws cloudtrail start-logging --name MyTrail
+   ```
+
+4. **Set Up CloudWatch Alarms for Inactivity:**
+   Create CloudWatch Alarms to monitor the role's activity and trigger alerts if the role is inactive for a specified period.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name RoleInactivityAlarm --metric-name Invocations --namespace AWS/Lambda --statistic Sum --period 86400 --threshold 1 --comparison-operator LessThanThreshold --dimensions Name=FunctionName,Value=MyLambdaFunction --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:MyTopic
+   ```
+
+By following these steps, you can ensure that roles are properly configured, monitored, and any inactivity is promptly addressed.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Role Service Inactivity in IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List Roles**
+Create a Python script to list all IAM roles and their last used timestamps. This will help you identify inactive roles.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam_client = session.client('iam')
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# Define the inactivity threshold (e.g., 90 days)
+inactivity_threshold = timedelta(days=90)
+
+# List all IAM roles
+roles = iam_client.list_roles()
+
+for role in roles['Roles']:
+    role_name = role['RoleName']
+    role_last_used = iam_client.get_role(RoleName=role_name)['Role']['RoleLastUsed']
+    
+    if 'LastUsedDate' in role_last_used:
+        last_used_date = role_last_used['LastUsedDate']
+        if current_date - last_used_date > inactivity_threshold:
+            print(f"Role {role_name} has been inactive since {last_used_date}")
+    else:
+        print(f"Role {role_name} has never been used")
+```
+
+### 3. **Automate Role Deactivation or Notification**
+You can extend the script to either deactivate the inactive roles or send notifications to the administrators.
+
+#### Deactivate Inactive Roles
+```python
+for role in roles['Roles']:
+    role_name = role['RoleName']
+    role_last_used = iam_client.get_role(RoleName=role_name)['Role']['RoleLastUsed']
+    
+    if 'LastUsedDate' in role_last_used:
+        last_used_date = role_last_used['LastUsedDate']
+        if current_date - last_used_date > inactivity_threshold:
+            # Deactivate the role
+            iam_client.update_role(RoleName=role_name, MaxSessionDuration=3600)  # Example action
+            print(f"Role {role_name} has been deactivated due to inactivity")
+    else:
+        print(f"Role {role_name} has never been used")
+```
+
+#### Send Notifications
+```python
+import smtplib
+from email.mime.text import MIMEText
+
+def send_notification(role_name, last_used_date):
+    msg = MIMEText(f"Role {role_name} has been inactive since {last_used_date}")
+    msg['Subject'] = 'Inactive IAM Role Notification'
+    msg['From'] = 'admin@example.com'
+    msg['To'] = 'admin@example.com'
+
+    with smtplib.SMTP('smtp.example.com') as server:
+        server.sendmail(msg['From'], [msg['To']], msg.as_string())
+
+for role in roles['Roles']:
+    role_name = role['RoleName']
+    role_last_used = iam_client.get_role(RoleName=role_name)['Role']['RoleLastUsed']
+    
+    if 'LastUsedDate' in role_last_used:
+        last_used_date = role_last_used['LastUsedDate']
+        if current_date - last_used_date > inactivity_threshold:
+            send_notification(role_name, last_used_date)
+            print(f"Notification sent for role {role_name} due to inactivity")
+    else:
+        print(f"Role {role_name} has never been used")
+```
+
+### 4. **Schedule the Script**
+Use a task scheduler like cron (Linux) or Task Scheduler (Windows) to run the script periodically to ensure continuous monitoring and prevention of role service inactivity.
+
+#### Example (Linux Cron Job)
+```bash
+# Open the crontab file
+crontab -e
+
+# Add the following line to run the script daily at midnight
+0 0 * * * /usr/bin/python3 /path/to/your_script.py
+```
+
+By following these steps, you can effectively prevent role service inactivity in IAM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Roles". This will display a list of all the IAM roles that are currently configured within your AWS environment.
+
+3. Click on the role that you want to check for inactivity. This will open the summary page for that role.
+
+4. In the "Access Advisor" tab, you can see the services that the role can access and when those services were last accessed. If a service hasn't been accessed in a long time, it might indicate role service inactivity.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List IAM Roles**: The first step to detect Role Service Inactivity is to list all the IAM roles. You can do this by running the following command: `aws iam list-roles`. This command will return a list of all the IAM roles in your AWS account.
+
+3. **Get Role Last Used Details**: For each role, you can get the details of when it was last used by running the following command: `aws iam get-role --role-name <role-name>`. Replace `<role-name>` with the name of the role. This command will return a JSON object that contains the details of the role, including when it was last used.
+
+4. **Check for Inactivity**: Now, you can check if the role has been inactive. If the `LastUsedDate` field in the returned JSON object is more than 90 days ago, then the role is considered inactive. You can do this check manually, or you can write a script to automate this process. Here is a simple Python script that checks for role inactivity:
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Create IAM client
+iam = boto3.client('iam')
+
+# List roles
+roles = iam.list_roles()
+
+# Check each role for inactivity
+for role in roles['Roles']:
+    # Get role last used details
+    role_last_used = iam.get_role(RoleName=role['RoleName'])
+    
+    # Check if role has been used in the last 90 days
+    if 'LastUsedDate' in role_last_used['Role']:
+        last_used_date = role_last_used['Role']['LastUsedDate']
+        if last_used_date < datetime.now() - timedelta(days=90):
+            print(f"Role {role['RoleName']} is inactive.")
+```
+
+This script uses the `boto3` library to interact with AWS services. It lists all the IAM roles, gets the last used details for each role, and checks if the role has been used in the last 90 days. If a role is inactive, it prints the role name.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check Role Service Inactivity in IAM using python scripts, you can follow these steps:
+
+1. **Install Boto3:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+2. **Configure AWS Credentials:**
+   Before you can begin using Boto3, you should set up authentication credentials. You can do this by creating a new IAM user and assigning it the necessary permissions. Then, you can configure your AWS credentials either by setting environment variables or by creating a shared credentials file. 
+
+3. **Python Script to List IAM Roles:**
+   You can use the following python script to list all IAM roles:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List roles with the pagination interface
+   paginator = iam.get_paginator('list_roles')
+   for response in paginator.paginate():
+       for role in response['Roles']:
+           print(role)
+   ```
+4. **Python Script to Check Role Service Inactivity:**
+   You can use the following python script to check role service inactivity. This script checks the last used timestamp of each role and prints out the roles that have not been used for a certain period of time (e.g., 90 days).
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # Define the inactivity period
+   inactivity_period = timedelta(days=90)
+
+   # List roles with the pagination interface
+   paginator = iam.get_paginator('list_roles')
+   for response in paginator.paginate():
+       for role in response['Roles']:
+           # Get role last used details
+           role_last_used = iam.get_role_last_used(RoleName=role['RoleName'])
+           # Check if the role has been used
+           if 'LastUsedDate' in role_last_used['RoleLastUsed']:
+               last_used_date = role_last_used['RoleLastUsed']['LastUsedDate']
+               # Check if the role has been inactive for the defined period
+               if (datetime.now(last_used_date.tzinfo) - last_used_date) > inactivity_period:
+                   print(f"The role {role['RoleName']} has been inactive for more than {inactivity_period.days} days.")
+           else:
+               print(f"The role {role['RoleName']} has never been used.")
+   ```
+Please note that this script only checks the inactivity of IAM roles based on their last used timestamp. It does not check the inactivity of services associated with these roles.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,229 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not rotating root account certificates in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Navigate to IAM Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top right corner, click on your account name or number, and then select "My Security Credentials."
+   - Alternatively, you can directly go to the IAM Dashboard by searching for "IAM" in the AWS Management Console search bar.
+
+2. **Access Security Credentials:**
+   - On the IAM Dashboard, click on "Users" in the left-hand navigation pane.
+   - Select the root account (usually indicated by the account email address).
+
+3. **Review and Rotate Certificates:**
+   - Under the "Security credentials" tab, locate the "X.509 Certificates" section.
+   - Review the existing certificates and their expiration dates.
+   - If a certificate is nearing expiration or has been in use for an extended period, generate a new certificate by clicking on "Manage X.509 Certificates" and then "Create Certificate."
+
+4. **Implement a Rotation Policy:**
+   - Establish a regular schedule for rotating root account certificates, such as every 90 days.
+   - Document the rotation process and ensure that it is followed consistently.
+   - Use AWS CloudWatch or AWS Config to set up alerts and notifications for certificate expiration dates to ensure timely rotation.
+
+By following these steps, you can ensure that root account certificates are regularly rotated, reducing the risk of security vulnerabilities associated with outdated or compromised certificates.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of root account certificates needing rotation in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a New Access Key for the Root Account:**
+   - First, create a new access key for the root account. This should be done to ensure that you have a new set of credentials before deleting the old ones.
+   ```sh
+   aws iam create-access-key --user-name <root-account-username>
+   ```
+
+2. **List Existing Access Keys:**
+   - List all the access keys associated with the root account to identify the old keys that need to be rotated.
+   ```sh
+   aws iam list-access-keys --user-name <root-account-username>
+   ```
+
+3. **Delete the Old Access Key:**
+   - After ensuring that the new access key is working correctly, delete the old access key to complete the rotation process.
+   ```sh
+   aws iam delete-access-key --user-name <root-account-username> --access-key-id <old-access-key-id>
+   ```
+
+4. **Enable MFA for Root Account:**
+   - To add an additional layer of security, enable Multi-Factor Authentication (MFA) for the root account. This can be done by associating an MFA device with the root account.
+   ```sh
+   aws iam create-virtual-mfa-device --virtual-mfa-device-name <device-name>
+   aws iam enable-mfa-device --user-name <root-account-username> --serial-number <device-arn> --authentication-code-1 <code-1> --authentication-code-2 <code-2>
+   ```
+
+By following these steps, you can ensure that the root account certificates are rotated regularly, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not rotating root account certificates in IAM using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) for Python:**
+   - First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Python Script to Check Certificate Age:**
+   - Write a Python script that checks the age of the root account certificates. If the certificates are older than a specified threshold (e.g., 90 days), the script should trigger an alert or take action to rotate them.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   session = boto3.Session(profile_name='your_profile_name')
+   iam_client = session.client('iam')
+
+   # Define the threshold for certificate age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # List the server certificates
+   response = iam_client.list_server_certificates()
+
+   for cert in response['ServerCertificateMetadataList']:
+       cert_name = cert['ServerCertificateName']
+       cert_upload_date = cert['UploadDate']
+
+       # Check if the certificate is older than the threshold
+       if cert_upload_date < threshold_date:
+           print(f"Certificate {cert_name} is older than {threshold_days} days and should be rotated.")
+           # Here you can add code to trigger an alert or initiate the rotation process
+   ```
+
+3. **Automate the Script Execution:**
+   - Schedule the script to run at regular intervals (e.g., daily) using a task scheduler like cron (Linux) or Task Scheduler (Windows). This ensures continuous monitoring and timely alerts.
+
+   Example cron job to run the script daily at midnight:
+   ```bash
+   0 0 * * * /usr/bin/python3 /path/to/your_script.py
+   ```
+
+4. **Integrate with Notification System:**
+   - Enhance the script to send notifications (e.g., via email, Slack, or AWS SNS) when a certificate is due for rotation. This ensures that the responsible team is promptly informed.
+
+   Example of sending an email notification using AWS SNS:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   session = boto3.Session(profile_name='your_profile_name')
+   iam_client = session.client('iam')
+   sns_client = session.client('sns')
+
+   # Define the threshold for certificate age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # List the server certificates
+   response = iam_client.list_server_certificates()
+
+   for cert in response['ServerCertificateMetadataList']:
+       cert_name = cert['ServerCertificateName']
+       cert_upload_date = cert['UploadDate']
+
+       # Check if the certificate is older than the threshold
+       if cert_upload_date < threshold_date:
+           message = f"Certificate {cert_name} is older than {threshold_days} days and should be rotated."
+           print(message)
+           # Send notification
+           sns_client.publish(
+               TopicArn='arn:aws:sns:your-region:your-account-id:your-topic',
+               Message=message,
+               Subject='IAM Certificate Rotation Alert'
+           )
+   ```
+
+By following these steps, you can effectively prevent the misconfiguration of not rotating root account certificates in IAM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users". This will display a list of all IAM users associated with the account.
+
+3. Click on the user name of the root account. This will open the summary page for the root account.
+
+4. In the "Security Credentials" section, check the "Access Keys" list. If there are any access keys that are older than 90 days, it indicates that the root account certificates have not been rotated.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access IAM resources.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the IAM users in your AWS account:
+
+   ```
+   aws iam list-users
+   ```
+
+3. After getting the list of IAM users, you can use the following command to list the signing certificates of each user:
+
+   ```
+   aws iam list-signing-certificates --user-name <username>
+   ```
+
+   Replace `<username>` with the name of the IAM user. This command will return a list of the signing certificates associated with the specified IAM user.
+
+4. To check the age of each certificate, look at the `UploadDate` field in the output of the previous command. If the certificate is older than a certain threshold (for example, 90 days), it should be considered for rotation.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Now, you can use the IAM client to list all the server certificates:
+
+```python
+iam = session.client('iam')
+
+certificates = iam.list_server_certificates()['ServerCertificateMetadataList']
+```
+
+4. Finally, you can iterate over the certificates and check the expiration date. If the certificate is close to its expiration date, it should be rotated:
+
+```python
+from datetime import datetime, timedelta
+
+for certificate in certificates:
+    expiration_date = certificate['Expiration']
+    if expiration_date - datetime.now() < timedelta(days=30):  # 30 days before expiration
+        print(f"Certificate {certificate['ServerCertificateName']} should be rotated")
+```
+
+This script will print the names of all certificates that should be rotated because they will expire in less than 30 days. You can adjust the number of days according to your needs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

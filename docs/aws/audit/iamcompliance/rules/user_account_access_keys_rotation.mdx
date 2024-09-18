@@ -23,6 +23,271 @@ HIPAA, GDPR, CISAWS, CBP, NIST, HITRUST
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the issue of user account access keys not being rotated in IAM using the AWS Management Console, follow these steps:
+
+1. **Enable Access Key Rotation Policy:**
+   - Navigate to the IAM dashboard in the AWS Management Console.
+   - Go to the "Policies" section and create a new policy or modify an existing one.
+   - Add a policy statement that enforces access key rotation by specifying conditions that require keys to be rotated within a certain period (e.g., 90 days).
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch dashboard.
+   - Create a new alarm that monitors the age of IAM access keys.
+   - Set the alarm to trigger when an access key is older than the specified rotation period (e.g., 90 days).
+   - Configure notifications to alert administrators when the alarm is triggered.
+
+3. **Enable IAM Credential Reports:**
+   - In the IAM dashboard, go to the "Credential Report" section.
+   - Generate a credential report to review the age of all access keys.
+   - Schedule regular reviews of this report to ensure compliance with the access key rotation policy.
+
+4. **Implement IAM Access Analyzer:**
+   - Navigate to the IAM Access Analyzer in the AWS Management Console.
+   - Enable the Access Analyzer to continuously monitor and analyze IAM policies and access keys.
+   - Review findings and take action on any access keys that are not compliant with the rotation policy.
+
+By following these steps, you can proactively manage and enforce access key rotation policies to enhance the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the issue of user account access keys not being rotated in AWS IAM using the AWS CLI, you can follow these steps:
+
+1. **Create a Policy to Enforce Key Rotation:**
+   Create an IAM policy that enforces access key rotation by denying actions if the access key is older than a specified number of days.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceKeyRotationPolicy --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Action": "*",
+         "Resource": "*",
+         "Condition": {
+           "NumericGreaterThan": {
+             "aws:MultiFactorAuthAge": "86400"
+           }
+         }
+       }
+     ]
+   }'
+   ```
+
+2. **Attach the Policy to IAM Users or Groups:**
+   Attach the created policy to IAM users or groups to enforce the key rotation policy.
+
+   ```sh
+   aws iam attach-user-policy --user-name <username> --policy-arn arn:aws:iam::<account-id>:policy/EnforceKeyRotationPolicy
+   ```
+
+   Or for a group:
+
+   ```sh
+   aws iam attach-group-policy --group-name <groupname> --policy-arn arn:aws:iam::<account-id>:policy/EnforceKeyRotationPolicy
+   ```
+
+3. **Set Up a CloudWatch Rule to Monitor Key Age:**
+   Create a CloudWatch rule to monitor the age of access keys and trigger an alert or automated action if they exceed a certain age.
+
+   ```sh
+   aws events put-rule --name "AccessKeyAgeMonitor" --schedule-expression "rate(1 day)"
+   ```
+
+4. **Create an IAM Role for Automated Key Rotation:**
+   Create an IAM role with permissions to rotate access keys and attach it to a Lambda function or an automation script that runs periodically to check and rotate keys.
+
+   ```sh
+   aws iam create-role --role-name KeyRotationRole --assume-role-policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "lambda.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }'
+   ```
+
+   Attach the necessary policy to the role:
+
+   ```sh
+   aws iam attach-role-policy --role-name KeyRotationRole --policy-arn arn:aws:iam::aws:policy/IAMFullAccess
+   ```
+
+By following these steps, you can enforce and automate the rotation of IAM user access keys using AWS CLI, thereby preventing the misconfiguration of stale access keys.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the issue of IAM user account access keys not being rotated in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to manage IAM resources.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Script to Check Access Key Age:**
+   Write a Python script to check the age of access keys for all IAM users. If the keys are older than a specified threshold (e.g., 90 days), you can flag them for rotation.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM
+   iam = boto3.client('iam')
+
+   # Define the threshold for key age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # List all IAM users
+   users = iam.list_users()
+
+   for user in users['Users']:
+       username = user['UserName']
+       # List access keys for each user
+       access_keys = iam.list_access_keys(UserName=username)
+       for access_key in access_keys['AccessKeyMetadata']:
+           create_date = access_key['CreateDate']
+           if create_date < threshold_date:
+               print(f"Access key {access_key['AccessKeyId']} for user {username} is older than {threshold_days} days and should be rotated.")
+   ```
+
+3. **Automate Key Rotation Notification:**
+   Extend the script to send notifications (e.g., via email or SNS) to administrators or the respective IAM users, informing them that their access keys need to be rotated.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon IAM and SNS
+   iam = boto3.client('iam')
+   sns = boto3.client('sns')
+
+   # Define the threshold for key age (e.g., 90 days)
+   threshold_days = 90
+   threshold_date = datetime.now() - timedelta(days=threshold_days)
+
+   # Define SNS topic ARN
+   sns_topic_arn = 'arn:aws:sns:region:account-id:topic-name'
+
+   # List all IAM users
+   users = iam.list_users()
+
+   for user in users['Users']:
+       username = user['UserName']
+       # List access keys for each user
+       access_keys = iam.list_access_keys(UserName=username)
+       for access_key in access_keys['AccessKeyMetadata']:
+           create_date = access_key['CreateDate']
+           if create_date < threshold_date:
+               message = f"Access key {access_key['AccessKeyId']} for user {username} is older than {threshold_days} days and should be rotated."
+               print(message)
+               # Publish notification to SNS
+               sns.publish(
+                   TopicArn=sns_topic_arn,
+                   Message=message,
+                   Subject='IAM Access Key Rotation Notification'
+               )
+   ```
+
+4. **Schedule the Script to Run Periodically:**
+   Use AWS Lambda and CloudWatch Events to schedule the script to run periodically (e.g., daily) to ensure continuous monitoring and notification.
+
+   - **Create a Lambda Function:**
+     - Go to the AWS Lambda console and create a new function.
+     - Upload the Python script as the function code.
+     - Set up the necessary IAM role with permissions to access IAM and SNS.
+
+   - **Create a CloudWatch Event Rule:**
+     - Go to the CloudWatch console and create a new rule.
+     - Set the rule to trigger on a schedule (e.g., daily at midnight).
+     - Add the Lambda function as the target for the rule.
+
+By following these steps, you can automate the process of monitoring and notifying about IAM access key rotation, thereby preventing the misconfiguration of stale access keys in your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the IAM console at https://console.aws.amazon.com/iam/.
+
+2. In the navigation pane, choose "Users".
+
+3. In the "User Name" list, choose the name of the desired user, which will take you to the "Summary" page for that user.
+
+4. In the "Security Credentials" section, you can see the access keys and their creation dates. If the access keys are older than 90 days, it indicates that they have not been rotated and this is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all IAM users: To check the access keys for all IAM users, you first need to list all the IAM users. You can do this by running the command `aws iam list-users`. This command will return a list of all IAM users in your AWS account.
+
+3. List access keys for each user: For each user, you need to list their access keys to check when they were last rotated. You can do this by running the command `aws iam list-access-keys --user-name <username>`. Replace `<username>` with the name of the user. This command will return a list of all access keys for the specified user, along with their creation dates.
+
+4. Check the age of each access key: To check the age of each access key, you need to compare the creation date of the key with the current date. You can do this manually, or you can write a script to automate the process. If the age of the key is more than 90 days, it is recommended to rotate the key.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) in your environment. You can do this using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Import the necessary libraries and establish a session: In your Python script, you'll need to import the Boto3 library and establish a session with your AWS account. You'll need your AWS access key ID and secret access key.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Retrieve IAM users and their access keys: Use the IAM client in Boto3 to retrieve a list of all IAM users and their access keys. 
+
+   ```python
+   iam = session.client('iam')
+
+   users = iam.list_users()['Users']
+   for user in users:
+       access_keys = iam.list_access_keys(UserName=user['UserName'])['AccessKeyMetadata']
+   ```
+
+4. Check the age of each access key: For each access key, check the 'CreateDate' attribute to determine how old the key is. If the key is older than 90 days, print a warning message.
+
+   ```python
+   for key in access_keys:
+       create_date = key['CreateDate']
+       age = datetime.now(create_date.tzinfo) - create_date
+       if age > timedelta(days=90):
+           print(f"Warning: Access key {key['AccessKeyId']} for user {user['UserName']} is {age.days} days old.")
+   ```
+This script will print a warning for each access key that is older than 90 days. You can adjust the age threshold to suit your organization's security policy.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
