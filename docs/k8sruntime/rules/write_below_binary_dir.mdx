@@ -20,48 +20,54 @@ sidebar_label: Write below binary dir
 
 #### Remediation
 
-1. Create a Kubernetes Deployment manifest file with the necessary specifications for the Python application:
-
+1. Restrict Write Access to Binary Directories:
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-  name: python-app
+  name: <pod-name>
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: python-app
-  template:
-    metadata:
-      labels:
-        app: python-app
-    spec:
-      containers:
-      - name: python-app
-        image: <your-python-image>
-        command: ["python", "/path/to/your/script.py"]
-        volumeMounts:
-        - name: shared-data
-          mountPath: /path/to/binary/dir
-      volumes:
-      - name: shared-data
-        emptyDir: {}
+  containers:
+  - name: <container-name>
+    image: <your-image>
+    securityContext:
+      readOnlyRootFilesystem: true
 ```
 
-2. Apply the Deployment manifest using the `kubectl apply` command:
-
-```bash
-kubectl apply -f deployment.yaml
+2. Apply Kubernetes SecurityContext to restrict which users can modify files within the container:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: <pod-name>
+spec:
+  containers:
+  - name: <container-name>
+    image: <your-image>
+    securityContext:
+      runAsUser: 1000
+      fsGroup: 2000
 ```
 
-3. Verify that the Deployment is running and the Python application is writing to the desired binary directory:
+3. Use a Read-Only Volume:
+   - If your application needs to use a volume but you want to prevent writes to specific directories, you can use a read-only volume: 
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: <pod-name>
+  spec:
+    containers:
+    - name: <container-name>
+      image: <your-image>
+      volumeMounts:
+      - name: binary-dir
+        mountPath: /path/to/binary/dir
+        readOnly: true
+    volumes:
+    - name: binary-dir
+      emptyDir: {}
+  ```
+  
+Note: Make sure to test the remediation steps in a non-production environment before applying them to production.
 
-```bash
-kubectl get pods
-kubectl logs <pod-name>
-```
-
-Note: Replace `<your-python-image>` with the appropriate Python image and `/path/to/your/script.py` with the actual path to your Python script.
-
- 
