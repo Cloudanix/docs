@@ -30,5 +30,37 @@ To remediate the event "Contact EC2 Instance Metadata Service From Container" us
    - Apply the updated manifest file to the cluster using the Kubernetes API: `kubectl apply -f pod.yaml`
    - Verify that the pod has been updated and is running without triggering the event: `kubectl get pods -o wide`
 
-Note: Make sure to test the updated pod configuration thoroughly before applying it to production environments.
+4. Block IMDS Access Using iptables
+   - To prevent containers from accessing the IMDS, you can block traffic to 169.254.169.254 at the network level using iptables. This can be done within an init container or on the host node if needed.
+   - Init Container Approach:
+   ```yaml
+        apiVersion: v1
+   kind: Pod
+   metadata:
+      name: secure-pod
+   spec:
+    initContainers:
+     - name: block-imds
+       image: busybox
+       command:
+         - sh
+         - -c
+         - |
+            echo "Blocking access to EC2 Instance Metadata Service...";
+            iptables -A OUTPUT -d 169.254.169.254 -j DROP;
+            echo "Access blocked.";
+       securityContext:
+         capabilities:
+            add: ["NET_ADMIN"]
+      containers:
+      - name: app-container
+         image: your-app-image
+         # Additional container configuration
+         securityContext:
+            capabilities:
+               drop: ["ALL"]
 
+
+Note: Make sure to test the updated pod configuration thoroughly before applying it to production environments. Blocking IMDS access can prevent legitimate applications from retrieving instance metadata. Evaluate the need for IMDS access and adjust the configuration as required.
+
+ 

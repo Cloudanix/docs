@@ -9,41 +9,60 @@
 
 #### Remediation
 
-1. Create a Kubernetes ConfigMap to store the environment variables:
-   - Create a YAML file named `configmap.yaml` with the following content:
-     ```yaml
-     apiVersion: v1
-     kind: ConfigMap
-     metadata:
-       name: env-vars
-     data:
-       MY_ENV_VAR: <value>
-     ```
-   - Replace `<value>` with the desired value for the environment variable.
-   - Apply the ConfigMap using the following command:
-     ```
-     kubectl apply -f configmap.yaml
-     ```
+1. Isolate Environment Variables Using ConfigMaps:
+   - Instead of allowing environment variables to be read from /proc, it is more secure to manage and inject environment variables using ConfigMaps or Secrets in Kubernetes.
+   - Create ConfigMap
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+    name: env-vars
+   data:
+    MY_ENV_VAR: "<value>"  
+   
+   - Apply the ConfigMap:
+   ```kubectl apply -f configmap.yaml``` 
 
-2. Update the deployment to use the ConfigMap:
-   - Modify the YAML file of the deployment that reads the environment variable from `/proc` files.
-   - Add the `envFrom` field under the `spec.template.spec.containers` section:
-     ```yaml
-     envFrom:
-       - configMapRef:
-           name: env-vars
-     ```
-   - Apply the updated deployment using the following command:
-     ```
-     kubectl apply -f deployment.yaml
-     ```
+2. Use Secrets for Sensitive Data:
+   - If the environment variable contains sensitive information (like API keys or passwords), use a Secret instead of a ConfigMap:
+   ```yaml
+   apiVersion: v1
+   kind: Secret
+   metadata:
+    name: sensitive-env-vars
+   type: Opaque
+   data:
+    MY_SECRET_VAR: <base64-encoded-value>
+    ```
+   - Apply the Secret:
+   ```kubectl apply -f secret.yaml```
 
-3. Verify the environment variable is being read correctly:
-   - Check the logs of the pod associated with the deployment to ensure the environment variable is being read correctly.
-     ```
-     kubectl logs <pod-name>
-     ```
-   - Look for the output that confirms the environment variable value is as expected.
+3. Mount the ConfigMap or Secret to the Pod:
+   - Modify the deployment manifest to reference the ConfigMap or Secret for injecting environment variables securely:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+    name: my-deployment
+   spec:
+     template:
+       spec:
+         containers:
+          - name: my-container
+            image: my-image
+            envFrom:
+              - configMapRef:
+                  name: env-vars
+              - secretRef:
+                  name: sensitive-env-vars
 
-Note: Make sure to replace `<pod-name>` with the actual name of the pod associated with the deployment.
+4. Restrict Access to the /proc Filesystem:
+   - Prevent processes from unnecessarily accessing the /proc filesystem by limiting the permissions of the container.
+   - Ensure that the container is not running in privileged mode, which could allow it to access sensitive areas of the host system, including /proc. Modify the container’s security context to explicitly disable privileged access:
 
+   ```yaml
+   securityContext:
+     privileged: false
+     readOnlyRootFilesystem: true
+   ```
+   

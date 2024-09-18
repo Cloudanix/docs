@@ -13,7 +13,36 @@
 #### Remediation
 
 - Create a Kubernetes Pod manifest file with a Python container that includes the necessary Python Kubernetes API library.
-- Use a Kubernetes ServiceAccount with appropriate RBAC permissions to interact with the Kubernetes API.
+- Use a Kubernetes ServiceAccount with appropriate RBAC permissions to interact with the Kubernetes API.```kubectl get pod <pod_name> -n <namespace> -o jsonpath="{.spec.serviceAccountName}"```
+- List the RBAC roles bound to the service account to ensure no unauthorized access is possible:
+  ```kubectl get rolebinding,clusterrolebinding -A --field-selector metadata.name=<service-account>```
+- Modify the container's security context to prevent unauthorized execution of administrative commands:
+  ```yaml
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+  ```
+- Implement network policies to restrict access to the Kubernetes API server from containers that do not need it.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-api-server-access
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.1/32  # Replace with your API server IP
+      ports:
+        - protocol: TCP
+          port: 443
+```
+
 - Write a Python script that uses the Kubernetes API to list and delete the offending Pod(s) based on the event criteria. 
 
 ```yaml
