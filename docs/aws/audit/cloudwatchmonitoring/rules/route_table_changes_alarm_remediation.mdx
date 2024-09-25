@@ -1,90 +1,104 @@
-
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-The "Route Table Changes" alarm in AWS is triggered when there are any changes made to the route tables in your VPC. To remediate this issue, you can follow the below steps:
+#### Remediation using AWS Console:
 
-1. Login to your AWS console and go to the CloudWatch dashboard.
+1. Sign in to the AWS Management Console.
 
-2. Click on "Alarms" in the left-hand navigation menu and select the "Route Table Changes" alarm.
+2. Navigate to CloudWatch dashboard at [https://console.aws.amazon.com/cloudwatch/](https://console.aws.amazon.com/cloudwatch/).
 
-3. Click on the "Actions" dropdown and select "Disable Alarm" to temporarily disable the alarm.
+3. In the left navigation panel, select **Logs**.
 
-4. Next, go to the VPC dashboard and select the VPC that has the route table changes.
+4. Select the log group created for your CloudTrail trail event logs and click **Create Metric Filter**.
 
-5. Click on "Route Tables" in the left-hand navigation menu and select the route table that has been changed.
+5. On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box:
 
-6. Review the changes made to the route table and determine if they were intentional or not.
+```plaintext
+{
+    ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) ||
+    ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) ||
+    ($.eventName = DisassociateRouteTable)
+}
+```
 
-7. If the changes were intentional, update the alarm to reflect the new changes.
+This pattern will be used for scanning the AWS CloudTrail logs for event names like `“CreateRoute”`, `“CreateRouteTable”`, `“ReplaceRoute”`, `“ReplaceRouteTableAssociation”`, `“DeleteRouteTable”`, `“DeleteRoute”`, or `“DisassociateRouteTable”`.
 
-8. If the changes were not intentional, revert the changes made to the route table.
+6. Review the metric filter config details, then click Assign Metric.
 
-9. Once the changes have been made, re-enable the "Route Table Changes" alarm in the CloudWatch dashboard.
+7. On the Create Metric Filter and Assign a Metric page, perform the following:
 
-By following these steps, you can remediate the "Route Table Changes" alarm in AWS.
+   - In the Filter Name box, enter a unique name for the new filter, e.g. RouteTableConfigChanges.
+   - In the Metric Namespace box, type CloudTrailMetrics.
+   - In the Metric Name box, type RouteTableEventCount for the metric identifier.
+   - Click Show advanced metric settings to expand the advanced settings section.
+   - In the Metric Value box, enter 1.
+
+8. Review the details, then click Create Filter to generate your new CloudWatch Logs metric filter.
+
+9. On the current page, click Create Alarm:
+
+   - In the Alarm Threshold section, in the Name and Description fields, enter a unique name and a short description for the new CloudWatch alarm.
+   - Under Whenever: <Metric Name>, select >= (greater than or equal to) from the is dropdown list and enter 1 as the threshold value to trigger the alarm every time a configuration change involving an AWS Route Table is made.
+   - In the Actions section, click the + Notification button, select State is ALARM from the Whenever this alarm dropdown menu, and choose the AWS SNS topic created at Step 1.
+   - In the Alarm Preview section, select 5 Minutes from the Period dropdown list and Sum from the Statistic list.
+
+10. Review the CloudWatch alarm configuration details, then click Create Alarm.
+
+By following these steps, you can remediate the "Route Table Changes" alarm using the AWS Console.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The "Route Table Changes Alarm" is an AWS CloudWatch alarm that is triggered when a change is made to a route table in your AWS account. To remediate this misconfiguration, you can follow the steps below using AWS CLI:
+#### Remediation using AWS CLI:
 
-1. Log in to your AWS account and open the AWS CLI.
+1. Run the put-metric-filter command to create the necessary CloudWatch metric filter and associate it with the appropriate Amazon CloudTrail log group:
 
-2. Check the current status of the alarm by running the following command:
+```bash
+aws logs put-metric-filter \
+    --region us-east-1 \
+    --log-group-name CloudTrail/CloudWatchLogGroup \
+    --filter-name RouteTableConfigChanges \
+    --filter-pattern '{ ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DeleteRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DisassociateRouteTable) }' \
+    --metric-transformations metricName=RouteTableEventCount,metricNamespace=CloudTrailMetrics,metricValue=1
+```
 
-   ```
-   aws cloudwatch describe-alarms --alarm-names <alarm-name>
-   ```
+2. Run the put-metric-alarm command to create the AWS CloudWatch alarm:
 
-   Replace `<alarm-name>` with the name of your Route Table Changes Alarm.
+```bash
+aws cloudwatch put-metric-alarm \
+    --region us-east-1 \
+    --alarm-name RouteTableConfigChangesAlarm \
+    --alarm-description "Triggered by AWS Route Table config changes." \
+    --metric-name RouteTableEventCount \
+    --namespace CloudTrailMetrics \
+    --statistic Sum \
+    --comparison-operator GreaterThanOrEqualToThreshold \
+    --evaluation-periods 1 \
+    --period 300 \
+    --threshold 1 \
+    --actions-enabled \
+    --alarm-actions arn:aws:sns:us-east-1:123456789012:CloudWatchAlarmSNSTopic
+```
 
-3. If the alarm is in the "ALARM" state, it means that a change has been made to a route table. To remediate this, you need to identify the change that was made and revert it.
+By following these steps, you can remediate the "Route Table Changes" alarm using the AWS CLI.
 
-4. To identify the change, you can check the CloudTrail logs for the time period when the alarm was triggered. Run the following command to get the CloudTrail events for the specified time period:
-
-   ```
-   aws cloudtrail lookup-events --start-time <start-time> --end-time <end-time> --lookup-attributes AttributeKey=EventName,AttributeValue=CreateRouteTable
-   ```
-
-   Replace `<start-time>` and `<end-time>` with the start and end time of the period when the alarm was triggered.
-
-5. Review the CloudTrail events to identify the change that was made to the route table. Once you have identified the change, you can revert it by running the appropriate AWS CLI command.
-
-   For example, if a new route was added to the route table, you can remove it by running the following command:
-
-   ```
-   aws ec2 delete-route --route-table-id <route-table-id> --destination-cidr-block <destination-cidr-block>
-   ```
-
-   Replace `<route-table-id>` with the ID of the affected route table and `<destination-cidr-block>` with the destination CIDR block of the route that was added.
-
-6. After you have reverted the change, check the status of the alarm again to ensure that it is no longer in the "ALARM" state:
-
-   ```
-   aws cloudwatch describe-alarms --alarm-names <alarm-name>
-   ```
-
-   If the alarm is still in the "ALARM" state, repeat the above steps to identify and remediate any remaining misconfigurations.
 </Accordion>
 
 <Accordion title='Using Python'>
-Here are the step-by-step instructions to remediate the "Route Table Changes Alarm" misconfiguration in AWS using Python:
+#### Remediation using Python:
 
-1. First, we need to identify the root cause of the alarm. Check the CloudWatch alarm to see which route table has been modified and by whom.
+1. First, check the CloudWatch alarm to identify the route table that has been modified.
 
-2. Once you have identified the route table that has been modified, you can revert the changes by updating the route table to its previous state. To do this, you will need to fetch the previous state of the route table.
+2. Once identified, use the boto3 library to fetch the events from CloudTrail related to route table changes:
 
-3. To fetch the previous state of the route table, you can use the AWS CloudTrail service. CloudTrail logs all API calls made to your AWS account, including changes to route tables. You can use the `boto3` library in Python to interact with the CloudTrail service.
-
-4. Use the `boto3` library to create a CloudTrail client and fetch the events related to the modified route table. You can use the following code snippet to fetch the events:
-
-```
+```python
 import boto3
 
 client = boto3.client('cloudtrail')
@@ -107,11 +121,11 @@ events = response['Events']
 
 Replace `<route_table_id>` with the ID of the modified route table.
 
-5. Once you have fetched the events, you can extract the previous state of the route table from the CloudTrail event. The previous state of the route table is stored in the `previousState` field of the `resourceProperties` object in the CloudTrail event.
+3. Extract the previous state of the route table from the CloudTrail event. The previous state is stored in the previousState field of the resourceProperties object.
 
-6. Use the `boto3` library to update the route table with its previous state. You can use the following code snippet to update the route table:
+4. Use the boto3 library to revert the route table to its previous state:
 
-```
+```python
 import boto3
 
 client = boto3.client('ec2')
@@ -124,13 +138,13 @@ response = client.replace_route_table_association(
 print(response)
 ```
 
-Replace `<association_id>` with the ID of the route table association, and `<route_table_id>` with the ID of the modified route table.
+Replace <association_id> with the ID of the route table association, and <route_table_id> with the ID of the modified route table.
 
-7. Finally, you can confirm that the route table has been updated to its previous state by checking the AWS Management Console or by using the `boto3` library to fetch the route table details.
+5. Confirm that the route table has been updated to its previous state by checking the AWS Management Console or using the boto3 library to fetch the route table details.
 
-That's it! By following these steps, you can remediate the "Route Table Changes Alarm" misconfiguration in AWS using Python.
+By following these steps, you can remediate the "Route Table Changes" alarm using Python.
+
 </Accordion>
-
 </AccordionGroup>
 </Tab>
 </Tabs>
