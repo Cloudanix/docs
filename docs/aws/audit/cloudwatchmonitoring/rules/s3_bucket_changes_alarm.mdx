@@ -6,7 +6,7 @@ sidebar_label: S3 Bucket Changes Alarm
 
 ### More Info:
 
-AWS S3 Buckets configuration changes should be monitored using CloudWatch alarms.
+AWS S3 Buckets configuration changes should be monitored using CloudWatch alarms. An alarm should be configured to trigger every time an S3 bucket configuration change is made, such as changes to bucket policies, ACLs, or lifecycle configurations.
 
 ### Risk Level
 
@@ -18,113 +18,107 @@ Security
 
 ### Compliance Standards
 
-CISAWS, CBP, SOC2, NIST, AWSWAF, HITRUST, NISTCSF, PCIDSS
-
+CISAWS, CBP, SOC2, NIST, AWSWAF, HITRUST, NISTCSF, PCIDSS, CISAWSF, PCI, APRA, MAS, NIST4
 
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-When you receive an S3 Bucket Changes Alarm, it means that there has been a change in the configuration of one of your S3 buckets. Here are the steps to remediate this issue in AWS Console:
+When you receive an S3 Bucket Changes Alarm, it indicates that there has been a change in the configuration of one of your S3 buckets. Here are the steps to remediate this issue in the AWS Console:
 
-1. Log in to your AWS Management Console and navigate to the S3 service.
+1. Log in to your AWS Management Console and navigate to the CloudWatch dashboard at [CloudWatch Console](https://console.aws.amazon.com/cloudwatch/).
 
-2. Locate the bucket that triggered the alarm and click on it.
+2. In the left navigation panel, select **Logs**.
 
-3. Click on the "Permissions" tab and then click on "Bucket Policy".
+3. Select the log group created for your CloudTrail trail event logs and click on **Create Metric Filter**.
 
-4. Review the bucket policy to identify the misconfiguration that triggered the alarm.
+4. On the **Define Logs Metric Filter** page, paste the following pattern inside the **Filter Pattern** box:
 
-5. Once you have identified the misconfiguration, edit the bucket policy to correct the issue.
+```
+{
+    ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) ||
+    ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) ||
+    ($.eventName = DeleteBucketPolicy) || ($.eventName = DeleteBucketCors) || ($.eventName = DeleteBucketLifecycle) ||
+    ($.eventName = DeleteBucketReplication))
+}
+```
 
-6. After making the necessary changes, click on "Save".
+This pattern will be used for scanning the AWS CloudTrail logs for relevant event names.
 
-7. Verify that the alarm has been cleared by checking the CloudWatch console.
+5. Review the metric filter configuration details and then click **Assign Metric**.
 
-8. If the alarm persists, review the bucket policy again to ensure that all misconfigurations have been corrected.
+6. On the **Create Metric Filter and Assign a Metric** page, provide the following:
 
-9. Once you have confirmed that the alarm has been cleared, you can close the ticket for this issue.
+   - In the **Filter Name** box, enter a unique name (e.g., `S3BucketConfigChanges`).
+   - In the **Metric Namespace** box, type `CloudTrailMetrics`.
+   - In the **Metric Name** box, type `S3BucketEventCount`.
+   - Click **Show advanced metric settings** to expand the section.
+   - In the **Metric Value** box, enter `1`.
+
+7. Review the details and click **Create Filter** to generate your new CloudWatch Logs metric filter.
+
+8. Click **Create Alarm** on the same page:
+
+9. In the **Create Alarm** dialog box, enter a unique name and description for the alarm.
+
+10. Under **Whenever: <Metric Name>**, select `>=` (greater than or equal to) and enter `1` as the threshold value.
+
+11. In the **Actions** section, click the **+ Notification** button, select `State is ALARM`, and choose the AWS SNS topic created earlier.
+
+12. In the **Alarm Preview** section, select `5 Minutes` from the **Period** dropdown and `Sum` from the **Statistic** list.
+
+13. Review the configuration details and click **Create Alarm**. The new alarm will be listed on the Alarms page.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The S3 Bucket Changes Alarm is triggered when there are changes made to the S3 bucket, such as creation, deletion, modification of objects, or changes to bucket policies. To remediate this issue, you can follow the below steps using AWS CLI:
+To remediate the S3 Bucket Changes Alarm using the AWS CLI, follow these steps:
 
-1. Login to your AWS account and open the AWS CLI on your local machine.
+1. Run the following command to create the necessary CloudWatch metric filter and associate it with the appropriate Amazon CloudTrail log group:
 
-2. Run the following command to get the details of the S3 bucket changes alarm:
+```bash
+aws logs put-metric-filter
+    --region us-east-1
+    --log-group-name CloudTrail/CloudWatchLogGroup
+    --filter-name S3BucketConfigChanges
+    --filter-pattern '{ ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) || ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) || ($.eventName = DeleteBucketPolicy) || ($.eventName = DeleteBucketCors) || ($.eventName = DeleteBucketLifecycle) || ($.eventName = DeleteBucketReplication)) }'
+    --metric-transformations metricName=S3BucketEventCount,metricNamespace=CloudTrailMetrics,metricValue=1
+```
 
-   ```
-   aws cloudwatch describe-alarms --alarm-names S3BucketChangesAlarm
-   ```
+2. Run the following command to create the AWS CloudWatch alarm that will fire whenever a configuration change involving an S3 Bucket is made:
 
-3. Check the alarm status and make sure it is in the "ALARM" state.
+```bash
+aws cloudwatch put-metric-alarm
+    --region us-east-1
+    --alarm-name S3BucketConfigChangesAlarm
+    --alarm-description "Triggered by AWS S3 Bucket config changes."
+    --metric-name S3BucketEventCount
+    --namespace CloudTrailMetrics
+    --statistic Sum
+    --comparison-operator GreaterThanOrEqualToThreshold
+    --evaluation-periods 1
+    --period 300
+    --threshold 1
+    --actions-enabled
+    --alarm-actions arn:aws:sns:us-east-1:123456789012:CloudWatchAlarmSNSTopic
+```
 
-4. To remediate the issue, you need to identify the root cause of the changes made to the S3 bucket. You can review the CloudTrail logs to get more information about the changes made to the S3 bucket.
+#
 
-   ```
-   aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=PutObject
-   ```
-
-5. Once you have identified the root cause of the changes, you can update the S3 bucket policy or access control list (ACL) to restrict access to the bucket.
-
-6. To update the S3 bucket policy, run the following command:
-
-   ```
-   aws s3api put-bucket-policy --bucket <bucket-name> --policy file://policy.json
-   ```
-
-   Note: Replace `<bucket-name>` with the name of your S3 bucket and policy.json with the name of the JSON file containing the updated policy.
-
-7. To update the S3 bucket ACL, run the following command:
-
-   ```
-   aws s3api put-bucket-acl --bucket <bucket-name> --acl public-read
-   ```
-
-   Note: Replace `<bucket-name>` with the name of your S3 bucket and public-read with the desired ACL.
-
-8. After updating the S3 bucket policy or ACL, monitor the S3 bucket changes alarm to ensure that the issue has been remediated.
-
-   ```
-   aws cloudwatch describe-alarms --alarm-names S3BucketChangesAlarm
-   ```
-
-9. If the alarm status is still in the "ALARM" state, repeat the above steps to identify and remediate any remaining issues.
 </Accordion>
 
 <Accordion title='Using Python'>
-The misconfiguration of an S3 bucket changes alarm can be remediated by following these steps:
-
-Step 1: Identify the S3 Bucket Changes Alarm
-- Login to the AWS Console
-- Navigate to the CloudWatch service
-- Click on Alarms
-- Look for the S3 Bucket Changes Alarm that has been triggered
-
-Step 2: Update the S3 Bucket Policy
-- Navigate to the S3 service
-- Click on the bucket that the S3 Bucket Changes Alarm is monitoring
-- Click on the Permissions tab
-- Click on Bucket Policy
-- Check if there is any policy that is allowing public access to the bucket or its contents
-- If there is any such policy, update it to restrict public access
-
-Step 3: Update the S3 Bucket ACL
-- Click on the Access Control List (ACL) tab
-- Check if there is any grant that is allowing public access to the bucket or its contents
-- If there is any such grant, update it to restrict public access
-
-Step 4: Remediate using Python
-- Use the AWS SDK for Python (Boto3) to write a script that updates the S3 Bucket Policy and ACL to restrict public access
-- The following Python code can be used as a template:
+You can also use Python to remediate the S3 Bucket Changes Alarm. Below is a script that utilizes the Boto3 library:
 
 ```
 import boto3
+import json
 
 # Define the S3 bucket name
 bucket_name = 'my-bucket'
@@ -163,6 +157,7 @@ for grant in bucket_acl['Grants']:
 ```
 
 Note: Replace `my-bucket` with the actual name of the S3 bucket.
+
 </Accordion>
 
 </AccordionGroup>
@@ -170,5 +165,5 @@ Note: Replace `my-bucket` with the actual name of the S3 bucket.
 </Tabs>
 ### Additional Reading:
 
-- [https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudwatch-monitoring.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudwatch-monitoring.html) 
-
+- [https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudwatch-monitoring.html](https://docs.aws.amazon.com/AmazonS3/latest/userguide/cloudwatch-monitoring.html)
+- [https://www.trendmicro.com/cloudoneconformity-staging/knowledge-base/aws/CloudWatchLogs/s3-bucket-changes-alarm.html](https://www.trendmicro.com/cloudoneconformity-staging/knowledge-base/aws/CloudWatchLogs/s3-bucket-changes-alarm.html)
