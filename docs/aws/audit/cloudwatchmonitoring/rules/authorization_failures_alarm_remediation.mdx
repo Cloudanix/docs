@@ -1,102 +1,142 @@
-
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-The "Authorization Failures" alarm in AWS CloudWatch indicates that there have been authorization failures for your AWS resources. To remediate this issue, you can follow the below steps:
+The "Authorization Failures" alarm in AWS CloudWatch should be configured to trigger whenever unauthorized API calls are made. To set this up using the AWS Console:
 
-1. Login to your AWS console.
-2. Navigate to the CloudWatch service.
-3. In the left-hand menu, click on "Alarms".
-4. Find the "Authorization Failures" alarm and click on it.
-5. In the alarm details page, click on the "Actions" dropdown and select "Disable Alarm".
-6. Once the alarm is disabled, you can investigate the root cause of the authorization failures and take appropriate actions to remediate it. 
+1. Sign in to the AWS Management Console.
 
-Some of the common causes of authorization failures include incorrect IAM policies, expired credentials, and incorrect resource permissions. You can review your IAM policies, check the status of your credentials, and ensure that your resources have the correct permissions to resolve the issue. Once you have resolved the issue, you can re-enable the alarm to monitor for any future authorization failures.
+2. Navigate to [Amazon CloudWatch console](https://console.aws.amazon.com/cloudwatch/).
+
+3. In the left-hand menu, under **Logs**, choose **Log groups**.
+
+4. Click on the name (link) of the log group associated with your Amazon CloudTrail trail.
+
+5. Select the **Metric filters** tab and choose **Create metric filter**.
+
+6. On the **Create metric filter** setup page, perform the following actions:
+
+   - For **Step 1: Define pattern**, paste the following pattern in the Filter Pattern box:  
+     `{($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*")}`  
+     This will scan your Amazon CloudTrail logs for "AccessDenied" and "UnauthorizedOperation" events. Choose **Next**.
+
+   - For **Step 2: Assign metric**, provide the following information:
+     - In the **Filter name** box, enter a unique name for the new filter.
+     - In the **Metric namespace** box, type `CloudTrailMetrics`.
+     - In the **Metric name** box, type `AuthorizationFailure`.
+     - In the **Metric value** box, type `1`.
+     - (Optional) Choose **Count** from the Unit – optional dropdown list.
+     - Choose **Next** to continue.
+
+7. On the **Metric filters** panel, select the newly created metric filter and choose **Create alarm**.
+
+8. On the **Create alarm** setup page, perform the following actions:
+
+   - For **Step 1: Specify metric and conditions**:
+
+     - In the **Metric section**, select **Sum** from the Statistic list, and choose **5 minutes** from the Period dropdown list.
+     - In the **Conditions section**, select **Static** as Threshold type.
+     - For **Whenever AuthorizationFailure is**, select **Greater/Equal (greater than or equal to)**, and enter `1` in the configuration box to trigger the CloudWatch alarm.
+     - Choose **Next**.
+
+   - For **Step 2: Configure actions**, define the alarm state that will trigger the CloudWatch alarm action:
+
+     - Select **In alarm** under Alarm state trigger.
+     - Choose **Select an existing SNS topic** and select the name of the SNS topic created at Step 1.
+     - Choose **Next**.
+
+   - For **Step 3: Add name and description**, provide a unique name and a short description for your new CloudWatch alarm. Choose **Next**.
+
+   - For **Step 4: Preview and create**, review the alarm configuration details, then choose **Create alarm**.  
+     Once the alarm is created, its **State** (status) will change from **Insufficient data** to **OK**.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The Authorization Failures alarm in AWS indicates that there have been failed attempts to authenticate or authorize access to AWS resources. To remediate this issue, you can follow these steps using AWS CLI:
+The Authorization Failures alarm in AWS can also be created and managed using the AWS CLI. Follow these steps:
 
-1. Open your terminal and install the AWS CLI (if not already installed) by following the instructions provided in the AWS documentation.
+1. Create the required CloudWatch metric filter and associate it with your Amazon CloudTrail trail. The pattern used will scan for `AccessDenied` and `UnauthorizedOperation` events.
 
-2. Once installed, configure the AWS CLI by running the following command:
+Run this command to create the metric filter:
 
-   ```
-   aws configure
-   ```
+```bash
+aws logs put-metric-filter \
+   --region us-east-1 \
+   --log-group-name cc-project5-log-group \
+   --filter-name AWSCloudAuthorizationFailure \
+   --filter-pattern '{($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*")}' \
+   --metric-transformations metricName=AuthorizationFailure,metricNamespace=CloudTrailMetrics,metricValue=1
+```
 
-   This command will prompt you to enter your Access Key ID, Secret Access Key, default region name, and default output format.
+2. Create the CloudWatch alarm to monitor the authorization failures:
 
-3. After configuring the AWS CLI, you can use the following command to check the authorization failures alarm:
+```bash
+aws cloudwatch put-metric-alarm \
+  --region us-east-1 \
+  --alarm-name "AWSAuthorizationFailureAlarm" \
+  --alarm-description "Triggered when unauthorized AWS API calls are made" \
+  --metric-name AuthorizationFailure \
+  --namespace CloudTrailMetrics \
+  --statistic Sum \
+  --comparison-operator GreaterThanOrEqualToThreshold \
+  --evaluation-periods 1 \
+  --period 300 \
+  --threshold 1 \
+  --actions-enabled \
+  --alarm-actions arn:aws:sns:us-east-1:123456789012:cc-cloud-alert-sns-topic
+```
 
-   ```
-   aws cloudwatch describe-alarms --alarm-names "AuthorizationFailures"
-   ```
-
-4. If the alarm is in the ALARM state, you can use the following command to disable it:
-
-   ```
-   aws cloudwatch disable-alarm-actions --alarm-names "AuthorizationFailures"
-   ```
-
-5. To investigate the root cause of the authorization failures, you can use AWS CloudTrail to view the API calls made to AWS services. You can also use AWS Identity and Access Management (IAM) to review the permissions granted to users and roles.
-
-6. Once you have identified the root cause of the authorization failures, you can take appropriate actions such as revoking access keys, updating IAM policies, or disabling unused IAM users or roles.
-
-7. Finally, you can re-enable the authorization failures alarm by using the following command:
-
-   ```
-   aws cloudwatch enable-alarm-actions --alarm-names "AuthorizationFailures"
-   ```
-
-By following these steps, you will be able to remediate the Authorization Failures alarm in AWS.
 </Accordion>
 
 <Accordion title='Using Python'>
-The "Authorization Failures" alarm in AWS CloudWatch is triggered when there are failed attempts to access AWS resources due to insufficient permissions. To remediate this issue using Python, you can follow these steps:
+The "Authorization Failures" alarm in AWS CloudWatch is triggered when there are failed attempts to access AWS resources due to insufficient permissions. To remediate this issue using Python, follow these steps:
 
-1. Identify the AWS resource that is causing the authorization failures. This can be done by checking the CloudWatch logs or by using AWS Config.
+1. First, set up the required metric filter and alarm in CloudWatch using the Boto3 library:
 
-2. Review the permissions assigned to the IAM user or role that is attempting to access the resource. You can use the AWS CLI or the AWS Management Console to view the permissions.
-
-3. Add the necessary permissions to the IAM user or role. This can be done by creating a new IAM policy or modifying an existing one.
-
-4. Test the permissions by attempting to access the resource again. If the authorization failures alarm is no longer triggered, then the issue has been remediated.
-
-Here is some sample Python code that can be used to modify an existing IAM policy to grant additional permissions:
-
-```
+```python
 import boto3
 
-# Create an IAM client
-iam = boto3.client('iam')
+# Initialize clients for CloudWatch Logs and CloudWatch
+logs_client = boto3.client('logs')
+cw_client = boto3.client('cloudwatch')
 
-# Get the existing policy
-policy = iam.get_policy(PolicyArn='arn:aws:iam::123456789012:policy/MyPolicy')
+# Create metric filter
+logs_client.put_metric_filter(
+    logGroupName='cc-project5-log-group',
+    filterName='AWSCloudAuthorizationFailure',
+    filterPattern='{($.errorCode = "*UnauthorizedOperation") || ($.errorCode = "AccessDenied*")}',
+    metricTransformations=[
+        {
+            'metricName': 'AuthorizationFailure',
+            'metricNamespace': 'CloudTrailMetrics',
+            'metricValue': '1'
+        }
+    ]
+)
 
-# Add a new permission to the policy
-statement = {
-    'Effect': 'Allow',
-    'Action': 's3:GetObject',
-    'Resource': 'arn:aws:s3:::my-bucket/*'
-}
-policy['Policy']['Statement'].append(statement)
-
-# Update the policy with the new permission
-iam.create_policy_version(
-    PolicyArn='arn:aws:iam::123456789012:policy/MyPolicy',
-    PolicyDocument=str(policy['Policy']),
-    SetAsDefault=True
+# Create CloudWatch alarm
+cw_client.put_metric_alarm(
+    AlarmName='AWSAuthorizationFailureAlarm',
+    AlarmDescription='Triggered when unauthorized AWS API calls are made',
+    MetricName='AuthorizationFailure',
+    Namespace='CloudTrailMetrics',
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    AlarmActions=['arn:aws:sns:us-east-1:123456789012:cc-cloud-alert-sns-topic']
 )
 ```
 
-Note that this is just an example and you will need to modify the code to suit your specific use case.
+2. This Python script will automatically set up the metric filter and alarm to monitor any authorization failures across your AWS account.
+
 </Accordion>
 
 </AccordionGroup>
