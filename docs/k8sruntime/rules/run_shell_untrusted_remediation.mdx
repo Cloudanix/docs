@@ -13,39 +13,85 @@ To investigate further, you can:
 - Review the security policies and access controls in place to ensure that only trusted and authorized commands are allowed to be executed within the cluster.
 
 #### Remediation
+1. Update Security Policies:
+   - Use Security Context Constraints (SCC) or Pod Security Policies (PSP) Alternatives.
+   - Since PodSecurityPolicy is deprecated, consider using alternative solutions like Kubernetes PodSecurityAdmission or OPA/Gatekeeper  to enforce security policies.
 
-1. Create a Kubernetes Deployment manifest file with the necessary specifications for running a Python script:
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: remediation-script
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: remediation-script
-  template:
+   - Kubernetes PodSecurityAdmission (PSA) provides a built-in way to enforce security policies. Here’s an example of how to enforce security controls using PSA:
+    ```yaml
+    apiVersion: policy/v1
+    kind: PodSecurityPolicy
     metadata:
-      labels:
-        app: remediation-script
+      name: restricted
     spec:
-      containers:
-      - name: remediation-script
-        image: python:3.9
-        command: ["python", "-c"]
-        args: ["print('Remediation script executed successfully!')"]
-```
+      privileged: false
+      allowPrivilegeEscalation: false
+      allowedCapabilities: []
+      volumes:
+        - 'emptyDir'
+        - 'configMap'
+        - 'projected'
+        - 'secret'
+      hostNetwork: false
+      hostIPC: false
+      hostPID: false
+      runAsUser:
+        rule: 'MustRunAsNonRoot'
+      seLinux:
+        rule: 'Must'
+      supplementalGroups:
+        rule: 'MustNot'
+      fsGroup:
+        rule: 'MustNot'
+      readOnlyRootFilesystem: true
+    ```
+    - Implement OPA/Gatekeeper Policies Open Policy Agent (OPA) and Gatekeeper can be used to enforce custom policies. For example, you can create a policy that restricts the execution of untrusted shell commands:
+     ```yaml
+     apiVersion: constraints.gatekeeper.sh/v1beta1
+     kind: K8sSecurityContextConstraints
+     metadata:
+       name: restrict-shell-commands
+     spec:
+       enforcementAction: deny
+       match:
+         kinds:
+           - apiGroups: [""]
+             kinds: [Pod]
+       parameters:
+         securityContext:
+           runAsNonRoot: true
+           allowPrivilegeEscalation: false
+           capabilities:
+             drop:
+               - ALL
+     ```
 
-2. Apply the Deployment manifest using the `kubectl apply` command:
+3. Update Deployment or Pod Specifications:
+   - Ensure that new pods adhere to the updated security policies by modifying their configurations:
+   ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: your-deployment
+    spec:
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+          containers:
+          - name: your-container
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+     ```
+
+4. Apply the updated security policies and configurations to your cluster:
 ```bash
-kubectl apply -f deployment.yaml
+     kubectl apply -f <policy-file.yaml>
+     kubectl apply -f <deployment-file.yaml>
 ```
 
-3. Verify that the Deployment is running and the remediation script has executed successfully:
-```bash
-kubectl get pods
-kubectl logs <pod-name>
-```
-Note: Replace `<pod-name>` with the actual name of the pod created by the Deployment.
-
+Note: Make sure to test all changes in a staging environment before applying them to production to avoid any unintended disruptions.

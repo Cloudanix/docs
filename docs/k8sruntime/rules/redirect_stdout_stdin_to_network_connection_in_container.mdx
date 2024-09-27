@@ -19,4 +19,34 @@ sidebar_label: Redirect STDOUT STDIN to Network Connection in Container
 - Create a Kubernetes Pod manifest file with a sidecar container that runs a Python script to redirect STDOUT and STDIN to a network connection.
 - Use the Kubernetes API to apply the Pod manifest file to the cluster for remediation.
 - Monitor the Pod logs to ensure that the redirection of STDOUT and STDIN to the network connection is successful.
-
+- Disable capabilities that allow redirection of STDOUT/STDIN to a network. This can be done by setting stricter security contexts:
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - NET_RAW  # Prevents creating raw network sockets
+      - SYS_ADMIN  # Blocks administrative network-level changes
+```
+- Apply network policies that block unwanted egress traffic from the container, restricting it from making connections outside the cluster:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-unauthorized-egress
+  namespace: <namespace>
+spec:
+  podSelector:
+    matchLabels:
+      app: <your_app>
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+```

@@ -9,36 +9,55 @@
 
 #### Remediation
 
-1. Create a Kubernetes Deployment manifest file with the necessary specifications for the Python application:
+1. Use a Read-Only File System:
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
-  name: python-app
+  name: monitored-dir-pod
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: python-app
-  template:
+  containers:
+  - name: monitored-dir-container
+    image: <your-image>
+    securityContext:
+      readOnlyRootFilesystem: true
+```
+
+2. Use Read-Only Volume Mounts:
+   - Mount monitored directories as read-only volumes to prevent modifications:
+   ```yaml
+    apiVersion: v1
+    kind: Pod
     metadata:
-      labels:
-        app: python-app
+      name: monitored-dir-pod
     spec:
       containers:
-      - name: python-app
-        image: python:latest
-        command: ["python", "-c"]
-        args: ["import os; os.remove('/path/to/monitored/dir/file.txt')"]
-```
-2. Apply the Deployment manifest using kubectl:
-```bash
-kubectl apply -f deployment.yaml
-```
-3. Verify that the Deployment is running and the file has been removed:
-```bash
-kubectl get deployments
-kubectl exec -it <pod-name> -- ls /path/to/monitored/dir
-```
-Note: Replace `/path/to/monitored/dir` with the actual path to the monitored directory and `<pod-name>` with the name of the pod created by the Deployment.
+      - name: monitored-dir-container
+        image: <your-image>
+        volumeMounts:
+        - name: monitored-dir
+          mountPath: /path/to/monitored/dir
+          readOnly: true
+      volumes:
+      - name: monitored-dir
+        emptyDir: {}
+     ```
+
+3. Use a security context to restrict which users can write to the directories:
+   - If your application needs to use a volume but you want to prevent writes to specific directories, you can use a read-only volume: 
+  ```yaml
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: monitored-dir-pod
+  spec:
+    containers:
+    - name: monitored-dir-container
+      image: <your-image>
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 2000
+    ```
+  
+Note: Make sure to test the remediation steps in a non-production environment before applying them to production.
 
