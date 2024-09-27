@@ -1,5 +1,5 @@
-
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
@@ -8,80 +8,147 @@
 <Accordion title='Using Console' defaultOpen='true'>
 Sure, here are the step by step instructions to remediate the Security Group Changes Alarm misconfiguration in AWS using AWS console:
 
-1. Login to your AWS console.
-2. Go to the CloudWatch service.
-3. Click on "Alarms" in the left-hand menu.
-4. Select the Security Group Changes Alarm that you want to remediate.
-5. Click on "Actions" and select "Disable Alarm".
-6. Once the alarm is disabled, you can take the necessary steps to remediate the issue that triggered the alarm.
-7. After you have remediated the issue, you can re-enable the alarm by selecting it and clicking on "Actions" and then selecting "Enable Alarm".
+Here are the step-by-step instructions to remediate the Security Group Changes Alarm misconfiguration in AWS using the AWS console:
 
-It is important to note that disabling the alarm does not fix the underlying issue. You need to identify and remediate the root cause of the misconfiguration to ensure that your infrastructure remains secure.
+1. Sign in to your AWS Management Console.
+
+2. Navigate to the CloudWatch dashboard at https://console.aws.amazon.com/cloudwatch/.
+
+3. In the left navigation panel, select **Logs**.
+
+4. Select the log group created for your CloudTrail trail event logs and click the **Create Metric Filter** button.
+
+5. On the Define Logs Metric Filter page, paste the following pattern inside the Filter Pattern box:
+
+```
+{
+    ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) ||
+    ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) ||
+    ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup)
+}
+```
+
+This pattern will be used for scanning the AWS CloudTrail logs for event names like "CreateSecurityGroup", "AuthorizeSecurityGroupIngress", or "DeleteSecurityGroup".
+
+6. Review the metric filter configuration details, then click **Assign Metric**.
+
+7. On the Create Metric Filter and Assign a Metric page, perform the following:
+
+   - In the **Filter Name** box, enter a unique name for the new filter (e.g., `SecurityGroupConfigChanges`).
+   - In the **Metric Namespace** box, type `CloudTrailMetrics`.
+   - In the **Metric Name** box, type `SecurityGroupEventCount` for the metric identifier.
+   - Click **Show advanced metric settings** to slide down the advanced settings section.
+   - In the **Metric Value** box, enter `1`.
+
+8. Review the details, then click **Create Filter** to generate your new CloudWatch Logs metric filter.
+
+9. On the current page, click **Create Alarm**.
+
+10. In the Create Alarm dialog box, provide the following information:
+    - Within the **Alarm Threshold** section, in the **Name** and **Description** fields, enter a unique name and a short description for the new CloudWatch alarm.
+    - Under **Whenever: <Metric Name>**, select `>=` (greater than or equal to) from the dropdown list and enter `1` as the threshold value in the box next to the dropdown list to trigger the alarm every time a configuration change involving an AWS security group is made.
+    - In the **Actions** section, click the **+ Notification** button, select **State is ALARM** from the dropdown menu, and choose the AWS SNS topic name created previously from the **Send notification to** section.
+    - In the **Alarm Preview** section, select `5 Minutes` from the **Period** dropdown list and `Sum` from the **Statistic** list.
+    - Review the CloudWatch alarm configuration details, then click **Create Alarm**. Once created, the new alarm will be listed on the Alarms page.
+
+It is important to note that setting up the alarm does not fix the underlying issue. You need to identify and remediate the root cause of the misconfiguration to ensure that your infrastructure remains secure.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The Security Group Changes Alarm is triggered when a security group in your AWS account is modified. To remediate this issue, you can follow the below steps using AWS CLI:
+To remediate the Security Group Changes Alarm using the AWS CLI, follow these steps:
 
-1. Firstly, identify the security group that is being modified. You can do this by checking the CloudWatch logs for the Security Group Changes Alarm.
+1. Run the following command to create the necessary CloudWatch metric filter and associate it with the appropriate CloudTrail log group:
 
-2. Once you have identified the security group, review the changes that were made to the security group. This can be done by checking the security group’s inbound and outbound rules.
+```bash
+aws logs put-metric-filter \
+    --region us-east-1 \
+    --log-group-name CloudTrail/CloudWatchLogGroup \
+    --filter-name SecurityGroupConfigChanges \
+    --filter-pattern '{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }' \
+    --metric-transformations metricName=SecurityGroupEventCount,metricNamespace=CloudTrailMetrics,metricValue=1
+```
 
-3. If the changes were made intentionally, you can update the Security Group Changes Alarm to ignore these changes in the future. To do this, you can modify the CloudFormation stack that created the Security Group Changes Alarm.
+2. Run the following command to create the AWS CloudWatch alarm that will fire whenever a configuration change involving an AWS security group within your account is made:
 
-4. If the changes were made unintentionally, you should revert the security group to its previous configuration. To do this, you can use the AWS CLI command `aws ec2 revoke-security-group-ingress` to remove any newly added inbound rules, and `aws ec2 revoke-security-group-egress` to remove any newly added outbound rules.
+```bash
+aws cloudwatch put-metric-alarm \
+    --region us-east-1 \
+    --alarm-name SecurityGroupConfigChangesAlarm \
+    --alarm-description "Triggered by AWS security group(s) config changes." \
+    --metric-name SecurityGroupEventCount \
+    --namespace CloudTrailMetrics \
+    --statistic Sum \
+    --comparison-operator GreaterThanOrEqualToThreshold \
+    --evaluation-periods 1 \
+    --period 300 \
+    --threshold 1 \
+    --actions-enabled \
+    --alarm-actions arn:aws:sns:us-east-1:123456789012:CloudWatchAlarmSNSTopic
+```
 
-5. After reverting the security group to its previous configuration, you should update the Security Group Changes Alarm to ensure that it is triggered if any further changes are made to the security group.
+After creating the alarm, ensure to investigate the cause of the security group changes and take any necessary steps to prevent similar misconfigurations in the future.
 
-6. Finally, you should investigate the cause of the security group changes and take any necessary steps to prevent similar misconfigurations in the future.
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the "Security Group Changes Alarm" misconfiguration in AWS using Python, you can follow the below steps:
+1. To remediate the "Security Group Changes Alarm" misconfiguration in AWS using Python, you can follow the steps below:
 
-1. Identify the security group that triggered the alarm. You can find this information in the CloudWatch alarm details.
+2. Import the necessary libraries and initialize the Boto3 client for CloudWatch logs and CloudWatch alarms.
 
-2. Check the security group rules to see if any unauthorized changes were made. You can use the `describe_security_groups()` method from the Boto3 library to retrieve the security group rules.
+3. Create the metric filter to monitor changes to security groups.
 
-3. If any unauthorized changes were made, revert them by calling the `revoke_security_group_ingress()` or `revoke_security_group_egress()` method from the Boto3 library. You will need to provide the appropriate parameters such as the security group ID, IP permissions, etc.
-
-4. Once the changes have been reverted, update the CloudWatch alarm status to "OK" using the `set_alarm_state()` method from the Boto3 library.
-
-Here's an example Python code snippet that demonstrates how to remediate the "Security Group Changes Alarm" misconfiguration:
+4. Create the CloudWatch alarm to trigger notifications for any changes.
 
 ```python
 import boto3
 
-# Initialize the Boto3 client
-ec2 = boto3.client('ec2')
+# Initialize Boto3 clients
+logs_client = boto3.client('logs')
+cloudwatch_client = boto3.client('cloudwatch')
 
-# Specify the security group ID that triggered the alarm
-security_group_id = 'sg-0123456789abcdef'
+# Define parameters
+log_group_name = 'CloudTrail/CloudWatchLogGroup'
+filter_name = 'SecurityGroupConfigChanges'
+metric_name = 'SecurityGroupEventCount'
+namespace = 'CloudTrailMetrics'
+alarm_name = 'SecurityGroupConfigChangesAlarm'
+sns_topic_arn = '<ARN_OF_SNS_TOPIC>'
 
-# Retrieve the security group rules
-response = ec2.describe_security_groups(GroupIds=[security_group_id])
-
-# Check if any unauthorized changes were made
-# If yes, revert the changes
-for sg in response['SecurityGroups']:
-    for ip_perm in sg['IpPermissions']:
-        if 'YOUR_UNAUTHORIZED_IP_RANGE' in ip_perm['IpRanges']:
-            ec2.revoke_security_group_ingress(
-                GroupId=security_group_id,
-                IpPermissions=[ip_perm]
-            )
-
-# Update the CloudWatch alarm status to "OK"
-cloudwatch = boto3.client('cloudwatch')
-cloudwatch.set_alarm_state(
-    AlarmName='YOUR_ALARM_NAME',
-    StateValue='OK',
-    StateReason='Misconfiguration has been remediated'
+# Create Metric Filter
+logs_client.put_metric_filter(
+    logGroupName=log_group_name,
+    filterName=filter_name,
+    filterPattern='{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }',
+    metricTransformations=[{
+        'metricName': metric_name,
+        'metricNamespace': namespace,
+        'metricValue': '1'
+    }]
 )
+
+# Create CloudWatch Alarm
+cloudwatch_client.put_metric_alarm(
+    AlarmName=alarm_name,
+    AlarmDescription='Triggered by AWS security group(s) config changes.',
+    MetricName=metric_name,
+    Namespace=namespace,
+    Statistic='Sum',
+    Period=300,
+    EvaluationPeriods=1,
+    Threshold=1,
+    ComparisonOperator='GreaterThanOrEqualToThreshold',
+    ActionsEnabled=True,
+    AlarmActions=[sns_topic_arn]
+)
+
+print("Metric filter and alarm created successfully.")
 ```
 
-Note: Replace `YOUR_UNAUTHORIZED_IP_RANGE`, `YOUR_ALARM_NAME` and `sg-0123456789abcdef` with the appropriate values specific to your environment.
+Note: Replace <ARN_OF_SNS_TOPIC>` with the appropriate ARN of your specific topic.
+
 </Accordion>
 
 </AccordionGroup>
