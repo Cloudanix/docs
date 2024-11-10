@@ -18,95 +18,124 @@ Security
 
 ### Compliance Standards
 
-CISAWS, CBP, SOC2, NIST, HIPAA, ISO27001, AWSWAF, HITRUST, NISTCSF
-
+CISAWS, CBP, SOC2, NIST, HIPAA, ISO27001, AWSWAF, HITRUST, NISTCSF, CISAWSF, PCI, APRA, MAS, NIST4
 
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
-The VPC Changes Alarm is triggered when any changes are made to your VPC configuration. This alarm is important as it can help you detect any unauthorized changes made to your VPC. To remediate this issue, you can follow the below steps:
+The VPC Changes Alarm is triggered when changes are made to the VPC configuration. To remediate this issue and set up the alarm, follow the steps below:
 
-1. Login to your AWS console and navigate to the CloudWatch service.
+1. Sign in to the AWS Management Console.
 
-2. From the left-hand side menu, select "Alarms" and then select the "VPC Changes Alarm" that you want to remediate.
+2. Navigate to the CloudWatch dashboard at [CloudWatch Console](https://console.aws.amazon.com/cloudwatch/).
 
-3. Click on the "Actions" drop-down menu and select "Disable Alarm" to temporarily disable the alarm.
+3. In the left navigation panel, select **Logs**.
 
-4. Next, navigate to the VPC dashboard and review the recent changes made to the VPC configuration.
+4. Select the log group created for your CloudTrail trail event logs and click **Create Metric Filter**.
 
-5. If you identify any unauthorized changes, undo them immediately.
+5. On the **Define Logs Metric Filter** page, paste the following filter pattern inside the **Filter Pattern** box:
 
-6. Once you have reviewed and corrected the VPC configuration, go back to the CloudWatch Alarms page and re-enable the VPC Changes Alarm by selecting "Enable Alarm" from the "Actions" drop-down menu.
+```
+{
+    ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) ||
+    ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) ||
+    ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) ||
+    ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) ||
+    ($.eventName = EnableVpcClassicLink)
+}
+```
 
-7. Finally, monitor the VPC Changes Alarm regularly to ensure that any future changes made to the VPC configuration are authorized and expected.
+6. Review the metric filter configuration and click **Assign Metric**.
 
-By following these steps, you can remediate the VPC Changes Alarm issue in AWS and ensure that your VPC configuration is secure.
+7. On the **Create Metric Filter and Assign a Metric** page, perform the following:
+
+   - In the **Filter Name** box, enter a unique name for the new filter, e.g., `VPCNetworkConfigChanges`.
+   - In the **Metric Namespace** box, type `CloudTrailMetrics`.
+   - In the **Metric Name** box, type `VpcEventCount`.
+   - In the **Metric Value** box, enter `1`.
+
+8. Review the details and click **Create Filter**.
+
+9. On the current page, click **Create Alarm**.
+
+10. In the **Create Alarm** dialog box, provide the following:
+
+- **Name and Description**: Enter a unique name and a short description for the CloudWatch alarm.
+- **Alarm Threshold**: Set the threshold to trigger the alarm every time a configuration change involving an AWS VPC is made.
+- **Actions**: Add notifications using an existing SNS topic.
+- **Alarm Preview**: Set the period to `5 minutes` and choose `Sum` for the statistic.
+
+11. Review the details and click **Create Alarm**. Once created, the new alarm will be listed on the Alarms page.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The "VPC Changes Alarm" is an AWS CloudWatch alarm that is triggered when there are changes made to the Virtual Private Cloud (VPC) configuration. To remediate this issue, you can follow these steps using AWS CLI:
+The "VPC Changes Alarm" is an AWS CloudWatch alarm that is triggered when there are changes made to the Virtual Private Cloud (VPC) configuration. To remediate this issue, you can follow these steps:
 
-1. Log in to your AWS account and open the AWS Command Line Interface (CLI).
-2. Run the following command to list all the CloudWatch alarms in your account:
-```
-aws cloudwatch describe-alarms
-```
-3. Identify the "VPC Changes Alarm" from the list of alarms.
-4. Run the following command to disable the alarm:
-```
-aws cloudwatch disable-alarm-actions --alarm-names VPC-Changes-Alarm
-```
-5. Verify that the alarm has been disabled by running the following command:
-```
-aws cloudwatch describe-alarms --alarm-names VPC-Changes-Alarm
-```
-6. If the alarm is still enabled, you can delete it by running the following command:
-```
-aws cloudwatch delete-alarms --alarm-names VPC-Changes-Alarm
-```
-7. Verify that the alarm has been deleted by running the following command:
-```
-aws cloudwatch describe-alarms
+1. Run the following command to create the necessary CloudWatch metric filter and associate it with the appropriate Amazon CloudTrail log group:
+
+```bash
+aws logs put-metric-filter \
+    --region us-east-1 \
+    --log-group-name CloudTrail/CloudWatchLogGroup \
+    --filter-name VPCNetworkConfigChanges \
+    --filter-pattern '{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }' \
+    --metric-transformations metricName=VpcEventCount,metricNamespace=CloudTrailMetrics,metricValue=1
 ```
 
-Note: Before disabling or deleting the "VPC Changes Alarm", make sure that it is not critical for your organization's security and compliance requirements. It is recommended to keep this alarm enabled and configure it to send notifications to the appropriate stakeholders.
+2. Run the following command to create the AWS CloudWatch alarm:
+
+```bash
+aws cloudwatch put-metric-alarm \
+    --region us-east-1 \
+    --alarm-name VPCNetworkConfigChangesAlarm \
+    --alarm-description "Triggered by AWS VPC(s) environment config changes." \
+    --metric-name VpcEventCount \
+    --namespace CloudTrailMetrics \
+    --statistic Sum \
+    --comparison-operator GreaterThanOrEqualToThreshold \
+    --evaluation-periods 1 \
+    --period 300 \
+    --threshold 1 \
+    --actions-enabled \
+    --alarm-actions arn:aws:sns:us-east-1:123456789012:CloudWatchAlarmSNSTopic
+```
+
 </Accordion>
 
 <Accordion title='Using Python'>
-The VPC Changes Alarm is triggered when there are any changes made to the VPC configuration. To remediate this misconfiguration, you can create a CloudWatch alarm that will send an email notification to the specified email address when changes are made to the VPC configuration.
-
-Here are the step-by-step instructions to remediate this misconfiguration in AWS using Python:
+To create a CloudWatch alarm using Python, follow these steps:
 
 1. Import the necessary AWS SDK libraries in Python:
 
-```
+```python
 import boto3
 from botocore.exceptions import ClientError
 ```
 
 2. Create a CloudWatch alarm:
 
-```
+```python
 def create_cloudwatch_alarm():
     cloudwatch = boto3.client('cloudwatch')
     sns = boto3.client('sns')
-    alarm_name = 'VPC Changes Alarm'
-    alarm_description = 'Alarm triggered when changes are made to the VPC configuration'
+    alarm_name = 'VPCNetworkConfigChangesAlarm'
+    alarm_description = 'Alarm triggered by AWS VPC environment config changes.'
     alarm_actions = ['arn:aws:sns:us-west-2:123456789012:my-email-topic']
-    metric_name = 'VpcConfigurationChanged'
-    namespace = 'AWS/EC2'
+    metric_name = 'VpcEventCount'
+    namespace = 'CloudTrailMetrics'
     statistic = 'Sum'
-    dimensions = [{'Name': 'InstanceId', 'Value': 'i-1234567890abcdef0'}]
-    period = 60
+    period = 300
     evaluation_periods = 1
     threshold = 1
-    comparison_operator = 'GreaterThanThreshold'
+    comparison_operator = 'GreaterThanOrEqualToThreshold'
     try:
         cloudwatch.put_metric_alarm(
             AlarmName=alarm_name,
@@ -116,7 +145,6 @@ def create_cloudwatch_alarm():
             MetricName=metric_name,
             Namespace=namespace,
             Statistic=statistic,
-            Dimensions=dimensions,
             Period=period,
             EvaluationPeriods=evaluation_periods,
             Threshold=threshold,
@@ -124,21 +152,22 @@ def create_cloudwatch_alarm():
         )
         print('CloudWatch alarm created successfully')
     except ClientError as e:
-        print('Error creating CloudWatch alarm: ', e)
+        print('Error creating CloudWatch alarm:', e)
         return False
     return True
 ```
 
-3. Replace the email topic ARN with your own email topic ARN.
+3. Replace the email topic ARN with your own.
 
-4. Call the `create_cloudwatch_alarm()` function to create the CloudWatch alarm.
+4. Call the `create_cloudwatch_alarm()` function:
 
-```
+```python
 if __name__ == '__main__':
     create_cloudwatch_alarm()
 ```
 
-These steps will create a CloudWatch alarm that will send an email notification to the specified email address when changes are made to the VPC configuration.
+These steps will create a CloudWatch alarm using Python that monitors VPC configuration changes.
+
 </Accordion>
 
 </AccordionGroup>
@@ -146,5 +175,6 @@ These steps will create a CloudWatch alarm that will send an email notification 
 </Tabs>
 ### Additional Reading:
 
-- [https://docs.aws.amazon.com/cli/latest/reference/cloudwatch/put-metric-alarm.html](https://docs.aws.amazon.com/cli/latest/reference/cloudwatch/put-metric-alarm.html) 
-
+- [AWS CLI Put Metric Alarm](https://docs.aws.amazon.com/cli/latest/reference/cloudwatch/put-metric-alarm.html)
+- [AWS CloudWatch Alarms Documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html)
+- [VPC Changes Alarm](https://www.trendmicro.com/cloudoneconformity-staging/knowledge-base/aws/CloudWatchLogs/vpc-changes-alarm.html)

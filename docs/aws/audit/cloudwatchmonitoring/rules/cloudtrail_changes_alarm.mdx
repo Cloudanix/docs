@@ -6,7 +6,7 @@ sidebar_label: CloudTrail Changes Alarm
 
 ### More Info:
 
-Aall AWS CloudTrail configuration changes should be monitored using CloudWatch alarms.
+All AWS CloudTrail configuration changes should be monitored using CloudWatch alarms.
 
 ### Risk Level
 
@@ -18,10 +18,10 @@ Security
 
 ### Compliance Standards
 
-CISAWS, CBP, SOC2, HIPAA, ISO27001, NISTCSF
-
+CISAWSF, PCI, GDPR, APRA, MAS, NIST4, SOC2, HIPAA, ISO27001, NISTCSF
 
 ### Triage and Remediation
+
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
@@ -30,156 +30,143 @@ CISAWS, CBP, SOC2, HIPAA, ISO27001, NISTCSF
 <Accordion title='Using Console' defaultOpen='true'>
 Here are the step-by-step instructions to remediate the CloudTrail Changes Alarm misconfiguration in AWS using the AWS console:
 
-1. Login to your AWS account and navigate to the CloudTrail service.
+1. Sign in to your AWS account and navigate to the CloudWatch service.
 
-2. Click on the "Trails" option in the left-hand menu and select the trail that you want to remediate.
+2. In the left-hand menu, select "Logs".
 
-3. Click on the "Edit" button at the top of the page.
+3. Select the log group created for your CloudTrail trail event logs and click on the "Create Metric Filter" button.
 
-4. Scroll down to the "CloudWatch Logs" section and click on the "Configure" button.
+4. On the Define Logs Metric Filter page, in the **Filter Pattern** box, enter the following pattern:
 
-5. In the "Configure CloudWatch Logs" window, select the "Enable CloudWatch Logs" option.
+`{ 
+    ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || 
+    ($.eventName = StartLogging) || ($.eventName = StopLogging)
+}`
 
-6. Choose an existing CloudWatch log group or create a new one.
+This pattern monitors CloudTrail for changes like creating, updating, or deleting trails.
 
-7. Click on the "Save" button to save the changes.
+5. Review the metric filter details and click **Assign Metric**.
 
-8. Navigate to the CloudWatch service in the AWS console.
+6. On the next page, provide the following details:
 
-9. Click on the "Alarms" option in the left-hand menu and select the alarm that you want to remediate.
+   - **Filter Name**: Enter a name like `AWSCloudTrailChanges`.
+   - **Metric Namespace**: Enter `CloudTrailMetrics`.
+   - **Metric Name**: Enter `CloudTrailEventCount`.
+   - Click **Show advanced metric settings**, and in the **Metric Value** box, enter `1`.
 
-10. Click on the "Actions" dropdown menu and select "Delete Alarm" to delete the alarm.
+7. Review the details and click **Create Filter**.
 
-11. Click on the "Delete" button to confirm the deletion.
+8. Now, click **Create Alarm** for the filter created in the previous step.
+
+9. In the **Create Alarm** dialog, configure the following:
+
+   - **Alarm Name**: Enter `CloudTrail Changes`.
+   - **Threshold**: Set the threshold value to `1` (greater than or equal to 1).
+   - **Actions**: Click the **+ Notification** button, select **State is ALARM**, and choose an SNS topic for notifications.
+   - **Period**: Select `5 Minutes` from the dropdown.
+   - **Statistic**: Set to `Sum`.
+
+10. Review the configuration and click **Create Alarm** to finalize.
 
 That's it! You have successfully remediated the CloudTrail Changes Alarm misconfiguration in AWS using the AWS console.
 
 #
+
 </Accordion>
 
 <Accordion title='Using CLI'>
-The CloudTrail Changes Alarm is triggered when there is a change made to CloudTrail, such as changes to the S3 bucket where the logs are stored or changes to the CloudTrail configuration. Here are the steps to remediate this issue for AWS using AWS CLI:
+The CloudTrail Changes Alarm monitors changes in CloudTrail configuration. Here are the steps to set up the alarm using AWS CLI:
 
-1. Open the AWS CLI on your local machine.
+1. Run the following command to create a CloudWatch metric filter and associate it with the CloudTrail log group:
 
-2. Check the current status of the CloudTrail Changes Alarm by running the following command:
+```bash
+aws logs put-metric-filter
+    --region us-east-1
+    --log-group-name CloudTrail/MyCloudTrailLG
+    --filter-name AWSCloudTrailChanges
+    --filter-pattern '{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }'
+    --metric-transformations metricName=CloudTrailEventCount,metricNamespace=CloudTrailMetrics,metricValue=1
+```
 
-   ```
-   aws cloudwatch describe-alarms --alarm-names CloudTrailChangesAlarm
-   ```
+2. Use the following command to create a CloudWatch alarm triggered by changes to CloudTrail:
 
-   This command will return the current configuration of the CloudTrail Changes Alarm.
+```bash
+aws cloudwatch put-metric-alarm
+    --region us-east-1
+    --alarm-name "CloudTrail Changes"
+    --alarm-description "Triggered by AWS CloudTrail configuration changes."
+    --metric-name CloudTrailEventCount
+    --namespace CloudTrailMetrics
+    --statistic Sum
+    --comparison-operator GreaterThanOrEqualToThreshold
+    --evaluation-periods 1
+    --period 300
+    --threshold 1
+    --actions-enabled
+    --alarm-actions arn:aws:sns:us-east-1:123456789012
+```
 
-3. Disable the CloudTrail Changes Alarm by running the following command:
+These commands set up the CloudWatch alarm to monitor CloudTrail configuration changes using AWS CLI.
 
-   ```
-   aws cloudwatch disable-alarm-actions --alarm-names CloudTrailChangesAlarm
-   ```
+#
 
-   This command will disable the actions that are triggered when the CloudTrail Changes Alarm is triggered.
-
-4. Verify that the CloudTrail Changes Alarm has been disabled by running the following command:
-
-   ```
-   aws cloudwatch describe-alarms --alarm-names CloudTrailChangesAlarm
-   ```
-
-   This command should return a status of "OK" for the CloudTrail Changes Alarm, indicating that it has been successfully disabled.
-
-5. If necessary, update the CloudTrail configuration to ensure that the logs are stored in a secure S3 bucket and that the appropriate permissions are set for accessing the logs.
-
-6. Once the CloudTrail configuration has been updated, re-enable the CloudTrail Changes Alarm by running the following command:
-
-   ```
-   aws cloudwatch enable-alarm-actions --alarm-names CloudTrailChangesAlarm
-   ```
-
-   This command will re-enable the actions that are triggered when the CloudTrail Changes Alarm is triggered.
-
-7. Verify that the CloudTrail Changes Alarm has been re-enabled by running the following command:
-
-   ```
-   aws cloudwatch describe-alarms --alarm-names CloudTrailChangesAlarm
-   ```
-
-   This command should return the current configuration of the CloudTrail Changes Alarm, with the actions re-enabled.
 </Accordion>
 
 <Accordion title='Using Python'>
-The misconfiguration you mentioned is related to the CloudTrail Changes Alarm. This alarm is triggered when there is a change in the AWS CloudTrail configuration. To remediate this misconfiguration, we can use the following steps:
-
-1. Open the AWS Management Console and navigate to the CloudTrail service.
-
-2. Click on the Trails option in the left-hand menu and select the trail that is triggering the alarm.
-
-3. Click on the Edit button to modify the trail configuration.
-
-4. Scroll down to the CloudWatch Logs section and ensure that the Enable CloudWatch Logs option is selected.
-
-5. Ensure that a CloudWatch Logs group is created and the appropriate permissions are set up to allow CloudTrail to write logs to this group.
-
-6. Click on the Save button to save the changes to the trail configuration.
-
-7. Open the AWS Management Console and navigate to the CloudWatch service.
-
-8. Click on the Alarms option in the left-hand menu and select the alarm that is triggering the alert.
-
-9. Click on the Actions button and select the Edit option.
-
-10. In the Edit Alarm dialog box, modify the alarm threshold to the desired value.
-
-11. Click on the Save Changes button to save the updated alarm configuration.
-
-12. To remediate this misconfiguration using Python, we can use the AWS SDK for Python (boto3) to modify the CloudTrail trail and CloudWatch alarm configurations. Here is sample code to enable CloudWatch Logs for a CloudTrail trail:
+To remediate the CloudTrail Changes Alarm misconfiguration using Python, we can use the AWS SDK for Python (boto3) to automate both the CloudTrail and CloudWatch configurations. Here's a sample code:
 
 ```python
 import boto3
 
-# Create a CloudTrail client
-client = boto3.client('cloudtrail')
+# Enable CloudWatch Logs for CloudTrail
+def enable_cloudtrail_logs(trail_name, log_group_arn, role_arn):
+ client = boto3.client('cloudtrail')
+ response = client.update_trail(
+     Name=trail_name,
+     CloudWatchLogsLogGroupArn=log_group_arn,
+     CloudWatchLogsRoleArn=role_arn
+ )
+ return response
 
-# Update the trail with CloudWatch Logs enabled
-response = client.update_trail(
-    Name='my-trail',
-    CloudWatchLogsLogGroupArn='arn:aws:logs:us-east-1:123456789012:log-group:/aws/cloudtrail/my-trail',
-    CloudWatchLogsRoleArn='arn:aws:iam::123456789012:role/MyCloudTrailRole'
+# Create or update a CloudWatch alarm
+def create_cloudtrail_alarm(alarm_name, metric_name, sns_topic_arn):
+ client = boto3.client('cloudwatch')
+ response = client.put_metric_alarm(
+     AlarmName=alarm_name,
+     MetricName=metric_name,
+     Namespace='CloudTrailMetrics',
+     Statistic='Sum',
+     Period=300,
+     EvaluationPeriods=1,
+     Threshold=1,
+     ComparisonOperator='GreaterThanOrEqualToThreshold',
+     AlarmActions=[sns_topic_arn],
+     OKActions=[sns_topic_arn],
+     Dimensions=[
+         {
+             'Name': 'TrailName',
+             'Value': 'my-trail'
+         }
+     ]
+ )
+ return response
+
+# Usage example:
+enable_cloudtrail_logs(
+ trail_name='my-trail',
+ log_group_arn='arn:aws:logs:us-east-1:123456789012:log-group:/aws/cloudtrail/my-trail',
+ role_arn='arn:aws:iam::123456789012:role/MyCloudTrailRole'
+)
+
+create_cloudtrail_alarm(
+ alarm_name='CloudTrail Changes',
+ metric_name='CloudTrailEventCount',
+ sns_topic_arn='arn:aws:sns:us-east-1:123456789012:my-sns-topic'
 )
 ```
 
-Here is sample code to modify the threshold of a CloudWatch alarm:
+This script enables CloudWatch logs for your CloudTrail and sets up a CloudWatch alarm for tracking changes to your CloudTrail configurations.
 
-```python
-import boto3
-
-# Create a CloudWatch client
-client = boto3.client('cloudwatch')
-
-# Update the alarm threshold
-response = client.put_metric_alarm(
-    AlarmName='my-alarm',
-    MetricName='NumberOfDeliveryErrors',
-    Namespace='AWS/CloudTrail',
-    Statistic='Sum',
-    Period=300,
-    EvaluationPeriods=1,
-    Threshold=1,
-    ComparisonOperator='GreaterThanThreshold',
-    AlarmActions=[
-        'arn:aws:sns:us-east-1:123456789012:my-sns-topic'
-    ],
-    OKActions=[
-        'arn:aws:sns:us-east-1:123456789012:my-sns-topic'
-    ],
-    Dimensions=[
-        {
-            'Name': 'TrailName',
-            'Value': 'my-trail'
-        }
-    ]
-)
-``` 
-
-These are the steps to remediate the CloudTrail Changes Alarm misconfiguration in AWS using Python.
 </Accordion>
 
 </AccordionGroup>
@@ -187,5 +174,5 @@ These are the steps to remediate the CloudTrail Changes Alarm misconfiguration i
 </Tabs>
 ### Additional Reading:
 
-- [https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html) 
-
+- [https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudwatch-alarms-for-cloudtrail.html)
+- [https://www.trendmicro.com/cloudoneconformity-staging/knowledge-base/aws/CloudWatchLogs/cloudtrail-changes-alarm.html](https://www.trendmicro.com/cloudoneconformity-staging/knowledge-base/aws/CloudWatchLogs/cloudtrail-changes-alarm.html)
