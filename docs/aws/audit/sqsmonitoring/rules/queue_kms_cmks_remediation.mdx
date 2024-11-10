@@ -1,66 +1,116 @@
+
+<Tab title='Remediation'>
 ### Remediation
 
-### Using Console
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+Here are the step-by-step instructions to remediate this issue:
 
-To remediate the issue, you need to update the encryption settings for each affected queue:
+1. Sign in to the AWS Management Console and open the Amazon SQS console at https://console.aws.amazon.com/sqs/.
 
-1. Select a queue encrypted with `ALIAS/AWS/SQS`.
-2. Click on "Configure queue".
-3. Under "Queue encryption", select "Use customer managed CMK".
-4. Choose or create a customer managed CMK from the list.
-5. Click "Save changes".
-6. Repeat this process for all queues identified in Step 1.
+2. In the navigation pane, choose "Queues".
 
-### Using CLI
+3. In the list of queues, choose the name of the queue that you want to encrypt.
 
-You can also use AWS CLI to update the encryption settings for the affected queues:
+4. In the details pane, choose the "Edit" button next to "Queue Attributes".
+
+5. In the "Encryption section", choose "Enable" for "Server-side encryption".
+
+6. For "Customer master key (CMK)", choose "Use a KMS master key" to use a customer-managed CMK. 
+
+7. Click on "Save".
+
+Please note that these steps will enable encryption for the selected queue and not for the messages in the queue. The messages in the queue need to be encrypted separately.
+
+Also, remember that once you enable server-side encryption (SSE) for a queue, you cannot disable it. The only way to stop using SSE for a queue is to delete the queue and create a new one without SSE.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To remediate this misconfiguration, you need to enforce the use of Customer Managed Key (CMK) for encryption in AWS SQS. Here are the step-by-step instructions using AWS CLI:
+
+Step 1: Install and Configure AWS CLI
+Before you begin, make sure you have AWS CLI installed on your machine. If not, you can download it from the official AWS CLI website. After installation, configure it with your AWS credentials.
+
+Step 2: Identify the SQS Queue
+Identify the Amazon SQS queue that is not using a Customer Managed Key (CMK) for server-side encryption. You can list all your SQS queues using the following command:
 
 ```bash
-aws sqs get-queue-attributes --queue-url <queue-url> --attribute-names All
+aws sqs list-queues
 ```
 
-This command will provide you with the current attributes of the queue, including the `KmsMasterKeyId`.
-
-To update the encryption settings:
+Step 3: Create a CMK
+Create a Customer Managed Key (CMK) using AWS Key Management Service (KMS). To create a CMK, use the following command:
 
 ```bash
-aws sqs set-queue-attributes --queue-url <queue-url> --attributes KmsMasterKeyId=<new-cmk-arn>
+aws kms create-key --description "My CMK key"
 ```
 
-Replace `<queue-url>` with the URL of the queue and `<new-cmk-arn>` with the ARN of the new customer managed CMK.
+Take note of the KeyId in the output as you will need it in the next step.
 
-### Using Python
+Step 4: Enable Server-Side Encryption
+Enable server-side encryption with the CMK for the identified SQS queue. Use the following command:
 
-You can use Boto3, the AWS SDK for Python, to achieve the same programmatically:
-
-```python
-import boto3
-
-# Initialize SQS client
-sqs = boto3.client('sqs')
-
-# Get list of queues
-response = sqs.list_queues()
-
-# Iterate over queues
-for queue_url in response['QueueUrls']:
-    # Get queue attributes
-    attributes = sqs.get_queue_attributes(
-        QueueUrl=queue_url,
-        AttributeNames=['All']
-    )['Attributes']
-    
-    # Check if the queue is encrypted with ALIAS/AWS/SQS
-    if attributes.get('KmsMasterKeyId', '').upper() == 'ALIAS/AWS/SQS':
-        # Update encryption settings
-        sqs.set_queue_attributes(
-            QueueUrl=queue_url,
-            Attributes={
-                'KmsMasterKeyId': '<new-cmk-arn>'
-            }
-        )
+```bash
+aws sqs set-queue-attributes --queue-url <your_queue_url> --attributes KmsMasterKeyId=<your_cmk_key_id>,KmsDataKeyReusePeriodSeconds=300
 ```
 
-Replace `<new-cmk-arn>` with the ARN of the new customer managed CMK.
+Replace `<your_queue_url>` with your SQS queue URL and `<your_cmk_key_id>` with the KeyId of the CMK you created.
 
-By following these steps, you can remediate queues encrypted with CMKs in Amazon SQS using AWS console, AWS CLI, and Python programmatically.
+After running the command, your SQS queue should now be using a CMK for server-side encryption. You can verify this by using the `get-queue-attributes` command:
+
+```bash
+aws sqs get-queue-attributes --queue-url <your_queue_url> --attribute-names KmsMasterKeyId
+```
+
+This should return the KeyId of the CMK you set for the queue. If it matches the KeyId of the CMK you created, then you have successfully remediated the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To remediate this issue, you'll need to create a Customer Master Key (CMK) in AWS Key Management Service (KMS) and then use this key to encrypt your SQS queue. Here is how you can do it using Python and AWS SDK Boto3:
+
+1. First, install the necessary Python library, Boto3, if you haven't already. You can do this using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. Import the boto3 library in your Python script:
+   ```python
+   import boto3
+   ```
+
+3. Create a new CMK. To do this, you need to initialize the AWS KMS client and then call the `create_key` function:
+   ```python
+   kms = boto3.client('kms')
+   key = kms.create_key(Description='key for SQS encryption', 
+                        KeyUsage='ENCRYPT_DECRYPT', 
+                        CustomerMasterKeySpec='SYMMETRIC_DEFAULT')
+   key_id = key['KeyMetadata']['KeyId']
+   ```
+
+4. Now, with the CMK created, you need to use this key to encrypt your SQS queue. First, initialize the SQS client:
+   ```python
+   sqs = boto3.client('sqs')
+   ```
+
+5. Then, use the `set_queue_attributes` function to set the KMSMasterKeyId attribute to the ID of the CMK you created:
+   ```python
+   sqs.set_queue_attributes(
+       QueueUrl='URL_OF_YOUR_QUEUE',
+       Attributes={
+           'KmsMasterKeyId': key_id,
+           'KmsDataKeyReusePeriodSeconds': '300'
+       }
+   )
+   ```
+   Replace 'URL_OF_YOUR_QUEUE' with the URL of your SQS queue.
+
+6. Now your SQS queue is encrypted with the CMK. 
+
+Remember to replace the placeholders with your actual values. Also, ensure your AWS credentials are properly set up in your environment. You'll need the necessary permissions to create keys and modify SQS queues.
+
+These steps will encrypt all the new messages in the queue. If you want to encrypt the existing messages, you'll need to re-send them to the queue.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+</Tabs>
