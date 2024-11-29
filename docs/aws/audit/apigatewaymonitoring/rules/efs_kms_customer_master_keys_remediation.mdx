@@ -2,6 +2,196 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS KMS Customer Master Keys (CMKs) for EFS encryption in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Navigate to the API Gateway Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "API Gateway" and select it from the list of services.
+
+2. **Select Your API:**
+   - In the API Gateway console, select the API you want to configure from the list of available APIs.
+
+3. **Configure Encryption Settings:**
+   - Go to the "Settings" section of your API.
+   - Look for the "Encryption" settings or similar options related to data protection and encryption.
+
+4. **Specify KMS Key:**
+   - Ensure that the encryption settings are configured to use the appropriate AWS KMS Customer Master Key (CMK) for EFS encryption.
+   - If necessary, create a new CMK in the AWS KMS console and specify it in the API Gateway settings.
+
+By following these steps, you can ensure that your API Gateway is properly configured to use AWS KMS CMKs for EFS encryption, enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the use of AWS KMS Customer Master Keys (CMKs) for EFS encryption in API Gateway using AWS CLI, you can follow these steps:
+
+1. **Create a Key Policy to Restrict Usage:**
+   Ensure that the key policy for your CMK restricts its usage to only the intended services and principals. This can be done by specifying the allowed actions and principals in the key policy.
+
+   ```sh
+   aws kms put-key-policy --key-id <your-key-id> --policy-name default --policy file://key-policy.json
+   ```
+
+   Example `key-policy.json`:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Id": "key-default-1",
+     "Statement": [
+       {
+         "Sid": "Allow administration of the key",
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::111122223333:role/Admin"
+         },
+         "Action": [
+           "kms:*"
+         ],
+         "Resource": "*"
+       },
+       {
+         "Sid": "Allow use of the key",
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::111122223333:role/EFSRole"
+         },
+         "Action": [
+           "kms:Encrypt",
+           "kms:Decrypt",
+           "kms:ReEncrypt*",
+           "kms:GenerateDataKey*",
+           "kms:DescribeKey"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+2. **Disable Key Rotation:**
+   Disable automatic key rotation for the CMK to ensure that the key is not automatically rotated, which might affect its usage.
+
+   ```sh
+   aws kms disable-key-rotation --key-id <your-key-id>
+   ```
+
+3. **Tagging the Key for Identification:**
+   Tag the CMK to identify it easily and ensure it is not used for unintended purposes.
+
+   ```sh
+   aws kms tag-resource --key-id <your-key-id> --tags TagKey=Purpose,TagValue=EFS-Only
+   ```
+
+4. **Audit Key Usage:**
+   Regularly audit the usage of the CMK to ensure it is only being used for the intended purpose. You can use AWS CloudTrail to monitor the usage of the key.
+
+   ```sh
+   aws cloudtrail lookup-events --lookup-attributes AttributeKey=ResourceName,AttributeValue=<your-key-id>
+   ```
+
+By following these steps, you can prevent the misuse of AWS KMS Customer Master Keys for EFS encryption in API Gateway using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS KMS Customer Master Keys (CMKs) for EFS (Elastic File System) encryption in API Gateway using Python scripts, you can follow these steps:
+
+### Step 1: Install Boto3
+Ensure you have the Boto3 library installed, which is the AWS SDK for Python.
+
+```bash
+pip install boto3
+```
+
+### Step 2: Create a Boto3 Session
+Create a Boto3 session to interact with AWS services.
+
+```python
+import boto3
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY_ID',
+    aws_secret_access_key='YOUR_AWS_SECRET_ACCESS_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+```
+
+### Step 3: Define the KMS Key Policy
+Define a key policy that restricts the use of the CMK to specific AWS services and principals. This policy will ensure that only authorized entities can use the CMK for EFS encryption.
+
+```python
+key_policy = {
+    "Version": "2012-10-17",
+    "Id": "key-default-1",
+    "Statement": [
+        {
+            "Sid": "Allow administration of the key",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"
+            },
+            "Action": "kms:*",
+            "Resource": "*"
+        },
+        {
+            "Sid": "Allow use of the key",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": [
+                    "arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_ROLE",
+                    "arn:aws:iam::YOUR_ACCOUNT_ID:user/YOUR_USER"
+                ]
+            },
+            "Action": [
+                "kms:Encrypt",
+                "kms:Decrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*",
+                "kms:DescribeKey"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### Step 4: Create the KMS Key with the Defined Policy
+Use the Boto3 KMS client to create a new CMK with the defined key policy.
+
+```python
+# Create a KMS client
+kms_client = session.client('kms')
+
+# Create a new CMK with the defined key policy
+response = kms_client.create_key(
+    Policy=json.dumps(key_policy),
+    Description='CMK for EFS encryption',
+    KeyUsage='ENCRYPT_DECRYPT',
+    Origin='AWS_KMS'
+)
+
+# Get the Key ID of the newly created CMK
+key_id = response['KeyMetadata']['KeyId']
+
+print(f"Created CMK with Key ID: {key_id}")
+```
+
+### Summary
+1. **Install Boto3**: Ensure the Boto3 library is installed.
+2. **Create a Boto3 Session**: Set up a session with your AWS credentials.
+3. **Define the KMS Key Policy**: Create a policy that restricts the use of the CMK.
+4. **Create the KMS Key**: Use the Boto3 KMS client to create the CMK with the defined policy.
+
+By following these steps, you can ensure that your AWS KMS Customer Master Keys are properly configured for EFS encryption, preventing unauthorized use in API Gateway.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>

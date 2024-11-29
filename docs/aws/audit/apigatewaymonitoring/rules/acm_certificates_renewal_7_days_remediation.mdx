@@ -2,6 +2,160 @@
 ### Triage and Remediation
 <Tabs>
 
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS ACM Certificates from being within 7 days of expiration in API Gateway using the AWS Management Console, follow these steps:
+
+1. **Monitor Certificate Expiration:**
+   - Navigate to the **AWS Certificate Manager (ACM)** in the AWS Management Console.
+   - Check the expiration dates of your certificates regularly. You can set up a CloudWatch alarm to notify you when a certificate is approaching its expiration date.
+
+2. **Enable Automatic Renewal:**
+   - Ensure that your ACM certificates are set to automatically renew. ACM automatically renews certificates that are in use with other AWS services, such as API Gateway, as long as the domain validation is still valid.
+
+3. **Update API Gateway with New Certificates:**
+   - Go to the **API Gateway** service in the AWS Management Console.
+   - Select the API that uses the ACM certificate.
+   - Under the **Custom Domain Names** section, ensure that the domain name is associated with the correct, automatically renewing ACM certificate.
+
+4. **Set Up Notifications:**
+   - Use **Amazon CloudWatch** to set up alarms and notifications for certificate expiration.
+   - Create a CloudWatch alarm that triggers an Amazon SNS notification when a certificate is within a certain number of days from expiration (e.g., 30 days). This will give you ample time to address any issues before the 7-day mark.
+
+By following these steps, you can ensure that your ACM certificates are renewed well before they are within 7 days of expiration, thus preventing any potential disruptions in your API Gateway services.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS ACM Certificates from being within 7 days of expiration in API Gateway using AWS CLI, you can follow these steps:
+
+1. **List All Certificates:**
+   Use the AWS CLI to list all ACM certificates and their expiration dates. This helps you identify certificates that are nearing expiration.
+   ```sh
+   aws acm list-certificates --query "CertificateSummaryList[*].{CertificateArn:CertificateArn,DomainName:DomainName,NotAfter:NotAfter}"
+   ```
+
+2. **Describe Certificate Details:**
+   For each certificate, get detailed information including the expiration date.
+   ```sh
+   aws acm describe-certificate --certificate-arn <certificate-arn>
+   ```
+
+3. **Monitor Expiration Dates:**
+   Implement a monitoring script or use AWS CloudWatch to set up an alarm for certificates that are within 30 days of expiration. This can be done using a combination of AWS CLI and CloudWatch.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ACM-Certificate-Expiration" --metric-name "DaysToExpiry" --namespace "AWS/ACM" --statistic "Minimum" --period 86400 --threshold 30 --comparison-operator "LessThanThreshold" --dimensions Name=CertificateArn,Value=<certificate-arn> --evaluation-periods 1 --alarm-actions <sns-topic-arn>
+   ```
+
+4. **Automate Certificate Renewal:**
+   Use AWS CLI to request a new certificate and update the API Gateway with the new certificate ARN before the old one expires.
+   ```sh
+   aws acm request-certificate --domain-name <your-domain-name> --validation-method DNS
+   aws apigateway update-domain-name --domain-name <your-domain-name> --patch-operations op=replace,path=/certificateArn,value=<new-certificate-arn>
+   ```
+
+By following these steps, you can ensure that your ACM certificates are renewed well before they are within 7 days of expiration, thus preventing any potential disruptions in your API Gateway services.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS ACM Certificates from being within 7 days of expiration in API Gateway using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+Ensure you have Boto3 installed and configured with the necessary permissions to access ACM and API Gateway.
+
+```bash
+pip install boto3
+```
+
+### 2. **List ACM Certificates**
+Create a Python script to list all ACM certificates and check their expiration dates.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize a session using Amazon ACM
+acm_client = boto3.client('acm')
+
+# Get the current date
+current_date = datetime.utcnow()
+
+# List all ACM certificates
+certificates = acm_client.list_certificates()
+
+# Check each certificate's expiration date
+for cert in certificates['CertificateSummaryList']:
+    cert_details = acm_client.describe_certificate(CertificateArn=cert['CertificateArn'])
+    expiration_date = cert_details['Certificate']['NotAfter']
+    
+    # Calculate the difference in days
+    days_to_expire = (expiration_date - current_date).days
+    
+    if days_to_expire < 7:
+        print(f"Certificate {cert['CertificateArn']} is expiring in {days_to_expire} days.")
+```
+
+### 3. **Automate Certificate Renewal**
+If a certificate is found to be expiring within 7 days, automate the renewal process.
+
+```python
+# Function to renew a certificate
+def renew_certificate(cert_arn):
+    response = acm_client.renew_certificate(CertificateArn=cert_arn)
+    return response
+
+# Renew certificates that are expiring within 7 days
+for cert in certificates['CertificateSummaryList']:
+    cert_details = acm_client.describe_certificate(CertificateArn=cert['CertificateArn'])
+    expiration_date = cert_details['Certificate']['NotAfter']
+    days_to_expire = (expiration_date - current_date).days
+    
+    if days_to_expire < 7:
+        renew_response = renew_certificate(cert['CertificateArn'])
+        print(f"Renewed certificate {cert['CertificateArn']}: {renew_response}")
+```
+
+### 4. **Update API Gateway with New Certificate**
+After renewing the certificate, update the API Gateway to use the new certificate.
+
+```python
+# Initialize a session using Amazon API Gateway
+apigateway_client = boto3.client('apigateway')
+
+# Function to update API Gateway with new certificate
+def update_api_gateway(domain_name, new_cert_arn):
+    response = apigateway_client.update_domain_name(
+        domainName=domain_name,
+        patchOperations=[
+            {
+                'op': 'replace',
+                'path': '/certificateArn',
+                'value': new_cert_arn
+            }
+        ]
+    )
+    return response
+
+# Example: Update API Gateway with the new certificate
+domain_name = 'example.com'  # Replace with your domain name
+new_cert_arn = 'arn:aws:acm:region:account-id:certificate/new-certificate-id'  # Replace with your new certificate ARN
+update_response = update_api_gateway(domain_name, new_cert_arn)
+print(f"Updated API Gateway for domain {domain_name} with new certificate: {update_response}")
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **List ACM Certificates**: Create a script to list and check expiration dates.
+3. **Automate Certificate Renewal**: Renew certificates expiring within 7 days.
+4. **Update API Gateway with New Certificate**: Update API Gateway to use the renewed certificate.
+
+By following these steps, you can automate the process of preventing ACM certificates from expiring within 7 days in API Gateway using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Cause'>
 ### Check Cause
 <AccordionGroup>
