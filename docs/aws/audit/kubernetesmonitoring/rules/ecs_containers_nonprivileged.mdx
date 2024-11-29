@@ -23,6 +23,260 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Tasks from being configured to run as non-privileged in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Navigate to ECS Cluster:**
+   - Open the AWS Management Console.
+   - Go to the ECS service by searching for "ECS" in the search bar.
+   - Select the ECS cluster where your tasks are running.
+
+2. **Edit Task Definition:**
+   - In the ECS cluster, go to the "Task Definitions" tab.
+   - Select the task definition you want to modify.
+   - Click on the "Create new revision" button to edit the task definition.
+
+3. **Configure Container Definitions:**
+   - In the task definition, scroll down to the "Container Definitions" section.
+   - Select the container you want to configure.
+   - Scroll down to the "Security" section within the container configuration.
+
+4. **Set Non-Privileged Mode:**
+   - Ensure that the "Privileged" checkbox is unchecked. This ensures that the container does not run in privileged mode.
+   - Save the changes and create the new revision of the task definition.
+
+By following these steps, you can ensure that your ECS tasks are configured to run as non-privileged, enhancing the security of your Kubernetes environment on AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS tasks from running as privileged in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Kubernetes Pod Security Policy (PSP):**
+   Ensure that you have a Pod Security Policy that restricts the use of privileged containers. This policy will prevent any pod from running with elevated privileges.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: policy/v1beta1
+   kind: PodSecurityPolicy
+   metadata:
+     name: restricted-psp
+   spec:
+     privileged: false
+     allowPrivilegeEscalation: false
+     runAsUser:
+       rule: 'MustRunAsNonRoot'
+     seLinux:
+       rule: 'RunAsAny'
+     supplementalGroups:
+       rule: 'MustRunAs'
+       ranges:
+       - min: 1
+         max: 65535
+     fsGroup:
+       rule: 'MustRunAs'
+       ranges:
+       - min: 1
+         max: 65535
+   EOF
+   ```
+
+2. **Create a ClusterRole for the PSP:**
+   Create a ClusterRole that grants access to use the Pod Security Policy.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: rbac.authorization.k8s.io/v1
+   kind: ClusterRole
+   metadata:
+     name: psp-user
+   rules:
+   - apiGroups: ['policy']
+     resources: ['podsecuritypolicies']
+     verbs: ['use']
+     resourceNames: ['restricted-psp']
+   EOF
+   ```
+
+3. **Bind the ClusterRole to a ServiceAccount:**
+   Bind the ClusterRole to a ServiceAccount that your ECS tasks will use. This ensures that the tasks adhere to the Pod Security Policy.
+
+   ```sh
+   kubectl create serviceaccount ecs-task-sa
+   kubectl create clusterrolebinding ecs-task-psp-binding --clusterrole=psp-user --serviceaccount=default:ecs-task-sa
+   ```
+
+4. **Configure ECS Task Definition to Use the ServiceAccount:**
+   When defining your ECS task, ensure that it uses the ServiceAccount created in the previous step. This can be done by specifying the `serviceAccountName` in your pod spec.
+
+   ```sh
+   cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: ecs-task-pod
+   spec:
+     serviceAccountName: ecs-task-sa
+     containers:
+     - name: ecs-task-container
+       image: your-ecs-task-image
+       securityContext:
+         runAsUser: 1000
+         runAsNonRoot: true
+         allowPrivilegeEscalation: false
+   EOF
+   ```
+
+By following these steps, you ensure that your ECS tasks are configured to run as non-privileged in Kubernetes using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS tasks from running as privileged in Kubernetes using Python scripts, you can use the Kubernetes Python client library to ensure that the security context of your pods and containers is set correctly. Below are the steps to achieve this:
+
+1. **Install Kubernetes Python Client:**
+   First, you need to install the Kubernetes Python client library if you haven't already.
+
+   ```bash
+   pip install kubernetes
+   ```
+
+2. **Load Kubernetes Configuration:**
+   Load the Kubernetes configuration to interact with the cluster. This can be done using the `config` module from the Kubernetes client.
+
+   ```python
+   from kubernetes import client, config
+
+   # Load the kubeconfig file
+   config.load_kube_config()
+   ```
+
+3. **Define the Security Context:**
+   Create a security context that ensures the container is not running as privileged.
+
+   ```python
+   security_context = client.V1SecurityContext(
+       privileged=False
+   )
+   ```
+
+4. **Create or Update Pod Specification:**
+   Apply the security context to your pod or container specification. Here is an example of how to create a pod with the non-privileged security context.
+
+   ```python
+   # Define the container with the security context
+   container = client.V1Container(
+       name="my-container",
+       image="my-image",
+       security_context=security_context
+   )
+
+   # Define the pod spec
+   pod_spec = client.V1PodSpec(
+       containers=[container]
+   )
+
+   # Define the pod metadata
+   metadata = client.V1ObjectMeta(
+       name="my-pod"
+   )
+
+   # Define the pod
+   pod = client.V1Pod(
+       api_version="v1",
+       kind="Pod",
+       metadata=metadata,
+       spec=pod_spec
+   )
+
+   # Create the pod in the specified namespace
+   api_instance = client.CoreV1Api()
+   namespace = "default"
+   api_instance.create_namespaced_pod(namespace=namespace, body=pod)
+   ```
+
+By following these steps, you can ensure that your ECS tasks in Kubernetes are configured to run as non-privileged using Python scripts. This approach helps in preventing potential security risks associated with running containers in privileged mode.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes services are running.
+
+3. Select the task definition that you want to inspect. Task definitions are the blueprint of your application and contain settings like which Docker image to use, how much CPU and memory to allocate, etc.
+
+4. In the task definition details, look for the "User" field under the "Docker Labels" section. If this field is not set or is set to "root", then the task is running as a privileged user.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will need to provide your AWS access key ID, secret access key, default region name, and default output format.
+
+2. Once the AWS CLI is set up, you can list all the running ECS tasks in your AWS account using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs.
+
+3. For each task ARN in the list, describe the task to get more information about it. You can do this using the following command:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object that contains information about the task.
+
+4. In the returned JSON object, look for the "containerDefinitions" section. This section contains a list of container definitions for the task. For each container definition, check the "privileged" field. If this field is set to true, then the container is running as privileged. If it's set to false or not present, then the container is running as non-privileged.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries in Python. You will need the Kubernetes client library to interact with the Kubernetes API.
+
+```python
+from kubernetes import client, config
+```
+
+2. Load the Kubernetes configuration. This can be done in two ways: either from a kubeconfig file or from within a Pod. The kubeconfig file is usually located at `~/.kube/config`.
+
+```python
+config.load_kube_config()
+```
+
+3. Create an instance of the `CoreV1Api` class, which provides methods for interacting with the core V1 Kubernetes API.
+
+```python
+v1 = client.CoreV1Api()
+```
+
+4. Iterate over all the Pods in the cluster and check the security context of each container. If the `runAsNonRoot` field is not set to `True`, then the container is running as a privileged user.
+
+```python
+def check_privileged_pods():
+    ret = v1.list_pod_for_all_namespaces(watch=False)
+    for i in ret.items:
+        for j in i.spec.containers:
+            if j.security_context is None or j.security_context.run_as_non_root is None or not j.security_context.run_as_non_root:
+                print("Pod {} in namespace {} is running as a privileged user".format(i.metadata.name, i.metadata.namespace))
+
+check_privileged_pods()
+```
+
+This script will print out the names and namespaces of all Pods that are running as a privileged user. If no such Pods exist, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
