@@ -1,6 +1,229 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of AWS Config Log File Delivery in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Enable AWS Config:**
+   - Open the AWS Management Console and navigate to the AWS Config service.
+   - Click on "Get started" if AWS Config is not already enabled.
+   - Select the resources you want AWS Config to record, including Route 53.
+
+2. **Set Up Delivery Channel:**
+   - In the AWS Config console, go to the "Delivery channels" section.
+   - Click on "Add delivery channel" or "Edit" if a delivery channel already exists.
+   - Specify an S3 bucket where AWS Config will deliver configuration snapshots and configuration history files. Ensure the bucket has the appropriate permissions.
+
+3. **Configure SNS Topic (Optional but Recommended):**
+   - In the same "Delivery channels" section, you can specify an Amazon SNS topic to receive notifications about configuration changes.
+   - Create an SNS topic if you don't have one, and subscribe to it to receive notifications.
+
+4. **Review and Save:**
+   - Review your settings to ensure that the S3 bucket and SNS topic (if configured) are correctly set up.
+   - Click "Save" to apply the changes.
+
+By following these steps, you ensure that AWS Config is properly set up to deliver log files, including those related to Route 53, to the specified S3 bucket, thereby preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of AWS Config Log File Delivery in Route 53 using AWS CLI, follow these steps:
+
+1. **Create an S3 Bucket for AWS Config Logs:**
+   Ensure you have an S3 bucket where AWS Config can deliver its logs. If you don't have one, create it using the following command:
+   ```sh
+   aws s3api create-bucket --bucket my-config-logs-bucket --region us-east-1
+   ```
+
+2. **Set Up the S3 Bucket Policy:**
+   Configure the bucket policy to allow AWS Config to write logs to the bucket. Create a JSON policy file (e.g., `bucket-policy.json`) with the necessary permissions:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "config.amazonaws.com"
+         },
+         "Action": "s3:PutObject",
+         "Resource": "arn:aws:s3:::my-config-logs-bucket/AWSLogs/your-account-id/*"
+       }
+     ]
+   }
+   ```
+   Apply the policy using the following command:
+   ```sh
+   aws s3api put-bucket-policy --bucket my-config-logs-bucket --policy file://bucket-policy.json
+   ```
+
+3. **Create an IAM Role for AWS Config:**
+   Create an IAM role that AWS Config can assume to deliver logs. Create a trust policy file (e.g., `trust-policy.json`):
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "config.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }
+   ```
+   Create the role using the following command:
+   ```sh
+   aws iam create-role --role-name AWSConfigRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+4. **Attach the Necessary Policies to the IAM Role:**
+   Attach the AWS managed policy `AmazonS3FullAccess` to the role to allow AWS Config to write to the S3 bucket:
+   ```sh
+   aws iam attach-role-policy --role-name AWSConfigRole --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+   ```
+
+By following these steps, you ensure that AWS Config has the necessary permissions and resources to deliver its log files to an S3 bucket, thereby preventing misconfigurations related to log file delivery in Route 53.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of AWS Config Log File Delivery in Route53 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create an S3 Bucket for AWS Config Logs:**
+   - AWS Config needs an S3 bucket to store its logs. You can create an S3 bucket using Boto3.
+   ```python
+   import boto3
+
+   s3 = boto3.client('s3')
+   bucket_name = 'my-config-logs-bucket'
+   
+   s3.create_bucket(Bucket=bucket_name)
+   ```
+
+3. **Set Up AWS Config to Deliver Logs to the S3 Bucket:**
+   - Configure AWS Config to deliver logs to the S3 bucket you created.
+   ```python
+   config = boto3.client('config')
+
+   delivery_channel = {
+       'name': 'default',
+       's3BucketName': bucket_name,
+       'configSnapshotDeliveryProperties': {
+           'deliveryFrequency': 'One_Hour'
+       }
+   }
+
+   config.put_delivery_channel(DeliveryChannel=delivery_channel)
+   ```
+
+4. **Enable AWS Config for Route53:**
+   - Ensure AWS Config is enabled for Route53 to track changes and deliver logs.
+   ```python
+   config_recorder = {
+       'name': 'default',
+       'roleARN': 'arn:aws:iam::YOUR_ACCOUNT_ID:role/service-role/AWSConfigRole',
+       'recordingGroup': {
+           'allSupported': True,
+           'includeGlobalResourceTypes': True
+       }
+   }
+
+   config.put_configuration_recorder(ConfigurationRecorder=config_recorder)
+   config.start_configuration_recorder(ConfigurationRecorderName='default')
+   ```
+
+By following these steps, you ensure that AWS Config is properly set up to deliver log files to an S3 bucket, which helps in preventing misconfigurations in Route53. Make sure to replace `'arn:aws:iam::YOUR_ACCOUNT_ID:role/service-role/AWSConfigRole'` with the actual ARN of the IAM role that AWS Config will use.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the AWS Config console at https://console.aws.amazon.com/config/.
+
+2. In the AWS Management Console menu, click on "Services" and then navigate to "Route 53".
+
+3. In the Route 53 dashboard, click on "Hosted zones" in the left navigation pane.
+
+4. Select the hosted zone for which you want to check the AWS Config log file delivery. If AWS Config log file delivery is configured, you should see a record set with the name "_awsconfig" and type "CNAME". If this record set is not present, then AWS Config log file delivery is not configured for this hosted zone.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Route53 and AWS Config services.
+
+2. Once the AWS CLI is installed and configured, you can use the following command to list all the hosted zones in your AWS account:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+   This command will return a list of all the hosted zones along with their details.
+
+3. For each hosted zone, you can use the following command to list all the resource record sets:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <HostedZoneId>
+   ```
+
+   Replace `<HostedZoneId>` with the ID of the hosted zone. This command will return a list of all the resource record sets in the specified hosted zone.
+
+4. To check if AWS Config log file deliverity is configured for a resource record set, you can use the following command:
+
+   ```
+   aws configservice describe-delivery-channels --delivery-channel-names <DeliveryChannelName>
+   ```
+
+   Replace `<DeliveryChannelName>` with the name of the delivery channel. This command will return the details of the specified delivery channel. If the `s3BucketName` field is not empty, it means that AWS Config log file deliverity is configured for the resource record set.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can do this by running the command `pip install boto3` in your terminal.
+
+2. Import the necessary libraries and initialize the AWS client. Here's a basic setup:
+
+```python
+import boto3
+
+# Create AWS Config client
+client = boto3.client('config')
+```
+
+3. Now, you can use the `describe_delivery_channel_status` function to check the status of the delivery channels. This function returns a list of delivery channel objects and their statuses. Here's how you can do it:
+
+```python
+response = client.describe_delivery_channel_status(
+    DeliveryChannelNames=[
+        'string',
+    ]
+)
+```
+
+4. Finally, you can iterate over the response and check if the `configSnapshotDeliveryInfo` attribute's `lastStatus` is `SUCCESS`. If it's not, then the log file delivery is not configured properly. Here's how you can do it:
+
+```python
+for channel in response['DeliveryChannelsStatus']:
+    if channel['configSnapshotDeliveryInfo']['lastStatus'] != 'SUCCESS':
+        print(f"Delivery channel {channel['name']} is not configured properly.")
+```
+
+This script will print the names of all delivery channels that are not configured properly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
