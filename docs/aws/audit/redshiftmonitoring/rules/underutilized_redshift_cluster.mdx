@@ -24,6 +24,102 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon Redshift console at https://console.aws.amazon.com/redshift/.
+
+2. In the navigation pane, choose "Clusters". This will display a list of all your Redshift clusters.
+
+3. Select the cluster that you want to check for underutilization. This will open the cluster details page.
+
+4. In the cluster details page, check the "Performance" tab. Here, you can see various metrics related to the cluster's performance such as CPU Utilization, Database Connections, and Query Performance. If the CPU Utilization is consistently low (for example, below 20%) and the Database Connections are not many, it indicates that the cluster may be underutilized.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured with the necessary permissions. You can install it using pip:
+   ```
+   pip install awscli
+   ```
+   Then configure it using:
+   ```
+   aws configure
+   ```
+   You'll be asked to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. **List all Redshift Clusters**: Use the following command to list all the Redshift clusters:
+   ```
+   aws redshift describe-clusters
+   ```
+   This command will return a JSON output with details of all the Redshift clusters.
+
+3. **Check the Performance Metrics**: For each cluster, you need to check the performance metrics to determine if it's underutilized. You can use the following command to get the performance metrics:
+   ```
+   aws cloudwatch get-metric-statistics --namespace "AWS/Redshift" --metric-name "CPUUtilization" --dimensions Name=ClusterIdentifier,Value=<your-cluster-identifier> --start-time <start-time> --end-time <end-time> --period 3600 --statistics "Average" --unit "Percent"
+   ```
+   Replace `<your-cluster-identifier>`, `<start-time>`, and `<end-time>` with your actual cluster identifier and the time period for which you want to check the metrics. This command will return the average CPU utilization for the specified period.
+
+4. **Analyze the Output**: If the CPU utilization is consistently low (for example, less than 20%) over a long period of time (for example, over the past month), it indicates that the Redshift cluster is underutilized. You might want to consider downsizing the cluster or shutting it down to save costs.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Create a Python script that uses Boto3 to interact with the AWS Redshift service. The script will list all the Redshift clusters and their performance data.
+
+```python
+import boto3
+
+def list_clusters():
+    client = boto3.client('redshift')
+    response = client.describe_clusters()
+    return response['Clusters']
+
+def get_cluster_performance(cluster_identifier):
+    client = boto3.client('cloudwatch')
+    response = client.get_metric_statistics(
+        Namespace='AWS/Redshift',
+        MetricName='CPUUtilization',
+        Dimensions=[
+            {
+                'Name': 'ClusterIdentifier',
+                'Value': cluster_identifier
+            },
+        ],
+        StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+        EndTime=datetime.datetime.utcnow(),
+        Period=60,
+        Statistics=[
+            'Average',
+        ],
+    )
+    return response['Datapoints']
+```
+
+3. Iterate over each cluster and check its CPU utilization. If the CPU utilization is consistently low, the cluster may be underutilized.
+
+```python
+clusters = list_clusters()
+for cluster in clusters:
+    performance = get_cluster_performance(cluster['ClusterIdentifier'])
+    average_cpu_utilization = sum([datapoint['Average'] for datapoint in performance]) / len(performance)
+    if average_cpu_utilization < 20:  # adjust this threshold as needed
+        print(f"Cluster {cluster['ClusterIdentifier']} is underutilized")
+```
+
+4. Run the script regularly (e.g., as a cron job) to monitor your Redshift clusters. Adjust the CPU utilization threshold and the time period as needed to fit your use case. Remember that occasional low utilization is normal, but consistent low utilization indicates that the cluster is underutilized.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
