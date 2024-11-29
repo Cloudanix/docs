@@ -23,6 +23,115 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then selecting "EC2" under the "Compute" category.
+3. In the EC2 dashboard, select "Reserved Instances" from the left-hand menu. This will display a list of all your reserved instances.
+4. Check the "State" column for each reserved instance. If the state is "active", it means the reserved instance is in use. If the state is "retired" or "expired", it means the reserved instance is not in use.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all Reserved Instances: Use the following AWS CLI command to list all your Reserved Instances:
+
+   ```
+   aws ec2 describe-reserved-instances --query 'ReservedInstances[*].[ReservedInstancesId,State]' --output text
+   ```
+   This command will return a list of all your Reserved Instances along with their IDs and states. The state of a Reserved Instance can be either "active", "payment-pending", "payment-failed", "retired", or "queued-for-retirement".
+
+3. List all Running Instances: Use the following AWS CLI command to list all your running instances:
+
+   ```
+   aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+   This command will return a list of all your running instances along with their IDs.
+
+4. Compare the Lists: Now, you need to compare the list of Reserved Instances with the list of running instances. If a Reserved Instance is not in the list of running instances, it means that it is unused. You can do this comparison manually or you can write a script to do it for you.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+You also need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+2. Import the necessary libraries and establish a session with AWS:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Use the EC2 client from the session to describe your reserved instances:
+
+```python
+ec2 = session.client('ec2')
+
+response = ec2.describe_reserved_instances(
+    Filters=[
+        {
+            'Name': 'state',
+            'Values': [
+                'active',
+            ]
+        },
+    ]
+)
+```
+
+4. Check if the reserved instances are being used:
+
+```python
+for reserved_instance in response['ReservedInstances']:
+    instance_count = reserved_instance['InstanceCount']
+    instance_type = reserved_instance['InstanceType']
+    instance_state = reserved_instance['State']
+
+    instances_response = ec2.describe_instances(
+        Filters=[
+            {
+                'Name': 'instance-type',
+                'Values': [
+                    instance_type,
+                ]
+            },
+            {
+                'Name': 'instance-state-name',
+                'Values': [
+                    'running',
+                ]
+            },
+        ]
+    )
+
+    running_instance_count = sum([len(reservation['Instances']) for reservation in instances_response['Reservations']])
+
+    if running_instance_count < instance_count:
+        print(f"Reserved instance {reserved_instance['ReservedInstancesId']} of type {instance_type} is not fully utilized. Running instances: {running_instance_count}, Reserved instances: {instance_count}")
+```
+
+This script will print out the IDs of the reserved instances that are not fully utilized.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

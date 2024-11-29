@@ -1,6 +1,92 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, click on "AMIs" under the "Images" section in the left-hand navigation pane.
+3. Here, you will see a list of all the AMIs available in your account. Each AMI has a "Creation Date" associated with it.
+4. To check if the AMI age exceeds the configured age, compare the "Creation Date" of each AMI with the current date. If the difference exceeds the configured age, then the AMI has a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by using the command `pip install awscli`. After installation, you need to configure it with your AWS account using `aws configure` command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all AMIs: Use the following command to list all the AMIs available in your account. This command will return a JSON object containing all the AMIs.
+   ```
+   aws ec2 describe-images --owners self
+   ```
+
+3. Extract the creation date: From the JSON object returned in the previous step, you can extract the creation date of each AMI using the `jq` command. The following command will return the creation date of each AMI.
+   ```
+   aws ec2 describe-images --owners self | jq -r '.Images[] | .CreationDate'
+   ```
+
+4. Compare the creation date with the current date: Now, you can compare the creation date of each AMI with the current date to check if the AMI age exceeds the configured age. You can do this using a simple script. Here is an example of how you can do it in Python.
+   ```python
+   import datetime
+   import subprocess
+
+   # Get the current date
+   current_date = datetime.datetime.now()
+
+   # Get the creation date of each AMI
+   command = "aws ec2 describe-images --owners self | jq -r '.Images[] | .CreationDate'"
+   creation_dates = subprocess.check_output(command, shell=True)
+
+   # Compare the creation date with the current date
+   for creation_date in creation_dates.split('\n'):
+       creation_date = datetime.datetime.strptime(creation_date, '%Y-%m-%dT%H:%M:%S.%fZ')
+       age = (current_date - creation_date).days
+       if age > configured_age:
+           print("AMI age exceeds the configured age")
+   ```
+   Replace `configured_age` with the age you have configured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from datetime import datetime, timedelta
+```
+
+2. Create a session using your AWS credentials. Replace 'aws_access_key_id', 'aws_secret_access_key', and 'region_name' with your AWS credentials and the region you want to check.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create an EC2 resource object using the session from step 2. Then, get all the AMIs owned by your account.
+
+```python
+ec2_resource = session.resource('ec2')
+images = ec2_resource.images.filter(Owners=['self'])
+```
+
+4. Iterate over the images and check the creation date of each AMI. If the creation date is older than the configured age, print the AMI ID. Replace 'configured_age' with the maximum age you want for your AMIs.
+
+```python
+for image in images:
+    creation_date = image.creation_date
+    creation_date = datetime.strptime(creation_date, "%Y-%m-%dT%H:%M:%S.%fZ")
+    if creation_date < datetime.now() - timedelta(days=configured_age):
+        print(f"AMI {image.id} is older than the configured age.")
+```
+
+This script will print the IDs of all AMIs that are older than the configured age.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

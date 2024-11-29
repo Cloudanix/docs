@@ -1,6 +1,72 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select "Security Groups" under the "Network & Security" section.
+3. In the Security Groups page, select the security group associated with your MongoDB instance.
+4. In the details pane, check the inbound rules for the security group. If there are any rules that allow inbound traffic from 0.0.0.0/0 (all IP addresses) to port 27017 (the default port for MongoDB), then unrestricted MongoDB access is allowed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the security groups in your AWS environment. You can do this by using the following AWS CLI command:
+
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+   ```
+   This command will return a list of all security group IDs.
+
+2. Next, for each security group, you need to check the inbound rules to see if there are any rules that allow unrestricted access to MongoDB. MongoDB typically uses port 27017, so you need to look for rules that allow traffic on this port. You can do this by using the following AWS CLI command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <Security_Group_ID> --query 'SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}' --output text
+   ```
+   Replace `<Security_Group_ID>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
+
+3. Check the output of the previous command. If you see a rule that allows traffic from 0.0.0.0/0 (which means all IP addresses) on port 27017, then this means that unrestricted MongoDB access is allowed.
+
+4. Repeat steps 2 and 3 for each security group in your AWS environment. If you have many security groups, you may want to automate this process by writing a script.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. You will need the `boto3` library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Establish a session: The next step is to establish a session with AWS. You will need your access key, secret access key, and the region. Here is a sample script:
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ec2 = session.resource('ec2')
+   ```
+
+3. Get the security groups: Now, you can get the security groups and check if they allow unrestricted access to MongoDB. MongoDB uses port 27017, so you need to check if this port is open to the world (0.0.0.0/0). Here is a sample script:
+
+   ```python
+   for security_group in ec2.security_groups.all():
+       for permission in security_group.ip_permissions:
+           for ip_range in permission['IpRanges']:
+               if '0.0.0.0/0' in ip_range['CidrIp'] and permission['FromPort'] <= 27017 and permission['ToPort'] >= 27017:
+                   print(f"Security group {security_group.id} allows unrestricted MongoDB access.")
+   ```
+
+4. Run the script: Finally, you can run the script. If there are any security groups that allow unrestricted MongoDB access, they will be printed out. If there are no such security groups, nothing will be printed out. This script only checks for IPv4 addresses. If you also want to check for IPv6 addresses, you need to check the 'Ipv6Ranges' field in the same way.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

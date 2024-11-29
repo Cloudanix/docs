@@ -1,6 +1,78 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the left navigation pane, under the "Network & Security" section, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all the security groups associated with your EC2 instances. Click on the security group that you want to check.
+4. In the details pane at the bottom, click on the "Inbound rules" tab. Here, you can see all the inbound rules associated with the selected security group. Check if there are any rules that allow unrestricted access (0.0.0.0/0) to the NetBIOS ports (TCP/UDP 137-139, TCP 445). If such rules exist, then NetBIOS access is unrestricted, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EC2 instances and security groups.
+
+2. Once the AWS CLI is set up, you can list all the security groups in your AWS account using the following command:
+
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId]' --output text
+   ```
+
+3. For each security group, you can describe the rules to check if there is any unrestricted access to NetBIOS. NetBIOS uses TCP/UDP ports 137, 138, and 139. You can use the following command to check the inbound rules:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*].[FromPort,ToPort,IpRanges]' --output text
+   ```
+
+4. If the output of the above command includes 0.0.0.0/0 (which means unrestricted access) for the ports 137, 138, or 139, then it means that unrestricted NetBIOS access is allowed. You should review these security groups and update the rules to restrict the access as necessary.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can set up your AWS credentials in several ways, but the simplest is to use the AWS CLI tool to configure them:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to check for unrestricted NetBIOS access: The script will use Boto3 to interact with the AWS EC2 service, retrieve all security groups, and check if they have unrestricted access to NetBIOS (port 139 and 445). Here is a simple script:
+
+```python
+import boto3
+
+def check_unrestricted_netbios_access():
+    ec2 = boto3.resource('ec2')
+    security_groups = ec2.security_groups.all()
+
+    for sg in security_groups:
+        for permission in sg.ip_permissions:
+            for ip_range in permission['IpRanges']:
+                if '0.0.0.0/0' in ip_range['CidrIp']:
+                    if permission['FromPort'] in [139, 445] and permission['ToPort'] in [139, 445]:
+                        print(f"Security Group {sg.id} has unrestricted NetBIOS access.")
+
+check_unrestricted_netbios_access()
+```
+
+4. Run the script: You can run the script using any Python interpreter. The script will print out the IDs of any security groups that have unrestricted NetBIOS access.
+
+```bash
+python check_netbios.py
+```
+
+Please note that this script only checks for IPv4 unrestricted access. If you want to check for IPv6 as well, you would need to modify the script to also check the 'Ipv6Ranges' field in the ip_permissions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

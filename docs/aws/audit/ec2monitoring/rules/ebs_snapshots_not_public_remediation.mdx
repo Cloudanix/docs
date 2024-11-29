@@ -1,6 +1,96 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under 'Elastic Block Store', click 'Snapshots'.
+
+3. In the 'Snapshots' page, select the snapshot that you want to check.
+
+4. In the 'Description' tab at the bottom of the page, look for the 'Permissions' field. If the 'Permissions' field is set to 'Public', then the selected EC2 snapshot is publicly accessible, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all snapshots: Use the following AWS CLI command to list all the snapshots in your AWS account:
+
+   ```
+   aws ec2 describe-snapshots --owner-ids 'your_aws_account_id'
+   ```
+
+   Replace 'your_aws_account_id' with your actual AWS account ID. This command will return a JSON output with details of all the snapshots.
+
+3. Check the permissions of each snapshot: In the JSON output, look for the 'SnapshotId' and 'CreateVolumePermissions' fields. If the 'CreateVolumePermissions' field is empty, it means the snapshot is private. If it contains 'all' or a specific AWS account ID, it means the snapshot is public or shared with a specific AWS account respectively.
+
+4. Use a script to automate the process: If you have many snapshots and want to automate the process, you can use a Python script with the boto3 library (AWS SDK for Python) to list all snapshots and check their permissions. Here is a simple example:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   for snapshot in ec2.snapshots.filter(OwnerIds=['your_aws_account_id']):
+       permissions = snapshot.describe_attribute(Attribute='createVolumePermission')
+       if permissions['CreateVolumePermissions']:
+           print(f"Snapshot {snapshot.id} is public or shared")
+       else:
+           print(f"Snapshot {snapshot.id} is private")
+   ```
+
+   Replace 'your_aws_account_id' with your actual AWS account ID. This script will print the ID of each snapshot and whether it is public or private.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The AWS SDK for Python (Boto3) allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can configure it in several ways, but the simplest way is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. Write the Python script: Now you can write a Python script that uses Boto3 to check if EC2 instance snapshots are public. Here's a simple script that does this:
+
+   ```python
+   import boto3
+
+   def check_public_snapshots():
+       ec2 = boto3.resource('ec2')
+       snapshots = ec2.snapshots.filter(OwnerIds=['self'])
+       for snapshot in snapshots:
+           for perm in snapshot.get('Permissions'):
+               if perm['Group'] == 'all':
+                   print(f"Snapshot {snapshot.id} is public")
+
+   if __name__ == "__main__":
+       check_public_snapshots()
+   ```
+
+   This script first creates a connection to the EC2 service. Then it retrieves all snapshots that belong to the current AWS account. For each snapshot, it checks the permissions. If the 'all' group has permissions, it means the snapshot is public, and the script prints a warning message.
+
+4. Run the Python script: Finally, you can run the Python script using the Python interpreter:
+
+   ```bash
+   python check_public_snapshots.py
+   ```
+
+   If there are any public snapshots, you will see warning messages in the console. If there are no messages, it means all your snapshots are private.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
