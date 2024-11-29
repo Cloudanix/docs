@@ -1,6 +1,222 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused Customer Master Keys (CMKs) in AWS Key Management Service (KMS) using the AWS Management Console, follow these steps:
+
+1. **Access the KMS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the KMS service by typing "KMS" in the search bar and selecting "Key Management Service" from the results.
+
+2. **Identify Unused Keys:**
+   - In the KMS dashboard, click on "Customer managed keys" in the left-hand menu.
+   - Review the list of keys and look for keys that have not been used recently. You can check the "Last used" column to identify keys that have not been used for a significant period.
+
+3. **Enable Key Rotation:**
+   - For keys that are still needed but not frequently used, consider enabling automatic key rotation to ensure they remain secure.
+   - Select the key, click on the "Key actions" dropdown, and choose "Enable key rotation."
+
+4. **Tagging and Documentation:**
+   - Tag your keys with relevant information such as the purpose, owner, and creation date to keep track of their usage and lifecycle.
+   - Select the key, go to the "Tags" tab, and add appropriate tags.
+
+By following these steps, you can effectively manage and monitor your CMKs, ensuring that unused keys are identified and either repurposed or scheduled for deletion.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused Customer Master Keys (CMKs) in AWS Key Management Service (KMS) using AWS CLI, you can follow these steps:
+
+1. **List All CMKs:**
+   First, list all the CMKs in your account to identify which ones are currently in use and which ones are not.
+   ```sh
+   aws kms list-keys
+   ```
+
+2. **Describe Key Usage:**
+   For each CMK, describe the key to get detailed information, including its usage status.
+   ```sh
+   aws kms describe-key --key-id <key-id>
+   ```
+
+3. **Enable Key Rotation:**
+   Enable automatic key rotation for CMKs that are in use to ensure they are regularly updated and secure.
+   ```sh
+   aws kms enable-key-rotation --key-id <key-id>
+   ```
+
+4. **Tagging Keys:**
+   Tag your CMKs with metadata to indicate their purpose and usage status. This helps in identifying and managing keys more effectively.
+   ```sh
+   aws kms tag-resource --key-id <key-id> --tags TagKey=Usage,TagValue=Active
+   ```
+
+By following these steps, you can better manage your CMKs and ensure that unused keys are identified and can be removed if necessary.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused Customer Master Keys (CMKs) in AWS Key Management Service (KMS) using Python scripts, you can follow these steps:
+
+1. **List All CMKs**:
+   Use the AWS SDK for Python (Boto3) to list all the CMKs in your account. This will help you identify which keys are currently available.
+
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+
+   def list_all_keys():
+       keys = []
+       response = kms_client.list_keys()
+       keys.extend(response['Keys'])
+
+       while 'NextMarker' in response:
+           response = kms_client.list_keys(Marker=response['NextMarker'])
+           keys.extend(response['Keys'])
+
+       return keys
+
+   all_keys = list_all_keys()
+   print("All CMKs:", all_keys)
+   ```
+
+2. **Get Key Usage Information**:
+   For each key, get detailed information to determine if it is being used. You can check the key's metadata, including its creation date and last usage date.
+
+   ```python
+   def get_key_usage(key_id):
+       response = kms_client.describe_key(KeyId=key_id)
+       key_metadata = response['KeyMetadata']
+       return key_metadata
+
+   for key in all_keys:
+       key_id = key['KeyId']
+       key_metadata = get_key_usage(key_id)
+       print(f"Key ID: {key_id}, Last Used Date: {key_metadata.get('LastUsedDate')}")
+   ```
+
+3. **Identify Unused Keys**:
+   Compare the last usage date with a threshold (e.g., 90 days) to identify keys that have not been used recently.
+
+   ```python
+   from datetime import datetime, timedelta
+
+   def is_key_unused(key_metadata, days_threshold=90):
+       last_used_date = key_metadata.get('LastUsedDate')
+       if not last_used_date:
+           return True  # Key has never been used
+       threshold_date = datetime.now() - timedelta(days=days_threshold)
+       return last_used_date < threshold_date
+
+   unused_keys = []
+   for key in all_keys:
+       key_id = key['KeyId']
+       key_metadata = get_key_usage(key_id)
+       if is_key_unused(key_metadata):
+           unused_keys.append(key_id)
+
+   print("Unused CMKs:", unused_keys)
+   ```
+
+4. **Automate Key Deletion**:
+   Optionally, you can automate the deletion of these unused keys. Note that deleting keys is a sensitive operation and should be done with caution. Ensure you have backups and necessary approvals before proceeding.
+
+   ```python
+   def schedule_key_deletion(key_id, pending_window_in_days=30):
+       response = kms_client.schedule_key_deletion(
+           KeyId=key_id,
+           PendingWindowInDays=pending_window_in_days
+       )
+       return response
+
+   for key_id in unused_keys:
+       response = schedule_key_deletion(key_id)
+       print(f"Scheduled deletion for key {key_id}: {response}")
+   ```
+
+By following these steps, you can effectively identify and manage unused CMKs in AWS KMS using Python scripts. This helps in maintaining a clean and secure key management environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Key Management Service (KMS) dashboard by selecting "Services" from the top menu, then typing "KMS" into the search bar and selecting "Key Management Service" from the dropdown menu.
+3. In the KMS dashboard, select "Customer managed keys" from the left-hand menu. This will display a list of all customer master keys (CMKs) in your account.
+4. For each CMK, check the "Last accessed" column. If a key has not been accessed for a long period of time, it may be unused and could potentially be removed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access KMS.
+
+2. Once AWS CLI is installed and configured, you can list all the keys in your account by running the following command:
+
+   ```
+   aws kms list-keys
+   ```
+
+   This command will return a list of all the keys in your account, including their key IDs and ARNs.
+
+3. To check if a key is used or not, you can use the `list-key-policies` command. This command will return a list of all the policies attached to a key. If a key has no policies attached to it, it means it's not used. Here is the command:
+
+   ```
+   aws kms list-key-policies --key-id <your-key-id>
+   ```
+
+   Replace `<your-key-id>` with the ID of the key you want to check.
+
+4. If the `list-key-policies` command returns an empty list, it means the key is not used. However, to be sure, you can also check the key's rotation status. If the key is not rotated, it's another indication that it's not used. Here is the command to check the rotation status:
+
+   ```
+   aws kms get-key-rotation-status --key-id <your-key-id>
+   ```
+
+   Replace `<your-key-id>` with the ID of the key you want to check. If the command returns `false`, it means the key is not rotated and likely not used.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the 'boto3' library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can set your credentials for use by boto3 in several ways: through the AWS CLI, AWS IAM roles, or the AWS credentials file (`~/.aws/credentials`). 
+
+3. Write a Python script to list all the keys and their usage: You can use the 'list_keys' method provided by the 'boto3' library to list all the keys. Then, use the 'get_key_rotation_status' and 'list_key_policies' methods to check if the key is being used or not. Here is a sample script:
+
+   ```python
+   import boto3
+
+   # Create a client
+   kms = boto3.client('kms')
+
+   # List all keys
+   response = kms.list_keys()
+
+   # For each key, check its usage
+   for key in response['Keys']:
+       key_id = key['KeyId']
+       rotation_status = kms.get_key_rotation_status(KeyId=key_id)
+       key_policies = kms.list_key_policies(KeyId=key_id)
+
+       # If the key is not being used, print it
+       if not rotation_status['KeyRotationEnabled'] and not key_policies['PolicyNames']:
+           print(f"Unused key detected: {key_id}")
+   ```
+
+4. Run the Python script: Finally, run the Python script. It will print out the IDs of all unused keys. If no unused keys are detected, it will not print anything. This way, you can easily detect any unused Customer Master Keys in AWS KMS.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,286 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "Web-tier KMS Key Should Be In Use" in AWS KMS using the AWS Management Console, follow these steps:
+
+1. **Navigate to KMS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "KMS" and select "Key Management Service" from the results.
+
+2. **Create or Select a KMS Key:**
+   - If you don't have a KMS key, click on "Create a key" and follow the prompts to create a new key.
+   - If you already have a KMS key, select the appropriate key from the list.
+
+3. **Assign Key Policies:**
+   - Ensure that the key policy grants the necessary permissions to the IAM roles or users that will be using the key.
+   - Click on the key ID to view its details, then navigate to the "Key Policy" tab to review and edit the policy as needed.
+
+4. **Update Web-tier Resources to Use KMS Key:**
+   - Navigate to the services that make up your web-tier (e.g., EC2, RDS, S3).
+   - For each service, configure the encryption settings to use the KMS key you created or selected.
+     - For example, in S3, go to the bucket properties, and under "Default encryption," select "AWS-KMS" and choose your KMS key.
+     - For RDS, modify the instance and select the KMS key under the "Encryption" settings.
+
+By following these steps, you ensure that your web-tier resources are properly configured to use AWS KMS keys, enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not using a KMS key for your web-tier in AWS, you can follow these steps using the AWS CLI:
+
+1. **Create a KMS Key:**
+   First, create a KMS key that will be used to encrypt your web-tier resources.
+   ```sh
+   aws kms create-key --description "Web-tier KMS Key" --key-usage ENCRYPT_DECRYPT --origin AWS_KMS
+   ```
+
+2. **Create an Alias for the KMS Key:**
+   Create an alias for easier reference to the KMS key.
+   ```sh
+   aws kms create-alias --alias-name alias/web-tier-key --target-key-id <KMS_KEY_ID>
+   ```
+
+3. **Encrypt Web-tier Resources:**
+   Ensure that your web-tier resources (e.g., EBS volumes, S3 buckets) are encrypted using the KMS key. For example, to encrypt an EBS volume:
+   ```sh
+   aws ec2 create-volume --size 10 --region us-west-2 --availability-zone us-west-2a --volume-type gp2 --encrypted --kms-key-id alias/web-tier-key
+   ```
+
+4. **Update Resource Policies:**
+   Update the resource policies to enforce the use of the KMS key. For example, to update an S3 bucket policy to use the KMS key:
+   ```sh
+   aws s3api put-bucket-encryption --bucket <bucket_name> --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"aws:kms","KMSMasterKeyID":"alias/web-tier-key"}}]}'
+   ```
+
+By following these steps, you can ensure that your web-tier resources are properly encrypted using a KMS key, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not using a KMS key for your web-tier in AWS, Azure, and GCP using Python scripts, you can follow these steps:
+
+### AWS (Amazon Web Services)
+
+1. **Install Boto3 Library**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a KMS Key**:
+   ```python
+   import boto3
+
+   kms_client = boto3.client('kms')
+
+   response = kms_client.create_key(
+       Description='Web-tier KMS Key',
+       KeyUsage='ENCRYPT_DECRYPT',
+       Origin='AWS_KMS'
+   )
+
+   key_id = response['KeyMetadata']['KeyId']
+   print(f'Created KMS Key with ID: {key_id}')
+   ```
+
+3. **Attach Key Policy**:
+   ```python
+   policy = {
+       "Version": "2012-10-17",
+       "Id": "key-default-1",
+       "Statement": [
+           {
+               "Sid": "Enable IAM User Permissions",
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "arn:aws:iam::YOUR_ACCOUNT_ID:root"
+               },
+               "Action": "kms:*",
+               "Resource": "*"
+           }
+       ]
+   }
+
+   kms_client.put_key_policy(
+       KeyId=key_id,
+       PolicyName='default',
+       Policy=json.dumps(policy)
+   )
+   ```
+
+4. **Encrypt Data Using the KMS Key**:
+   ```python
+   plaintext = b'Your web-tier data'
+   response = kms_client.encrypt(
+       KeyId=key_id,
+       Plaintext=plaintext
+   )
+
+   ciphertext = response['CiphertextBlob']
+   print(f'Encrypted data: {ciphertext}')
+   ```
+
+### Azure (Microsoft Azure)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-identity azure-keyvault-keys
+   ```
+
+2. **Authenticate and Create a Key Vault Client**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.keyvault.keys import KeyClient
+
+   credential = DefaultAzureCredential()
+   key_vault_name = "your-key-vault-name"
+   key_vault_url = f"https://{key_vault_name}.vault.azure.net"
+
+   key_client = KeyClient(vault_url=key_vault_url, credential=credential)
+   ```
+
+3. **Create a KMS Key**:
+   ```python
+   key_name = "web-tier-key"
+   key = key_client.create_key(key_name, "RSA")
+   print(f'Created KMS Key with ID: {key.id}')
+   ```
+
+4. **Encrypt Data Using the KMS Key**:
+   ```python
+   from azure.keyvault.keys.crypto import CryptographyClient, EncryptionAlgorithm
+
+   crypto_client = CryptographyClient(key, credential)
+   plaintext = b'Your web-tier data'
+   result = crypto_client.encrypt(EncryptionAlgorithm.rsa_oaep, plaintext)
+   ciphertext = result.ciphertext
+   print(f'Encrypted data: {ciphertext}')
+   ```
+
+### GCP (Google Cloud Platform)
+
+1. **Install Google Cloud KMS Library**:
+   ```bash
+   pip install google-cloud-kms
+   ```
+
+2. **Authenticate and Create a KMS Client**:
+   ```python
+   from google.cloud import kms
+
+   client = kms.KeyManagementServiceClient()
+   ```
+
+3. **Create a Key Ring and Key**:
+   ```python
+   project_id = "your-project-id"
+   location_id = "global"
+   key_ring_id = "your-key-ring-id"
+   key_id = "web-tier-key"
+
+   key_ring_name = f"projects/{project_id}/locations/{location_id}/keyRings/{key_ring_id}"
+   key_ring = client.create_key_ring(request={"parent": f"projects/{project_id}/locations/{location_id}", "key_ring_id": key_ring_id})
+
+   key = client.create_crypto_key(
+       request={
+           "parent": key_ring_name,
+           "crypto_key_id": key_id,
+           "crypto_key": {
+               "purpose": kms.CryptoKey.CryptoKeyPurpose.ENCRYPT_DECRYPT,
+           },
+       }
+   )
+   print(f'Created KMS Key with ID: {key.name}')
+   ```
+
+4. **Encrypt Data Using the KMS Key**:
+   ```python
+   plaintext = b'Your web-tier data'
+   key_name = f"{key_ring_name}/cryptoKeys/{key_id}"
+   response = client.encrypt(request={"name": key_name, "plaintext": plaintext})
+   ciphertext = response.ciphertext
+   print(f'Encrypted data: {ciphertext}')
+   ```
+
+These steps will help you create and use KMS keys for your web-tier in AWS, Azure, and GCP using Python scripts, ensuring that your data is encrypted and secure.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Key Management Service (KMS) dashboard by selecting "Services" from the top menu, then typing "KMS" in the search box and selecting "Key Management Service" from the dropdown list.
+3. In the KMS dashboard, you will see a list of all your KMS keys. Check the "Key Usage" column for each key. If a key is not in use, it will be marked as "Not in use".
+4. To confirm whether a key is being used by the web-tier, you can check the "Key Users" column. If the web-tier is not listed as a user, then the key is not in use by the web-tier.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the KMS keys.
+
+2. Once the AWS CLI is set up, you can list all the KMS keys in your account by running the following command:
+   ```
+   aws kms list-keys --region your-region
+   ```
+   Replace 'your-region' with the region you want to check. This command will return a list of all KMS keys in the specified region.
+
+3. To check if a specific KMS key is in use, you can use the 'list-grants' command. Replace 'your-key-id' with the ID of the key you want to check:
+   ```
+   aws kms list-grants --key-id your-key-id
+   ```
+   This command will return a list of all grants for the specified key. If the list is empty, the key is not in use.
+
+4. To check if a KMS key is used by the web-tier, you need to check the resources that use this key. This can be done by checking the policies of the resources (like S3 buckets, EC2 instances, etc.) and see if they include the KMS key. This can be a complex task, as it involves checking multiple resources and their policies. You might need to write a script to automate this task.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) in your environment. This can be done using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Import the necessary libraries and initialize the AWS client: In your Python script, you need to import the boto3 library and initialize the AWS client for KMS.
+
+   ```python
+   import boto3
+
+   # Create a client
+   kms = boto3.client('kms')
+   ```
+
+3. List all KMS keys: Use the `list_keys` method to retrieve all KMS keys in your AWS account.
+
+   ```python
+   # List all keys
+   response = kms.list_keys()
+
+   # Extract the keys
+   keys = response['Keys']
+   ```
+
+4. Check if the keys are in use: For each key, use the `list_key_policies` method to check if the key is in use. If the key is not in use, print a message.
+
+   ```python
+   # Check if keys are in use
+   for key in keys:
+       policy_names = kms.list_key_policies(KeyId=key['KeyId'])['PolicyNames']
+       if not policy_names:
+           print(f"Key {key['KeyId']} is not in use.")
+   ```
+   
+This script will print out the IDs of all KMS keys that are not in use. Note that this script only checks if a key has any policies attached to it, which is a basic check. There might be more advanced checks necessary depending on your specific use case.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
