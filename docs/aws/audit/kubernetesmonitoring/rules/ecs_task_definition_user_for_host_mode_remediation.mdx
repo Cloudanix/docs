@@ -1,6 +1,106 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your tasks are running. 
+
+3. Once you've selected the cluster, navigate to the "Tasks" tab. Here, you will see a list of all the tasks running in your cluster.
+
+4. For each task, click on the task to view its details. In the task details, look for the "Network Mode" field. If the Network Mode is set to "host", this means the task is using the host's network stack and not its own. 
+
+5. After confirming the network mode, check the IAM role associated with the task. You can find this under the "Task Execution IAM Role" field. 
+
+6. Navigate to the IAM section of the AWS console and find the role you just identified. Check the permissions attached to this role. If the permissions are too broad or include permissions that the task does not need to function, this is a misconfiguration. 
+
+Remember, tasks running in host network mode have the same networking permissions as the host itself, so it's important to limit the permissions of these tasks to only what they need to function.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS tasks using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs.
+
+3. For each task ARN, describe the task to get its network mode. Use the following command:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object that includes the task's network mode.
+
+4. Check the "networkMode" field in the returned JSON. If it is set to "host", then the task is using host network mode. This is a potential misconfiguration as tasks with host network mode have the same network access as the host, which can lead to security issues if the task is compromised.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries in Python. You will need boto3 for AWS, azure-mgmt-resource for Azure, and google-cloud-resource-manager for GCP. 
+
+```python
+import boto3
+from azure.mgmt.resource import ResourceManagementClient
+from google.cloud import resource_manager
+```
+
+2. For AWS, create a session using your credentials and initialize the ECS client. Then, list all the task definitions and check their network mode. If it's 'host', check the permissions.
+
+```python
+session = boto3.Session(aws_access_key_id='YOUR_ACCESS_KEY',
+                        aws_secret_access_key='YOUR_SECRET_KEY',
+                        region_name='us-west-2')
+ecs_client = session.client('ecs')
+
+def check_task_permissions():
+    response = ecs_client.list_task_definitions()
+    for task in response['taskDefinitionArns']:
+        task_def = ecs_client.describe_task_definition(taskDefinition=task)
+        if task_def['taskDefinition']['networkMode'] == 'host':
+            # Check permissions here
+```
+
+3. For Azure, you need to authenticate and initialize the Kubernetes client. Then, list all the pods and check their network policy. If it's 'hostNetwork', check the permissions.
+
+```python
+credentials = ServicePrincipalCredentials(
+    client_id='YOUR_CLIENT_ID',
+    secret='YOUR_SECRET',
+    tenant='YOUR_TENANT_ID'
+)
+kubernetes_client = KubernetesClient(credentials, 'YOUR_SUBSCRIPTION_ID')
+
+def check_pod_permissions():
+    for pod in kubernetes_client.list_pods():
+        if pod.spec.host_network:
+            # Check permissions here
+```
+
+4. For GCP, you need to authenticate and initialize the Kubernetes Engine client. Then, list all the pods and check their network policy. If it's 'hostNetwork', check the permissions.
+
+```python
+client = resource_manager.Client()
+kubernetes_engine_client = client.kubernetes_engine()
+
+def check_pod_permissions():
+    for pod in kubernetes_engine_client.list_pods():
+        if pod.spec.host_network:
+            # Check permissions here
+```
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', 'YOUR_CLIENT_ID', 'YOUR_SECRET', 'YOUR_TENANT_ID', and 'YOUR_SUBSCRIPTION_ID' with your actual credentials. Also, the 'Check permissions here' comment is where you would add the code to check the permissions of the task or pod. This would depend on your specific requirements and is not included in this example.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
