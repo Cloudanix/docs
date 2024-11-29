@@ -24,6 +24,285 @@ HIPAA, NIST, AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent DynamoDB tables from not having autoscaling enabled using the AWS Management Console, follow these steps:
+
+1. **Navigate to DynamoDB:**
+   - Sign in to the AWS Management Console.
+   - In the Services menu, select **DynamoDB**.
+
+2. **Select the Table:**
+   - In the DynamoDB dashboard, click on **Tables** in the left-hand navigation pane.
+   - Select the table for which you want to enable autoscaling.
+
+3. **Configure Auto Scaling:**
+   - In the table details page, go to the **Capacity** tab.
+   - Under the **Read/Write Capacity Mode**, ensure that **Provisioned** is selected.
+   - Click on the **Manage Scaling Settings** button.
+
+4. **Enable Autoscaling:**
+   - In the Auto Scaling settings, check the boxes for **Read capacity** and **Write capacity** to enable autoscaling for both.
+   - Set the minimum and maximum capacity units and the target utilization percentage according to your requirements.
+   - Click **Save** to apply the changes.
+
+By following these steps, you can ensure that autoscaling is enabled for your DynamoDB tables, helping to prevent misconfigurations related to capacity management.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent DynamoDB tables from not having autoscaling enabled using AWS CLI, you can follow these steps:
+
+1. **Create a Target Tracking Scaling Policy for Read Capacity:**
+   Use the `aws application-autoscaling register-scalable-target` command to register a scalable target for the read capacity of your DynamoDB table.
+
+   ```sh
+   aws application-autoscaling register-scalable-target \
+       --service-namespace dynamodb \
+       --resource-id table/YourTableName \
+       --scalable-dimension dynamodb:table:ReadCapacityUnits \
+       --min-capacity 5 \
+       --max-capacity 100
+   ```
+
+2. **Create a Target Tracking Scaling Policy for Write Capacity:**
+   Similarly, register a scalable target for the write capacity of your DynamoDB table.
+
+   ```sh
+   aws application-autoscaling register-scalable-target \
+       --service-namespace dynamodb \
+       --resource-id table/YourTableName \
+       --scalable-dimension dynamodb:table:WriteCapacityUnits \
+       --min-capacity 5 \
+       --max-capacity 100
+   ```
+
+3. **Attach a Scaling Policy for Read Capacity:**
+   Use the `aws application-autoscaling put-scaling-policy` command to attach a scaling policy for the read capacity.
+
+   ```sh
+   aws application-autoscaling put-scaling-policy \
+       --service-namespace dynamodb \
+       --resource-id table/YourTableName \
+       --scalable-dimension dynamodb:table:ReadCapacityUnits \
+       --policy-name YourReadScalingPolicyName \
+       --policy-type TargetTrackingScaling \
+       --target-tracking-scaling-policy-configuration file://read-scaling-policy.json
+   ```
+
+   The `read-scaling-policy.json` file should contain the configuration for the target tracking scaling policy, for example:
+
+   ```json
+   {
+       "TargetValue": 70.0,
+       "PredefinedMetricSpecification": {
+           "PredefinedMetricType": "DynamoDBReadCapacityUtilization"
+       },
+       "ScaleOutCooldown": 60,
+       "ScaleInCooldown": 60
+   }
+   ```
+
+4. **Attach a Scaling Policy for Write Capacity:**
+   Similarly, attach a scaling policy for the write capacity.
+
+   ```sh
+   aws application-autoscaling put-scaling-policy \
+       --service-namespace dynamodb \
+       --resource-id table/YourTableName \
+       --scalable-dimension dynamodb:table:WriteCapacityUnits \
+       --policy-name YourWriteScalingPolicyName \
+       --policy-type TargetTrackingScaling \
+       --target-tracking-scaling-policy-configuration file://write-scaling-policy.json
+   ```
+
+   The `write-scaling-policy.json` file should contain the configuration for the target tracking scaling policy, for example:
+
+   ```json
+   {
+       "TargetValue": 70.0,
+       "PredefinedMetricSpecification": {
+           "PredefinedMetricType": "DynamoDBWriteCapacityUtilization"
+       },
+       "ScaleOutCooldown": 60,
+       "ScaleInCooldown": 60
+   }
+   ```
+
+By following these steps, you can ensure that your DynamoDB tables have autoscaling enabled for both read and write capacities using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent DynamoDB tables from being created without autoscaling enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that autoscaling is enabled for DynamoDB tables:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a DynamoDB Table with Autoscaling**:
+   Use Boto3 to create a DynamoDB table with autoscaling enabled. Below is a sample script to create a table with autoscaling for both read and write capacities:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon DynamoDB
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize DynamoDB and Application Auto Scaling clients
+   dynamodb = session.client('dynamodb')
+   application_autoscaling = session.client('application-autoscaling')
+
+   # Create a DynamoDB table
+   table_name = 'YourTableName'
+   dynamodb.create_table(
+       TableName=table_name,
+       KeySchema=[
+           {
+               'AttributeName': 'PrimaryKey',
+               'KeyType': 'HASH'
+           }
+       ],
+       AttributeDefinitions=[
+           {
+               'AttributeName': 'PrimaryKey',
+               'AttributeType': 'S'
+           }
+       ],
+       ProvisionedThroughput={
+           'ReadCapacityUnits': 5,
+           'WriteCapacityUnits': 5
+       }
+   )
+
+   # Register the table with Application Auto Scaling
+   resource_id = f'table/{table_name}'
+   for scaling_type in ['read', 'write']:
+       application_autoscaling.register_scalable_target(
+           ServiceNamespace='dynamodb',
+           ResourceId=resource_id,
+           ScalableDimension=f'dynamodb:table:{scaling_type}CapacityUnits',
+           MinCapacity=5,
+           MaxCapacity=100
+       )
+
+       # Create a scaling policy
+       application_autoscaling.put_scaling_policy(
+           PolicyName=f'{table_name}-{scaling_type}-autoscaling-policy',
+           ServiceNamespace='dynamodb',
+           ResourceId=resource_id,
+           ScalableDimension=f'dynamodb:table:{scaling_type}CapacityUnits',
+           PolicyType='TargetTrackingScaling',
+           TargetTrackingScalingPolicyConfiguration={
+               'TargetValue': 70.0,
+               'PredefinedMetricSpecification': {
+                   'PredefinedMetricType': 'DynamoDBReadCapacityUtilization' if scaling_type == 'read' else 'DynamoDBWriteCapacityUtilization'
+               },
+               'ScaleInCooldown': 60,
+               'ScaleOutCooldown': 60
+           }
+       )
+
+   print(f"DynamoDB table '{table_name}' created with autoscaling enabled.")
+   ```
+
+3. **Verify Autoscaling Configuration**:
+   After creating the table, you can verify that autoscaling is enabled by describing the scalable targets and policies:
+
+   ```python
+   response = application_autoscaling.describe_scalable_targets(
+       ServiceNamespace='dynamodb',
+       ResourceIds=[resource_id]
+   )
+   print(response)
+
+   response = application_autoscaling.describe_scaling_policies(
+       ServiceNamespace='dynamodb',
+       ResourceId=resource_id
+   )
+   print(response)
+   ```
+
+4. **Automate the Process**:
+   To ensure that all new DynamoDB tables have autoscaling enabled, you can automate the table creation process using the above script. You can also integrate this script into your CI/CD pipeline to enforce autoscaling policies on all newly created tables.
+
+By following these steps, you can ensure that all DynamoDB tables created using your Python scripts have autoscaling enabled, thereby preventing misconfigurations related to autoscaling.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the DynamoDB service by typing 'DynamoDB' into the search bar and selecting it from the dropdown menu.
+3. In the DynamoDB dashboard, select 'Tables' from the left-hand navigation pane.
+4. Select the table you want to check for autoscaling. This will open the table details page.
+5. In the table details page, select the 'Capacity' tab. Here, you can see whether autoscaling is enabled or not. If 'Read capacity' and 'Write capacity' are set to 'Provisioned', and 'Auto Scaling' for both read and write capacities are enabled, then autoscaling is enabled for the table. If not, then autoscaling is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the DynamoDB tables in your AWS account. You can do this by using the AWS CLI command `aws dynamodb list-tables`. This command will return a list of all the DynamoDB tables in your account.
+
+2. Once you have the list of tables, you can check the autoscaling settings for each table. This can be done using the AWS CLI command `aws application-autoscaling describe-scalable-targets --service-namespace dynamodb`. This command will return a list of all the scalable targets for DynamoDB in your account.
+
+3. From the output of the above command, you need to check the `ScalableDimension` field. If the value of this field is `dynamodb:table:ReadCapacityUnits` or `dynamodb:table:WriteCapacityUnits`, it means that autoscaling is enabled for read capacity or write capacity respectively.
+
+4. Finally, you need to check the `MinCapacity` and `MaxCapacity` fields. If the `MinCapacity` is not 0 or the `MaxCapacity` is not a high enough value, it means that autoscaling may not be properly configured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services including DynamoDB. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and establish a session with AWS using your access keys:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # specify the region you are interested in
+)
+```
+
+3. Create a DynamoDB resource object using the session object. Then, iterate over all the tables in your DynamoDB and check if autoscaling is enabled:
+
+```python
+dynamodb = session.resource('dynamodb')
+
+for table in dynamodb.tables.all():
+    try:
+        response = client.describe_table(
+            TableName=table.name
+        )
+        if 'ProvisionedThroughput' in response['Table']:
+            if response['Table']['ProvisionedThroughput']['ReadCapacityUnits'] != 'auto' or response['Table']['ProvisionedThroughput']['WriteCapacityUnits'] != 'auto':
+                print(f"Autoscaling is not enabled for table {table.name}")
+    except Exception as e:
+        print(f"Error checking table {table.name}: {e}")
+```
+
+4. The above script will print out the names of all DynamoDB tables that do not have autoscaling enabled. If no output is produced, that means all tables have autoscaling enabled. If there is an error while checking a table, the error message will be printed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

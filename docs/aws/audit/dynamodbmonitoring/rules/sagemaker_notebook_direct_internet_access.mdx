@@ -23,6 +23,277 @@ GDPR, HITRUST, SOC2
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Notebook Direct Internet Access in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to SageMaker Notebooks:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SageMaker" and select "Amazon SageMaker" from the results.
+   - In the SageMaker dashboard, click on "Notebook instances" under the "Notebook" section.
+
+2. **Modify Notebook Instance Settings:**
+   - Select the notebook instance you want to modify.
+   - Click on the "Actions" dropdown and select "Stop" to stop the notebook instance if it is running.
+   - Once the instance is stopped, click on the notebook instance name to open its details.
+
+3. **Disable Direct Internet Access:**
+   - In the notebook instance details page, click on the "Edit" button.
+   - In the "Network" section, set the "Direct internet access" option to "Disabled".
+   - Ensure that the notebook instance is associated with a VPC (Virtual Private Cloud) that has the necessary configurations to access DynamoDB without direct internet access.
+
+4. **Save Changes and Restart:**
+   - After making the changes, click on the "Save" button to apply the new settings.
+   - Go back to the notebook instance list, select the modified notebook instance, and click on "Actions" > "Start" to restart the instance with the updated configuration.
+
+By following these steps, you can ensure that your SageMaker notebook instances do not have direct internet access, thereby reducing the risk of unauthorized access to DynamoDB.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Notebook Direct Internet Access in DynamoDB using AWS CLI, you can follow these steps:
+
+1. **Create a VPC Endpoint for DynamoDB:**
+   Ensure that your DynamoDB traffic is routed through a VPC endpoint, which allows you to securely connect to DynamoDB without using the public internet.
+
+   ```sh
+   aws ec2 create-vpc-endpoint --vpc-id <your-vpc-id> --service-name com.amazonaws.<region>.dynamodb --route-table-ids <your-route-table-id>
+   ```
+
+2. **Update Security Groups:**
+   Modify the security groups associated with your resources to restrict outbound traffic to the internet and allow traffic only to the VPC endpoint.
+
+   ```sh
+   aws ec2 authorize-security-group-egress --group-id <your-security-group-id> --protocol tcp --port 443 --cidr <vpc-cidr-block>
+   ```
+
+3. **Configure IAM Policies:**
+   Ensure that your IAM policies restrict access to DynamoDB only through the VPC endpoint.
+
+   ```sh
+   aws iam create-policy --policy-name DynamoDBVPCEndpointPolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "dynamodb:*",
+               "Resource": "*",
+               "Condition": {
+                   "StringNotEquals": {
+                       "aws:sourceVpce": "<vpc-endpoint-id>"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+4. **Attach IAM Policy to Roles/Users:**
+   Attach the newly created IAM policy to the roles or users that need access to DynamoDB.
+
+   ```sh
+   aws iam attach-role-policy --role-name <your-role-name> --policy-arn arn:aws:iam::<account-id>:policy/DynamoDBVPCEndpointPolicy
+   ```
+
+By following these steps, you can ensure that your DynamoDB access is restricted to within your VPC, preventing direct internet access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Notebook Direct Internet Access in DynamoDB using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a VPC Endpoint for DynamoDB:**
+   Use Boto3 to create a VPC endpoint for DynamoDB. This ensures that traffic between your VPC and DynamoDB does not go over the public internet.
+
+   ```python
+   import boto3
+
+   ec2_client = boto3.client('ec2')
+
+   response = ec2_client.create_vpc_endpoint(
+       VpcEndpointType='Gateway',
+       VpcId='vpc-xxxxxxxx',  # Replace with your VPC ID
+       ServiceName='com.amazonaws.us-west-2.dynamodb',  # Replace with your region
+       RouteTableIds=[
+           'rtb-xxxxxxxx',  # Replace with your Route Table ID
+       ]
+   )
+
+   print(response)
+   ```
+
+3. **Update Security Groups:**
+   Ensure that the security groups associated with your notebook instances are configured to allow traffic only from within your VPC.
+
+   ```python
+   ec2 = boto3.resource('ec2')
+
+   security_group = ec2.SecurityGroup('sg-xxxxxxxx')  # Replace with your Security Group ID
+
+   response = security_group.authorize_ingress(
+       IpPermissions=[
+           {
+               'IpProtocol': '-1',
+               'IpRanges': [
+                   {
+                       'CidrIp': '10.0.0.0/16',  # Replace with your VPC CIDR block
+                       'Description': 'Allow traffic from VPC'
+                   }
+               ]
+           }
+       ]
+   )
+
+   print(response)
+   ```
+
+4. **Configure IAM Policies:**
+   Ensure that the IAM roles associated with your notebook instances have the necessary permissions to access DynamoDB through the VPC endpoint.
+
+   ```python
+   iam_client = boto3.client('iam')
+
+   policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": "dynamodb:*",
+               "Resource": "*",
+               "Condition": {
+                   "StringEquals": {
+                       "aws:sourceVpce": "vpce-xxxxxxxx"  # Replace with your VPC Endpoint ID
+                   }
+               }
+           }
+       ]
+   }
+
+   response = iam_client.put_role_policy(
+       RoleName='YourNotebookRole',  # Replace with your IAM Role Name
+       PolicyName='DynamoDBAccessPolicy',
+       PolicyDocument=json.dumps(policy_document)
+   )
+
+   print(response)
+   ```
+
+By following these steps, you can ensure that your notebook instances access DynamoDB through a VPC endpoint, thereby preventing direct internet access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon DynamoDB console at https://console.aws.amazon.com/dynamodb/.
+
+2. In the navigation pane on the left side of the console, choose "Tables".
+
+3. Select the table you want to inspect for Notebook Direct Internet Access.
+
+4. In the "Overview" tab, look for the "Table details" section. Here, you can see the "ARN" of the table, which you can use to check the access policy.
+
+5. Navigate to the IAM console at https://console.aws.amazon.com/iam/.
+
+6. In the IAM console, select "Policies" from the navigation pane.
+
+7. Click on "Create Policy" and then on the "JSON" tab. Here, paste the ARN of the DynamoDB table you want to inspect.
+
+8. In the policy document, look for any statements that allow the "dynamodb:*" action for any principal ("Principal": "*") or any statements that allow the "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem" actions for any principal. If such statements exist, it means that the table is accessible from the internet.
+
+Note: This process only checks for potential misconfigurations in the IAM policy. It does not guarantee that the table is actually accessible from the internet, as there might be other security measures in place (like VPC security groups or network ACLs) that prevent direct internet access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all DynamoDB tables: Use the following AWS CLI command to list all the DynamoDB tables in your account:
+
+   ```
+   aws dynamodb list-tables
+   ```
+   This command will return a list of all DynamoDB tables in your account.
+
+3. Describe the DynamoDB table: For each table, you can use the following AWS CLI command to get detailed information about the table:
+
+   ```
+   aws dynamodb describe-table --table-name <YourTableName>
+   ```
+   Replace `<YourTableName>` with the name of your DynamoDB table. This command will return a JSON object that contains detailed information about the table.
+
+4. Check for Notebook Direct Internet Access: Unfortunately, DynamoDB does not have a direct feature or attribute related to Notebook Direct Internet Access. Therefore, it's not possible to check for Notebook Direct Internet Access in DynamoDB using AWS CLI. However, you can check for other security misconfigurations such as unencrypted tables or tables with public access. 
+
+   Please note that Notebook Direct Internet Access is a feature related to Jupyter notebooks, which are often used in data science and machine learning workflows, and not directly related to DynamoDB. If you are using AWS SageMaker for Jupyter notebooks, you can check the direct internet access setting of your notebook instances using the following AWS CLI command:
+
+   ```
+   aws sagemaker describe-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+   ```
+   Replace `<YourNotebookInstanceName>` with the name of your SageMaker notebook instance. This command will return a JSON object that contains detailed information about the notebook instance, including the `DirectInternetAccess` attribute. If the value of this attribute is `Enabled`, it means that the notebook instance has direct internet access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check for Notebook Direct Internet Access in DynamoDB using Python scripts, you can use the Boto3 library, which allows you to directly create, update, and delete AWS services from your Python scripts. Here are the steps:
+
+1. **Import the Boto3 library in Python:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then import it in your script:
+   ```python
+   import boto3
+   ```
+
+2. **Create a DynamoDB resource and client:**
+   You can create a DynamoDB resource and client using your AWS credentials. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials.
+   ```python
+   dynamodb = boto3.resource('dynamodb', aws_access_key_id='your_access_key', aws_secret_access_key='your_secret_key', region_name='your_region')
+   client = boto3.client('dynamodb', aws_access_key_id='your_access_key', aws_secret_access_key='your_secret_key', region_name='your_region')
+   ```
+
+3. **List all the DynamoDB tables:**
+   You can list all your DynamoDB tables using the `list_tables` method.
+   ```python
+   response = client.list_tables()
+   print(response['TableNames'])
+   ```
+
+4. **Check for Notebook Direct Internet Access:**
+   DynamoDB doesn't directly relate to Notebook Direct Internet Access. However, if you're referring to checking if a DynamoDB table is publicly accessible, you can do so by checking the policy attached to the DynamoDB table. You can use the `get_item` method to retrieve the policy and then parse the policy to check if it allows public access.
+   ```python
+   for table_name in response['TableNames']:
+       policy = client.get_item(TableName=table_name, Key={'AttributeName': 'Policy'})['Item']
+       if 'Allow' in policy['Statement'][0]['Effect'] and 'Principal' in policy['Statement'][0] and policy['Statement'][0]['Principal'] == '*':
+           print(f'Table {table_name} is publicly accessible')
+   ```
+   Please note that this is a simplified example and actual policy parsing might be more complex depending on the policy structure.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
