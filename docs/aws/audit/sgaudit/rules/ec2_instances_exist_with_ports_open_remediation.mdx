@@ -1,6 +1,258 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ports from being open for external traffic in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "Security Groups" under the "Network & Security" section of the EC2 Dashboard.
+
+2. **Select the Security Group:**
+   - From the list of security groups, select the security group you want to modify.
+
+3. **Edit Inbound Rules:**
+   - With the security group selected, choose the "Inbound rules" tab.
+   - Click on the "Edit inbound rules" button.
+
+4. **Restrict Inbound Traffic:**
+   - Review the existing inbound rules and identify any rules that allow open access (e.g., 0.0.0.0/0 or ::/0).
+   - Modify or remove rules that allow unrestricted access to sensitive ports (e.g., SSH on port 22, RDP on port 3389).
+   - Specify more restrictive IP ranges or use specific IP addresses that require access.
+
+By following these steps, you can ensure that your security groups are configured to restrict unnecessary external traffic, thereby enhancing the security of your AWS resources.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ports from being open for external traffic in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the Security Group that you want to modify. You can list all Security Groups to find the relevant one.
+   ```sh
+   aws ec2 describe-security-groups
+   ```
+
+2. **Revoke Inbound Rules:**
+   Revoke any inbound rules that allow traffic from 0.0.0.0/0 (which means all IP addresses) on the ports you want to restrict. Replace `<security-group-id>` with your Security Group ID and `<port>` with the port number.
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port> --cidr 0.0.0.0/0
+   ```
+
+3. **Add Specific Inbound Rules:**
+   Add more restrictive inbound rules that only allow traffic from specific IP addresses or ranges. Replace `<ip-range>` with the specific IP range you want to allow.
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port> --cidr <ip-range>
+   ```
+
+4. **Verify Changes:**
+   Verify that the changes have been applied correctly by describing the Security Group again.
+   ```sh
+   aws ec2 describe-security-groups --group-id <security-group-id>
+   ```
+
+By following these steps, you can ensure that ports are not open for external traffic, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ports from being open for external traffic in Security Groups using Python scripts, you can use the respective SDKs for AWS, Azure, and GCP. Below are the steps and example scripts for each cloud provider:
+
+### AWS (Using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python script to check and update security groups**:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   def close_open_ports(security_group_id):
+       response = ec2.describe_security_groups(GroupIds=[security_group_id])
+       security_group = response['SecurityGroups'][0]
+
+       for permission in security_group['IpPermissions']:
+           for ip_range in permission.get('IpRanges', []):
+               if ip_range['CidrIp'] == '0.0.0.0/0':
+                   ec2.revoke_security_group_ingress(
+                       GroupId=security_group_id,
+                       IpProtocol=permission['IpProtocol'],
+                       FromPort=permission['FromPort'],
+                       ToPort=permission['ToPort'],
+                       CidrIp='0.0.0.0/0'
+                   )
+                   print(f"Closed port {permission['FromPort']} for external traffic in {security_group_id}")
+
+   # Example usage
+   close_open_ports('sg-0123456789abcdef0')
+   ```
+
+### Azure (Using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network
+   ```
+
+2. **Create a Python script to check and update network security groups**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your_subscription_id'
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def close_open_ports(resource_group_name, nsg_name):
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+
+       for rule in nsg.security_rules:
+           if rule.destination_address_prefix == '*' and rule.access == 'Allow':
+               rule.access = 'Deny'
+               network_client.security_rules.create_or_update(
+                   resource_group_name,
+                   nsg_name,
+                   rule.name,
+                   rule
+               )
+               print(f"Closed port {rule.destination_port_range} for external traffic in {nsg_name}")
+
+   # Example usage
+   close_open_ports('your_resource_group', 'your_nsg_name')
+   ```
+
+### GCP (Using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Python Client Library**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Create a Python script to check and update firewall rules**:
+   ```python
+   from google.cloud import compute_v1
+
+   def close_open_ports(project_id, firewall_rule_name):
+       firewall_client = compute_v1.FirewallsClient()
+       firewall = firewall_client.get(project=project_id, firewall=firewall_rule_name)
+
+       for allowed in firewall.allowed:
+           if '0.0.0.0/0' in allowed.get('source_ranges', []):
+               firewall.allowed.remove(allowed)
+               firewall_client.update(project=project_id, firewall=firewall_rule_name, firewall_resource=firewall)
+               print(f"Closed port {allowed['ports']} for external traffic in {firewall_rule_name}")
+
+   # Example usage
+   close_open_ports('your_project_id', 'your_firewall_rule_name')
+   ```
+
+### Summary
+
+1. **AWS**: Use Boto3 to describe security groups and revoke ingress rules with `0.0.0.0/0`.
+2. **Azure**: Use Azure SDK to get network security groups and update security rules to deny external traffic.
+3. **GCP**: Use Google Cloud Python Client Library to get firewall rules and remove rules allowing `0.0.0.0/0`.
+
+These scripts will help you prevent ports from being open to external traffic by modifying the security configurations in AWS, Azure, and GCP.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon VPC console at https://console.aws.amazon.com/vpc/.
+
+2. In the navigation pane, choose 'Security Groups'.
+
+3. Select the security group that you want to verify.
+
+4. In the details pane, on the 'Inbound rules' tab, check the 'Source' column. If it is set to '0.0.0.0/0' or '::/0', it means that the port is open for external traffic.
+
+5. On the 'Outbound rules' tab, check the 'Destination' column. If it is set to '0.0.0.0/0' or '::/0', it means that the port is open for external traffic.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all Security Groups: Use the following command to list all the security groups in your AWS account:
+
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check for open ports: For each security group, you can check if any ports are open for external traffic by running the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*].{FromPort:FromPort,ToPort:ToPort,IpRanges:IpRanges[*].CidrIp}'
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all IP permissions for the specified security group, including the from and to ports and the IP ranges.
+
+4. Analyze the output: If the IP range for any port is set to '0.0.0.0/0', it means that the port is open for external traffic. This is a potential misconfiguration as it can expose your AWS resources to potential threats.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the necessary Python libraries. You can use the AWS SDK for Python (Boto3) to interact with AWS services. Install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to set up your AWS credentials. You can configure it using the AWS CLI:
+
+   ```
+   aws configure
+   ```
+
+   You will be asked to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+3. Python script to check open ports: Here is a Python script that uses Boto3 to check if any ports are open for external traffic in your security groups:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+
+   # Get all security groups
+   security_groups = ec2.security_groups.all()
+
+   for group in security_groups:
+       for permission in group.ip_permissions:
+           for range in permission['IpRanges']:
+               # Check if any ports are open to the world
+               if range['CidrIp'] == '0.0.0.0/0':
+                   print(f"Security Group {group.group_name} has an open port: {permission['FromPort']}-{permission['ToPort']}")
+   ```
+
+4. Run the script: You can run the script using the Python interpreter:
+
+   ```
+   python check_open_ports.py
+   ```
+
+   This script will print out the names of the security groups and the ports that are open to the world. If no ports are open, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
