@@ -23,6 +23,99 @@ SOC2, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the Google Cloud Platform Console: Open your web browser, navigate to the Google Cloud Platform Console (https://console.cloud.google.com/), and sign in with your Google account credentials.
+
+2. Navigate to BigQuery: From the left-hand side menu, select "BigQuery" under the "Big Data" section. This will take you to the BigQuery interface.
+
+3. Check Table Snapshots: In the BigQuery interface, you will see a list of all your datasets. Click on the dataset that contains the table you want to check. This will open a list of all tables in the dataset. Click on the table you want to check. This will open the table details page.
+
+4. Verify Snapshot Frequency: In the table details page, look for the "Snapshot" section. This section will show the last snapshot taken and the frequency of snapshots. If the frequency is not set to a regular interval (daily, weekly, etc.), or if the last snapshot is too old, then the table is not being backed up frequently enough for redundancy.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure the Google Cloud SDK CLI on your local machine. You can do this by following the instructions provided by Google Cloud at https://cloud.google.com/sdk/docs/install.
+
+2. Authenticate your CLI with your GCP account using the following command:
+   ```
+   gcloud auth login
+   ```
+   Follow the instructions on the screen to log in to your Google Cloud account.
+
+3. List all the datasets in your project using the following command:
+   ```
+   gcloud bigquery datasets list --project=<project-id>
+   ```
+   Replace `<project-id>` with your project ID. This command will return a list of all datasets in your project.
+
+4. For each dataset, list all tables and their metadata using the following command:
+   ```
+   gcloud bigquery tables list --dataset=<dataset-id> --project=<project-id>
+   ```
+   Replace `<dataset-id>` with the ID of the dataset and `<project-id>` with your project ID. This command will return a list of all tables in the dataset and their metadata.
+
+   To check the last time a snapshot was taken for each table, look at the "Last modified" field in the output. If this date is not recent, it means that a snapshot has not been taken recently.
+
+Note: GCP BigQuery does not natively support table snapshots. The "Last modified" field actually shows the last time the table was modified, not the last time a snapshot was taken. To implement a snapshot-like functionality, you would need to manually copy the table at regular intervals.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Google Cloud BigQuery and Google Auth libraries are required to interact with BigQuery. You can install them using pip:
+
+```python
+pip install google-cloud-bigquery
+pip install google-auth
+```
+
+2. Import the necessary libraries and establish a client:
+
+```python
+from google.cloud import bigquery
+from google.auth import exceptions
+
+# Establish a client
+try:
+    client = bigquery.Client()
+except exceptions.DefaultCredentialsError:
+    print("Google Application Default Credentials not found.")
+```
+
+3. Fetch the list of datasets and tables in the project:
+
+```python
+datasets = list(client.list_datasets())  # Make an API request.
+tables = []
+for dataset in datasets:
+    dataset_ref = client.dataset(dataset.dataset_id)
+    tables.extend(list(client.list_tables(dataset_ref)))  # Make an API request.
+```
+
+4. Check the last modified time of each table and compare it with the current time to determine if a snapshot has been taken recently:
+
+```python
+from datetime import datetime, timedelta
+
+# Define the time limit for the snapshot
+time_limit = timedelta(days=7)
+
+for table in tables:
+    table_ref = client.dataset(table.dataset.dataset_id).table(table.table_id)
+    table_obj = client.get_table(table_ref)  # Make an API request.
+    last_modified_time = table_obj.modified
+    if datetime.now() - last_modified_time > time_limit:
+        print(f"Table {table.table_id} in dataset {table.dataset.dataset_id} has not been snapshot recently.")
+```
+
+This script will print out the tables that have not been snapshot in the last 7 days. You can adjust the time limit as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,85 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to your Google Cloud Platform (GCP) Console: Open your browser and navigate to the GCP Console (console.cloud.google.com) and sign in with your GCP account credentials.
+
+2. Navigate to BigQuery: From the left-hand side menu, select "BigQuery" under the "Big Data" section. This will take you to the BigQuery interface.
+
+3. Check Dataset Permissions: In the BigQuery interface, select a dataset from the resources panel on the left. Once selected, click on the "SHARE DATASET" button at the top of the page. This will open a new window showing the current access controls for the dataset.
+
+4. Review Access Controls: In the access controls window, look for any entries where the "Identity" field is set to "allAuthenticatedUsers" or "allUsers". These settings mean that the dataset is accessible to all authenticated users or to the public, respectively. If you find any such entries, it indicates that the dataset is anonymously or publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure the Google Cloud SDK CLI (gcloud) on your local machine. You can do this by following the instructions provided by Google Cloud at https://cloud.google.com/sdk/docs/install.
+
+2. Once the gcloud CLI is installed and configured, you can list all the BigQuery datasets in your project by running the following command:
+
+   ```
+   gcloud bigquery datasets list --format="value(datasetReference.datasetId)"
+   ```
+   This command will return a list of all dataset IDs in your project.
+
+3. For each dataset ID returned by the previous command, you can check the access control settings by running the following command:
+
+   ```
+   gcloud bigquery datasets describe [DATASET_ID] --format="value(access)"
+   ```
+   Replace `[DATASET_ID]` with the ID of the dataset you want to check. This command will return a list of all entities that have access to the dataset and their roles.
+
+4. To detect if a dataset is anonymously or publicly accessible, look for any of the following in the output of the previous command:
+
+   - `specialGroup: allAuthenticatedUsers` - This means that any authenticated user has access to the dataset.
+   - `specialGroup: allUsers` - This means that the dataset is publicly accessible, i.e., anyone, even without authentication, can access the dataset.
+
+   If you see either of these in the access control settings for a dataset, it means that the dataset is anonymously or publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: You will need the `google-cloud-bigquery` library to interact with BigQuery. You can install it using pip:
+
+```python
+pip install google-cloud-bigquery
+```
+
+2. Import the necessary libraries and initialize the BigQuery client:
+
+```python
+from google.cloud import bigquery
+
+# Initialize a BigQuery client
+client = bigquery.Client()
+```
+
+3. Fetch all datasets and check their Access Control Lists (ACLs):
+
+```python
+# Get all datasets in the project
+datasets = list(client.list_datasets())
+
+# Loop through each dataset
+for dataset in datasets:
+    # Get the dataset's ACL
+    acl = client.get_dataset(dataset.dataset_id).access_entries
+
+    # Check if the dataset is publicly accessible
+    for entry in acl:
+        if entry.role == 'READER' and entry.entity_id == 'allUsers':
+            print(f"Dataset {dataset.dataset_id} is publicly accessible.")
+        elif entry.role == 'READER' and entry.entity_id == 'allAuthenticatedUsers':
+            print(f"Dataset {dataset.dataset_id} is accessible by any authenticated user.")
+```
+
+4. The above script will print out the names of all datasets that are either publicly accessible or accessible by any authenticated user. If no such datasets exist, the script will not output anything. This way, you can easily detect any misconfigurations in your BigQuery datasets.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
