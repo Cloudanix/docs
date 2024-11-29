@@ -23,6 +23,232 @@ PCIDSS, NIST
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket from allowing public READ_ACP access using the AWS Management Console, follow these steps:
+
+1. **Navigate to the S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, find and click on the name of the bucket you want to configure.
+
+3. **Access Permissions:**
+   - Go to the "Permissions" tab of the selected bucket.
+   - Under the "Bucket Policy" and "Access Control List (ACL)" sections, review the current permissions.
+
+4. **Modify ACL Settings:**
+   - In the "Access Control List (ACL)" section, ensure that the "Everyone (public access)" group does not have the "READ_ACP" permission checked.
+   - If it is checked, uncheck it to remove public READ_ACP access.
+
+By following these steps, you can ensure that your S3 bucket does not allow public READ_ACP access, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an S3 bucket from allowing public READ_ACP access using the AWS CLI, you can follow these steps:
+
+1. **Check the Current Bucket Policy:**
+   First, you need to check the current bucket policy to see if it allows public READ_ACP access.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+2. **Remove Public READ_ACP Permissions:**
+   If the policy allows public READ_ACP access, you need to remove or modify the policy statement that grants this permission. You can use the `put-bucket-policy` command to update the policy. Here is an example of a policy that denies public READ_ACP access:
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Deny",
+         "Principal": "*",
+         "Action": "s3:GetBucketAcl",
+         "Resource": "arn:aws:s3:::your-bucket-name"
+       }
+     ]
+   }'
+   ```
+
+3. **Block Public Access Settings:**
+   Enable S3 Block Public Access settings to ensure that public READ_ACP access is blocked at the account and bucket level.
+   ```sh
+   aws s3api put-public-access-block --bucket your-bucket-name --public-access-block-configuration '{
+     "BlockPublicAcls": true,
+     "IgnorePublicAcls": true,
+     "BlockPublicPolicy": true,
+     "RestrictPublicBuckets": true
+   }'
+   ```
+
+4. **Verify the Changes:**
+   Finally, verify that the bucket policy and public access settings have been updated correctly.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   aws s3api get-public-access-block --bucket your-bucket-name
+   ```
+
+By following these steps, you can ensure that your S3 bucket does not allow public READ_ACP access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 buckets from allowing public READ_ACP access using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by creating a `~/.aws/credentials` file.
+
+3. **Python Script to Prevent Public READ_ACP Access**:
+   Use the following Python script to iterate through your S3 buckets and update the bucket policies to prevent public READ_ACP access.
+
+   ```python
+   import boto3
+   import json
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # List all buckets
+   response = s3.list_buckets()
+
+   # Iterate through each bucket
+   for bucket in response['Buckets']:
+       bucket_name = bucket['Name']
+       try:
+           # Get the current bucket policy
+           policy = s3.get_bucket_policy(Bucket=bucket_name)
+           policy_dict = json.loads(policy['Policy'])
+
+           # Check and update the policy to prevent public READ_ACP access
+           for statement in policy_dict['Statement']:
+               if statement['Effect'] == 'Allow' and 's3:GetBucketAcl' in statement['Action']:
+                   if 'Principal' in statement and statement['Principal'] == '*':
+                       # Remove public READ_ACP access
+                       statement['Action'].remove('s3:GetBucketAcl')
+                       if not statement['Action']:
+                           policy_dict['Statement'].remove(statement)
+
+           # Update the bucket policy
+           s3.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy_dict))
+           print(f"Updated policy for bucket: {bucket_name}")
+
+       except s3.exceptions.NoSuchBucketPolicy:
+           print(f"No policy found for bucket: {bucket_name}")
+       except Exception as e:
+           print(f"Error updating policy for bucket {bucket_name}: {e}")
+
+   print("Completed updating bucket policies.")
+   ```
+
+4. **Run the Script**:
+   Execute the script in your Python environment to ensure all your S3 buckets are checked and updated to prevent public READ_ACP access.
+
+   ```bash
+   python prevent_public_read_acp.py
+   ```
+
+This script will ensure that no S3 bucket in your account allows public READ_ACP access by modifying the bucket policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check for public READ_ACP access.
+
+3. Choose the Permissions tab, and then choose Access Control List (ACL).
+
+4. Under the Public access section, check if Everyone or Any authenticated AWS user has the READ_ACP permission enabled. If it's enabled, it means the bucket allows public READ_ACP access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all S3 buckets: Once AWS CLI is set up, you can list all your S3 buckets by running the following command:
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+   This command will return a list of all your S3 bucket names.
+
+3. Check bucket policy: For each bucket, you can check its policy using the following command:
+   ```
+   aws s3api get-bucket-acl --bucket <bucket-name>
+   ```
+   Replace `<bucket-name>` with the name of your bucket. This command will return the Access Control List (ACL) of the bucket.
+
+4. Detect public READ_ACP access: In the returned ACL, look for any grantee that has the URI "http://acs.amazonaws.com/groups/global/AllUsers" or "http://acs.amazonaws.com/groups/global/AuthenticatedUsers" and the permission "READ_ACP". If such a grantee exists, it means the bucket allows public READ_ACP access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 's3' service:
+
+```python
+s3 = session.client('s3')
+```
+
+4. Now, you can list all the S3 buckets and check their ACL (Access Control List) permissions. If the 'READ_ACP' permission is granted to 'AllUsers' or 'AuthenticatedUsers', then the bucket allows public READ_ACP access:
+
+```python
+def check_public_read_acp_access(s3):
+    buckets = s3.list_buckets()
+    for bucket in buckets['Buckets']:
+        acl = s3.get_bucket_acl(Bucket=bucket['Name'])
+        for grant in acl['Grants']:
+            if 'READ_ACP' in grant['Permission']:
+                if grant['Grantee']['Type'] == 'Group' and ('AllUsers' in grant['Grantee']['URI'] or 'AuthenticatedUsers' in grant['Grantee']['URI']):
+                    print(f"Bucket {bucket['Name']} allows public READ_ACP access")
+
+check_public_read_acp_access(s3)
+```
+
+This script will print the names of all buckets that allow public READ_ACP access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

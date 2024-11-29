@@ -23,6 +23,158 @@ CBP, AWSWAF, PCIDSS, NIST
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Bucket from allowing READ access to authenticated users using the AWS Management Console, follow these steps:
+
+1. **Navigate to the S3 Console:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon S3 console at [https://s3.console.aws.amazon.com/s3/](https://s3.console.aws.amazon.com/s3/).
+
+2. **Select the Bucket:**
+   - In the S3 console, find the bucket you want to configure.
+   - Click on the bucket name to open its settings.
+
+3. **Review Bucket Permissions:**
+   - Go to the "Permissions" tab.
+   - Under "Bucket Policy" and "Access Control List (ACL)", review the current permissions.
+
+4. **Modify Bucket Policy and ACL:**
+   - **Bucket Policy:** Ensure that the bucket policy does not include a statement that grants `s3:GetObject` permission to `Principal: "*"` or `Principal: "AWS": "*"`.
+     - If such a statement exists, remove or modify it to restrict access.
+   - **Access Control List (ACL):** Ensure that the bucket's ACL does not grant `READ` access to `Authenticated Users (any AWS user)`.
+     - If it does, remove the `Authenticated Users` group from the ACL.
+
+By following these steps, you can ensure that your S3 bucket does not allow READ access to authenticated users, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an S3 bucket from allowing READ access to authenticated users using the AWS CLI, you can follow these steps:
+
+1. **Check the Current Bucket Policy:**
+   First, you need to check the current bucket policy to see if it allows READ access to authenticated users.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+2. **Remove or Modify the Policy Statement:**
+   If the policy allows READ access to authenticated users, you need to remove or modify the policy statement. Create a JSON file (e.g., `bucket-policy.json`) with the updated policy. Ensure that the policy does not include a statement that grants `s3:GetObject` permission to `AuthenticatedUsers`.
+
+3. **Apply the Updated Bucket Policy:**
+   Use the following command to apply the updated bucket policy.
+   ```sh
+   aws s3api put-bucket-policy --bucket your-bucket-name --policy file://bucket-policy.json
+   ```
+
+4. **Verify the Updated Policy:**
+   Finally, verify that the updated policy has been applied correctly and does not allow READ access to authenticated users.
+   ```sh
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+
+By following these steps, you can ensure that your S3 bucket does not allow READ access to authenticated users.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check the permissions for.
+
+3. Choose the Permissions tab.
+
+4. Under the "Block Public Access" settings, if the "Block all public access" is set to Off, it means that the bucket might be publicly accessible. 
+
+5. To further check, go to the "Access Control List (ACL)" section. Under the "Public access" column, if "Everyone" or "Any authenticated AWS user" has READ access, then the bucket is misconfigured and allows READ access to authenticated users.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all S3 buckets: Once your AWS CLI is set up, you can list all your S3 buckets by running the following command:
+   ```
+   aws s3api list-buckets
+   ```
+   This will return a list of all your S3 buckets.
+
+3. Check bucket policy: For each bucket, you can check its policy by running the following command:
+   ```
+   aws s3api get-bucket-policy --bucket your-bucket-name
+   ```
+   Replace "your-bucket-name" with the name of your bucket. This will return the bucket's policy.
+
+4. Detect misconfiguration: In the returned policy, look for any statement with "Effect": "Allow", "Principal": "*", and "Action": "s3:GetObject". If such a statement exists, it means that the bucket allows READ access to authenticated users.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3). You can do this by running the command `pip install boto3` in your terminal.
+
+2. Once Boto3 is installed, you can use it to interact with your AWS services. To check for S3 bucket misconfigurations, you need to create a Python script that uses Boto3 to list all your S3 buckets and their policies. Here is a sample script:
+
+```python
+import boto3
+
+s3 = boto3.client('s3')
+
+def list_buckets():
+    response = s3.list_buckets()
+    for bucket in response['Buckets']:
+        print(f'Bucket Name: {bucket["Name"]}')
+        get_bucket_policy(bucket["Name"])
+
+def get_bucket_policy(bucket_name):
+    try:
+        result = s3.get_bucket_policy(Bucket=bucket_name)
+        print(f'Bucket Policy: {result["Policy"]}')
+    except:
+        print(f'No policy for bucket: {bucket_name}')
+
+list_buckets()
+```
+
+3. This script will print out the names of all your S3 buckets and their policies. You can then manually check these policies to see if they allow READ access to authenticated users. 
+
+4. To automate this process, you can modify the `get_bucket_policy` function to parse the policy and check for any statements that allow 's3:GetObject' (which is the action for READ access) to 'AuthenticatedUsers'. Here is a modified version of the function:
+
+```python
+import json
+
+def get_bucket_policy(bucket_name):
+    try:
+        result = s3.get_bucket_policy(Bucket=bucket_name)
+        policy = json.loads(result["Policy"])
+        for statement in policy["Statement"]:
+            if statement["Effect"] == "Allow" and 's3:GetObject' in statement["Action"] and 'AuthenticatedUsers' in statement["Principal"]:
+                print(f'Bucket {bucket_name} allows READ access to authenticated users')
+    except:
+        print(f'No policy for bucket: {bucket_name}')
+```
+
+This script will print out the names of any buckets that allow READ access to authenticated users.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

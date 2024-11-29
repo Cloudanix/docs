@@ -23,6 +23,231 @@ CISAWS, CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having MFA Delete enabled on an S3 bucket using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Service:**
+   - Sign in to the AWS Management Console.
+   - In the Services menu, select "S3" to open the Amazon S3 console.
+
+2. **Select the Bucket:**
+   - In the S3 console, locate and click on the name of the bucket for which you want to enable MFA Delete.
+
+3. **Enable Versioning:**
+   - Go to the "Properties" tab of the selected bucket.
+   - Scroll down to the "Bucket Versioning" section.
+   - Click on "Edit" and then select "Enable" to turn on versioning for the bucket. Click "Save changes."
+
+4. **Enable MFA Delete:**
+   - Open the AWS CLI or AWS SDK (e.g., Boto3 for Python) to enable MFA Delete, as this cannot be done directly through the console.
+   - Use the following AWS CLI command to enable MFA Delete:
+     ```sh
+     aws s3api put-bucket-versioning --bucket your-bucket-name --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa "arn:aws:iam::account-id:mfa/your-mfa-device serial-number mfa-code"
+     ```
+   - Replace `your-bucket-name`, `account-id`, `your-mfa-device serial-number`, and `mfa-code` with your specific details.
+
+By following these steps, you ensure that MFA Delete is enabled on your S3 bucket, adding an extra layer of security to prevent accidental or malicious deletions.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of an S3 bucket not having MFA Delete enabled using AWS CLI, follow these steps:
+
+1. **Enable Versioning on the S3 Bucket:**
+   MFA Delete can only be enabled on buckets that have versioning enabled. First, ensure that versioning is enabled on your S3 bucket.
+
+   ```sh
+   aws s3api put-bucket-versioning --bucket <your-bucket-name> --versioning-configuration Status=Enabled
+   ```
+
+2. **Enable MFA Delete:**
+   Use the `put-bucket-versioning` command to enable MFA Delete. You will need the serial number of your MFA device and an MFA token code.
+
+   ```sh
+   aws s3api put-bucket-versioning --bucket <your-bucket-name> --versioning-configuration Status=Enabled,MFADelete=Enabled --mfa "arn:aws:iam::<account-id>:mfa/<mfa-device> <mfa-token-code>"
+   ```
+
+3. **Verify Versioning and MFA Delete Status:**
+   Check the versioning status of the bucket to ensure that MFA Delete is enabled.
+
+   ```sh
+   aws s3api get-bucket-versioning --bucket <your-bucket-name>
+   ```
+
+4. **IAM Policy for MFA Delete:**
+   Ensure that your IAM policies require MFA for delete operations. This can be done by attaching a policy that enforces MFA for delete actions.
+
+   ```sh
+   aws iam put-user-policy --user-name <user-name> --policy-name MFADeletePolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Deny",
+               "Action": "s3:DeleteBucket",
+               "Resource": "arn:aws:s3:::<your-bucket-name>",
+               "Condition": {
+                   "Bool": {
+                       "aws:MultiFactorAuthPresent": "false"
+                   }
+               }
+           }
+       ]
+   }'
+   ```
+
+Replace `<your-bucket-name>`, `<account-id>`, `<mfa-device>`, `<mfa-token-code>`, and `<user-name>` with your specific details.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having MFA Delete enabled on an S3 bucket in AWS using Python scripts, you can follow these steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed, which is the AWS SDK for Python. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+   ```bash
+   aws configure
+   ```
+
+3. **Enable MFA Delete on S3 Bucket**:
+   Use the following Python script to enable MFA Delete on your S3 bucket. Note that enabling MFA Delete requires the bucket to have versioning enabled and you need to provide the MFA serial number and the MFA token.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon S3
+   s3 = boto3.client('s3')
+
+   # Replace with your bucket name
+   bucket_name = 'your-bucket-name'
+
+   # Replace with your MFA serial number and MFA token
+   mfa_serial_number = 'arn:aws:iam::123456789012:mfa/your-mfa-device'
+   mfa_token = '123456'  # This is the 6-digit MFA code
+
+   # Enable versioning on the bucket
+   s3.put_bucket_versioning(
+       Bucket=bucket_name,
+       VersioningConfiguration={
+           'Status': 'Enabled'
+       }
+   )
+
+   # Enable MFA Delete
+   s3.put_bucket_versioning(
+       Bucket=bucket_name,
+       VersioningConfiguration={
+           'MFADelete': 'Enabled',
+           'Status': 'Enabled'
+       },
+       MFA=f'arn:aws:iam::{mfa_serial_number} {mfa_token}'
+   )
+
+   print(f'MFA Delete has been enabled on bucket: {bucket_name}')
+   ```
+
+4. **Verify MFA Delete Configuration**:
+   After running the script, you can verify that MFA Delete is enabled by checking the bucket's versioning configuration.
+
+   ```python
+   response = s3.get_bucket_versioning(Bucket=bucket_name)
+   print(response)
+   ```
+
+   The response should indicate that both versioning and MFA Delete are enabled.
+
+By following these steps, you can ensure that MFA Delete is enabled on your S3 bucket, thereby preventing unauthorized deletions and enhancing the security of your data.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+2. In the Bucket name list, choose the name of the bucket that you want to enable MFA Delete for.
+3. Choose the Properties tab, and then choose Versioning.
+4. Under the MFA Delete section, check if it is enabled or not. If it is not enabled, it means that the S3 bucket does not have MFA Delete enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can run any AWS CLI commands, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS.
+
+2. List all S3 buckets: Use the following AWS CLI command to list all your S3 buckets:
+
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+
+3. Get bucket versioning configuration: For each bucket, you need to check if MFA delete is enabled. You can do this by running the following command:
+
+   ```
+   aws s3api get-bucket-versioning --bucket <your-bucket-name>
+   ```
+
+4. Check MFA Delete status: In the output of the above command, look for the "MFADelete" field. If it is set to "Enabled", then MFA delete is enabled for the bucket. If it is not present or set to "Disabled", then MFA delete is not enabled. 
+
+Please replace `<your-bucket-name>` with the name of your bucket. Repeat steps 3 and 4 for each bucket in your account.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create an S3 client and retrieve the list of all your S3 buckets:
+
+```python
+s3 = session.client('s3')
+response = s3.list_buckets()
+
+buckets = [bucket['Name'] for bucket in response['Buckets']]
+```
+
+4. For each bucket, check if MFA delete is enabled:
+
+```python
+for bucket in buckets:
+    bucket_versioning = s3.get_bucket_versioning(Bucket=bucket)
+    mfa_delete = bucket_versioning.get('MFADelete', 'Disabled')
+    if mfa_delete == 'Disabled':
+        print(f'MFA Delete is disabled for bucket: {bucket}')
+    else:
+        print(f'MFA Delete is enabled for bucket: {bucket}')
+```
+
+This script will print out the names of all your S3 buckets and whether MFA delete is enabled or disabled for each one. If MFA delete is disabled for a bucket, it means that the bucket is potentially misconfigured.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
