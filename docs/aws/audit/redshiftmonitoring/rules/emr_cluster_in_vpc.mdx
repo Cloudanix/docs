@@ -23,6 +23,250 @@ HIPAA, ISO27001
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of EMR clusters not being in a VPC in AWS Redshift using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EMR Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "EMR" and select "EMR" from the dropdown list to navigate to the Amazon EMR console.
+
+2. **Create or Edit a Cluster:**
+   - To create a new cluster, click on the "Create cluster" button.
+   - To edit an existing cluster, select the cluster from the list and click on the "Edit" button.
+
+3. **Configure Network Settings:**
+   - In the "Network" section, ensure that the "VPC" option is selected.
+   - Choose the appropriate VPC from the dropdown list.
+   - Select the appropriate Subnet within the chosen VPC.
+
+4. **Review and Launch:**
+   - Review all the settings to ensure that the cluster is configured to run within the selected VPC.
+   - Click on the "Create cluster" or "Save" button to apply the changes.
+
+By following these steps, you ensure that your EMR clusters are always launched within a VPC, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Amazon EMR clusters are launched within a Virtual Private Cloud (VPC) using AWS CLI, you can follow these steps:
+
+1. **Create a VPC:**
+   First, create a VPC if you don't already have one. This VPC will be used to launch your EMR clusters.
+
+   ```sh
+   aws ec2 create-vpc --cidr-block 10.0.0.0/16
+   ```
+
+2. **Create Subnets:**
+   Create subnets within the VPC. You need at least one subnet in each Availability Zone where you want to launch your EMR cluster.
+
+   ```sh
+   aws ec2 create-subnet --vpc-id <vpc-id> --cidr-block 10.0.1.0/24 --availability-zone <availability-zone>
+   ```
+
+3. **Create an EMR Cluster in the VPC:**
+   When creating the EMR cluster, specify the `--ec2-attributes` parameter to include the VPC ID and subnet ID.
+
+   ```sh
+   aws emr create-cluster --name "MyEMRCluster" --release-label emr-5.30.0 --applications Name=Hadoop Name=Spark --ec2-attributes KeyName=myKey,InstanceProfile=EMR_EC2_DefaultRole,SubnetId=<subnet-id> --instance-type m5.xlarge --instance-count 3
+   ```
+
+4. **Verify the Cluster is in the VPC:**
+   After creating the cluster, you can describe the cluster to verify that it is indeed in the specified VPC.
+
+   ```sh
+   aws emr describe-cluster --cluster-id <cluster-id>
+   ```
+
+   Look for the `Ec2InstanceAttributes` section in the output to confirm the VPC ID and Subnet ID.
+
+By following these steps, you ensure that your EMR clusters are launched within a VPC, thereby preventing the misconfiguration of having EMR clusters outside of a VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of EMR clusters not being in a VPC in AWS Redshift using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a VPC:**
+   - Use Boto3 to create a VPC if one does not already exist. This VPC will be used to launch your EMR clusters.
+
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.create_vpc(
+       CidrBlock='10.0.0.0/16'
+   )
+   vpc_id = response['Vpc']['VpcId']
+   print(f'Created VPC with ID: {vpc_id}')
+   ```
+
+3. **Create Subnets and Other Necessary Resources:**
+   - Create subnets, internet gateways, and route tables within the VPC to ensure proper networking for your EMR clusters.
+
+   ```python
+   subnet_response = ec2.create_subnet(
+       VpcId=vpc_id,
+       CidrBlock='10.0.1.0/24'
+   )
+   subnet_id = subnet_response['Subnet']['SubnetId']
+   print(f'Created Subnet with ID: {subnet_id}')
+   ```
+
+4. **Launch EMR Cluster in the VPC:**
+   - Use Boto3 to launch an EMR cluster within the created VPC and subnet.
+
+   ```python
+   emr = boto3.client('emr')
+
+   response = emr.run_job_flow(
+       Name='MyEMRCluster',
+       Instances={
+           'InstanceGroups': [
+               {
+                   'Name': 'Master nodes',
+                   'Market': 'ON_DEMAND',
+                   'InstanceRole': 'MASTER',
+                   'InstanceType': 'm5.xlarge',
+                   'InstanceCount': 1,
+               },
+               {
+                   'Name': 'Core nodes',
+                   'Market': 'ON_DEMAND',
+                   'InstanceRole': 'CORE',
+                   'InstanceType': 'm5.xlarge',
+                   'InstanceCount': 2,
+               }
+           ],
+           'Ec2SubnetId': subnet_id,
+           'KeepJobFlowAliveWhenNoSteps': True,
+           'TerminationProtected': False,
+           'Ec2KeyName': 'my-key-pair'
+       },
+       Applications=[
+           {'Name': 'Hadoop'},
+           {'Name': 'Spark'},
+           {'Name': 'Hive'},
+           {'Name': 'Pig'},
+       ],
+       JobFlowRole='EMR_EC2_DefaultRole',
+       ServiceRole='EMR_DefaultRole',
+       VisibleToAllUsers=True,
+       LogUri='s3://my-emr-logs/',
+       ReleaseLabel='emr-5.30.0'
+   )
+
+   cluster_id = response['JobFlowId']
+   print(f'Created EMR Cluster with ID: {cluster_id}')
+   ```
+
+By following these steps, you ensure that your EMR clusters are always launched within a VPC, thereby preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Redshift console at https://console.aws.amazon.com/redshift/.
+3. In the navigation pane, choose "Clusters". The list of clusters will be displayed.
+4. For each cluster, check the "VPC ID" field. If the field is empty or not present, the cluster is not in a VPC.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Redshift clusters.
+
+2. Once the AWS CLI is set up, you can list all the Redshift clusters using the following command:
+
+   ```
+   aws redshift describe-clusters --query 'Clusters[*].[ClusterIdentifier]' --output text
+   ```
+
+   This command will return a list of all the Redshift clusters.
+
+3. For each cluster, you can check if it is in a VPC by using the following command:
+
+   ```
+   aws redshift describe-clusters --cluster-identifier <cluster-name> --query 'Clusters[*].[VpcId]' --output text
+   ```
+
+   Replace `<cluster-name>` with the name of the cluster you want to check. This command will return the VPC ID if the cluster is in a VPC, or it will return `None` if the cluster is not in a VPC.
+
+4. If you want to automate this process, you can write a script that loops through all the clusters and checks if they are in a VPC. Here is a simple example in Python:
+
+   ```python
+   import subprocess
+
+   # Get the list of clusters
+   clusters = subprocess.check_output(["aws", "redshift", "describe-clusters", "--query", "Clusters[*].[ClusterIdentifier]", "--output", "text"]).decode().split('\n')
+
+   # Check each cluster
+   for cluster in clusters:
+       vpc_id = subprocess.check_output(["aws", "redshift", "describe-clusters", "--cluster-identifier", cluster, "--query", "Clusters[*].[VpcId]", "--output", "text"]).decode().strip()
+       if vpc_id == 'None':
+           print(f"Cluster {cluster} is not in a VPC")
+   ```
+
+   This script will print the names of all the clusters that are not in a VPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if EMR Clusters are in VPC in Redshift using Python scripts, you can use the Boto3 library, which allows you to write software that makes use of services like Amazon S3, Amazon EC2, and others. Here are the steps:
+
+1. **Import the necessary libraries and establish a client:**
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+# Create Redshift client
+redshift = boto3.client('redshift', region_name='us-west-2')
+```
+
+2. **List all clusters:**
+
+```python
+try:
+    response = redshift.describe_clusters()
+except BotoCoreError as e:
+    print(e)
+clusters = response['Clusters']
+```
+
+3. **Check each cluster's VPC setting:**
+
+```python
+for cluster in clusters:
+    if 'VpcId' in cluster:
+        print(f"Cluster {cluster['ClusterIdentifier']} is in VPC {cluster['VpcId']}")
+    else:
+        print(f"Cluster {cluster['ClusterIdentifier']} is not in a VPC")
+```
+
+4. **Handle exceptions:**
+
+In the above code, exceptions are handled to catch any AWS errors that might occur while running the script. This is important to ensure that the script doesn't crash if it encounters an error.
+
+Please note that you need to have the necessary permissions to perform these actions, and you should replace 'us-west-2' with the region you are working in.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

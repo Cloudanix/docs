@@ -23,6 +23,271 @@ SOC2,ISO27001,HITRUST,NISTCSF,PCIDSS,SEBI,RBI_MD_ITF,RBI_UCB
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the EMR Cluster Master Node from having a public IP in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EMR Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "EMR" and select "EMR" from the dropdown to go to the EMR Dashboard.
+
+2. **Create or Edit a Cluster:**
+   - To create a new cluster, click on the "Create cluster" button.
+   - To edit an existing cluster, select the cluster from the list and click on the "Edit" button.
+
+3. **Configure Network Settings:**
+   - In the "Network" section, ensure that the "EC2 Subnet" selected is a private subnet (one that does not have a route to an Internet Gateway).
+   - Ensure that the "Auto-assign Public IP" option is set to "No" for the master node.
+
+4. **Review and Launch:**
+   - Review all the settings to ensure that the master node is configured to not have a public IP.
+   - Click on the "Create cluster" or "Save" button to apply the changes.
+
+By following these steps, you can ensure that the EMR Cluster Master Node does not have a public IP, thereby enhancing the security of your cluster.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the EMR Cluster Master Node from having a public IP in AWS using the AWS CLI, follow these steps:
+
+1. **Create a Security Configuration:**
+   Ensure you have a security configuration that specifies the master node should not have a public IP. You can create a security configuration JSON file (e.g., `emr-security-config.json`) with the necessary settings.
+
+   ```json
+   {
+     "Classification": "emrfs-site",
+     "Properties": {
+       "fs.s3.consistent.retryPeriodSeconds": "10",
+       "fs.s3.consistent": "true",
+       "fs.s3.consistent.retryCount": "5"
+     }
+   }
+   ```
+
+   Then, create the security configuration using the AWS CLI:
+
+   ```sh
+   aws emr create-security-configuration --name MySecurityConfig --security-configuration file://emr-security-config.json
+   ```
+
+2. **Create a Subnet Without Public IPs:**
+   Ensure you have a subnet that does not assign public IPs by default. You can create a subnet in a VPC and disable the auto-assign public IP setting.
+
+   ```sh
+   aws ec2 create-subnet --vpc-id vpc-12345678 --cidr-block 10.0.1.0/24 --availability-zone us-west-2a
+   ```
+
+   Disable auto-assign public IP:
+
+   ```sh
+   aws ec2 modify-subnet-attribute --subnet-id subnet-12345678 --no-map-public-ip-on-launch
+   ```
+
+3. **Launch the EMR Cluster in the Private Subnet:**
+   When creating the EMR cluster, specify the subnet that does not assign public IPs. Use the `--ec2-attributes` parameter to specify the subnet ID.
+
+   ```sh
+   aws emr create-cluster --name "MyEMRCluster" --release-label emr-5.30.0 --applications Name=Hadoop Name=Spark --ec2-attributes SubnetId=subnet-12345678 --instance-type m5.xlarge --instance-count 3 --use-default-roles
+   ```
+
+4. **Verify the Configuration:**
+   After creating the cluster, verify that the master node does not have a public IP. You can describe the cluster and check the master node's network interfaces.
+
+   ```sh
+   aws emr describe-cluster --cluster-id j-1K48XXXXXXHCB
+   ```
+
+   Check the `MasterPublicDnsName` field in the output. It should be empty if the master node does not have a public IP.
+
+By following these steps, you can ensure that the EMR Cluster Master Node does not have a public IP, thereby enhancing the security of your EMR cluster.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the EMR Cluster Master Node from having a public IP in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Below are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials and region.
+
+3. **Configure EMR Cluster**:
+   When creating an EMR cluster, ensure that the `EmrManagedMasterSecurityGroup` is configured to not allow public IPs.
+
+4. **Create EMR Cluster with No Public IP for Master Node**:
+   Use the Boto3 `emr` client to create an EMR cluster with the appropriate configuration.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+
+# Initialize a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+    aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+
+# Create an EMR client
+emr_client = session.client('emr')
+
+# Define the EMR cluster configuration
+cluster_config = {
+    'Name': 'MyEMRCluster',
+    'LogUri': 's3://my-emr-logs/',
+    'ReleaseLabel': 'emr-5.30.0',
+    'Instances': {
+        'InstanceGroups': [
+            {
+                'Name': 'Master nodes',
+                'Market': 'ON_DEMAND',
+                'InstanceRole': 'MASTER',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 1,
+                'Configurations': []
+            },
+            {
+                'Name': 'Core nodes',
+                'Market': 'ON_DEMAND',
+                'InstanceRole': 'CORE',
+                'InstanceType': 'm5.xlarge',
+                'InstanceCount': 2,
+                'Configurations': []
+            }
+        ],
+        'Ec2SubnetId': 'subnet-xxxxxxxx',  # Ensure this subnet does not have a route to an Internet Gateway
+        'EmrManagedMasterSecurityGroup': 'sg-xxxxxxxx',  # Security group without public IP access
+        'EmrManagedSlaveSecurityGroup': 'sg-yyyyyyyy',
+        'ServiceAccessSecurityGroup': 'sg-zzzzzzzz'
+    },
+    'Applications': [
+        {'Name': 'Hadoop'},
+        {'Name': 'Spark'}
+    ],
+    'JobFlowRole': 'EMR_EC2_DefaultRole',
+    'ServiceRole': 'EMR_DefaultRole',
+    'VisibleToAllUsers': True,
+    'EbsRootVolumeSize': 30,
+    'Tags': [
+        {
+            'Key': 'Name',
+            'Value': 'MyEMRCluster'
+        }
+    ]
+}
+
+# Create the EMR cluster
+response = emr_client.run_job_flow(**cluster_config)
+
+# Print the cluster ID
+print(f"Cluster created with ID: {response['JobFlowId']}")
+```
+
+### Key Points:
+1. **Security Group Configuration**:
+   Ensure the `EmrManagedMasterSecurityGroup` does not allow inbound traffic from the internet. This prevents the master node from having a public IP.
+
+2. **Subnet Configuration**:
+   Use a subnet that does not have a route to an Internet Gateway. This ensures that instances launched in this subnet do not get public IPs.
+
+3. **Boto3 Client Initialization**:
+   Properly initialize the Boto3 client with your AWS credentials and region.
+
+4. **Cluster Configuration**:
+   Define the cluster configuration ensuring the master node is placed in a secure subnet and security group.
+
+By following these steps, you can prevent the EMR Cluster Master Node from having a public IP using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Redshift console.
+3. In the navigation pane, choose "Clusters".
+4. In the list of clusters, choose the name of the cluster that you want to check. This will open the cluster details page.
+5. In the cluster details page, look for the "VPC Security Groups" section. If the associated security group has a rule that allows inbound traffic from 0.0.0.0/0 (the internet), then the EMR Cluster Master Node has a public IP.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will need to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the EMR clusters using the following command:
+
+   ```
+   aws emr list-clusters --active
+   ```
+
+   This command will return a list of all active EMR clusters.
+
+3. For each cluster, you can describe the cluster and get the details of the master node using the following command:
+
+   ```
+   aws emr describe-cluster --cluster-id <Cluster_ID>
+   ```
+
+   Replace `<Cluster_ID>` with the ID of your cluster. This command will return a JSON output with the details of the cluster.
+
+4. In the JSON output, look for the "MasterPublicDnsName" field. If this field is present and not empty, it means that the master node has a public IP address. If the field is not present or empty, it means that the master node does not have a public IP address. 
+
+   Note: The "MasterPublicDnsName" field will only be present if the master node has a public IP address. If the field is not present, it means that the master node does not have a public IP address.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Make sure you have the necessary permissions to access the EMR clusters.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary libraries and initialize the EMR client.
+
+```python
+import boto3
+
+# Create an EMR client
+client = boto3.client('emr')
+```
+
+3. Fetch the list of all EMR clusters and iterate over them to check the master node's public IP.
+
+```python
+# Get the list of all clusters
+clusters = client.list_clusters()
+
+# Iterate over each cluster
+for cluster in clusters['Clusters']:
+    # Get the cluster id
+    cluster_id = cluster['Id']
+    
+    # Describe the cluster
+    cluster_description = client.describe_cluster(ClusterId=cluster_id)
+    
+    # Get the master public DNS
+    master_public_dns = cluster_description['Cluster']['MasterPublicDnsName']
+    
+    # If the master public DNS is not empty, it means the master node has a public IP
+    if master_public_dns:
+        print(f"EMR Cluster {cluster_id} Master Node has a public IP")
+```
+
+4. The above script will print the cluster id of all EMR clusters where the master node has a public IP. You can further enhance this script to send notifications or take remedial actions as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
