@@ -24,6 +24,114 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard.
+2. In the navigation pane, choose "Reserved Instances". This will display a list of all your reserved instances.
+3. Check the "Purchase Date" column for each reserved instance. If the purchase date is more than 7 days ago, it means that the reserved instance purchase has not been reviewed in the last 7 days.
+4. Additionally, you can check the "State" column to see if the reserved instance is active, retired, or expired. If the state is not active, it may indicate a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS resources.
+
+2. Once the AWS CLI is installed and configured, you can use the `describe-reserved-db-instances` command to list all the RDS Reserved Instances. The command is as follows:
+
+   ```
+   aws rds describe-reserved-db-instances
+   ```
+
+   This command will return a JSON output with all the details of the RDS Reserved Instances.
+
+3. To review the RDS Reserved Instances purchases, you need to check the `PurchaseTime` attribute in the output. This attribute indicates the time when the Reserved Instance was purchased.
+
+4. You can use a script to automate this process. The script can parse the JSON output, extract the `PurchaseTime` attribute, and compare it with the current date. If the difference is more than 7 days, the script can raise an alert. Here is a simple Python script that does this:
+
+   ```python
+   import json
+   import subprocess
+   from datetime import datetime, timedelta
+
+   # Run the AWS CLI command
+   result = subprocess.run(['aws', 'rds', 'describe-reserved-db-instances'], stdout=subprocess.PIPE)
+
+   # Parse the JSON output
+   data = json.loads(result.stdout)
+
+   # Get the current date
+   now = datetime.now()
+
+   # Check each Reserved Instance
+   for ri in data['ReservedDBInstances']:
+       # Parse the purchase time
+       purchase_time = datetime.strptime(ri['PurchaseTime'], '%Y-%m-%dT%H:%M:%S.%fZ')
+
+       # Check if it's more than 7 days old
+       if now - purchase_time > timedelta(days=7):
+           print(f"Reserved Instance {ri['ReservedDBInstanceId']} should be reviewed")
+   ```
+
+   This script will print the IDs of the Reserved Instances that should be reviewed.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, you need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+2. **Create a Python Script to Fetch RDS Reserved Instances:**
+   You can use the `describe_reserved_db_instances` method provided by the RDS client in boto3 to fetch all the reserved instances. Here is a sample script:
+   ```python
+   import boto3
+
+   def get_rds_reserved_instances():
+       client = boto3.client('rds')
+       response = client.describe_reserved_db_instances()
+       return response['ReservedDBInstances']
+
+   reserved_instances = get_rds_reserved_instances()
+   for instance in reserved_instances:
+       print(instance)
+   ```
+   This script will print all the details of the reserved instances in your AWS account.
+
+3. **Check the Purchase Time of Each Reserved Instance:**
+   Each reserved instance has a `StartTime` attribute which tells when the instance was purchased. You can compare this time with the current time to check if the instance was purchased more than 7 days ago. Here is how you can do it:
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   def get_rds_reserved_instances():
+       client = boto3.client('rds')
+       response = client.describe_reserved_db_instances()
+       return response['ReservedDBInstances']
+
+   reserved_instances = get_rds_reserved_instances()
+   for instance in reserved_instances:
+       purchase_time = instance['StartTime']
+       if datetime.now(purchase_time.tzinfo) - purchase_time > timedelta(days=7):
+           print(f"Reserved instance {instance['ReservedDBInstanceId']} should be reviewed.")
+   ```
+   This script will print the IDs of all the reserved instances that were purchased more than 7 days ago.
+
+4. **Schedule the Script:**
+   You can schedule this script to run every 7 days using a cron job or any other task scheduler in your system. This way, you will be notified about the instances that need to be reviewed every 7 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

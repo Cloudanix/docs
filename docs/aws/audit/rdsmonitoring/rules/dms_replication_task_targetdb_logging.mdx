@@ -21,6 +21,96 @@ GDPR,HIPAA,ISO27001,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. In the list of DB instances, choose the name of the DB instance that you want to check.
+
+4. In the details pane, under the "Configuration" tab, look for the "Parameter Group" associated with the DB instance.
+
+5. Click on the "Parameter Group" name to view its details. In the details pane, look for the "logging_enabled" parameter. If the value of this parameter is set to '0', then logging is not enabled for the target DB of the DMS Replication Task.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS instances.
+
+2. Once the AWS CLI is set up, you can list all the DMS replication tasks using the following command:
+
+   ```
+   aws dms describe-replication-tasks
+   ```
+   This command will return a JSON output with details of all the DMS replication tasks.
+
+3. From the output, identify the replication task for which you want to check the target DB logging status. Note down the 'TargetEndpointArn' of the replication task.
+
+4. Now, use the 'TargetEndpointArn' to describe the target endpoint and get the details of the RDS instance:
+
+   ```
+   aws dms describe-endpoints --filters Name=endpoint-arn,Values=<TargetEndpointArn>
+   ```
+   Replace `<TargetEndpointArn>` with the actual ARN of the target endpoint. This command will return a JSON output with details of the target endpoint.
+
+5. From the output, identify the 'EngineName' and 'EndpointIdentifier' which represents the RDS instance. Now, use the following command to check the logging status of the RDS instance:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <EndpointIdentifier>
+   ```
+   Replace `<EndpointIdentifier>` with the actual identifier of the RDS instance. This command will return a JSON output with details of the RDS instance.
+
+6. In the output, look for the 'EnabledCloudwatchLogsExports' field. If this field is present and contains the value 'postgresql', then logging is enabled for the RDS instance. If this field is not present or does not contain the value 'postgresql', then logging is not enabled for the RDS instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION_NAME'
+)
+```
+
+3. Use the `describe_replication_tasks()` function to retrieve a list of all DMS Replication Tasks. 
+
+```python
+dms = session.client('dms')
+response = dms.describe_replication_tasks()
+```
+
+4. Iterate over the list of replication tasks and for each task, check if the target RDS instance has logging enabled. You can do this by using the `describe_db_instances()` function and checking the `CloudWatchLogsExportConfiguration` attribute.
+
+```python
+rds = session.client('rds')
+
+for task in response['ReplicationTasks']:
+    db_instance_identifier = task['TargetEndpointArn'].split(":")[-1]
+    db_instance = rds.describe_db_instances(DBInstanceIdentifier=db_instance_identifier)
+    if 'CloudWatchLogsExportConfiguration' not in db_instance['DBInstances'][0] or \
+       'EnableLogTypes' not in db_instance['DBInstances'][0]['CloudWatchLogsExportConfiguration'] or \
+       len(db_instance['DBInstances'][0]['CloudWatchLogsExportConfiguration']['EnableLogTypes']) == 0:
+        print(f"Logging is not enabled for the target DB of the replication task: {task['ReplicationTaskIdentifier']}")
+```
+
+This script will print out the identifiers of the replication tasks whose target RDS instances do not have logging enabled.
+</Accordion>
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 <AccordionGroup>

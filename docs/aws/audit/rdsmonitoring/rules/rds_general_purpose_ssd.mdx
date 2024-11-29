@@ -23,6 +23,81 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard. 
+
+2. In the navigation pane, click on 'Databases'. This will display a list of all your RDS instances.
+
+3. Click on the name of the RDS instance you want to check. This will open the instance details page.
+
+4. In the 'Details' section, look for the 'Storage type' field. If it says 'Provisioned IOPS SSD', then the RDS instance is using IOPS SSDs instead of General Purpose SSDs.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all RDS instances: Use the following AWS CLI command to list all the RDS instances in your AWS account.
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier,Engine,StorageType,Iops]'
+   ```
+
+   This command will return a list of all RDS instances along with their identifiers, engine types, storage types, and IOPS values.
+
+3. Filter RDS instances using IOPS SSDs: From the list of RDS instances, you can identify the ones using IOPS SSDs by looking at the 'StorageType' and 'Iops' fields. If the 'StorageType' field is set to 'io1' or 'io2', and the 'Iops' field is not null, then the RDS instance is using IOPS SSDs.
+
+4. Check if General Purpose SSDs should be used: If the 'Iops' value is less than 3000, then General Purpose SSDs (gp2) should be used instead of IOPS SSDs. This is because gp2 volumes can deliver a baseline performance of 3 IOPS/GB up to a maximum of 3000 IOPS, and they can burst up to 3000 IOPS regardless of volume size. Therefore, if your workload does not require more than 3000 IOPS, you can save costs by using gp2 volumes instead of io1 or io2 volumes.
+</Accordion>
+
+<Accordion title='Using Python'>
+To detect if General Purpose SSDs are being used instead of IOPS SSDs in RDS using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including RDS. Here are the steps:
+
+1. **Import the Boto3 library in Python:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. If you haven't installed it yet, you can do so using pip:
+   ```python
+   pip install boto3
+   ```
+   Then, import it in your script:
+   ```python
+   import boto3
+   ```
+
+2. **Create a session using your AWS credentials:**
+   You need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI and configure it with `aws configure`. Once you've done that, you can create a session in your script:
+   ```python
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. **Create an RDS client and retrieve all DB instances:**
+   Use the session to create an RDS client. Then, use the `describe_db_instances` method to retrieve all DB instances:
+   ```python
+   rds = session.client('rds')
+   response = rds.describe_db_instances()
+   ```
+
+4. **Check the storage type of each DB instance:**
+   Iterate over the DB instances in the response. For each instance, check the `StorageType` attribute. If it's 'io1' or 'io2', then IOPS SSDs are being used. If it's 'gp2', then General Purpose SSDs are being used:
+   ```python
+   for instance in response['DBInstances']:
+       if instance['StorageType'] == 'io1' or instance['StorageType'] == 'io2':
+           print(f"DB instance {instance['DBInstanceIdentifier']} is using IOPS SSDs")
+       elif instance['StorageType'] == 'gp2':
+           print(f"DB instance {instance['DBInstanceIdentifier']} is using General Purpose SSDs")
+   ```
+   This script will print out the identifiers of the DB instances and the type of SSD they are using.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
