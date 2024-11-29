@@ -1,6 +1,223 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where the FMS (Firewall Manager Security) Policy Owner specifies a WebACLId in an Elastic Load Balancer using the AWS Management Console, follow these steps:
+
+1. **Navigate to AWS Firewall Manager:**
+   - Sign in to the AWS Management Console.
+   - Open the Firewall Manager console at [https://console.aws.amazon.com/wafv2/fms](https://console.aws.amazon.com/wafv2/fms).
+
+2. **Create or Edit a Security Policy:**
+   - In the Firewall Manager console, choose "Security policies" from the navigation pane.
+   - To create a new policy, click on "Create policy." To edit an existing policy, select the policy and click "Edit."
+
+3. **Configure Policy Scope:**
+   - In the policy creation or editing wizard, specify the policy scope. Ensure that the policy is applied to the appropriate accounts, organizational units (OUs), or resources.
+   - Make sure to include the Elastic Load Balancers (ELBs) that you want to protect.
+
+4. **Specify WebACLId:**
+   - In the policy configuration, ensure that you do not specify a WebACLId directly within the policy for ELBs.
+   - Instead, use AWS WAF (Web Application Firewall) to create and manage WebACLs separately, and then associate them with the ELBs as needed.
+
+By following these steps, you can prevent the misconfiguration of specifying a WebACLId directly in the FMS policy for Elastic Load Balancers.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration where the FMS (Firewall Manager Security) Policy Owner specifies a WebACLId in an Elastic Load Balancer using AWS CLI, follow these steps:
+
+1. **Create a WebACL in AWS WAF:**
+   First, create a WebACL (Web Access Control List) in AWS WAF (Web Application Firewall) that you want to associate with your Elastic Load Balancer.
+
+   ```sh
+   aws wafv2 create-web-acl --name my-web-acl --scope REGIONAL --default-action Allow={} --visibility-config SampledRequestsEnabled=true,CloudWatchMetricsEnabled=true,MetricName=my-web-acl-metric --region us-west-2
+   ```
+
+2. **List Available WebACLs:**
+   List the WebACLs to get the WebACLId that you need to associate with your Elastic Load Balancer.
+
+   ```sh
+   aws wafv2 list-web-acls --scope REGIONAL --region us-west-2
+   ```
+
+3. **Associate WebACL with Load Balancer:**
+   Use the WebACLId obtained from the previous step to associate it with your Elastic Load Balancer.
+
+   ```sh
+   aws wafv2 associate-web-acl --resource-arn arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-load-balancer/50dc6c495c0c9188 --web-acl-arn arn:aws:wafv2:us-west-2:123456789012:regional/webacl/my-web-acl/12345678-1a2b-3c4d-5e6f-7g8h9i0j1k2l --region us-west-2
+   ```
+
+4. **Verify the Association:**
+   Verify that the WebACL has been correctly associated with the Elastic Load Balancer.
+
+   ```sh
+   aws wafv2 get-web-acl-for-resource --resource-arn arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-load-balancer/50dc6c495c0c9188 --region us-west-2
+   ```
+
+By following these steps, you ensure that the WebACL is properly associated with your Elastic Load Balancer, preventing the misconfiguration where the FMS Policy Owner specifies a WebACLId.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration where the FMS (Firewall Manager Security) Policy Owner specifies a WebACLId in an Elastic Load Balancer (ELB) using Python scripts, you can follow these steps:
+
+### Step 1: Set Up AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed and configured. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client for the AWS WAF and ELB services.
+
+```python
+import boto3
+
+# Initialize the WAF client
+waf_client = boto3.client('wafv2')
+
+# Initialize the ELB client
+elb_client = boto3.client('elbv2')
+```
+
+### Step 3: Create a WebACL
+Create a WebACL that you want to associate with your ELB. This step ensures that you have a WebACL ready to be associated.
+
+```python
+response = waf_client.create_web_acl(
+    Name='MyWebACL',
+    Scope='REGIONAL',  # Use 'CLOUDFRONT' for CloudFront distributions
+    DefaultAction={'Allow': {}},
+    Description='WebACL for ELB',
+    Rules=[],
+    VisibilityConfig={
+        'SampledRequestsEnabled': True,
+        'CloudWatchMetricsEnabled': True,
+        'MetricName': 'MyWebACL'
+    }
+)
+
+web_acl_arn = response['Summary']['ARN']
+print(f"Created WebACL with ARN: {web_acl_arn}")
+```
+
+### Step 4: Associate WebACL with ELB
+Associate the created WebACL with your Elastic Load Balancer.
+
+```python
+load_balancer_arn = 'arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/my-load-balancer/50dc6c495c0c9188'
+
+response = waf_client.associate_web_acl(
+    WebACLArn=web_acl_arn,
+    ResourceArn=load_balancer_arn
+)
+
+print(f"Associated WebACL {web_acl_arn} with ELB {load_balancer_arn}")
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Ensure Boto3 is installed and configured.
+2. **Initialize Boto3 Client**: Initialize the WAF and ELB clients.
+3. **Create a WebACL**: Create a WebACL using the WAF client.
+4. **Associate WebACL with ELB**: Associate the created WebACL with your ELB.
+
+By following these steps, you can prevent the misconfiguration where the FMS Policy Owner specifies a WebACLId in an Elastic Load Balancer using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the AWS Firewall Manager service.
+
+2. In the Firewall Manager dashboard, select the "Security policies" option from the left-hand side menu.
+
+3. In the Security Policies page, you will see a list of all the policies. Look for the policy that you want to check and click on its name to open its details.
+
+4. In the policy details page, check the "AWS WAF web ACL" field. If the policy owner has specified a WebACLId for the Elastic Load Balancer, it will be displayed here. If this field is empty or not set, then the FMS Policy Owner has not specified a WebACLId.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to execute the commands.
+
+2. Once the AWS CLI is set up, you can use the following command to list all the policies in AWS Firewall Manager (FMS):
+
+   ```
+   aws fms list-policies
+   ```
+   This command will return a list of all FMS policies. Note down the PolicyId of the policy you want to check.
+
+3. Now, use the following command to get the details of the specific policy:
+
+   ```
+   aws fms get-policy --policy-id <PolicyId>
+   ```
+   Replace `<PolicyId>` with the actual PolicyId you noted down in the previous step. This command will return the details of the policy including the WebACLId.
+
+4. Finally, you can use the following command to describe the load balancers and check if the WebACLId is specified in the load balancer:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+   This command will return a list of all the load balancers. Check the WebACLId in the output. If the WebACLId is not specified in the load balancer, then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by setting the following environment variables:
+
+   ```python
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+   Alternatively, you can use the AWS CLI to configure your credentials:
+
+   ```bash
+   aws configure
+   ```
+
+3. Write a Python script to check the FMS Policy: Now you can write a Python script that uses the boto3 library to check the FMS Policy. Here is a basic example:
+
+   ```python
+   import boto3
+
+   # Create a client
+   client = boto3.client('fms')
+
+   # Get the policy
+   response = client.get_policy(PolicyId='your_policy_id')
+
+   # Check if the policy specifies a WebACLId
+   if 'Policy' in response and 'SecurityServicePolicyData' in response['Policy'] and 'ManagedServiceData' in response['Policy']['SecurityServicePolicyData']:
+       managed_service_data = json.loads(response['Policy']['SecurityServicePolicyData']['ManagedServiceData'])
+       if 'WebACLId' in managed_service_data:
+           print('WebACLId is specified in the FMS Policy.')
+       else:
+           print('WebACLId is not specified in the FMS Policy.')
+   else:
+       print('Could not retrieve the FMS Policy.')
+   ```
+
+4. Run the Python script: Finally, you can run the Python script. If the FMS Policy specifies a WebACLId, the script will print "WebACLId is specified in the FMS Policy." If not, it will print "WebACLId is not specified in the FMS Policy."
+
+Please replace 'your_policy_id' with the actual policy id you want to check. Also, make sure to replace 'your_access_key' and 'your_secret_key' with your actual AWS access key and secret key.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
