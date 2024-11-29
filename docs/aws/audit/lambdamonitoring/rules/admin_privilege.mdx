@@ -23,6 +23,272 @@ PCIDSS, HIPAA
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Lambda functions from having administrative permissions in AWS using the AWS Management Console, follow these steps:
+
+1. **Review IAM Roles and Policies:**
+   - Navigate to the **IAM** service in the AWS Management Console.
+   - Select **Roles** from the left-hand menu.
+   - Identify the IAM roles associated with your Lambda functions.
+   - Review the policies attached to these roles to ensure they do not have administrative permissions (e.g., `AdministratorAccess`).
+
+2. **Modify IAM Policies:**
+   - For each role associated with a Lambda function, click on the role name to view its details.
+   - Under the **Permissions** tab, review the attached policies.
+   - If a policy grants administrative permissions, detach it by selecting the policy and clicking **Detach policy**.
+   - Attach more restrictive policies that grant only the necessary permissions for the Lambda function to operate.
+
+3. **Use AWS Managed Policies:**
+   - Where possible, use AWS managed policies that are designed for specific services and follow the principle of least privilege.
+   - For example, use policies like `AWSLambdaBasicExecutionRole` or `AWSLambdaVPCAccessExecutionRole` instead of custom policies that might be overly permissive.
+
+4. **Enable IAM Access Analyzer:**
+   - Navigate to the **IAM** service and select **Access Analyzer** from the left-hand menu.
+   - Create an analyzer if you don't have one already.
+   - Use the analyzer to identify any roles with overly permissive policies and take corrective action to restrict permissions.
+
+By following these steps, you can ensure that your Lambda functions do not have administrative permissions, thereby adhering to the principle of least privilege and enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Lambda functions from having administrative permissions using AWS CLI, you can follow these steps:
+
+1. **Create a Least Privilege IAM Role:**
+   Ensure that you create an IAM role with the minimum necessary permissions for your Lambda function. Avoid using policies like `AdministratorAccess`.
+
+   ```sh
+   aws iam create-role --role-name MyLambdaRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+   The `trust-policy.json` should contain the trust relationship allowing Lambda to assume the role.
+
+2. **Attach a Least Privilege Policy to the Role:**
+   Attach a policy to the role that grants only the necessary permissions. For example, if your Lambda function only needs to read from an S3 bucket, create a policy that grants `s3:GetObject` permission.
+
+   ```sh
+   aws iam put-role-policy --role-name MyLambdaRole --policy-name MyLambdaPolicy --policy-document file://least-privilege-policy.json
+   ```
+
+   The `least-privilege-policy.json` should contain the specific permissions required.
+
+3. **Update Lambda Function to Use the Least Privilege Role:**
+   Update your Lambda function to use the newly created IAM role with least privilege permissions.
+
+   ```sh
+   aws lambda update-function-configuration --function-name MyLambdaFunction --role arn:aws:iam::123456789012:role/MyLambdaRole
+   ```
+
+4. **Review and Audit IAM Policies Regularly:**
+   Regularly review and audit the IAM policies attached to your Lambda functions to ensure they do not have administrative permissions.
+
+   ```sh
+   aws iam list-attached-role-policies --role-name MyLambdaRole
+   aws iam get-role-policy --role-name MyLambdaRole --policy-name MyLambdaPolicy
+   ```
+
+By following these steps, you can ensure that your Lambda functions are not granted administrative permissions, adhering to the principle of least privilege.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Lambda functions from having administrative permissions using Python scripts, you can follow these steps:
+
+### 1. **Define Least Privilege IAM Policies**
+Ensure that the IAM policies attached to your Lambda functions follow the principle of least privilege. This means granting only the permissions necessary for the function to perform its intended tasks.
+
+#### Python Script:
+```python
+import boto3
+
+# Initialize a session using Amazon Lambda
+session = boto3.Session()
+iam_client = session.client('iam')
+
+# Define a least privilege policy
+least_privilege_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject"
+            ],
+            "Resource": "arn:aws:s3:::example-bucket/*"
+        }
+    ]
+}
+
+# Create the policy
+response = iam_client.create_policy(
+    PolicyName='LeastPrivilegePolicy',
+    PolicyDocument=json.dumps(least_privilege_policy)
+)
+
+print(response)
+```
+
+### 2. **Attach the Least Privilege Policy to Lambda Role**
+Ensure that the Lambda execution role has the least privilege policy attached.
+
+#### Python Script:
+```python
+import boto3
+
+# Initialize a session using Amazon Lambda
+session = boto3.Session()
+iam_client = session.client('iam')
+
+# Attach the least privilege policy to the Lambda execution role
+response = iam_client.attach_role_policy(
+    RoleName='LambdaExecutionRole',
+    PolicyArn='arn:aws:iam::aws:policy/LeastPrivilegePolicy'
+)
+
+print(response)
+```
+
+### 3. **Audit Existing Lambda Functions for Over-Privileged Roles**
+Regularly audit your Lambda functions to ensure they do not have over-privileged roles attached.
+
+#### Python Script:
+```python
+import boto3
+
+# Initialize a session using Amazon Lambda
+session = boto3.Session()
+lambda_client = session.client('lambda')
+
+# List all Lambda functions
+functions = lambda_client.list_functions()
+
+for function in functions['Functions']:
+    function_name = function['FunctionName']
+    role = function['Role']
+    
+    # Check the policies attached to the role
+    attached_policies = iam_client.list_attached_role_policies(RoleName=role.split('/')[-1])
+    
+    for policy in attached_policies['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            print(f"Function {function_name} has administrative permissions.")
+```
+
+### 4. **Implement Automated Policy Enforcement**
+Use AWS Config or a custom Lambda function to automatically enforce least privilege policies on Lambda functions.
+
+#### Python Script:
+```python
+import boto3
+
+# Initialize a session using Amazon Lambda
+session = boto3.Session()
+lambda_client = session.client('lambda')
+iam_client = session.client('iam')
+
+# Define a function to enforce least privilege policy
+def enforce_least_privilege(function_name, role_name):
+    # Detach any over-privileged policies
+    attached_policies = iam_client.list_attached_role_policies(RoleName=role_name)
+    
+    for policy in attached_policies['AttachedPolicies']:
+        if policy['PolicyName'] == 'AdministratorAccess':
+            iam_client.detach_role_policy(
+                RoleName=role_name,
+                PolicyArn=policy['PolicyArn']
+            )
+    
+    # Attach the least privilege policy
+    iam_client.attach_role_policy(
+        RoleName=role_name,
+        PolicyArn='arn:aws:iam::aws:policy/LeastPrivilegePolicy'
+    )
+
+# List all Lambda functions
+functions = lambda_client.list_functions()
+
+for function in functions['Functions']:
+    function_name = function['FunctionName']
+    role = function['Role']
+    role_name = role.split('/')[-1]
+    
+    enforce_least_privilege(function_name, role_name)
+```
+
+By following these steps, you can ensure that your AWS Lambda functions do not have administrative permissions and adhere to the principle of least privilege.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the IAM dashboard by selecting "Services" and then "IAM".
+3. In the IAM dashboard, select "Policies" from the left-hand navigation menu.
+4. In the Policies page, use the Filter to find policies that are attached to your Lambda functions. You can do this by typing "lambda" into the Filter and pressing enter.
+5. Once you have the list of policies attached to your Lambda functions, you can check each policy to see if it has administrative permissions. To do this, click on the policy name to open its details page. In the "Permissions" tab, look for permissions that include "AdministratorAccess". If such permissions are found, then the Lambda function has administrative permissions, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the Lambda functions in your AWS account. You can do this by using the AWS CLI command `aws lambda list-functions`. This command will return a list of all the Lambda functions in your AWS account.
+
+2. Once you have the list of Lambda functions, you can check the permissions attached to each function. You can do this by using the AWS CLI command `aws lambda get-policy --function-name <function-name>`. Replace `<function-name>` with the name of the Lambda function you want to check. This command will return the policy attached to the specified Lambda function.
+
+3. Now, you need to parse the output of the `get-policy` command to check if the Lambda function has administrative permissions. You can do this by looking for the `"Effect": "Allow"` and `"Action": "lambda:*"` fields in the policy. If these fields are present, it means that the Lambda function has administrative permissions.
+
+4. Repeat steps 2 and 3 for each Lambda function in your AWS account. If any function has administrative permissions, it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+```
+
+2. Create a session using your AWS credentials. You can also use the AWS CLI's default configuration.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a client for AWS Lambda and IAM:
+
+```python
+lambda_client = session.client('lambda')
+iam_client = session.client('iam')
+```
+
+4. List all Lambda functions and check their execution role:
+
+```python
+functions = lambda_client.list_functions()
+for function in functions['Functions']:
+    role_name = function['Role'].split('/')[-1]
+    policy = iam_client.get_role_policy(RoleName=role_name, PolicyName='inline_policy_for_lambda')
+    if 'Statement' in policy['PolicyDocument']:
+        for statement in policy['PolicyDocument']['Statement']:
+            if statement['Effect'] == 'Allow' and 'Action' in statement and '*' in statement['Action']:
+                print(f"Lambda function {function['FunctionName']} has administrative permissions.")
+```
+
+This script will print the names of all Lambda functions that have administrative permissions. Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'SESSION_TOKEN' with your actual AWS credentials.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
