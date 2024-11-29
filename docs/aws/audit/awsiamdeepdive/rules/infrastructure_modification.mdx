@@ -22,6 +22,347 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent principals with infrastructure modification capabilities in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Review and Audit IAM Policies:**
+   - Navigate to the IAM Dashboard in the AWS Management Console.
+   - Click on "Policies" in the left-hand menu.
+   - Review existing policies to identify those that grant permissions for infrastructure modification (e.g., `ec2:RunInstances`, `rds:CreateDBInstance`, etc.).
+   - Ensure that these policies are only attached to roles or users who absolutely need these permissions.
+
+2. **Implement the Principle of Least Privilege:**
+   - For each IAM user, group, or role, ensure that they only have the minimum permissions necessary to perform their job functions.
+   - Navigate to "Users" or "Roles" in the IAM Dashboard.
+   - Select the user or role and review the attached policies.
+   - Remove any policies that grant unnecessary infrastructure modification capabilities.
+
+3. **Use IAM Groups for Permission Management:**
+   - Create IAM groups for different job functions (e.g., Admins, Developers, Read-Only Users).
+   - Attach appropriate policies to these groups.
+   - Add users to these groups based on their job functions.
+   - This ensures that permissions are managed centrally and consistently.
+
+4. **Enable and Review IAM Access Analyzer:**
+   - Navigate to the IAM Dashboard and select "Access Analyzer" from the left-hand menu.
+   - Create an analyzer if one is not already set up.
+   - Review findings to identify any resources that are shared with external entities or have overly permissive access.
+   - Adjust policies and permissions based on the findings to ensure that only authorized principals have infrastructure modification capabilities.
+
+By following these steps, you can effectively prevent unauthorized principals from having infrastructure modification capabilities in AWS IAM.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent principals with infrastructure modification capabilities in AWS IAM, you can follow these steps using the AWS CLI:
+
+1. **Create a Policy with Least Privilege**:
+   - Define a policy that grants only the necessary permissions and avoids granting broad permissions that allow infrastructure modifications.
+   - Save the following JSON policy to a file named `least_privilege_policy.json`:
+
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "s3:ListBucket",
+             "ec2:DescribeInstances"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+
+   - Use the AWS CLI to create the policy:
+
+     ```sh
+     aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+     ```
+
+2. **Attach the Policy to a Group**:
+   - Create a group and attach the least privilege policy to it. This ensures that users in this group have restricted permissions.
+
+     ```sh
+     aws iam create-group --group-name LimitedAccessGroup
+     aws iam attach-group-policy --group-name LimitedAccessGroup --policy-arn arn:aws:iam::aws:policy/LeastPrivilegePolicy
+     ```
+
+3. **Add Users to the Group**:
+   - Add users to the group to ensure they inherit the restricted permissions defined in the policy.
+
+     ```sh
+     aws iam add-user-to-group --user-name UserName --group-name LimitedAccessGroup
+     ```
+
+4. **Review and Update Existing Policies**:
+   - List all policies attached to a user, group, or role to ensure no broad permissions are granted that allow infrastructure modifications.
+
+     ```sh
+     aws iam list-attached-user-policies --user-name UserName
+     aws iam list-attached-group-policies --group-name LimitedAccessGroup
+     aws iam list-attached-role-policies --role-name RoleName
+     ```
+
+   - Detach any policies that grant excessive permissions:
+
+     ```sh
+     aws iam detach-user-policy --user-name UserName --policy-arn arn:aws:iam::aws:policy/PolicyName
+     aws iam detach-group-policy --group-name LimitedAccessGroup --policy-arn arn:aws:iam::aws:policy/PolicyName
+     aws iam detach-role-policy --role-name RoleName --policy-arn arn:aws:iam::aws:policy/PolicyName
+     ```
+
+By following these steps, you can ensure that principals in your AWS environment have only the permissions they need, reducing the risk of unauthorized infrastructure modifications.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent principals with infrastructure modification capabilities in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Identify and List IAM Policies with Infrastructure Modification Permissions**
+
+First, you need to identify the IAM policies that grant infrastructure modification permissions. These permissions typically include actions like `ec2:RunInstances`, `ec2:TerminateInstances`, `rds:CreateDBInstance`, etc.
+
+```python
+import boto3
+
+def list_policies_with_infra_mod_permissions():
+    iam_client = boto3.client('iam')
+    policies = iam_client.list_policies(Scope='Local')['Policies']
+    
+    infra_mod_actions = [
+        'ec2:RunInstances', 'ec2:TerminateInstances', 'rds:CreateDBInstance', 
+        'rds:DeleteDBInstance', 's3:CreateBucket', 's3:DeleteBucket'
+    ]
+    
+    for policy in policies:
+        policy_arn = policy['Arn']
+        policy_version = iam_client.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+        policy_document = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=policy_version)['PolicyVersion']['Document']
+        
+        for statement in policy_document['Statement']:
+            if 'Action' in statement:
+                actions = statement['Action']
+                if isinstance(actions, str):
+                    actions = [actions]
+                for action in actions:
+                    if action in infra_mod_actions:
+                        print(f"Policy {policy['PolicyName']} has infrastructure modification permissions.")
+                        break
+
+list_policies_with_infra_mod_permissions()
+```
+
+### 2. **Restrict Infrastructure Modification Permissions to Specific Roles or Users**
+
+Ensure that only specific roles or users have policies with infrastructure modification permissions. You can create a function to attach these policies only to specific roles or users.
+
+```python
+def attach_policy_to_specific_roles(policy_arn, role_names):
+    iam_client = boto3.client('iam')
+    
+    for role_name in role_names:
+        iam_client.attach_role_policy(
+            RoleName=role_name,
+            PolicyArn=policy_arn
+        )
+        print(f"Attached policy {policy_arn} to role {role_name}")
+
+# Example usage
+role_names = ['AdminRole', 'DevOpsRole']
+policy_arn = 'arn:aws:iam::aws:policy/YourPolicyName'
+attach_policy_to_specific_roles(policy_arn, role_names)
+```
+
+### 3. **Create and Enforce Least Privilege Policies**
+
+Create policies that follow the principle of least privilege, granting only the necessary permissions required for specific tasks.
+
+```python
+def create_least_privilege_policy(policy_name, policy_document):
+    iam_client = boto3.client('iam')
+    
+    response = iam_client.create_policy(
+        PolicyName=policy_name,
+        PolicyDocument=policy_document
+    )
+    print(f"Created policy {policy_name} with ARN {response['Policy']['Arn']}")
+
+# Example usage
+least_privilege_policy_document = '''
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "s3:ListBucket"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+'''
+create_least_privilege_policy('LeastPrivilegePolicy', least_privilege_policy_document)
+```
+
+### 4. **Regularly Audit and Update IAM Policies**
+
+Regularly audit IAM policies to ensure they adhere to the principle of least privilege and do not grant unnecessary permissions.
+
+```python
+def audit_iam_policies():
+    iam_client = boto3.client('iam')
+    policies = iam_client.list_policies(Scope='Local')['Policies']
+    
+    for policy in policies:
+        policy_arn = policy['Arn']
+        policy_version = iam_client.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+        policy_document = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=policy_version)['PolicyVersion']['Document']
+        
+        # Implement your auditing logic here
+        # For example, check if the policy grants more permissions than necessary
+        print(f"Auditing policy {policy['PolicyName']}")
+
+audit_iam_policies()
+```
+
+By following these steps, you can prevent principals from having unnecessary infrastructure modification capabilities in AWS IAM using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the IAM (Identity and Access Management) service.
+
+2. In the IAM dashboard, click on "Policies" in the left navigation pane. This will display a list of all the policies in your AWS account.
+
+3. Use the filter or search bar to find policies that have infrastructure modification capabilities. These are typically policies that include actions like "Create*", "Delete*", "Modify*", "Update*", etc. in their policy document.
+
+4. Once you have identified such policies, click on each policy to view its details. In the policy details page, click on "Policy usage" to see which IAM users, groups, and roles are attached to this policy. If there are any principals (users, groups, or roles) attached to this policy, they have infrastructure modification capabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **List all IAM users**: The first step is to list all the IAM users in your AWS account. You can do this by using the AWS CLI command `aws iam list-users`. This command will return a list of all IAM users in your AWS account.
+
+    ```
+    aws iam list-users --query 'Users[*].UserName' --output text
+    ```
+
+2. **List all IAM policies attached to each user**: The next step is to list all IAM policies attached to each user. You can do this by using the AWS CLI command `aws iam list-user-policies` and `aws iam list-attached-user-policies`. These commands will return a list of all IAM policies attached to each user.
+
+    ```
+    for user in $(aws iam list-users --query 'Users[*].UserName' --output text); do
+        echo "User: $user"
+        aws iam list-user-policies --user-name $user
+        aws iam list-attached-user-policies --user-name $user
+    done
+    ```
+
+3. **Check the permissions of each policy**: The next step is to check the permissions of each policy. You can do this by using the AWS CLI command `aws iam get-policy-version`. This command will return the permissions of the specified policy.
+
+    ```
+    for user in $(aws iam list-users --query 'Users[*].UserName' --output text); do
+        for policy in $(aws iam list-attached-user-policies --user-name $user --query 'AttachedPolicies[*].PolicyArn' --output text); do
+            version=$(aws iam get-policy --policy-arn $policy --query 'Policy.DefaultVersionId' --output text)
+            aws iam get-policy-version --policy-arn $policy --version-id $version
+        done
+    done
+    ```
+
+4. **Identify policies with infrastructure modification capabilities**: The final step is to identify policies with infrastructure modification capabilities. This can be done by looking for permissions such as `*:*`, `ec2:*`, `s3:*`, etc. in the output of the previous command. These permissions indicate that the user has the ability to modify infrastructure resources.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up the AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials. You can configure your credentials either by exporting them directly into your shell or by storing them in a credentials file on your local system.
+
+2. **List IAM Users:**
+   Use the IAM client from boto3 to list all IAM users. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           print('UserName: {0}\nUserID: {1}\nARN: {2}\nCreatedOn: {3}\n'.format(
+               user['UserName'],
+               user['UserId'],
+               user['Arn'],
+               user['CreateDate']
+           ))
+   ```
+3. **Check User Policies:**
+   For each user, you need to check the policies attached to them. You can do this by using the `list_attached_user_policies` method from the IAM client. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List policies for each user
+           policies = iam.list_attached_user_policies(UserName=user['UserName'])
+           for policy in policies['AttachedPolicies']:
+               print('PolicyName: {0}\nPolicyArn: {1}\n'.format(
+                   policy['PolicyName'],
+                   policy['PolicyArn']
+               ))
+   ```
+4. **Check for Infrastructure Modification Capabilities:**
+   For each policy, you need to check if it has infrastructure modification capabilities. You can do this by getting the policy version and checking the policy document. Here is a sample script:
+   ```python
+   import boto3
+   import json
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List policies for each user
+           policies = iam.list_attached_user_policies(UserName=user['UserName'])
+           for policy in policies['AttachedPolicies']:
+               # Get policy version
+               policy_version = iam.get_policy_version(
+                   PolicyArn=policy['PolicyArn'],
+                   VersionId=policy['DefaultVersionId']
+               )
+               # Check policy document
+               policy_document = policy_version['PolicyVersion']['Document']
+               for statement in policy_document['Statement']:
+                   if statement['Effect'] == 'Allow' and 'ec2:Modify*' in statement['Action']:
+                       print('User {0} has infrastructure modification capabilities'.format(user['UserName']))
+   ```
+   This script checks if the user has any policy that allows them to modify EC2 instances. You can modify this script to check for other infrastructure modification capabilities.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

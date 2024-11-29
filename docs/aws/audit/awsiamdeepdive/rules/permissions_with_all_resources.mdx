@@ -22,6 +22,295 @@ CISGCP,HIPAA,SCO2,NISTCSF,NIST,AWSWAF,ISO27001,HITRUST,CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent granting excessive permissions for all resources in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Principle of Least Privilege**:
+   - When creating or modifying IAM policies, ensure that you grant only the permissions necessary for the specific tasks the user or role needs to perform. Avoid using overly broad permissions like `*` which grants access to all resources.
+   - **Steps**:
+     1. Go to the **IAM** service in the AWS Management Console.
+     2. Navigate to **Policies** and click on **Create policy**.
+     3. Use the **Visual editor** to specify the exact actions and resources required.
+     4. Avoid using `*` in the **Actions** and **Resources** fields. Instead, specify the exact actions and resources.
+
+2. **Use Managed Policies**:
+   - Prefer AWS Managed Policies over custom policies when possible, as they are designed following best practices and are regularly updated by AWS.
+   - **Steps**:
+     1. In the **IAM** console, go to **Policies**.
+     2. Search for and review AWS Managed Policies that fit your needs.
+     3. Attach the appropriate managed policy to your users, groups, or roles.
+
+3. **Policy Simulator**:
+   - Use the IAM Policy Simulator to test the effects of your policies before applying them. This helps ensure that the policies grant only the permissions intended.
+   - **Steps**:
+     1. In the **IAM** console, go to **Policy Simulator**.
+     2. Select the user, group, or role you want to test.
+     3. Simulate the actions to verify that the permissions are correctly configured.
+
+4. **Regular Audits and Reviews**:
+   - Regularly review IAM policies and permissions to ensure they are still aligned with the principle of least privilege. Remove any unnecessary permissions.
+   - **Steps**:
+     1. In the **IAM** console, go to **Access Advisor** for users, groups, or roles.
+     2. Review the services and actions that have been accessed.
+     3. Adjust policies to remove any permissions that are not needed.
+
+By following these steps, you can significantly reduce the risk of granting excessive permissions in AWS IAM.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent granting overly permissive permissions to all resources in AWS IAM using the AWS CLI, follow these steps:
+
+1. **Create a Least Privilege Policy:**
+   - Define a policy that grants only the necessary permissions to specific resources. Avoid using wildcards (`*`) for resources and actions.
+   - Example policy JSON:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": "s3:ListBucket",
+           "Resource": "arn:aws:s3:::example-bucket"
+         },
+         {
+           "Effect": "Allow",
+           "Action": "s3:GetObject",
+           "Resource": "arn:aws:s3:::example-bucket/*"
+         }
+       ]
+     }
+     ```
+   - Save this JSON to a file, e.g., `least_privilege_policy.json`.
+
+2. **Create the Policy Using AWS CLI:**
+   - Use the `aws iam create-policy` command to create the policy.
+     ```sh
+     aws iam create-policy --policy-name LeastPrivilegePolicy --policy-document file://least_privilege_policy.json
+     ```
+
+3. **Attach the Policy to a User, Group, or Role:**
+   - Use the `aws iam attach-user-policy`, `aws iam attach-group-policy`, or `aws iam attach-role-policy` command to attach the policy to the appropriate IAM entity.
+   - Example for attaching to a user:
+     ```sh
+     aws iam attach-user-policy --user-name YourUserName --policy-arn arn:aws:iam::aws:policy/LeastPrivilegePolicy
+     ```
+
+4. **Review and Audit IAM Policies Regularly:**
+   - Regularly review IAM policies to ensure they adhere to the principle of least privilege. Use the `aws iam list-policies` and `aws iam get-policy` commands to list and get details of policies.
+     ```sh
+     aws iam list-policies
+     aws iam get-policy --policy-arn arn:aws:iam::aws:policy/LeastPrivilegePolicy
+     ```
+
+By following these steps, you can prevent overly permissive permissions in AWS IAM and ensure that your policies grant only the necessary permissions to specific resources.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent granting permissions for all resources in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured. You can install it using pip:
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to List IAM Policies**
+Create a Python script to list all IAM policies and identify those that grant permissions to all resources (`"Resource": "*"`).
+
+```python
+import boto3
+
+# Initialize a session using Amazon IAM
+session = boto3.Session(profile_name='your_profile_name')
+iam = session.client('iam')
+
+# List all policies
+policies = iam.list_policies(Scope='Local')
+
+for policy in policies['Policies']:
+    policy_arn = policy['Arn']
+    policy_version = iam.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+    policy_document = iam.get_policy_version(PolicyArn=policy_arn, VersionId=policy_version)['PolicyVersion']['Document']
+    
+    for statement in policy_document['Statement']:
+        if statement['Effect'] == 'Allow' and statement['Resource'] == '*':
+            print(f"Policy {policy['PolicyName']} allows access to all resources.")
+```
+
+### 3. **Modify Policies to Restrict Resource Access**
+Update the script to modify policies that grant permissions to all resources. This example will remove the wildcard resource and replace it with a specific resource.
+
+```python
+import json
+
+def update_policy(policy_arn, policy_document):
+    # Create a new version of the policy with restricted resources
+    for statement in policy_document['Statement']:
+        if statement['Effect'] == 'Allow' and statement['Resource'] == '*':
+            statement['Resource'] = 'arn:aws:s3:::specific-bucket/*'  # Example resource
+
+    # Update the policy with the new document
+    iam.create_policy_version(
+        PolicyArn=policy_arn,
+        PolicyDocument=json.dumps(policy_document),
+        SetAsDefault=True
+    )
+
+for policy in policies['Policies']:
+    policy_arn = policy['Arn']
+    policy_version = iam.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+    policy_document = iam.get_policy_version(PolicyArn=policy_arn, VersionId=policy_version)['PolicyVersion']['Document']
+    
+    for statement in policy_document['Statement']:
+        if statement['Effect'] == 'Allow' and statement['Resource'] == '*':
+            print(f"Updating policy {policy['PolicyName']} to restrict resource access.")
+            update_policy(policy_arn, policy_document)
+```
+
+### 4. **Automate and Schedule the Script**
+To ensure continuous compliance, automate and schedule the script to run at regular intervals using AWS Lambda or a cron job on an EC2 instance.
+
+#### Using AWS Lambda:
+1. **Create a Lambda Function:**
+   - Go to the AWS Lambda console.
+   - Create a new function and choose Python as the runtime.
+   - Upload the script as the function code.
+
+2. **Set Up IAM Role for Lambda:**
+   - Ensure the Lambda function has an IAM role with permissions to list and update IAM policies.
+
+3. **Schedule the Lambda Function:**
+   - Use Amazon CloudWatch Events to trigger the Lambda function at regular intervals (e.g., daily).
+
+```python
+import boto3
+import json
+
+def lambda_handler(event, context):
+    session = boto3.Session()
+    iam = session.client('iam')
+
+    policies = iam.list_policies(Scope='Local')
+
+    def update_policy(policy_arn, policy_document):
+        for statement in policy_document['Statement']:
+            if statement['Effect'] == 'Allow' and statement['Resource'] == '*':
+                statement['Resource'] = 'arn:aws:s3:::specific-bucket/*'
+
+        iam.create_policy_version(
+            PolicyArn=policy_arn,
+            PolicyDocument=json.dumps(policy_document),
+            SetAsDefault=True
+        )
+
+    for policy in policies['Policies']:
+        policy_arn = policy['Arn']
+        policy_version = iam.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+        policy_document = iam.get_policy_version(PolicyArn=policy_arn, VersionId=policy_version)['PolicyVersion']['Document']
+        
+        for statement in policy_document['Statement']:
+            if statement['Effect'] == 'Allow' and statement['Resource'] == '*':
+                update_policy(policy_arn, policy_document)
+```
+
+By following these steps, you can prevent IAM policies from granting permissions to all resources in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the IAM (Identity and Access Management) service. 
+
+2. In the IAM dashboard, click on "Policies" in the left navigation pane. Here you can see all the policies that are currently in use. 
+
+3. Click on a policy to view its details. In the "Permissions" tab, you can see the permissions that the policy grants. 
+
+4. To check the permissions for a specific resource, navigate to the service that manages that resource. For example, to check the permissions for an S3 bucket, navigate to the S3 service. Click on the bucket, then click on the "Permissions" tab. Here you can see the permissions that are currently in place for the bucket.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can start using it to interact with AWS services.
+
+2. To list all IAM users, use the following command:
+   ```
+   aws iam list-users
+   ```
+   This command will return a list of all IAM users in your AWS account.
+
+3. To list all the policies attached to a specific user, use the following command:
+   ```
+   aws iam list-user-policies --user-name <username>
+   ```
+   Replace `<username>` with the name of the user. This command will return a list of all inline policies attached to the specified user.
+
+4. To list all the managed policies attached to a specific user, use the following command:
+   ```
+   aws iam list-attached-user-policies --user-name <username>
+   ```
+   Replace `<username>` with the name of the user. This command will return a list of all managed policies attached to the specified user.
+
+By using these commands, you can check the permissions for all resources in AWS IAM.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3):** First, you need to set up AWS SDK (Boto3) for Python. This allows you to create, configure, and manage AWS services. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. **Configure AWS Credentials:** You need to configure your AWS credentials. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+It will prompt you for your Access Key ID, Secret Access Key, Default region name, and Default output format. 
+
+3. **Create IAM Client:** Now, you can create an IAM client using Boto3:
+
+```python
+import boto3
+
+# Create IAM client
+iam = boto3.client('iam')
+```
+
+4. **Check Permissions for All Resources:** You can use the `list_policies` method to retrieve all the policies. Then, for each policy, you can use the `get_policy` method to get the policy details, and the `get_policy_version` method to get the policy document:
+
+```python
+# List all policies
+policies = iam.list_policies(Scope='All')
+
+for policy in policies['Policies']:
+    # Get policy details
+    policy_details = iam.get_policy(PolicyArn=policy['Arn'])
+
+    # Get policy document
+    policy_document = iam.get_policy_version(
+        PolicyArn=policy['Arn'],
+        VersionId=policy_details['Policy']['DefaultVersionId']
+    )
+
+    print(f"Policy Name: {policy['PolicyName']}")
+    print(f"Policy Document: {policy_document['PolicyVersion']['Document']}")
+```
+
+This script will print the name and document of each policy. The policy document includes the permissions for the resources.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

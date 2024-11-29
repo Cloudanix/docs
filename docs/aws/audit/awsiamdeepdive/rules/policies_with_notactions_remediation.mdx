@@ -1,6 +1,294 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent policies with `NotAction` in the statements in AWS IAM using the AWS Management Console, follow these steps:
+
+1. **Review Existing Policies:**
+   - Navigate to the **IAM** service in the AWS Management Console.
+   - In the left-hand navigation pane, click on **Policies**.
+   - Review the list of policies and identify any that contain `NotAction` in their statements.
+
+2. **Edit Policy Statements:**
+   - Select the policy you want to edit by clicking on its name.
+   - Click on the **Policy actions** dropdown and select **Edit policy**.
+   - In the **JSON** tab, carefully review the policy document for any `NotAction` elements.
+   - Modify the policy to replace `NotAction` with specific `Action` elements that explicitly define the allowed actions.
+
+3. **Use Policy Validator:**
+   - While editing the policy, use the **Policy Validator** feature to check for any warnings or errors.
+   - The Policy Validator will highlight any potential issues, including the use of `NotAction`, and provide recommendations for best practices.
+
+4. **Apply and Save Changes:**
+   - After making the necessary changes to the policy, click on **Review policy**.
+   - Ensure that the policy changes align with the principle of least privilege.
+   - Click on **Save changes** to apply the updated policy.
+
+By following these steps, you can ensure that your IAM policies are more secure and adhere to best practices by avoiding the use of `NotAction` in policy statements.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent policies with `NotAction` in the statements in AWS IAM using AWS CLI, you can follow these steps:
+
+1. **Create a Policy with Specific Actions:**
+   Ensure that when creating policies, you specify the exact actions that are allowed or denied, rather than using `NotAction`. This helps in maintaining a clear and secure policy.
+
+   ```sh
+   aws iam create-policy --policy-name MyPolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "s3:ListBucket",
+                   "s3:GetObject"
+               ],
+               "Resource": [
+                   "arn:aws:s3:::example-bucket",
+                   "arn:aws:s3:::example-bucket/*"
+               ]
+           }
+       ]
+   }'
+   ```
+
+2. **Update Existing Policies to Remove `NotAction`:**
+   If you have existing policies with `NotAction`, update them to use specific actions instead. First, retrieve the policy document, modify it, and then update the policy.
+
+   ```sh
+   POLICY_ARN="arn:aws:iam::123456789012:policy/MyPolicy"
+   POLICY_VERSION=$(aws iam list-policy-versions --policy-arn $POLICY_ARN --query 'Versions[?IsDefaultVersion].VersionId' --output text)
+
+   aws iam get-policy-version --policy-arn $POLICY_ARN --version-id $POLICY_VERSION > policy.json
+
+   # Manually edit policy.json to replace NotAction with specific actions
+
+   aws iam create-policy-version --policy-arn $POLICY_ARN --policy-document file://policy.json --set-as-default
+   ```
+
+3. **Use IAM Policy Simulator to Validate Policies:**
+   Before applying policies, use the IAM Policy Simulator to ensure that the policies behave as expected and do not inadvertently grant excessive permissions.
+
+   ```sh
+   aws iam simulate-principal-policy --policy-source-arn arn:aws:iam::123456789012:user/MyUser --action-names s3:ListBucket s3:GetObject
+   ```
+
+4. **Implement Policy Linter Tools:**
+   Use tools like `aws-iam-policy-validator` to lint your policies and ensure they do not contain `NotAction` or other potentially insecure configurations.
+
+   ```sh
+   pip install aws-iam-policy-validator
+   aws-iam-policy-validator validate --policy-file policy.json
+   ```
+
+By following these steps, you can prevent the use of `NotAction` in IAM policies and ensure that your policies are secure and specific.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent policies with `NotAction` in the statements in AWS IAM using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with IAM policies.
+
+```bash
+pip install boto3
+```
+
+### 2. **List All IAM Policies**
+Create a Python script to list all IAM policies in your AWS account.
+
+```python
+import boto3
+
+def list_iam_policies():
+    iam_client = boto3.client('iam')
+    paginator = iam_client.get_paginator('list_policies')
+    for page in paginator.paginate(Scope='Local'):
+        for policy in page['Policies']:
+            yield policy['Arn']
+
+# Example usage
+for policy_arn in list_iam_policies():
+    print(policy_arn)
+```
+
+### 3. **Retrieve Policy Document**
+Fetch the policy document for each policy to inspect its statements.
+
+```python
+def get_policy_document(policy_arn):
+    iam_client = boto3.client('iam')
+    version_id = iam_client.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+    policy_document = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)['PolicyVersion']['Document']
+    return policy_document
+
+# Example usage
+policy_arn = 'arn:aws:iam::aws:policy/YourPolicyName'
+policy_document = get_policy_document(policy_arn)
+print(policy_document)
+```
+
+### 4. **Check for `NotAction` in Policy Statements**
+Inspect each statement in the policy document to ensure it does not contain `NotAction`.
+
+```python
+def check_not_action_in_policy(policy_document):
+    for statement in policy_document.get('Statement', []):
+        if 'NotAction' in statement:
+            return True
+    return False
+
+# Example usage
+if check_not_action_in_policy(policy_document):
+    print(f"Policy {policy_arn} contains NotAction in its statements.")
+else:
+    print(f"Policy {policy_arn} is compliant.")
+```
+
+### Full Script Example
+Combining all the steps into a single script:
+
+```python
+import boto3
+
+def list_iam_policies():
+    iam_client = boto3.client('iam')
+    paginator = iam_client.get_paginator('list_policies')
+    for page in paginator.paginate(Scope='Local'):
+        for policy in page['Policies']:
+            yield policy['Arn']
+
+def get_policy_document(policy_arn):
+    iam_client = boto3.client('iam')
+    version_id = iam_client.get_policy(PolicyArn=policy_arn)['Policy']['DefaultVersionId']
+    policy_document = iam_client.get_policy_version(PolicyArn=policy_arn, VersionId=version_id)['PolicyVersion']['Document']
+    return policy_document
+
+def check_not_action_in_policy(policy_document):
+    for statement in policy_document.get('Statement', []):
+        if 'NotAction' in statement:
+            return True
+    return False
+
+def main():
+    for policy_arn in list_iam_policies():
+        policy_document = get_policy_document(policy_arn)
+        if check_not_action_in_policy(policy_document):
+            print(f"Policy {policy_arn} contains NotAction in its statements.")
+        else:
+            print(f"Policy {policy_arn} is compliant.")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **List All IAM Policies**: Create a function to list all IAM policies.
+3. **Retrieve Policy Document**: Fetch the policy document for each policy.
+4. **Check for `NotAction` in Policy Statements**: Inspect each statement to ensure it does not contain `NotAction`.
+
+By following these steps, you can programmatically prevent policies with `NotAction` in their statements using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the IAM (Identity and Access Management) service.
+
+2. In the IAM dashboard, click on "Policies" in the left navigation pane. This will display a list of all the IAM policies in your AWS account.
+
+3. Click on the policy name that you want to check. This will open the policy details page.
+
+4. In the policy details page, look at the "Policy Document" section. This section displays the JSON representation of the policy. Check if there are any statements with "NotAction" in them. If there are, it means that the policy allows all actions except the ones specified in the "NotAction" statement. This could potentially lead to overly permissive policies if not properly managed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. To list all the IAM policies, use the following command:
+   ```
+   aws iam list-policies
+   ```
+   This command will return a JSON object that contains all the IAM policies.
+
+3. To get the details of each policy, you can use the following command:
+   ```
+   aws iam get-policy-version --policy-arn <PolicyArn> --version-id <VersionId>
+   ```
+   Replace `<PolicyArn>` and `<VersionId>` with the ARN and version ID of the policy you want to check. This command will return a JSON object that contains the details of the policy.
+
+4. To check if a policy has `NotAction` in the statements, you can parse the JSON object returned by the previous command. You can do this manually or by using a tool like `jq`. Here is an example of how to do it with `jq`:
+   ```
+   aws iam get-policy-version --policy-arn <PolicyArn> --version-id <VersionId> | jq '.PolicyVersion.Document.Statement[] | select(.NotAction)'
+   ```
+   This command will return the statements that contain `NotAction`. If it doesn't return anything, it means that the policy doesn't have `NotAction` in the statements.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials. You can configure credentials by using the AWS CLI:
+   ```
+   aws configure
+   ```
+   It will prompt you for your Access Key ID, Secret Access Key, Default region name, and Default output format. Enter the details accordingly.
+
+2. **Create a Python Script to List IAM Policies:**
+   Now, create a Python script that uses Boto3 to list all IAM policies. Here's a simple script that does this:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List policies
+   response = iam.list_policies(Scope='All')
+   for policy in response['Policies']:
+       print(policy['Arn'])
+   ```
+   This script will print the ARN of all policies.
+
+3. **Get Policy Details and Check for NotAction in Statements:**
+   Modify the script to get the details of each policy and check if there is a 'NotAction' in the policy statements. Here's how you can do this:
+   ```python
+   import boto3
+   import json
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List policies
+   response = iam.list_policies(Scope='All')
+   for policy in response['Policies']:
+       policy_version = iam.get_policy_version(
+           PolicyArn=policy['Arn'],
+           VersionId=policy['DefaultVersionId']
+       )
+       document = json.loads(policy_version['PolicyVersion']['Document'])
+       for statement in document['Statement']:
+           if 'NotAction' in statement:
+               print(f"Policy {policy['Arn']} contains 'NotAction' in its statements.")
+   ```
+   This script will print the ARN of policies that contain 'NotAction' in their statements.
+
+4. **Run the Python Script:**
+   Finally, run the Python script. If there are any policies with 'NotAction' in their statements, their ARNs will be printed. If no such policies are found, nothing will be printed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
