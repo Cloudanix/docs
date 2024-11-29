@@ -24,6 +24,91 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the CloudFormation service.
+2. In the CloudFormation console, select the "Stacks" option from the left-hand side menu.
+3. Select the stack for which you want to check the policy. Click on the stack name to open its details.
+4. In the stack details page, navigate to the "Stack Policy" tab. Here, you can view the policy associated with the stack. Check if the policy includes a fail-safe mechanism, such as a statement that denies all updates to all resources by default. If such a statement is not present, the stack policy is misconfigured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the CloudFormation stacks.
+
+2. Once the AWS CLI is set up, you can list all the CloudFormation stacks in your account using the following command:
+   ```
+   aws cloudformation list-stacks --query 'StackSummaries[].StackName' --output text
+   ```
+   This command will return the names of all the CloudFormation stacks in your account.
+
+3. Now, for each stack, you can get the stack policy using the following command:
+   ```
+   aws cloudformation get-stack-policy --stack-name <StackName>
+   ```
+   Replace `<StackName>` with the name of the stack you want to check. This command will return the stack policy in JSON format.
+
+4. Finally, you need to manually check the returned policy. A fail-safe mechanism in a CloudFormation stack policy would typically include a statement that denies all actions on all resources by default, and then specifically allows certain actions on certain resources. If such a statement is not present in the policy, then the stack policy does not use a fail-safe mechanism.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can pass these credentials directly in your Python script (not recommended for security reasons) or configure them in your environment. The AWS CLI is an easy way to configure your environment:
+
+   ```bash
+   aws configure
+   ```
+
+3. Write a Python script to list all CloudFormation stacks and their policies: Use the boto3 library to create a CloudFormation client and list all stacks. For each stack, get its policy and check if it uses a fail-safe mechanism. Here is a basic script:
+
+   ```python
+   import boto3
+
+   # Create a CloudFormation client
+   cf = boto3.client('cloudformation')
+
+   # List all stacks
+   stacks = cf.list_stacks(StackStatusFilter=['CREATE_COMPLETE', 'UPDATE_COMPLETE'])
+
+   for stack in stacks['StackSummaries']:
+       # Get stack policy
+       try:
+           policy = cf.get_stack_policy(StackName=stack['StackName'])
+           policy_body = json.loads(policy['StackPolicyBody'])
+
+           # Check if policy uses a fail-safe mechanism
+           if 'Statement' in policy_body:
+               for statement in policy_body['Statement']:
+                   if statement['Effect'] == 'Deny' and 'NotResource' in statement:
+                       print(f"Stack {stack['StackName']} uses a fail-safe mechanism")
+                   else:
+                       print(f"Stack {stack['StackName']} does not use a fail-safe mechanism")
+           else:
+               print(f"Stack {stack['StackName']} does not have a policy")
+
+       except cf.exceptions.StackPolicyNotFoundException:
+           print(f"Stack {stack['StackName']} does not have a policy")
+   ```
+
+4. Run the Python script: Save the script to a file, for example, check_stack_policy.py, and run it with Python:
+
+   ```bash
+   python check_stack_policy.py
+   ```
+
+This script will print the name of each stack and whether it uses a fail-safe mechanism in its policy. If a stack does not have a policy, it will also print that information.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
