@@ -23,6 +23,205 @@ CBP,SEBI
 ### Triage and Remediation
 
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Neptune DB Cluster Snapshot from being public in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the RDS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon RDS console at [https://console.aws.amazon.com/rds/](https://console.aws.amazon.com/rds/).
+
+2. **Access Snapshots:**
+   - In the navigation pane, click on "Snapshots" under the "Databases" section.
+   - You will see a list of all your DB snapshots, including Neptune DB Cluster snapshots.
+
+3. **Modify Snapshot Attributes:**
+   - Select the snapshot you want to check or modify.
+   - Click on the "Actions" dropdown menu and select "Modify Snapshot".
+
+4. **Ensure Snapshot is Private:**
+   - In the "Modify Snapshot" dialog, ensure that the "Public" option is not selected.
+   - If the snapshot is public, uncheck the "Public" option to make it private.
+   - Click "Save" to apply the changes.
+
+By following these steps, you can ensure that your Neptune DB Cluster snapshots are not publicly accessible, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Neptune DB Cluster Snapshot from being public in Amazon RDS using AWS CLI, follow these steps:
+
+1. **Describe the DB Cluster Snapshots**:
+   First, identify the DB cluster snapshots that are currently available in your account.
+   ```sh
+   aws rds describe-db-cluster-snapshots
+   ```
+
+2. **Check Snapshot Attributes**:
+   For each snapshot, check its attributes to see if it is publicly accessible.
+   ```sh
+   aws rds describe-db-cluster-snapshot-attributes --db-cluster-snapshot-identifier <snapshot-identifier>
+   ```
+
+3. **Modify Snapshot Attributes**:
+   If a snapshot is found to be public, modify its attributes to remove public access. This can be done by removing the `all` attribute from the list of accounts that have access.
+   ```sh
+   aws rds modify-db-cluster-snapshot-attribute --db-cluster-snapshot-identifier <snapshot-identifier> --attribute-name restore --values-to-remove all
+   ```
+
+4. **Verify Changes**:
+   Finally, verify that the snapshot attributes have been updated and that the snapshot is no longer public.
+   ```sh
+   aws rds describe-db-cluster-snapshot-attributes --db-cluster-snapshot-identifier <snapshot-identifier>
+   ```
+
+By following these steps, you can ensure that your Neptune DB Cluster Snapshots are not publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Neptune DB Cluster Snapshots from being public in Amazon RDS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables. For example:
+   ```bash
+   aws configure
+   ```
+   Or set environment variables:
+   ```bash
+   export AWS_ACCESS_KEY_ID='your_access_key_id'
+   export AWS_SECRET_ACCESS_KEY='your_secret_access_key'
+   export AWS_DEFAULT_REGION='your_preferred_region'
+   ```
+
+3. **Python Script to Check and Modify Snapshot Permissions**:
+   Use the following Python script to check the permissions of Neptune DB Cluster Snapshots and ensure they are not public:
+
+   ```python
+   import boto3
+
+   def make_snapshots_private():
+       # Create a Neptune client
+       client = boto3.client('neptune')
+
+       # List all DB cluster snapshots
+       response = client.describe_db_cluster_snapshots()
+       snapshots = response['DBClusterSnapshots']
+
+       for snapshot in snapshots:
+           snapshot_arn = snapshot['DBClusterSnapshotArn']
+           # Get the snapshot attributes
+           attributes_response = client.describe_db_cluster_snapshot_attributes(
+               DBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier']
+           )
+           attributes = attributes_response['DBClusterSnapshotAttributesResult']['DBClusterSnapshotAttributes']
+
+           for attribute in attributes:
+               if attribute['AttributeName'] == 'restore' and 'all' in attribute['AttributeValues']:
+                   # Remove 'all' from the attribute values to make it private
+                   client.modify_db_cluster_snapshot_attribute(
+                       DBClusterSnapshotIdentifier=snapshot['DBClusterSnapshotIdentifier'],
+                       AttributeName='restore',
+                       ValuesToRemove=['all']
+                   )
+                   print(f"Snapshot {snapshot['DBClusterSnapshotIdentifier']} is now private.")
+
+   if __name__ == "__main__":
+       make_snapshots_private()
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure all Neptune DB Cluster Snapshots are private:
+   ```bash
+   python your_script_name.py
+   ```
+
+This script will iterate through all Neptune DB Cluster Snapshots, check their attributes, and remove the 'all' value from the 'restore' attribute if it exists, thereby making the snapshots private.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Snapshots". This will open a list of all the snapshots available in your AWS account.
+
+3. Select the DB cluster snapshot that you want to examine. In the "Snapshot Details" section, look for the "Public" attribute. If the attribute value is set to "Yes", then the selected Amazon Neptune DB cluster snapshot is publicly accessible.
+
+4. Repeat the process for each DB cluster snapshot available in your AWS account. Remember, a secure configuration should have the "Public" attribute set to "No" for all DB cluster snapshots.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS resources.
+
+2. Once the AWS CLI is set up, you can list all the DB cluster snapshots by using the following command:
+
+   ```
+   aws rds describe-db-cluster-snapshots
+   ```
+   This command will return a JSON output with details of all the DB cluster snapshots.
+
+3. To check if a Neptune DB Cluster Snapshot is public, you need to look for the 'PubliclyAccessible' attribute in the JSON output. If the value of this attribute is 'true', then the snapshot is public.
+
+4. You can use the following command to filter out the public snapshots:
+
+   ```
+   aws rds describe-db-cluster-snapshots --query 'DBClusterSnapshots[?PubliclyAccessible==`true`]'
+   ```
+   This command will return the details of all the public DB cluster snapshots. If no snapshots are returned, then there are no public snapshots.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to import the necessary AWS SDK for Python (Boto3) modules in your Python script. You will need the `boto3` module to interact with AWS services and the `json` module to parse the JSON responses.
+
+```python
+import boto3
+import json
+```
+
+2. Next, create a session using your AWS credentials. Replace `'my_region'`, `'my_access_key'`, `'my_secret_key'` with your AWS region, access key, and secret key respectively.
+
+```python
+session = boto3.Session(
+    region_name='my_region',
+    aws_access_key_id='my_access_key',
+    aws_secret_access_key='my_secret_key'
+)
+```
+
+3. Now, create a client for the 'rds' service. This client will allow you to interact with your RDS instances.
+
+```python
+rds = session.client('rds')
+```
+
+4. Finally, use the `describe_db_cluster_snapshots` method to retrieve information about your DB cluster snapshots. Then, iterate over the snapshots and check the `PubliclyAccessible` attribute. If it's set to `True`, then the snapshot is public.
+
+```python
+response = rds.describe_db_cluster_snapshots()
+for snapshot in response['DBClusterSnapshots']:
+    if snapshot['PubliclyAccessible']:
+        print(f"Snapshot {snapshot['DBClusterSnapshotIdentifier']} is public.")
+```
+
+This script will print the identifiers of all public Neptune DB cluster snapshots. If no such snapshots exist, it will print nothing.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,303 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being overutilized in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Enhanced Monitoring:**
+   - Navigate to the RDS Dashboard in the AWS Management Console.
+   - Select the RDS instance you want to monitor.
+   - Click on the "Modify" button.
+   - In the "Monitoring" section, enable "Enhanced Monitoring" and set the granularity to a suitable level (e.g., 1 minute).
+   - Click "Continue" and then "Modify DB Instance" to apply the changes.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" in the left-hand menu and then click "Create Alarm."
+   - Select the RDS metrics you want to monitor (e.g., CPUUtilization, FreeableMemory, DiskQueueDepth).
+   - Set the threshold values for these metrics to trigger an alarm when the instance is overutilized.
+   - Configure notifications to alert you via email or SMS when an alarm is triggered.
+
+3. **Enable Auto Scaling for Read Replicas:**
+   - In the RDS Dashboard, select your RDS instance.
+   - Click on the "Actions" dropdown and select "Create Read Replica."
+   - Configure the read replica settings and enable auto-scaling to handle increased read traffic.
+   - This helps distribute the load and prevents overutilization of the primary instance.
+
+4. **Review and Optimize Instance Class:**
+   - Regularly review the instance class of your RDS instances.
+   - Navigate to the RDS Dashboard and select your instance.
+   - Click on the "Modify" button and evaluate if the current instance class (e.g., db.t2.micro, db.m5.large) is appropriate for your workload.
+   - If necessary, upgrade to a higher instance class to ensure sufficient resources are available to handle the load.
+
+By following these steps, you can proactively monitor and manage your RDS instances to prevent overutilization and ensure optimal performance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being overutilized in AWS using the AWS CLI, you can follow these steps:
+
+1. **Enable Enhanced Monitoring:**
+   Enhanced Monitoring provides real-time metrics for your RDS instances, which can help you identify and prevent overutilization.
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier <your-db-instance-identifier> \
+       --monitoring-interval 60 \
+       --monitoring-role-arn <your-monitoring-role-arn>
+   ```
+
+2. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor key metrics such as CPU utilization, memory, and disk I/O. This will alert you when thresholds are breached.
+   ```sh
+   aws cloudwatch put-metric-alarm \
+       --alarm-name "HighCPUUtilization" \
+       --metric-name CPUUtilization \
+       --namespace AWS/RDS \
+       --statistic Average \
+       --period 300 \
+       --threshold 80 \
+       --comparison-operator GreaterThanOrEqualToThreshold \
+       --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> \
+       --evaluation-periods 1 \
+       --alarm-actions <your-sns-topic-arn>
+   ```
+
+3. **Enable Auto Scaling for Read Replicas:**
+   Use read replicas to distribute the read workload and prevent overutilization of the primary instance.
+   ```sh
+   aws rds create-db-instance-read-replica \
+       --db-instance-identifier <your-read-replica-identifier> \
+       --source-db-instance-identifier <your-source-db-instance-identifier>
+   ```
+
+4. **Modify Instance Class:**
+   Ensure that your RDS instance is appropriately sized for your workload by modifying the instance class.
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier <your-db-instance-identifier> \
+       --db-instance-class <new-db-instance-class> \
+       --apply-immediately
+   ```
+
+By following these steps, you can proactively monitor and manage your RDS instances to prevent overutilization.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being overutilized in AWS using Python scripts, you can follow these steps:
+
+### 1. Monitor RDS Metrics Using CloudWatch
+Use AWS CloudWatch to monitor RDS instance metrics such as CPU utilization, memory, and I/O. You can set up alarms to notify you when these metrics exceed a certain threshold.
+
+```python
+import boto3
+
+# Create CloudWatch client
+cloudwatch = boto3.client('cloudwatch')
+
+# Create alarm
+cloudwatch.put_metric_alarm(
+    AlarmName='HighCPUUtilization',
+    ComparisonOperator='GreaterThanThreshold',
+    EvaluationPeriods=1,
+    MetricName='CPUUtilization',
+    Namespace='AWS/RDS',
+    Period=300,
+    Statistic='Average',
+    Threshold=80.0,
+    ActionsEnabled=True,
+    AlarmActions=[
+        'arn:aws:sns:us-west-2:123456789012:MyTopic'
+    ],
+    AlarmDescription='Alarm when CPU exceeds 80%',
+    Dimensions=[
+        {
+            'Name': 'DBInstanceIdentifier',
+            'Value': 'mydbinstance'
+        },
+    ],
+    Unit='Percent'
+)
+```
+
+### 2. Auto-Scaling RDS Instances
+Use AWS RDS Auto Scaling to automatically adjust the capacity of your RDS instances based on the load.
+
+```python
+import boto3
+
+# Create RDS client
+rds = boto3.client('rds')
+
+# Modify RDS instance to enable auto-scaling
+response = rds.modify_db_instance(
+    DBInstanceIdentifier='mydbinstance',
+    ApplyImmediately=True,
+    ScalingConfiguration={
+        'MinCapacity': 2,
+        'MaxCapacity': 16,
+        'AutoPause': True,
+        'SecondsUntilAutoPause': 300,
+        'TimeoutAction': 'ForceApplyCapacityChange'
+    }
+)
+```
+
+### 3. Implement Read Replicas
+Use read replicas to offload read traffic from the primary instance, thereby reducing its load.
+
+```python
+import boto3
+
+# Create RDS client
+rds = boto3.client('rds')
+
+# Create a read replica
+response = rds.create_db_instance_read_replica(
+    DBInstanceIdentifier='mydbinstance-replica',
+    SourceDBInstanceIdentifier='mydbinstance',
+    DBInstanceClass='db.t3.medium',
+    AvailabilityZone='us-west-2a',
+    Port=3306,
+    MultiAZ=False,
+    AutoMinorVersionUpgrade=True,
+    PubliclyAccessible=False
+)
+```
+
+### 4. Schedule Maintenance Windows
+Schedule regular maintenance windows to perform necessary updates and optimizations, ensuring that the RDS instance is running efficiently.
+
+```python
+import boto3
+
+# Create RDS client
+rds = boto3.client('rds')
+
+# Modify RDS instance to set maintenance window
+response = rds.modify_db_instance(
+    DBInstanceIdentifier='mydbinstance',
+    PreferredMaintenanceWindow='sun:23:00-sun:23:30',
+    ApplyImmediately=True
+)
+```
+
+By implementing these steps, you can proactively prevent your RDS instances from being overutilized, ensuring better performance and reliability.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. Select the RDS instance that you want to check for overutilization.
+
+4. In the instance details section, click on the "Monitoring" tab.
+
+5. Here, you can see various metrics related to the instance's performance such as CPU utilization, Memory usage, Disk I/O, and Network traffic. If the CPU utilization is consistently high (above 80-90%) or if there are frequent memory usage spikes, it could indicate that the RDS instance is overutilized.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). Use the following command to install AWS CLI:
+
+   ```
+   pip install awscli
+   ```
+
+   After installation, you need to configure it with your AWS account. Use the following command and provide your AWS credentials (Access Key ID and Secret Access Key):
+
+   ```
+   aws configure
+   ```
+
+2. **List RDS Instances**: Use the following AWS CLI command to list all the RDS instances in your account:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]'
+   ```
+
+   This command will return a list of all RDS instances.
+
+3. **Check CPU Utilization**: For each RDS instance, you can check the CPU utilization using the following command:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --dimensions Name=DBInstanceIdentifier,Value=<DBInstanceIdentifier> --start-time <start-time> --end-time <end-time> --period 3600 --statistics Maximum
+   ```
+
+   Replace `<DBInstanceIdentifier>` with the identifier of your RDS instance. Replace `<start-time>` and `<end-time>` with the time period for which you want to check the CPU utilization. This command will return the maximum CPU utilization for the specified time period.
+
+4. **Analyze the Output**: The output of the above command will show the maximum CPU utilization for each RDS instance. If the CPU utilization is consistently high (over 80-90%), it indicates that the RDS instance is overutilized.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing your Python script, you need to install the necessary libraries. The Boto3 library is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can configure your credentials in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   This will prompt you for your access key, secret access key, region, and output format. These will get stored in `~/.aws/credentials`.
+
+3. Write the Python script: Now you can write a Python script that uses Boto3 to check if RDS instances are overutilized. Here's a simple script that lists all RDS instances and their CPU utilization:
+
+   ```python
+   import boto3
+
+   # Create a CloudWatch client
+   cloudwatch = boto3.client('cloudwatch')
+
+   # Create an RDS client
+   rds = boto3.client('rds')
+
+   # List all RDS instances
+   instances = rds.describe_db_instances()
+
+   for instance in instances['DBInstances']:
+       # Get the CPU utilization metric for the instance
+       response = cloudwatch.get_metric_statistics(
+           Namespace='AWS/RDS',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance['DBInstanceIdentifier']
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=60,
+           Statistics=['Average']
+       )
+
+       # Print the instance ID and its CPU utilization
+       print(f"Instance ID: {instance['DBInstanceIdentifier']}, CPU Utilization: {response['Datapoints'][0]['Average']}")
+   ```
+
+4. Run the script: Finally, you can run the script using Python:
+
+   ```bash
+   python check_rds_utilization.py
+   ```
+
+   This will print the ID and CPU utilization of each RDS instance. If the CPU utilization is consistently high (e.g., over 80%), the instance may be overutilized.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

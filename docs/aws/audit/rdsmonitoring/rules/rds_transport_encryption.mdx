@@ -23,6 +23,242 @@ HITRUST, SOC2, NISTCSF, PCIDSS, FedRAMP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration where the Transport Encryption Feature should be enabled in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "RDS" and select "RDS" from the dropdown to go to the Amazon RDS dashboard.
+
+2. **Modify the DB Instance:**
+   - In the RDS dashboard, click on "Databases" in the left-hand menu.
+   - Select the DB instance you want to modify by clicking on its identifier.
+
+3. **Enable SSL/TLS:**
+   - In the "Connectivity & security" tab, scroll down to the "Security" section.
+   - Ensure that the "Encryption" option is enabled. If it is not, you will need to modify the DB instance to enable encryption.
+   - For enabling SSL/TLS, ensure that your database connections are configured to use SSL/TLS. This typically involves setting the appropriate parameters in your database client configuration to require SSL/TLS.
+
+4. **Update Security Groups:**
+   - Ensure that the security group associated with your RDS instance allows traffic only from trusted sources and over the necessary ports (e.g., 3306 for MySQL, 5432 for PostgreSQL).
+   - In the "Connectivity & security" tab, under "VPC security groups," click on the security group link to open the security group settings.
+   - Verify and update the inbound rules to restrict access appropriately.
+
+By following these steps, you can ensure that transport encryption is enabled for your RDS instances, thereby enhancing the security of data in transit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having the Transport Encryption feature enabled in Amazon RDS using AWS CLI, follow these steps:
+
+1. **Create a Parameter Group with SSL Required:**
+   Create a new DB parameter group with the `rds.force_ssl` parameter set to `1` to enforce SSL connections.
+
+   ```sh
+   aws rds create-db-parameter-group \
+       --db-parameter-group-name my-ssl-param-group \
+       --db-parameter-group-family mysql8.0 \
+       --description "Parameter group to enforce SSL"
+   ```
+
+2. **Modify the Parameter Group to Enforce SSL:**
+   Modify the newly created parameter group to set the `rds.force_ssl` parameter to `1`.
+
+   ```sh
+   aws rds modify-db-parameter-group \
+       --db-parameter-group-name my-ssl-param-group \
+       --parameters "ParameterName=rds.force_ssl,ParameterValue=1,ApplyMethod=immediate"
+   ```
+
+3. **Apply the Parameter Group to the RDS Instance:**
+   Modify your RDS instance to use the new parameter group.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier mydbinstance \
+       --db-parameter-group-name my-ssl-param-group \
+       --apply-immediately
+   ```
+
+4. **Verify SSL is Enforced:**
+   Describe the DB instance to ensure the parameter group is applied and SSL is enforced.
+
+   ```sh
+   aws rds describe-db-instances \
+       --db-instance-identifier mydbinstance \
+       --query "DBInstances[0].DBParameterGroups"
+   ```
+
+By following these steps, you ensure that the Transport Encryption feature is enabled for your RDS instance, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having the Transport Encryption feature enabled in RDS using Python scripts, you can follow these steps:
+
+### Step 1: Install AWS SDK for Python (Boto3)
+First, ensure you have Boto3 installed. If not, you can install it using pip:
+```bash
+pip install boto3
+```
+
+### Step 2: Create a Python Script to Enable Transport Encryption
+Below is a Python script that ensures Transport Encryption (SSL) is enabled for an RDS instance.
+
+```python
+import boto3
+
+# Initialize a session using Amazon RDS
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+    aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+
+rds_client = session.client('rds')
+
+def enable_transport_encryption(db_instance_identifier):
+    try:
+        # Describe the DB instance to get its current settings
+        response = rds_client.describe_db_instances(DBInstanceIdentifier=db_instance_identifier)
+        db_instance = response['DBInstances'][0]
+
+        # Check if the DB instance already has transport encryption enabled
+        if db_instance['StorageEncrypted']:
+            print(f"Transport encryption is already enabled for {db_instance_identifier}.")
+        else:
+            # Modify the DB instance to enable transport encryption
+            rds_client.modify_db_instance(
+                DBInstanceIdentifier=db_instance_identifier,
+                StorageEncrypted=True,
+                ApplyImmediately=True
+            )
+            print(f"Transport encryption has been enabled for {db_instance_identifier}.")
+    except Exception as e:
+        print(f"Error enabling transport encryption: {e}")
+
+# Replace 'your-db-instance-identifier' with your actual DB instance identifier
+enable_transport_encryption('your-db-instance-identifier')
+```
+
+### Step 3: Validate the Configuration
+After running the script, you should validate that the transport encryption is enabled. You can do this by describing the DB instance again and checking the `StorageEncrypted` attribute.
+
+```python
+def validate_transport_encryption(db_instance_identifier):
+    try:
+        response = rds_client.describe_db_instances(DBInstanceIdentifier=db_instance_identifier)
+        db_instance = response['DBInstances'][0]
+        if db_instance['StorageEncrypted']:
+            print(f"Transport encryption is enabled for {db_instance_identifier}.")
+        else:
+            print(f"Transport encryption is NOT enabled for {db_instance_identifier}.")
+    except Exception as e:
+        print(f"Error validating transport encryption: {e}")
+
+# Validate the configuration
+validate_transport_encryption('your-db-instance-identifier')
+```
+
+### Step 4: Automate the Script Execution
+To ensure continuous compliance, you can automate the execution of this script using AWS Lambda or a cron job on an EC2 instance. This will periodically check and enforce the transport encryption setting.
+
+```python
+import boto3
+import time
+
+def lambda_handler(event, context):
+    db_instance_identifier = 'your-db-instance-identifier'
+    enable_transport_encryption(db_instance_identifier)
+    validate_transport_encryption(db_instance_identifier)
+
+# If using a cron job, you can use the following loop
+while True:
+    enable_transport_encryption('your-db-instance-identifier')
+    validate_transport_encryption('your-db-instance-identifier')
+    time.sleep(3600)  # Run every hour
+```
+
+By following these steps, you can ensure that the Transport Encryption feature is enabled for your RDS instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by choosing "Services" from the navigation bar and then selecting "RDS" under the Database section.
+3. In the navigation pane, click on "Databases".
+4. Select the RDS instance that you want to check. In the details section, look for the "Details" tab.
+5. Under the "Details" tab, look for the "Security" section. Here, check the "SSL" field. If it is set to "Disabled", then the Transport Encryption Feature is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. Make sure you have the necessary permissions to access the RDS instances.
+
+2. Once the AWS CLI is set up, you can list all the RDS instances using the following command:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]' --output text
+   ```
+   This command will return a list of all RDS instance identifiers.
+
+3. Now, for each RDS instance, you can check if the Transport Encryption feature is enabled or not. Use the following command:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <DBInstanceIdentifier> --query 'DBInstances[*].[StorageEncrypted]' --output text
+   ```
+   Replace `<DBInstanceIdentifier>` with the actual identifier of the RDS instance. This command will return `true` if the Transport Encryption feature is enabled, and `false` otherwise.
+
+4. Repeat step 3 for each RDS instance in your AWS account. If any instance returns `false`, it means the Transport Encryption feature is not enabled for that instance.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if the Transport Encryption feature is enabled in RDS, you can use the Boto3 library in Python, which allows you to directly interact with AWS services such as RDS. Here are the steps:
+
+1. **Import the Boto3 library in Python:**
+   Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```python
+   pip install boto3
+   ```
+
+2. **Create an AWS session using your credentials:**
+   You need to configure your AWS credentials. You can do this in several ways, but the simplest is to use the AWS CLI. Here's how you can create a session:
+   ```python
+   import boto3
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. **Connect to the RDS service:**
+   Once the session is created, you can connect to the RDS service. Here's how you can do it:
+   ```python
+   rds = session.client('rds')
+   ```
+
+4. **Check the Transport Encryption feature:**
+   Now, you can use the `describe_db_instances` method to get information about your DB instances, and check if the `StorageEncrypted` attribute is set to `True`. Here's how you can do it:
+   ```python
+   db_instances = rds.describe_db_instances()
+   for db_instance in db_instances['DBInstances']:
+       if not db_instance['StorageEncrypted']:
+           print(f"DB instance {db_instance['DBInstanceIdentifier']} does not have the Transport Encryption feature enabled.")
+   ```
+   This script will print the identifiers of all DB instances that do not have the Transport Encryption feature enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
