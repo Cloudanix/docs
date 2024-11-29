@@ -1,6 +1,130 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the IAM (Identity and Access Management) service.
+
+2. In the IAM dashboard, click on "Policies" in the left navigation pane. This will display a list of all the policies in your AWS account.
+
+3. Use the filter or search bar to find policies that have infrastructure modification capabilities. These are typically policies that include actions like "Create*", "Delete*", "Modify*", "Update*", etc. in their policy document.
+
+4. Once you have identified such policies, click on each policy to view its details. In the policy details page, click on "Policy usage" to see which IAM users, groups, and roles are attached to this policy. If there are any principals (users, groups, or roles) attached to this policy, they have infrastructure modification capabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **List all IAM users**: The first step is to list all the IAM users in your AWS account. You can do this by using the AWS CLI command `aws iam list-users`. This command will return a list of all IAM users in your AWS account.
+
+    ```
+    aws iam list-users --query 'Users[*].UserName' --output text
+    ```
+
+2. **List all IAM policies attached to each user**: The next step is to list all IAM policies attached to each user. You can do this by using the AWS CLI command `aws iam list-user-policies` and `aws iam list-attached-user-policies`. These commands will return a list of all IAM policies attached to each user.
+
+    ```
+    for user in $(aws iam list-users --query 'Users[*].UserName' --output text); do
+        echo "User: $user"
+        aws iam list-user-policies --user-name $user
+        aws iam list-attached-user-policies --user-name $user
+    done
+    ```
+
+3. **Check the permissions of each policy**: The next step is to check the permissions of each policy. You can do this by using the AWS CLI command `aws iam get-policy-version`. This command will return the permissions of the specified policy.
+
+    ```
+    for user in $(aws iam list-users --query 'Users[*].UserName' --output text); do
+        for policy in $(aws iam list-attached-user-policies --user-name $user --query 'AttachedPolicies[*].PolicyArn' --output text); do
+            version=$(aws iam get-policy --policy-arn $policy --query 'Policy.DefaultVersionId' --output text)
+            aws iam get-policy-version --policy-arn $policy --version-id $version
+        done
+    done
+    ```
+
+4. **Identify policies with infrastructure modification capabilities**: The final step is to identify policies with infrastructure modification capabilities. This can be done by looking for permissions such as `*:*`, `ec2:*`, `s3:*`, etc. in the output of the previous command. These permissions indicate that the user has the ability to modify infrastructure resources.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3) in Python Environment:**
+   First, you need to set up the AWS SDK (Boto3) in your Python environment. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing boto3, configure your AWS credentials. You can configure your credentials either by exporting them directly into your shell or by storing them in a credentials file on your local system.
+
+2. **List IAM Users:**
+   Use the IAM client from boto3 to list all IAM users. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           print('UserName: {0}\nUserID: {1}\nARN: {2}\nCreatedOn: {3}\n'.format(
+               user['UserName'],
+               user['UserId'],
+               user['Arn'],
+               user['CreateDate']
+           ))
+   ```
+3. **Check User Policies:**
+   For each user, you need to check the policies attached to them. You can do this by using the `list_attached_user_policies` method from the IAM client. Here is a sample script:
+   ```python
+   import boto3
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List policies for each user
+           policies = iam.list_attached_user_policies(UserName=user['UserName'])
+           for policy in policies['AttachedPolicies']:
+               print('PolicyName: {0}\nPolicyArn: {1}\n'.format(
+                   policy['PolicyName'],
+                   policy['PolicyArn']
+               ))
+   ```
+4. **Check for Infrastructure Modification Capabilities:**
+   For each policy, you need to check if it has infrastructure modification capabilities. You can do this by getting the policy version and checking the policy document. Here is a sample script:
+   ```python
+   import boto3
+   import json
+
+   # Create IAM client
+   iam = boto3.client('iam')
+
+   # List users with the paginate method
+   paginator = iam.get_paginator('list_users')
+   for response in paginator.paginate():
+       for user in response['Users']:
+           # List policies for each user
+           policies = iam.list_attached_user_policies(UserName=user['UserName'])
+           for policy in policies['AttachedPolicies']:
+               # Get policy version
+               policy_version = iam.get_policy_version(
+                   PolicyArn=policy['PolicyArn'],
+                   VersionId=policy['DefaultVersionId']
+               )
+               # Check policy document
+               policy_document = policy_version['PolicyVersion']['Document']
+               for statement in policy_document['Statement']:
+                   if statement['Effect'] == 'Allow' and 'ec2:Modify*' in statement['Action']:
+                       print('User {0} has infrastructure modification capabilities'.format(user['UserName']))
+   ```
+   This script checks if the user has any policy that allows them to modify EC2 instances. You can modify this script to check for other infrastructure modification capabilities.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
