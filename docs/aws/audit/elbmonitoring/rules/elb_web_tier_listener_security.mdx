@@ -23,6 +23,85 @@ HIPAA, GDPR, NIST, AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the load balancer you want to inspect.
+
+4. In the bottom panel, select the "Listeners" tab. This tab displays the protocols and ports configured for your load balancer and whether or not they are secure.
+
+5. Check if the listeners are using HTTP or HTTPS. If they are using HTTP, it means they are not secure. If they are using HTTPS, it means they are secure. The SSL certificate associated with the secure listener is also displayed in this tab.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Elastic Load Balancer (ELB) resources.
+
+2. Once the AWS CLI is set up, you can list all the load balancers in your account using the following command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON output with details of all the load balancers.
+
+3. To check the listeners for a specific load balancer, you need the ARN of the load balancer. You can get this from the output of the previous command. Once you have the ARN, use the following command to describe the listeners:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Replace `<load-balancer-arn>` with the ARN of your load balancer. This command will return a JSON output with details of all the listeners associated with the specified load balancer.
+
+4. To check if the listeners are secure, you need to look for the `Protocol` field in the output of the previous command. If the protocol is `HTTPS` or `TLS`, then the listener is secure. If the protocol is `HTTP`, then the listener is not secure. You can use a tool like `jq` to parse the JSON output and filter the results. For example:
+
+   ```
+   aws elbv2 describe-listeners --load-balancer-arn <load-balancer-arn> | jq '.Listeners[] | select(.Protocol=="HTTP")'
+   ```
+
+   This command will return the details of all the insecure listeners. If the command returns no output, then all the listeners are secure.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials and the region where your resources are located.
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. Create an ELB client using the session created above. Then, retrieve all the load balancers and iterate over them to check if they have secure listeners.
+```python
+elb = session.client('elbv2')
+
+load_balancers = elb.describe_load_balancers()
+for lb in load_balancers['LoadBalancers']:
+    listeners = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])
+    for listener in listeners['Listeners']:
+        if listener['Protocol'] != 'HTTPS':
+            print(f"Load balancer {lb['LoadBalancerName']} has an insecure listener.")
+```
+
+4. The above script will print the names of all load balancers that have at least one insecure listener. If no such load balancers are found, the script will not print anything. This script only checks for the presence of HTTPS listeners, not for other potential misconfigurations. For a more comprehensive check, you might want to consider using a tool like AWS Config or a third-party cloud security solution.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
