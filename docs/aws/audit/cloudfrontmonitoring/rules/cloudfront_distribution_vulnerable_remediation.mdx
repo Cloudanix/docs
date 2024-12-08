@@ -1,0 +1,156 @@
+
+<Tab title='Remediation'>
+### Remediation
+
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to your AWS Management Console.
+2. Navigate to the CloudFront console.
+3. In the CloudFront console, you will see a list of all your CloudFront distributions.
+4. Identify the distribution that is vulnerable to takeover. This could be a distribution that is not associated with any website or application, or a distribution that is associated with a resource that has been deleted or moved.
+5. Click on the ID of the distribution to go into the distribution settings.
+6. In the distribution settings, click on the "Origins and Origin Groups" tab. Here you will see a list of all the origins associated with this distribution.
+7. If the origin is an S3 bucket that has been deleted, create a new S3 bucket with the same name as the deleted bucket. If the origin is an EC2 instance or an ELB that has been deleted, create a new instance or ELB with the same name as the deleted resource.
+8. If the origin is still active but the distribution is still vulnerable to takeover, check the permissions on the origin. Make sure that the CloudFront distribution has the necessary permissions to access the origin.
+9. Once you have created the new resource or fixed the permissions, go back to the distribution settings and click on the "Origins and Origin Groups" tab again.
+10. Click on the origin that was causing the issue, and then click on the "Edit" button.
+11. In the "Origin Domain Name" field, enter the name of the new resource you created or the name of the resource with the fixed permissions.
+12. Click on the "Yes, Edit" button to save your changes.
+13. Finally, go back to the main page of the CloudFront console and click on the "Invalidations" tab.
+14. Click on the "Create Invalidation" button, and in the "Object Paths" field, enter "/*" to invalidate all files. This will force CloudFront to fetch the latest version of your files from the origin.
+15. Click on the "Invalidate" button to start the invalidation process.
+16. Once the invalidation process is complete, your CloudFront distribution should no longer be vulnerable to takeover.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To remediate a CloudFront distribution vulnerable to takeover, you would want to delete the distribution or update it with a valid origin. Here's how you can do this using the AWS CLI:
+
+Step 1: Install AWS CLI
+Make sure you have the AWS CLI installed on your local machine. If not, you can download it from the official AWS website.
+
+Step 2: Configure AWS CLI
+Use the 'aws configure' command to set up your credentials. You will need your AWS Access Key ID, Secret Access Key, default region name, and default output format. These can be found in your AWS account.
+
+```bash
+aws configure
+AWS Access Key ID [None]: YOUR_ACCESS_KEY
+AWS Secret Access Key [None]: YOUR_SECRET_KEY
+Default region name [None]: YOUR_REGION
+Default output format [None]: json
+```
+
+Step 3: Identify the CloudFront Distribution
+Use the 'list-distributions' command to list all of your CloudFront distributions and identify the one that's vulnerable.
+
+```bash
+aws cloudfront list-distributions --query 'DistributionList.Items[*].{ID:Id,Domain:DomainName}'
+```
+
+Step 4: Get Distribution Config
+Use the 'get-distribution-config' command to get the current configuration of the vulnerable distribution. Replace 'distribution_ID' with the ID of your distribution.
+
+```bash
+aws cloudfront get-distribution-config --id distribution_ID
+```
+
+Step 5: Update or Delete Distribution
+Depending on your needs, you can either update the distribution with a valid origin or delete the distribution.
+
+To delete the distribution, you first need to disable it, wait until it's fully disabled (the status changes from 'InProgress' to 'Deployed'), and then delete it.
+
+```bash
+# Disable Distribution
+aws cloudfront get-distribution-config --id distribution_ID --output json > distribution.json
+# Edit distribution.json file and set "Enabled":false
+aws cloudfront update-distribution --id distribution_ID --if-match ETag_value_from_previous_command --distribution-config file://distribution.json
+
+# Delete Distribution
+aws cloudfront delete-distribution --id distribution_ID --if-match ETag_value_from_previous_command
+```
+
+To update the distribution, you need to specify a valid origin in the distribution's configuration.
+
+```bash
+# Get Distribution Config
+aws cloudfront get-distribution-config --id distribution_ID --output json > distribution.json
+# Edit distribution.json file and set a valid "Origins" value
+aws cloudfront update-distribution --id distribution_ID --if-match ETag_value_from_previous_command --distribution-config file://distribution.json
+```
+
+Remember to replace 'distribution_ID' and 'ETag_value_from_previous_command' with your specific values. The ETag value can be found in the response of the 'get-distribution-config' command. Also, when updating the distribution config, make sure to edit the 'distribution.json' file with a valid origin.
+</Accordion>
+
+<Accordion title='Using Python'>
+To remediate this issue, you need to ensure that the CloudFront distribution is pointing to an active S3 bucket or Elastic Load Balancer. If the CloudFront distribution is pointing to a resource that doesn't exist, it can be taken over by an attacker.
+
+Here are the step-by-step instructions.
+
+1. Install and configure AWS SDK for Python (Boto3). 
+
+   You can install it by running the following command:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by creating the file ~/.aws/credentials. Then add the following lines:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+2. Use Boto3 to list all of your CloudFront distributions.
+
+   Here is a simple Python script that does that:
+   ```python
+   import boto3
+
+   client = boto3.client('cloudfront')
+   response = client.list_distributions()
+
+   for distribution in response['DistributionList']['Items']:
+       print(distribution['Id'], distribution['DomainName'])
+   ```
+
+3. For each CloudFront distribution, check the origin to see if it's pointing to a valid resource.
+
+   You can do this by adding the following lines to the script:
+   ```python
+   for distribution in response['DistributionList']['Items']:
+       for origin in distribution['Origins']['Items']:
+           print(origin['Id'], origin['DomainName'])
+   ```
+
+4. If the origin is an S3 bucket, use Boto3 to check if the bucket exists.
+
+   You can do this by adding the following lines to the script:
+   ```python
+   s3 = boto3.resource('s3')
+   try:
+       s3.meta.client.head_bucket(Bucket=bucket_name)
+       print("Bucket exists")
+   except Exception:
+       print("Bucket does not exist")
+   ```
+
+5. If the origin is an Elastic Load Balancer, use Boto3 to check if the load balancer exists.
+
+   You can do this by adding the following lines to the script:
+   ```python
+   elbv2 = boto3.client('elbv2')
+   try:
+       response = elbv2.describe_load_balancers(Names=[load_balancer_name])
+       print("Load balancer exists")
+   except Exception:
+       print("Load balancer does not exist")
+   ```
+
+6. If the origin resource does not exist, remediate the issue by either pointing the CloudFront distribution to a valid resource or deleting the CloudFront distribution.
+
+   To modify the origin of a CloudFront distribution, you can use the `update_distribution` method. To delete a CloudFront distribution, you can use the `delete_distribution` method.
+
+Please note that this is a basic script and might need to be adapted based on your specific needs and environment. Make sure to test it in a controlled environment before using it in production.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+</Tabs>
