@@ -3,6 +3,7 @@
 <Tabs>
 <Tab title='Remediation'>
 ### Remediation
+Amazon RDS does not support enabling encryption on an existing unencrypted DB instance. However, you can achieve encryption by creating a new encrypted instance and migrating the data. Here are the steps for AWS Console:
 
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>
@@ -10,99 +11,150 @@ To remediate the misconfiguration of RDS instances not having encryption enabled
 
 1. **Login to AWS Console**: Go to the AWS Management Console and login with your credentials.
 
-2. **Navigate to RDS Service**: Click on the "Services" dropdown menu at the top of the page and select "RDS" under the Database category.
+2. **Navigate to RDS Dashboard**: Click on the "Services" dropdown menu at the top of the page and select "RDS" under the Database category.
 
-3. **Select the RDS Instance**: From the list of RDS instances, select the instance for which you want to enable encryption by clicking on the instance identifier.
+3. **Create a Snapshot of the Unencrypted DB Instance**
 
-4. **Modify the Instance**: In the RDS instance details page, click on the "Modify" button at the top.
+   a. Select your DB instance.
+   b. Click on Actions and choose Take snapshot.
+   c. Provide a unique Snapshot Identifier and create the snapshot.
+   d. Copy the Snapshot with Encryption
 
-5. **Enable Encryption**: Scroll down to the "Encryption" section in the Modify DB Instance page. Check the box for "Enable encryption" to enable encryption for the RDS instance.
+4. **Create Encrypted Snapshot from Unencrypted Snapshot**
 
-6. **Choose Encryption Key**: Select the appropriate KMS key from the dropdown menu. You can either choose the default AWS managed key or select a custom KMS key that you have created.
+   a. In the RDS Dashboard, go to Snapshots and select the snapshot you just created.
+   b. Click on Actions and choose Copy snapshot.
+   c. In the copy dialog, enable Encryption by selecting your desired AWS KMS key.
+   d. Specify a new identifier for the encrypted snapshot and start the copy process.
 
-7. **Apply Changes**: Scroll down to the bottom of the page and click on the "Continue" button.
+5. **Restore a New Encrypted DB Instance from the Encrypted Snapshot**
 
-8. **Review and Apply Changes**: Review the changes you are about to make and click on the "Modify DB Instance" button to apply the changes.
+   a. Once the encrypted snapshot is available, select it.
+   b. Click on Actions and choose Restore snapshot.
+   c. Provide a new DB instance identifier and adjust the instance settings as needed.
+   d. Launch the new encrypted instance.
 
-9. **Monitor Encryption Status**: Once the modification is complete, monitor the RDS instance to ensure that encryption is enabled successfully. You can check the encryption status in the RDS instance details page.
-
-By following these steps, you can remediate the misconfiguration of RDS instances not having encryption enabled in AWS.
-
-#
+By following these steps, you can remediate the misconfiguration of RDS instances without encryption enabled using AWS Console.
 </Accordion>
 
 <Accordion title='Using CLI'>
-To remediate the misconfiguration of RDS instances not having encryption enabled in AWS using AWS CLI, you can follow these steps:
+Amazon RDS does not support enabling encryption on an existing unencrypted DB instance. However, you can achieve encryption by creating a new encrypted instance and migrating the data. Here are the steps for AWS CLI:
 
 1. **Identify the RDS Instances without Encryption Enabled:**
    Run the following AWS CLI command to list all RDS instances without encryption enabled:
-   ```
-   aws rds describe-db-instances --query "DBInstances[?StorageEncrypted == 'false'].DBInstanceIdentifier" --output text
+   ```bash
+   aws rds describe-db-instances --query "DBInstances[?StorageEncrypted==\`false\`].DBInstanceIdentifier"
    ```
 
-2. **Enable Encryption for the RDS Instance:**
-   For each RDS instance identified in the previous step, enable encryption using the following command:
-   ```
-   aws rds modify-db-instance --db-instance-identifier <instance-identifier> --storage-encrypted --apply-immediately
+2. **Create a Snapshot:**
+   For each RDS instance identified in the previous step, create a db snapshot using the following command:
+   ```bash
+   aws rds create-db-snapshot \
+     --db-instance-identifier <db-instance-id> \
+     --db-snapshot-identifier <snapshot-id>
    ```
 
    Replace `<instance-identifier>` with the identifier of the RDS instance that needs encryption enabled.
 
-3. **Monitor the Encryption Status:**
-   You can monitor the status of the encryption modification by describing the RDS instance using the following command:
-   ```
-   aws rds describe-db-instances --db-instance-identifier <instance-identifier> --query "DBInstances[0].StorageEncrypted"
+3. **Iterate through all the instances and perform below steps:**
+
+4. **Copy the Snapshot with Encryption Enabled:**
+   ```bash
+   aws rds copy-db-snapshot \
+     --source-db-snapshot-identifier <snapshot-id> \
+     --target-db-snapshot-identifier <encrypted-snapshot-id> \
+     --kms-key-id <kms-key-id>
    ```
 
-4. **Verify Encryption Status:**
+   Replace `<snapshot-id>` with the RDS instance snapshot identifier created in the above step.
+
+5. **Restore a New Encrypted DB Instance from the Encrypted Snapshot:**
    Once the encryption modification is complete, verify that encryption is enabled for the RDS instance by running:
+   ```bash
+   aws rds restore-db-instance-from-db-snapshot \
+     --db-instance-identifier <new-db-instance-id> \
+     --db-snapshot-identifier <encrypted-snapshot-id>
    ```
-   aws rds describe-db-instances --db-instance-identifier <instance-identifier> --query "DBInstances[0].StorageEncrypted"
+
+   Replace `<encrypted-snapshot-id>` with the Encrypted snapshot identifier created in the above step.
+
+6. **(Optional) Delete Old Unencrypted Instances:**
+   ```bash
+   for db in $(aws rds describe-db-instances --query "DBInstances[?StorageEncrypted==\`false\`].DBInstanceIdentifier" --output text); do
+     aws rds delete-db-instance --db-instance-identifier $db --skip-final-snapshot
+     echo "Deleted old unencrypted instance: $db"
+   done
    ```
 
 By following these steps, you can remediate the misconfiguration of RDS instances not having encryption enabled in AWS using AWS CLI.
 </Accordion>
 
 <Accordion title='Using Python'>
-To remediate the misconfiguration of RDS instances not having encryption enabled in AWS using Python, you can follow these steps:
+Amazon RDS does not support enabling encryption on an existing unencrypted DB instance. However, you can achieve encryption by creating a new encrypted instance and migrating the data. Here are the steps using Python:
 
-1. Import the necessary Python libraries:
-```python
-import boto3
-```
+1. **Import the necessary Python libraries:**
+   ```python
+   import boto3
+   ```
 
 2. Initialize the AWS RDS client:
-```python
-client = boto3.client('rds')
-```
+   ```python
+   client = boto3.client('rds')
+   ```
 
 3. Get a list of all RDS instances:
-```python
-response = client.describe_db_instances()
-```
+   ```python
+   response = client.describe_db_instances()
+   ```
 
-4. Iterate through each RDS instance and enable encryption if it is not already enabled:
-```python
-for db_instance in response['DBInstances']:
-    db_instance_identifier = db_instance['DBInstanceIdentifier']
-    db_instance_encrypted = db_instance['StorageEncrypted']
-    
-    if not db_instance_encrypted:
-        print(f"Enabling encryption for RDS instance: {db_instance_identifier}")
-        
-        # Enable encryption for the RDS instance
-        client.modify_db_instance(
-            DBInstanceIdentifier=db_instance_identifier,
-            StorageEncrypted=True,
-            ApplyImmediately=True
-        )
-```
+4. **Create a snapshot of the current unencrypted DB instance:**
+   ```python
+    # Step 1: Create a snapshot
+    snapshot_id = f"{db_instance}-unencrypted-snapshot"
+    print(f"Creating snapshot: {snapshot_id}")
+    rds_client.create_db_snapshot(DBInstanceIdentifier=db_instance, DBSnapshotIdentifier=snapshot_id)
 
-5. Run the Python script to enable encryption for all RDS instances without encryption.
+    # Wait until snapshot is available
+    waiter = rds_client.get_waiter('db_snapshot_available')
+    waiter.wait(DBSnapshotIdentifier=snapshot_id)
+    print(f"Snapshot {snapshot_id} is now available.")
+   ```
+
+5. **Create new snapshot with Encryption:**
+   ```python
+    # Step 2: Copy the snapshot with encryption
+    encrypted_snapshot_id = f"{db_instance}-encrypted-snapshot"
+    print(f"Copying snapshot with encryption: {encrypted_snapshot_id}")
+    rds_client.copy_db_snapshot(
+        SourceDBSnapshotIdentifier=snapshot_id,
+        TargetDBSnapshotIdentifier=encrypted_snapshot_id,
+        KmsKeyId=kms_key_id
+    )
+
+    # Wait until encrypted snapshot is available
+    waiter.wait(DBSnapshotIdentifier=encrypted_snapshot_id)
+    print(f"Encrypted snapshot {encrypted_snapshot_id} is now available.")
+   ```
+
+6. **Restore to create a new Encrypted database:**
+   ```python
+    # Step 3: Restore a new encrypted DB instance
+    new_db_instance = f"{db_instance}-encrypted"
+    print(f"Restoring new encrypted DB instance: {new_db_instance}")
+    rds_client.restore_db_instance_from_db_snapshot(
+        DBInstanceIdentifier=new_db_instance,
+        DBSnapshotIdentifier=encrypted_snapshot_id
+    )
+
+    # Step 4: Wait for the new DB instance to be available
+    db_waiter = rds_client.get_waiter('db_instance_available')
+    db_waiter.wait(DBInstanceIdentifier=new_db_instance)
+    print(f"New encrypted DB instance {new_db_instance} is now available.")
+   ```
 
 Make sure you have the necessary IAM permissions to describe and modify RDS instances. Also, ensure that you have the AWS SDK for Python (Boto3) installed.
 
-This script will iterate through all RDS instances in your AWS account, check if encryption is enabled, and enable it if it is not already.
+This script will iterate through all RDS instances in your AWS account, check if encryption is enabled, take a snapshot, create a new encrypted snapshot, and create new database using encrypted snapshot.
 </Accordion>
 
 </AccordionGroup>
