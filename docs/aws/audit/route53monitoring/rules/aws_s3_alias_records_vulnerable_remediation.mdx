@@ -1,6 +1,75 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, click on "Hosted zones". Here, you will see a list of all your hosted zones.
+3. Click on the hosted zone that you want to check. This will open a list of all the record sets associated with that hosted zone.
+4. Look for any S3 Alias Records. Check if the Alias Target is pointing to an S3 bucket. If the S3 bucket is publicly accessible or not properly configured, it could be vulnerable. You can verify this by navigating to the S3 service in the AWS console, selecting the bucket, and checking its permissions and policies.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List Hosted Zones: Use the following command to list all the hosted zones in your AWS account. This will give you a list of all the DNS domains that you have registered with Route 53.
+   ```
+   aws route53 list-hosted-zones
+   ```
+   Note down the ID of the hosted zone for which you want to check the S3 Alias Records.
+
+3. List Resource Record Sets: Now, use the following command to list all the resource record sets for the hosted zone you are interested in. Replace `hostedzone/Z1PA6795UKMFR9` with your hosted zone ID.
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id /hostedzone/Z1PA6795UKMFR9
+   ```
+   This will give you a list of all the resource record sets for the hosted zone. Look for any record sets that have the type "A" and have an alias target that points to an S3 bucket.
+
+4. Check S3 Bucket Policy: For each S3 bucket that is being pointed to by an alias record, you need to check the bucket policy to see if it allows public access. You can do this using the following command. Replace `mybucket` with the name of your bucket.
+   ```
+   aws s3api get-bucket-policy --bucket mybucket
+   ```
+   If the bucket policy allows public access, then your S3 Alias Records are potentially vulnerable.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials and the region where your S3 buckets are located.
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. Now, create a Route53 client and list all the hosted zones. For each hosted zone, list all the record sets. If the record set type is 'A' (Alias record), check if the AliasTarget DNS name ends with '.s3.amazonaws.com'. If it does, it means that the Alias record is pointing to an S3 bucket.
+```python
+route53_client = session.client('route53')
+
+hosted_zones = route53_client.list_hosted_zones()
+
+for zone in hosted_zones['HostedZones']:
+    record_sets = route53_client.list_resource_record_sets(HostedZoneId=zone['Id'])
+    for record_set in record_sets['ResourceRecordSets']:
+        if record_set['Type'] == 'A' and 'AliasTarget' in record_set:
+            if record_set['AliasTarget']['DNSName'].endswith('.s3.amazonaws.com'):
+                print(f"Vulnerable Alias record found: {record_set['Name']}")
+```
+
+4. This script will print out the names of all Alias records that are pointing to S3 buckets. These could potentially be vulnerable if the S3 buckets are misconfigured. You should further investigate these S3 buckets to ensure they are properly secured.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

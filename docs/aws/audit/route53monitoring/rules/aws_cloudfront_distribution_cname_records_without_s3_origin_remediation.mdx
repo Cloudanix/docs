@@ -1,6 +1,100 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard. 
+
+2. In the Route 53 dashboard, select "Hosted zones" from the left-hand side menu. This will display a list of all the domains that you have registered with Route 53.
+
+3. Click on the domain name that you want to check. This will open a list of all the record sets associated with that domain.
+
+4. Look for the CNAME record that points to your CloudFront distribution. Click on it to view its details. Check the "Value/Route traffic to" field. If it's pointing to an S3 bucket, then the CloudFront distribution CNAME record has an S3 origin. If it's not, then it doesn't.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the CloudFront distributions using the AWS CLI. You can do this by running the following command:
+
+   ```
+   aws cloudfront list-distributions --query 'DistributionList.Items[*].[Id,Origins.Items[*].DomainName]' --output text
+   ```
+   This command will return a list of all CloudFront distributions and their origin domain names.
+
+2. Next, you need to list all the Route53 hosted zones using the AWS CLI. You can do this by running the following command:
+
+   ```
+   aws route53 list-hosted-zones --query 'HostedZones[*].Id' --output text
+   ```
+   This command will return a list of all hosted zone IDs.
+
+3. For each hosted zone ID, you need to list all the record sets. You can do this by running the following command:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id> --query 'ResourceRecordSets[*].[Name,Type,ResourceRecords[*].Value]' --output text
+   ```
+   Replace `<hosted-zone-id>` with the ID of the hosted zone. This command will return a list of all record sets in the hosted zone.
+
+4. Finally, you need to compare the CNAME records in Route53 with the origin domain names in CloudFront. If a CNAME record in Route53 does not have a corresponding S3 origin in CloudFront, then it is a misconfiguration. This comparison can be done manually or by using a script.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, you can use the Route53 and CloudFront clients to list all the hosted zones and distributions respectively:
+
+```python
+
+route53_client = session.client('route53')
+cloudfront_client = session.client('cloudfront')
+
+hosted_zones = route53_client.list_hosted_zones()
+distributions = cloudfront_client.list_distributions()
+```
+
+4. Finally, you can iterate over the hosted zones and distributions to check if there is a CNAME record in Route53 that doesn't have a corresponding S3 origin in CloudFront:
+
+```python
+for zone in hosted_zones['HostedZones']:
+    record_sets = route53_client.list_resource_record_sets(HostedZoneId=zone['Id'])
+    for record_set in record_sets['ResourceRecordSets']:
+        if record_set['Type'] == 'CNAME':
+            cname = record_set['Name']
+            found = False
+            for distribution in distributions['DistributionList']['Items']:
+                for origin in distribution['Origins']['Items']:
+                    if origin['DomainName'] == cname and 's3' in origin['DomainName']:
+                        found = True
+                        break
+                if found:
+                    break
+            if not found:
+                print(f"CNAME record {cname} has no S3 origin in CloudFront")
+```
+
+This script will print all the CNAME records in Route53 that don't have a corresponding S3 origin in CloudFront.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
