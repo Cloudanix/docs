@@ -1,6 +1,247 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent S3 Buckets from being created without Object Lock enabled using the AWS Management Console, follow these steps:
+
+1. **Create a New S3 Bucket with Object Lock Enabled:**
+   - Open the [Amazon S3 console](https://s3.console.aws.amazon.com/s3/).
+   - Click on "Create bucket."
+   - Enter a unique bucket name and select the appropriate region.
+   - In the "Bucket settings for Object Lock" section, check the box that says "Enable Object Lock."
+   - Complete the rest of the bucket creation process as needed and click "Create bucket."
+
+2. **Enable Object Lock on Existing Buckets:**
+   - Note: Object Lock can only be enabled on a bucket when it is created. If you need Object Lock on an existing bucket, you must create a new bucket with Object Lock enabled and migrate your data.
+   - For existing buckets, create a new bucket with Object Lock enabled and use AWS DataSync or S3 Batch Operations to transfer data from the old bucket to the new one.
+
+3. **Set Default Bucket Policies to Enforce Object Lock:**
+   - Go to the S3 console and select the bucket you want to enforce policies on.
+   - Navigate to the "Permissions" tab and click on "Bucket Policy."
+   - Add a policy that denies any `PutObject` requests that do not include the necessary Object Lock headers. Example policy:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Sid": "DenyPutObjectWithoutObjectLock",
+           "Effect": "Deny",
+           "Principal": "*",
+           "Action": "s3:PutObject",
+           "Resource": "arn:aws:s3:::your-bucket-name/*",
+           "Condition": {
+             "StringNotEqualsIfExists": {
+               "s3:x-amz-object-lock-mode": "COMPLIANCE"
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Replace `your-bucket-name` with the name of your bucket.
+
+4. **Monitor and Audit S3 Buckets for Compliance:**
+   - Use AWS Config to monitor your S3 buckets for compliance with Object Lock settings.
+   - Create a custom AWS Config rule to check if Object Lock is enabled on your S3 buckets.
+   - Regularly review AWS Config compliance reports to ensure all buckets comply with your Object Lock requirements.
+
+By following these steps, you can ensure that your S3 buckets are created with Object Lock enabled and enforce policies to maintain compliance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent S3 buckets from being created without Object Lock enabled using AWS CLI, you can follow these steps:
+
+1. **Create the S3 Bucket with Object Lock Enabled:**
+   When creating a new S3 bucket, you need to enable Object Lock at the time of creation. This cannot be enabled after the bucket is created.
+
+   ```sh
+   aws s3api create-bucket --bucket your-bucket-name --region your-region --object-lock-enabled-for-bucket
+   ```
+
+2. **Enable Object Lock Configuration:**
+   After creating the bucket with Object Lock enabled, you need to configure the Object Lock settings. This includes setting the default retention mode and period.
+
+   ```sh
+   aws s3api put-object-lock-configuration --bucket your-bucket-name --object-lock-configuration '{
+       "ObjectLockEnabled": "Enabled",
+       "Rule": {
+           "DefaultRetention": {
+               "Mode": "GOVERNANCE",  # or "COMPLIANCE"
+               "Days": 30  # or specify "Years": X
+           }
+       }
+   }'
+   ```
+
+3. **Verify Object Lock Configuration:**
+   Ensure that the Object Lock configuration is correctly applied to the bucket.
+
+   ```sh
+   aws s3api get-object-lock-configuration --bucket your-bucket-name
+   ```
+
+4. **Set Object Lock on Individual Objects:**
+   When uploading objects to the bucket, ensure that Object Lock is applied to each object.
+
+   ```sh
+   aws s3api put-object --bucket your-bucket-name --key your-object-key --body your-file-path --object-lock-mode GOVERNANCE --object-lock-retain-until-date 2023-12-31T00:00:00.000Z
+   ```
+
+By following these steps, you can ensure that your S3 buckets and objects have Object Lock enabled, thereby preventing accidental or malicious deletion or modification.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent S3 Buckets from being created without Object Lock enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Session and S3 Client**:
+   Initialize a session and create an S3 client to interact with AWS S3.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   s3_client = session.client('s3')
+   ```
+
+3. **Create S3 Bucket with Object Lock Enabled**:
+   When creating a new S3 bucket, ensure that Object Lock is enabled by setting the `ObjectLockEnabledForBucket` parameter to `True`.
+   ```python
+   bucket_name = 'your-bucket-name'
+   s3_client.create_bucket(
+       Bucket=bucket_name,
+       CreateBucketConfiguration={
+           'LocationConstraint': 'YOUR_REGION'
+       },
+       ObjectLockEnabledForBucket=True
+   )
+   ```
+
+4. **Enable Object Lock Configuration**:
+   After creating the bucket, configure the Object Lock settings. This step is crucial to ensure that the Object Lock feature is properly configured.
+   ```python
+   s3_client.put_object_lock_configuration(
+       Bucket=bucket_name,
+       ObjectLockConfiguration={
+           'ObjectLockEnabled': 'Enabled',
+           'Rule': {
+               'DefaultRetention': {
+                   'Mode': 'GOVERNANCE',  # or 'COMPLIANCE'
+                   'Days': 30  # or any other retention period
+               }
+           }
+       }
+   )
+   ```
+
+By following these steps, you can ensure that any new S3 bucket created using your Python script will have Object Lock enabled, thus preventing misconfigurations related to Object Lock settings.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Buckets list, choose the name of the bucket that you want to check for Object Lock configuration.
+
+3. In the Properties tab of the selected bucket, scroll down to the "Object Lock" section. 
+
+4. If the Object Lock is enabled, you will see the status as "Enabled". If it's not, the status will be "Disabled".
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all S3 buckets: Use the following command to list all the S3 buckets in your AWS account:
+
+   ```
+   aws s3api list-buckets --query "Buckets[].Name"
+   ```
+   This command will return a list of all the S3 bucket names.
+
+3. Check Object Lock configuration for each bucket: For each bucket, you can check if Object Lock is enabled by using the following command:
+
+   ```
+   aws s3api get-object-lock-configuration --bucket <bucket-name>
+   ```
+   Replace `<bucket-name>` with the name of your bucket. If Object Lock is enabled, this command will return the Object Lock configuration details. If it's not enabled, the command will return an error.
+
+4. Analyze the results: If the `get-object-lock-configuration` command returns an error for a bucket, it means that Object Lock is not enabled for that bucket. You should enable Object Lock for all your S3 buckets to prevent accidental deletion of objects.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a client for 's3' and get the list of all the buckets:
+
+```python
+s3 = session.client('s3')
+response = s3.list_buckets()
+
+buckets = [bucket['Name'] for bucket in response['Buckets']]
+```
+
+4. Now, for each bucket, check if the Object Lock is enabled:
+
+```python
+for bucket in buckets:
+    try:
+        response = s3.get_object_lock_configuration(Bucket=bucket)
+        if 'ObjectLockConfiguration' in response:
+            print(f"Object Lock is enabled for bucket: {bucket}")
+        else:
+            print(f"Object Lock is not enabled for bucket: {bucket}")
+    except Exception as e:
+        print(f"Error checking Object Lock for bucket: {bucket}. Error: {str(e)}")
+```
+
+This script will print out whether each bucket has Object Lock enabled or not. If there's an error checking a particular bucket (for example, if you don't have the necessary permissions), it will print out an error message.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
