@@ -23,6 +23,218 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SNS Topics from having cross-account access using the AWS Management Console, follow these steps:
+
+1. **Navigate to the SNS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SNS" and select "Simple Notification Service" from the list of services.
+
+2. **Select the SNS Topic:**
+   - In the SNS dashboard, click on "Topics" in the left-hand navigation pane.
+   - Select the SNS topic you want to configure by clicking on its ARN (Amazon Resource Name).
+
+3. **Edit Access Policy:**
+   - In the topic details page, scroll down to the "Access policy" section.
+   - Click on the "Edit" button to modify the access policy.
+
+4. **Restrict Access to Specific AWS Accounts:**
+   - Ensure that the access policy does not grant permissions to accounts other than the ones you explicitly trust.
+   - Remove any statements that allow access to `Principal: "*"` or to AWS accounts that should not have access.
+   - Save the changes to update the access policy.
+
+By following these steps, you can ensure that your SNS topics are not accessible by unauthorized AWS accounts, thereby preventing cross-account access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SNS Topics from having cross-account access using AWS CLI, you can follow these steps:
+
+1. **List SNS Topics**:
+   First, identify the SNS topics in your account.
+   ```sh
+   aws sns list-topics
+   ```
+
+2. **Get Topic Attributes**:
+   For each SNS topic, retrieve the current access policy to review and ensure it does not allow cross-account access.
+   ```sh
+   aws sns get-topic-attributes --topic-arn <topic-arn>
+   ```
+
+3. **Update Topic Policy**:
+   If the policy allows cross-account access, update the policy to restrict access. Create a JSON file (e.g., `sns-policy.json`) with the appropriate policy that restricts access to only your account.
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::<your-account-id>:root"
+         },
+         "Action": "SNS:Publish",
+         "Resource": "<topic-arn>"
+       }
+     ]
+   }
+   ```
+
+4. **Set Topic Attributes**:
+   Apply the updated policy to the SNS topic.
+   ```sh
+   aws sns set-topic-attributes --topic-arn <topic-arn> --attribute-name Policy --attribute-value file://sns-policy.json
+   ```
+
+By following these steps, you can ensure that your SNS topics do not have cross-account access using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SNS Topics from having cross-account access using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Python Script to List SNS Topics:**
+   Write a Python script to list all SNS topics in your account.
+
+   ```python
+   import boto3
+
+   sns_client = boto3.client('sns')
+
+   def list_sns_topics():
+       response = sns_client.list_topics()
+       return response['Topics']
+
+   topics = list_sns_topics()
+   for topic in topics:
+       print(topic['TopicArn'])
+   ```
+
+3. **Check and Remove Cross-Account Access Policies:**
+   Write a function to check the access policy of each SNS topic and remove any cross-account access.
+
+   ```python
+   import json
+
+   def remove_cross_account_access(topic_arn):
+       response = sns_client.get_topic_attributes(TopicArn=topic_arn)
+       policy = json.loads(response['Attributes'].get('Policy', '{}'))
+
+       if 'Statement' in policy:
+           new_statements = []
+           for statement in policy['Statement']:
+               if statement.get('Principal') != '*':
+                   new_statements.append(statement)
+           
+           policy['Statement'] = new_statements
+           sns_client.set_topic_attributes(
+               TopicArn=topic_arn,
+               AttributeName='Policy',
+               AttributeValue=json.dumps(policy)
+           )
+
+   for topic in topics:
+       remove_cross_account_access(topic['TopicArn'])
+   ```
+
+4. **Run the Script:**
+   Execute the script to ensure all SNS topics are checked and any cross-account access is removed.
+
+   ```bash
+   python remove_cross_account_access.py
+   ```
+
+By following these steps, you can ensure that your SNS topics do not have cross-account access using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Simple Notification Service (SNS) dashboard by choosing "Services" from the top menu and then selecting "Simple Notification Service" under the "Application Integration" category.
+3. In the SNS dashboard, select "Topics" from the left-hand navigation pane. This will display a list of all the SNS topics available within your AWS account.
+4. For each topic, click on the ARN link to open the topic's details page. Here, under the "Subscriptions" tab, you can see the list of all entities that are subscribed to the topic. If there are any subscriptions from accounts outside of your own, this indicates that the SNS topic has cross-account access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the SNS topics.
+
+2. Once the AWS CLI is installed and configured, you can list all the SNS topics in your account using the following command:
+
+   ```
+   aws sns list-topics
+   ```
+   This command will return a list of all the SNS topics in your account.
+
+3. For each SNS topic, you can get the topic attributes using the following command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN>
+   ```
+   Replace `<TopicARN>` with the ARN of the SNS topic. This command will return the attributes of the specified SNS topic.
+
+4. Check the `Policy` attribute of each SNS topic. This attribute contains the access policy of the SNS topic in JSON format. If the policy allows access from another AWS account, then the SNS topic has cross-account access. You can use a tool like `jq` to parse the JSON and check for cross-account access. For example:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN> | jq '.Attributes.Policy'
+   ```
+   This command will return the access policy of the SNS topic in a readable format. Look for any statements that allow access from an AWS account that is not your own.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a new SNS client:
+
+```python
+import boto3
+sns = boto3.client('sns')
+```
+
+2. Retrieve all the SNS topics in your AWS account:
+
+```python
+response = sns.list_topics()
+topics = response['Topics']
+```
+
+3. For each SNS topic, retrieve the policy and check if there are any statements allowing cross-account access:
+
+```python
+for topic in topics:
+    attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+    policy = json.loads(attributes['Attributes']['Policy'])
+    for statement in policy['Statement']:
+        if 'AWS' in statement['Principal'] and statement['Principal']['AWS'] != '*':
+            print(f"Cross-account access found in SNS topic: {topic['TopicArn']}")
+```
+
+4. If the script prints any SNS topic ARNs, it means those topics have cross-account access. If it doesn't print anything, it means no SNS topics in your account have cross-account access. 
+
+Please note that this script only checks for explicit cross-account access in the 'Principal' field of the policy statement. It does not check for cross-account access granted through other means, such as IAM roles or resource-based policies.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

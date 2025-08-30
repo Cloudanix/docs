@@ -1,6 +1,200 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SNS Topics from being unencrypted using KMS CMKs in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the SNS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon SNS console at [https://console.aws.amazon.com/sns/](https://console.aws.amazon.com/sns/).
+
+2. **Create or Select an SNS Topic:**
+   - If you are creating a new topic, click on "Create topic" and follow the prompts.
+   - If you are modifying an existing topic, select the topic from the list.
+
+3. **Configure Encryption:**
+   - In the "Details" section of the topic creation or modification page, find the "Encryption" settings.
+   - Select "AWS Key Management Service (KMS)".
+   - Choose an existing KMS Customer Master Key (CMK) from the dropdown menu or create a new CMK if necessary.
+
+4. **Save Changes:**
+   - Review your settings to ensure that the KMS CMK is correctly selected.
+   - Click "Create topic" if you are creating a new topic, or "Save changes" if you are modifying an existing topic.
+
+By following these steps, you ensure that your SNS topics are encrypted using KMS CMKs, enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent SNS Topics from being unencrypted using KMS CMKs in AWS using the AWS CLI, you can follow these steps:
+
+1. **Create a KMS Key**:
+   First, you need to create a KMS Customer Master Key (CMK) if you don't already have one. This key will be used to encrypt your SNS topics.
+
+   ```sh
+   aws kms create-key --description "My SNS Encryption Key" --key-usage ENCRYPT_DECRYPT --origin AWS_KMS
+   ```
+
+2. **Get the Key ID or ARN**:
+   Retrieve the Key ID or ARN of the newly created KMS key. This will be used in the next step to set the encryption for the SNS topic.
+
+   ```sh
+   aws kms list-keys
+   ```
+
+3. **Create an SNS Topic with KMS Encryption**:
+   When creating a new SNS topic, specify the KMS key to be used for encryption.
+
+   ```sh
+   aws sns create-topic --name MyEncryptedTopic --attributes KmsMasterKeyId=arn:aws:kms:region:account-id:key/key-id
+   ```
+
+4. **Update an Existing SNS Topic to Use KMS Encryption**:
+   If you have an existing SNS topic, you can update it to use the KMS key for encryption.
+
+   ```sh
+   aws sns set-topic-attributes --topic-arn arn:aws:sns:region:account-id:MyExistingTopic --attribute-name KmsMasterKeyId --attribute-value arn:aws:kms:region:account-id:key/key-id
+   ```
+
+By following these steps, you ensure that your SNS topics are encrypted using KMS CMKs, thereby enhancing the security of your data.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SNS Topics from being unencrypted using KMS CMKs in AWS SNS using Python scripts, you can follow these steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed, which is the AWS SDK for Python. You can install it using pip if you haven't already.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+   ```bash
+   aws configure
+   ```
+
+3. **Create a Python Script to List SNS Topics**:
+   Write a Python script to list all SNS topics and check their encryption status. If a topic is not encrypted, update it to use a KMS CMK.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon SNS
+   sns_client = boto3.client('sns')
+
+   # List all SNS topics
+   response = sns_client.list_topics()
+
+   # Iterate through each topic
+   for topic in response['Topics']:
+       topic_arn = topic['TopicArn']
+       
+       # Get the attributes of the topic
+       attributes = sns_client.get_topic_attributes(TopicArn=topic_arn)
+       
+       # Check if the topic is encrypted
+       if 'KmsMasterKeyId' not in attributes['Attributes']:
+           # If not encrypted, update the topic to use a KMS CMK
+           sns_client.set_topic_attributes(
+               TopicArn=topic_arn,
+               AttributeName='KmsMasterKeyId',
+               AttributeValue='arn:aws:kms:your-region:your-account-id:key/your-key-id'
+           )
+           print(f"Updated topic {topic_arn} to use KMS CMK.")
+       else:
+           print(f"Topic {topic_arn} is already encrypted.")
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure all your SNS topics are encrypted using KMS CMKs.
+
+   ```bash
+   python encrypt_sns_topics.py
+   ```
+
+This script will iterate through all your SNS topics, check if they are encrypted, and if not, it will update them to use the specified KMS CMK. Make sure to replace `'arn:aws:kms:your-region:your-account-id:key/your-key-id'` with your actual KMS CMK ARN.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Simple Notification Service (SNS) dashboard by selecting "Services" from the top menu, then typing "SNS" in the search box and selecting "Simple Notification Service".
+3. In the SNS dashboard, select "Topics" from the left-hand navigation pane. This will display a list of all the SNS topics available within your current AWS region.
+4. For each topic in the list, check the "KMS master key" column. If the column displays "Default", it means that the SNS topic is not encrypted with a customer-managed KMS key, indicating a potential misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the SNS topics in your AWS account. You can do this by using the following AWS CLI command:
+
+   ```
+   aws sns list-topics
+   ```
+   This command will return a list of all SNS topics in your AWS account.
+
+2. Once you have the list of SNS topics, you can check the encryption status of each topic. You can do this by using the following AWS CLI command:
+
+   ```
+   aws sns get-topic-attributes --topic-arn <TopicARN>
+   ```
+   Replace `<TopicARN>` with the ARN of the SNS topic you want to check. This command will return the attributes of the specified SNS topic.
+
+3. From the returned attributes, check the `KmsMasterKeyId` attribute. If this attribute is not present or is set to `alias/aws/sns`, then the SNS topic is not encrypted with a KMS CMK.
+
+4. Repeat steps 2 and 3 for each SNS topic in your AWS account.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services including SNS.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create a client for SNS and list all the SNS topics.
+
+```python
+sns = session.client('sns')
+response = sns.list_topics()
+```
+
+4. Iterate over the list of topics and check if they are encrypted using KMS CMKs. If the 'KmsMasterKeyId' attribute is not present or not set, then the SNS topic is not encrypted using KMS CMKs.
+
+```python
+for topic in response['Topics']:
+    topic_attributes = sns.get_topic_attributes(TopicArn=topic['TopicArn'])
+    if 'KmsMasterKeyId' not in topic_attributes['Attributes']:
+        print(f"SNS Topic {topic['TopicArn']} is not encrypted using KMS CMKs.")
+```
+
+This script will print out the ARNs of all SNS topics that are not encrypted using KMS CMKs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
