@@ -23,6 +23,80 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your Kubernetes services are running.
+
+3. Select the task definition that you want to inspect. Task definitions are the blueprint of your application and contain settings like which Docker image to use, how much CPU and memory to allocate, etc.
+
+4. In the task definition details, look for the "User" field under the "Docker Labels" section. If this field is not set or is set to "root", then the task is running as a privileged user.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will need to provide your AWS access key ID, secret access key, default region name, and default output format.
+
+2. Once the AWS CLI is set up, you can list all the running ECS tasks in your AWS account using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs.
+
+3. For each task ARN in the list, describe the task to get more information about it. You can do this using the following command:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object that contains information about the task.
+
+4. In the returned JSON object, look for the "containerDefinitions" section. This section contains a list of container definitions for the task. For each container definition, check the "privileged" field. If this field is set to true, then the container is running as privileged. If it's set to false or not present, then the container is running as non-privileged.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries in Python. You will need the Kubernetes client library to interact with the Kubernetes API.
+
+```python
+from kubernetes import client, config
+```
+
+2. Load the Kubernetes configuration. This can be done in two ways: either from a kubeconfig file or from within a Pod. The kubeconfig file is usually located at `~/.kube/config`.
+
+```python
+config.load_kube_config()
+```
+
+3. Create an instance of the `CoreV1Api` class, which provides methods for interacting with the core V1 Kubernetes API.
+
+```python
+v1 = client.CoreV1Api()
+```
+
+4. Iterate over all the Pods in the cluster and check the security context of each container. If the `runAsNonRoot` field is not set to `True`, then the container is running as a privileged user.
+
+```python
+def check_privileged_pods():
+    ret = v1.list_pod_for_all_namespaces(watch=False)
+    for i in ret.items:
+        for j in i.spec.containers:
+            if j.security_context is None or j.security_context.run_as_non_root is None or not j.security_context.run_as_non_root:
+                print("Pod {} in namespace {} is running as a privileged user".format(i.metadata.name, i.metadata.namespace))
+
+check_privileged_pods()
+```
+
+This script will print out the names and namespaces of all Pods that are running as a privileged user. If no such Pods exist, it will not print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

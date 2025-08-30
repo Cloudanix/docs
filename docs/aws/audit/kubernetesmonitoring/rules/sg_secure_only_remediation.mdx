@@ -1,6 +1,93 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon EKS service.
+2. In the left navigation pane, select "Clusters" to view all the existing EKS clusters.
+3. Click on the name of the cluster you want to inspect. This will open the cluster's details page.
+4. In the cluster's details page, under the "Networking" section, check the "Security groups for your nodes". Click on the security group ID to open the security group settings. In the "Inbound rules" tab, verify if there are any rules that allow inbound traffic other than port 443. If there are, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EKS cluster.
+
+2. Once the AWS CLI is installed and configured, you can use the following command to list all the security groups associated with your EKS cluster:
+
+   ```
+   aws eks describe-cluster --name <cluster-name> --query "cluster.resourcesVpcConfig.securityGroupIds"
+   ```
+   Replace `<cluster-name>` with the name of your EKS cluster. This command will return the IDs of the security groups associated with your EKS cluster.
+
+3. Now, you can use the following command to describe the inbound rules of a security group:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return the inbound rules of the specified security group.
+
+4. Finally, you need to check the output of the previous command. Look for the inbound rules that allow traffic on port 443. If there are any inbound rules that allow traffic on other ports, then the EKS cluster is misconfigured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries:
+   You will need the boto3 library to interact with AWS services. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials:
+   You need to configure your AWS credentials to allow your script to interact with your AWS services. You can do this by setting the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables, or by using the AWS CLI's configure command:
+   ```
+   aws configure
+   ```
+
+3. Write a Python script to check the EKS cluster's security group rules:
+   Here is a simple script that lists all the security groups for an EKS cluster and checks if they only allow inbound traffic on port 443:
+
+   ```python
+   import boto3
+
+   # Create a session using your AWS credentials
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+   )
+
+   # Create an EKS client
+   eks = session.client('eks')
+
+   # Get the details of the EKS cluster
+   cluster = eks.describe_cluster(name='your-cluster-name')
+
+   # Get the security group IDs
+   security_group_ids = cluster['cluster']['resourcesVpcConfig']['securityGroupIds']
+
+   # Create an EC2 resource
+   ec2 = session.resource('ec2')
+
+   # Check the inbound rules of each security group
+   for sg_id in security_group_ids:
+       security_group = ec2.SecurityGroup(sg_id)
+       for permission in security_group.ip_permissions:
+           # If there is any rule that allows traffic on a port other than 443, print a warning
+           if permission['FromPort'] != 443 or permission['ToPort'] != 443:
+               print(f'Security group {sg_id} allows traffic on port {permission["FromPort"]}-{permission["ToPort"]}')
+   ```
+
+4. Run the script:
+   You can run the script using the Python interpreter:
+   ```
+   python check_eks_security_group.py
+   ```
+   The script will print a warning for each security group rule that allows traffic on a port other than 443. If no warnings are printed, then all your security groups only allow inbound traffic on port 443.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
