@@ -1,6 +1,268 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Route 53 domain expiry in 30 days using the AWS Management Console, follow these steps:
+
+1. **Enable Domain Auto-Renewal:**
+   - Open the [Amazon Route 53 console](https://console.aws.amazon.com/route53/).
+   - In the navigation pane, choose **Registered Domains**.
+   - Select the domain that you want to auto-renew.
+   - In the **Domain details** section, ensure that the **Auto Renew** option is enabled. If it is not, click **Enable Auto Renew**.
+
+2. **Set Up Billing Alerts:**
+   - Open the [AWS Billing and Cost Management Dashboard](https://console.aws.amazon.com/billing/home).
+   - In the navigation pane, choose **Billing preferences**.
+   - Under **Billing alerts**, select **Receive Billing Alerts**.
+   - Click **Save preferences**.
+   - This will help you monitor your billing and ensure you have sufficient funds for domain renewals.
+
+3. **Configure CloudWatch Alarms:**
+   - Open the [Amazon CloudWatch console](https://console.aws.amazon.com/cloudwatch/).
+   - In the navigation pane, choose **Alarms**, then click **Create Alarm**.
+   - Select a metric related to Route 53 domain expiration (e.g., billing metrics).
+   - Set the conditions for the alarm to notify you when the domain is about to expire.
+   - Configure the actions to send notifications to an SNS topic or email.
+
+4. **Regularly Review Domain Expiry Dates:**
+   - Periodically check the expiry dates of your domains in the Route 53 console.
+   - In the **Registered Domains** section, review the **Expiration Date** column to ensure no domains are nearing expiration without your knowledge.
+
+By following these steps, you can proactively manage your Route 53 domains and prevent them from expiring unexpectedly.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Route 53 domain expiry in 30 days using AWS CLI, you can follow these steps:
+
+1. **Enable Domain Auto-Renewal:**
+   Ensure that the domain is set to auto-renew to prevent it from expiring. Use the following command to enable auto-renewal for your domain:
+
+   ```sh
+   aws route53domains update-domain-contact --domain-name example.com --auto-renew
+   ```
+
+2. **Set Up Billing Alerts:**
+   Configure billing alerts to notify you when your domain is nearing its renewal date. This can be done by setting up a CloudWatch billing alarm. First, create a billing alarm using the following command:
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "DomainRenewalAlarm" --metric-name "EstimatedCharges" --namespace "AWS/Billing" --statistic "Maximum" --period 86400 --threshold 1 --comparison-operator "GreaterThanOrEqualToThreshold" --dimensions Name=Currency,Value=USD --evaluation-periods 1 --alarm-actions arn:aws:sns:us-east-1:123456789012:YourSNSTopic
+   ```
+
+3. **Monitor Domain Expiry:**
+   Regularly check the expiry date of your domains to ensure they are not nearing expiration. Use the following command to list your domains and their expiry dates:
+
+   ```sh
+   aws route53domains list-domains
+   ```
+
+4. **Set Up Notifications:**
+   Configure notifications to alert you when a domain is nearing its expiry date. You can use Amazon SNS to send notifications. First, create an SNS topic:
+
+   ```sh
+   aws sns create-topic --name DomainExpiryNotifications
+   ```
+
+   Then, subscribe to the topic:
+
+   ```sh
+   aws sns subscribe --topic-arn arn:aws:sns:us-east-1:123456789012:DomainExpiryNotifications --protocol email --notification-endpoint your-email@example.com
+   ```
+
+   Finally, create a CloudWatch rule to trigger the notification based on the domain expiry date:
+
+   ```sh
+   aws events put-rule --name "DomainExpiryRule" --schedule-expression "rate(1 day)"
+   ```
+
+   And add the target to the rule:
+
+   ```sh
+   aws events put-targets --rule "DomainExpiryRule" --targets "Id"="1","Arn"="arn:aws:sns:us-east-1:123456789012:DomainExpiryNotifications"
+   ```
+
+By following these steps, you can effectively prevent your Route 53 domains from expiring without your knowledge.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Route 53 domain expiry in 30 days using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Check Domain Expiry:**
+   - Write a Python script that uses Boto3 to check the expiry date of your Route 53 domains.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+
+   # Initialize a session using Amazon Route 53
+   client = boto3.client('route53domains')
+
+   # Function to check domain expiry
+   def check_domain_expiry(domain_name):
+       response = client.get_domain_detail(DomainName=domain_name)
+       expiry_date = response['ExpirationDate']
+       return expiry_date
+
+   # List of domains to check
+   domains = ['example.com', 'example.org']
+
+   for domain in domains:
+       expiry_date = check_domain_expiry(domain)
+       days_to_expiry = (expiry_date - datetime.now()).days
+       if days_to_expiry <= 30:
+           print(f"Domain {domain} is expiring in {days_to_expiry} days. Please renew it.")
+       else:
+           print(f"Domain {domain} is safe. Expiry in {days_to_expiry} days.")
+   ```
+
+3. **Automate the Script Execution:**
+   - Schedule the script to run periodically (e.g., daily) using a cron job (Linux) or Task Scheduler (Windows) to ensure continuous monitoring.
+
+   **For Linux:**
+   ```bash
+   crontab -e
+   ```
+
+   Add the following line to run the script daily at 8 AM:
+   ```bash
+   0 8 * * * /usr/bin/python3 /path/to/your/script.py
+   ```
+
+   **For Windows:**
+   - Use Task Scheduler to create a new task that runs the script daily.
+
+4. **Set Up Notifications:**
+   - Integrate with an email service (e.g., AWS SES) or messaging service (e.g., Slack) to send notifications if a domain is expiring soon.
+
+   ```python
+   import boto3
+   from datetime import datetime, timedelta
+   import smtplib
+   from email.mime.text import MIMEText
+
+   # Initialize a session using Amazon Route 53
+   client = boto3.client('route53domains')
+
+   # Function to check domain expiry
+   def check_domain_expiry(domain_name):
+       response = client.get_domain_detail(DomainName=domain_name)
+       expiry_date = response['ExpirationDate']
+       return expiry_date
+
+   # Function to send email notification
+   def send_email_notification(domain_name, days_to_expiry):
+       msg = MIMEText(f"Domain {domain_name} is expiring in {days_to_expiry} days. Please renew it.")
+       msg['Subject'] = f"Domain Expiry Alert: {domain_name}"
+       msg['From'] = 'your-email@example.com'
+       msg['To'] = 'recipient@example.com'
+
+       with smtplib.SMTP('smtp.example.com') as server:
+           server.login('your-email@example.com', 'your-password')
+           server.sendmail('your-email@example.com', 'recipient@example.com', msg.as_string())
+
+   # List of domains to check
+   domains = ['example.com', 'example.org']
+
+   for domain in domains:
+       expiry_date = check_domain_expiry(domain)
+       days_to_expiry = (expiry_date - datetime.now()).days
+       if days_to_expiry <= 30:
+           send_email_notification(domain, days_to_expiry)
+           print(f"Domain {domain} is expiring in {days_to_expiry} days. Notification sent.")
+       else:
+           print(f"Domain {domain} is safe. Expiry in {days_to_expiry} days.")
+   ```
+
+By following these steps, you can effectively monitor and prevent Route 53 domain expiry using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to your AWS Management Console.
+2. Navigate to the Route 53 dashboard. You can do this by typing "Route 53" into the search bar at the top of the console and selecting it from the dropdown menu.
+3. Once you're in the Route 53 dashboard, click on "Registered domains" in the left-hand menu. This will bring up a list of all the domains you have registered with Route 53.
+4. Check the "Expiration date" column for each domain. If a domain is set to expire in the next 30 days, it will be listed here.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can run any AWS CLI commands, you need to install and configure the AWS CLI on your local machine. You can do this by following the instructions provided in the AWS CLI User Guide.
+
+2. List hosted zones: Use the following command to list all the hosted zones in your AWS account:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+   This command will return a list of all the hosted zones in your AWS account, including their ID, name, and other information.
+
+3. List resource record sets: For each hosted zone, use the following command to list all the resource record sets:
+
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <hosted-zone-id>
+   ```
+   Replace `<hosted-zone-id>` with the ID of the hosted zone you want to check. This command will return a list of all the resource record sets in the specified hosted zone, including their name, type, and other information.
+
+4. Check domain expiry: For each resource record set of type `SOA` (Start of Authority), check the `RDATA` field for the expiry value. If the expiry value is less than or equal to 30 days, then the domain is set to expire in 30 days or less. Note that the expiry value is specified in seconds, so you need to convert it to days by dividing by 86400 (the number of seconds in a day).
+
+   Unfortunately, AWS CLI does not provide a direct way to check the expiry date of a domain. You may need to use other tools or services, or check the domain expiry manually through the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary libraries and initialize the Route53 client. You will need to provide your AWS credentials (access key and secret key) which you can get from your AWS console.
+```python
+import boto3
+from datetime import datetime, timedelta
+
+# Initialize the Route53 client
+route53 = boto3.client('route53', aws_access_key_id='YOUR_ACCESS_KEY', aws_secret_access_key='YOUR_SECRET_KEY')
+```
+
+3. Fetch the list of domain names and their expiry dates. The 'list_domains' function of the Route53 client can be used to get the list of domain names. For each domain name, you can get the expiry date using the 'get_domain_detail' function.
+```python
+# Get the list of domain names
+domains = route53.list_domains()
+
+for domain in domains['Domains']:
+    # Get the domain details
+    domain_details = route53.get_domain_detail(DomainName=domain['DomainName'])
+    
+    # Get the expiry date
+    expiry_date = domain_details['Expiry']
+```
+
+4. Check if the domain is expiring in the next 30 days. You can do this by comparing the expiry date with the current date plus 30 days. If the expiry date is earlier, then the domain is expiring in the next 30 days.
+```python
+# Get the current date plus 30 days
+current_date_plus_30 = datetime.now() + timedelta(days=30)
+
+# Check if the domain is expiring in the next 30 days
+if expiry_date <= current_date_plus_30:
+    print(f"The domain {domain['DomainName']} is expiring in the next 30 days.")
+```
+This script will print out all the domain names that are expiring in the next 30 days.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

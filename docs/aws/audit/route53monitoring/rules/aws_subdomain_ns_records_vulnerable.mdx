@@ -23,6 +23,266 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS Subdomain NS Records from being vulnerable in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Review and Audit NS Records:**
+   - Navigate to the Route 53 console.
+   - Select the hosted zone for your domain.
+   - Review the NS (Name Server) records for any subdomains.
+   - Ensure that the NS records are pointing to the correct and intended name servers.
+
+2. **Restrict Access to Hosted Zones:**
+   - Go to the IAM (Identity and Access Management) console.
+   - Create or update IAM policies to restrict access to Route 53 resources.
+   - Ensure that only authorized users and roles have permissions to modify NS records.
+
+3. **Enable DNSSEC:**
+   - In the Route 53 console, select the hosted zone.
+   - Enable DNSSEC (Domain Name System Security Extensions) for your domain.
+   - This adds an additional layer of security by ensuring that the responses to DNS queries are authentic.
+
+4. **Monitor and Set Alerts:**
+   - Use AWS CloudWatch to monitor changes to Route 53 hosted zones.
+   - Set up CloudWatch Alarms to notify you of any changes to NS records.
+   - Regularly review CloudWatch logs and alarms to detect any unauthorized changes.
+
+By following these steps, you can help ensure that your subdomain NS records are secure and less vulnerable to misconfigurations.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS Subdomain NS Records from being vulnerable in Route 53 using AWS CLI, you can follow these steps:
+
+1. **Create a Hosted Zone for the Subdomain:**
+   Ensure that you create a hosted zone for the subdomain to manage its DNS records separately. This helps in maintaining proper control over the subdomain's DNS settings.
+
+   ```sh
+   aws route53 create-hosted-zone --name subdomain.example.com --caller-reference unique-string
+   ```
+
+2. **Update NS Records in the Parent Domain:**
+   After creating the hosted zone for the subdomain, update the NS records in the parent domain to point to the new hosted zone's name servers. This ensures that DNS queries for the subdomain are correctly routed.
+
+   ```sh
+   aws route53 change-resource-record-sets --hosted-zone-id ZXXXXXXXXXXXXXX --change-batch file://change-batch.json
+   ```
+
+   The `change-batch.json` file should contain the necessary changes to update the NS records.
+
+3. **Restrict Access to the Hosted Zone:**
+   Use IAM policies to restrict access to the hosted zone, ensuring that only authorized users and services can make changes to the DNS records.
+
+   ```sh
+   aws iam create-policy --policy-name RestrictRoute53Access --policy-document file://policy.json
+   ```
+
+   The `policy.json` file should define the necessary permissions.
+
+4. **Enable DNSSEC for the Hosted Zone:**
+   Enabling DNSSEC (Domain Name System Security Extensions) adds an additional layer of security to your DNS records, preventing certain types of attacks.
+
+   ```sh
+   aws route53 enable-hosted-zone-dnssec --hosted-zone-id ZXXXXXXXXXXXXXX
+   ```
+
+By following these steps, you can prevent AWS Subdomain NS Records from being vulnerable in Route 53 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS Subdomain NS Records from being vulnerable in Route 53 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary permissions to interact with Route 53.
+
+```bash
+pip install boto3
+```
+
+### 2. **List Hosted Zones**
+Retrieve the list of hosted zones to identify the subdomains and their corresponding NS records.
+
+```python
+import boto3
+
+client = boto3.client('route53')
+
+def list_hosted_zones():
+    response = client.list_hosted_zones()
+    return response['HostedZones']
+
+hosted_zones = list_hosted_zones()
+for zone in hosted_zones:
+    print(f"Hosted Zone: {zone['Name']}, ID: {zone['Id']}")
+```
+
+### 3. **Check NS Records for Subdomains**
+Iterate through each hosted zone and check the NS records for subdomains to ensure they are correctly configured.
+
+```python
+def list_resource_record_sets(zone_id):
+    response = client.list_resource_record_sets(HostedZoneId=zone_id)
+    return response['ResourceRecordSets']
+
+def check_ns_records():
+    for zone in hosted_zones:
+        record_sets = list_resource_record_sets(zone['Id'])
+        for record in record_sets:
+            if record['Type'] == 'NS' and zone['Name'] != record['Name']:
+                print(f"Subdomain NS Record Found: {record['Name']}")
+                # Add logic to validate NS records here
+
+check_ns_records()
+```
+
+### 4. **Validate and Update NS Records**
+Implement logic to validate the NS records and update them if necessary to ensure they are not vulnerable.
+
+```python
+def validate_ns_record(record):
+    # Add your validation logic here
+    # For example, check if NS records point to trusted nameservers
+    trusted_nameservers = ['ns-123.awsdns-45.com', 'ns-678.awsdns-90.net']
+    for ns in record['ResourceRecords']:
+        if ns['Value'] not in trusted_nameservers:
+            return False
+    return True
+
+def update_ns_record(zone_id, record):
+    # Add your update logic here
+    # For example, replace with trusted nameservers
+    response = client.change_resource_record_sets(
+        HostedZoneId=zone_id,
+        ChangeBatch={
+            'Changes': [
+                {
+                    'Action': 'UPSERT',
+                    'ResourceRecordSet': {
+                        'Name': record['Name'],
+                        'Type': 'NS',
+                        'TTL': 300,
+                        'ResourceRecords': [{'Value': ns} for ns in trusted_nameservers]
+                    }
+                }
+            ]
+        }
+    )
+    return response
+
+def validate_and_update_ns_records():
+    for zone in hosted_zones:
+        record_sets = list_resource_record_sets(zone['Id'])
+        for record in record_sets:
+            if record['Type'] == 'NS' and zone['Name'] != record['Name']:
+                if not validate_ns_record(record):
+                    print(f"Updating NS Record: {record['Name']}")
+                    update_ns_record(zone['Id'], record)
+
+validate_and_update_ns_records()
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **List Hosted Zones**: Retrieve and list hosted zones.
+3. **Check NS Records for Subdomains**: Identify and check NS records for subdomains.
+4. **Validate and Update NS Records**: Validate NS records and update them if necessary to ensure they are not vulnerable.
+
+By following these steps, you can automate the process of preventing AWS Subdomain NS Records from being vulnerable using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, select "Hosted zones". Here, you will see a list of all your hosted zones.
+3. Click on the hosted zone for the domain you want to check. This will open a page with records set for the domain.
+4. Look for the NS (Name Server) record. If the NS record is pointing to a subdomain instead of the domain itself, it means the subdomain NS records are vulnerable. This is because it allows an attacker to take over the subdomain by creating a new hosted zone with the same name.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   ```
+   pip install awscli
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List Hosted Zones: Once your AWS CLI is set up, you can list all the hosted zones in your AWS account by running the following command:
+
+   ```
+   aws route53 list-hosted-zones
+   ```
+   This command will return a list of all the hosted zones along with their details.
+
+3. Get Hosted Zone Details: From the list of hosted zones, identify the hosted zone for which you want to check the NS records. You can get the details of a specific hosted zone by running the following command:
+
+   ```
+   aws route53 get-hosted-zone --id /hostedzone/Z1PA6795UKMFR9
+   ```
+   Replace `Z1PA6795UKMFR9` with the ID of your hosted zone. This command will return the details of the specified hosted zone including the NS records.
+
+4. Check NS Records: From the hosted zone details, check the NS records. If the NS records are pointing to a subdomain of the domain that is hosted in the same hosted zone, then your subdomain NS records are vulnerable. This is because an attacker can take over the subdomain by creating a new hosted zone with the same name as the subdomain.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the necessary Python libraries. You can install the AWS SDK for Python (Boto3) using pip:
+
+   ```
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: You need to configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+
+   ~/.aws/credentials:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+   ~/.aws/config:
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+3. Write a Python script to list all hosted zones and their NS records: You can use the following Python script to list all hosted zones in your AWS account and their NS records:
+
+   ```python
+   import boto3
+
+   client = boto3.client('route53')
+
+   # List all hosted zones
+   response = client.list_hosted_zones()
+   for zone in response['HostedZones']:
+       print('Hosted zone:', zone['Name'])
+
+       # List all NS records for this hosted zone
+       response = client.list_resource_record_sets(
+           HostedZoneId=zone['Id'],
+           StartRecordName=zone['Name'],
+           StartRecordType='NS',
+       )
+       for record in response['ResourceRecordSets']:
+           print('NS record:', record['ResourceRecords'])
+   ```
+
+4. Analyze the output: The script will print the name of each hosted zone and its NS records. If the NS records of a hosted zone include subdomains of the zone itself, then the zone is potentially vulnerable to subdomain takeover. For example, if you have a hosted zone for example.com and its NS records include ns1.example.com, then example.com is potentially vulnerable.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

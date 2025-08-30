@@ -23,6 +23,245 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not using AWS Organizations in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Create an AWS Organization:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the AWS Organizations console at [AWS Organizations](https://console.aws.amazon.com/organizations/).
+   - Click on "Create organization" and follow the prompts to set up your organization.
+
+2. **Enable All Features:**
+   - Once your organization is created, ensure that all features are enabled.
+   - In the AWS Organizations console, go to the "Settings" section.
+   - Click on "Enable all features" if it is not already enabled. This allows you to use the full set of AWS Organizations features, including consolidated billing and policy-based management.
+
+3. **Invite Accounts to Your Organization:**
+   - In the AWS Organizations console, go to the "Accounts" section.
+   - Click on "Add account" and choose "Invite account" to invite existing AWS accounts to join your organization.
+   - Follow the prompts to send invitations to the accounts you want to manage under your organization.
+
+4. **Use Service Control Policies (SCPs):**
+   - In the AWS Organizations console, go to the "Policies" section.
+   - Click on "Create policy" to create a Service Control Policy (SCP).
+   - Define policies that restrict or allow specific actions for accounts within your organization, ensuring that Route 53 configurations adhere to your organizational policies.
+   - Attach the SCP to the appropriate organizational units (OUs) or accounts.
+
+By following these steps, you can ensure that AWS Organizations is used effectively to manage Route 53 configurations and other resources within your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that AWS Organizations is used in Route 53, you can follow these steps using the AWS CLI:
+
+1. **Create an AWS Organization:**
+   Ensure you have an AWS Organization set up. If you don't have one, you can create it using the following command:
+   ```sh
+   aws organizations create-organization --feature-set ALL
+   ```
+
+2. **Enable Service Access for Route 53:**
+   Enable trusted access for AWS Organizations to manage Route 53 domains. This allows AWS Organizations to manage Route 53 on your behalf.
+   ```sh
+   aws organizations enable-aws-service-access --service-principal route53.amazonaws.com
+   ```
+
+3. **Attach a Service Control Policy (SCP):**
+   Create and attach a Service Control Policy (SCP) to your organization or specific organizational units (OUs) to enforce the use of Route 53 within the organization.
+   ```sh
+   aws organizations create-policy --content file://policy.json --description "Enforce Route 53 usage" --name "Route53Policy" --type SERVICE_CONTROL_POLICY
+   ```
+
+   Example `policy.json` content:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": "route53:*",
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+
+4. **Attach the SCP to the Root or OU:**
+   Attach the created SCP to the root of the organization or to specific OUs to ensure that the policy is enforced.
+   ```sh
+   aws organizations attach-policy --policy-id <policy-id> --target-id <root-id-or-ou-id>
+   ```
+
+Replace `<policy-id>` with the ID of the policy you created and `<root-id-or-ou-id>` with the ID of the root or organizational unit you want to attach the policy to.
+
+By following these steps, you can ensure that AWS Organizations is used to manage Route 53, thereby preventing misconfigurations related to its usage.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not using AWS Organizations in Route 53 using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create an AWS Organization**
+Ensure you have an AWS Organization set up. If not, you can create one using Boto3.
+
+```python
+import boto3
+
+client = boto3.client('organizations')
+
+response = client.create_organization(
+    FeatureSet='ALL'  # Use 'ALL' to enable all features
+)
+
+print(response)
+```
+
+### 3. **List All Accounts in the Organization**
+To ensure that all Route 53 resources are managed under the AWS Organization, list all accounts in the organization.
+
+```python
+response = client.list_accounts()
+
+for account in response['Accounts']:
+    print(f"Account ID: {account['Id']}, Account Name: {account['Name']}")
+```
+
+### 4. **Enforce Policies on Route 53 Resources**
+Use Service Control Policies (SCPs) to enforce that Route 53 resources can only be created within the organization.
+
+```python
+policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Deny",
+            "Action": "route53:*",
+            "Resource": "*",
+            "Condition": {
+                "StringNotEquals": {
+                    "aws:PrincipalOrgID": "o-xxxxxxxxxx"  # Replace with your Organization ID
+                }
+            }
+        }
+    ]
+}
+
+response = client.create_policy(
+    Content=json.dumps(policy_document),
+    Description='Deny Route 53 actions outside the organization',
+    Name='DenyRoute53OutsideOrg',
+    Type='SERVICE_CONTROL_POLICY'
+)
+
+print(response)
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Create an AWS Organization**: Use Boto3 to create an AWS Organization.
+3. **List All Accounts in the Organization**: Ensure all Route 53 resources are managed under the organization.
+4. **Enforce Policies on Route 53 Resources**: Use SCPs to enforce that Route 53 resources can only be created within the organization.
+
+By following these steps, you can prevent the misconfiguration of not using AWS Organizations in Route 53 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Route 53 console. You can do this by typing "Route 53" into the search bar at the top of the console, then selecting "Route 53" from the dropdown menu.
+3. Once in the Route 53 console, check the hosted zones. You can do this by clicking on "Hosted zones" in the navigation pane on the left side of the console.
+4. For each hosted zone, check the "Record sets". If there are any record sets that are not associated with an AWS organization, this could indicate a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List Hosted Zones: Once AWS CLI is set up, you can use it to list all the hosted zones in your AWS account. This can be done using the following command:
+   ```
+   aws route53 list-hosted-zones
+   ```
+   This command will return a list of all the hosted zones along with their details.
+
+3. Check for AWS Organizations: To check if AWS Organizations is being used, you can use the following command:
+   ```
+   aws organizations describe-organization
+   ```
+   If AWS Organizations is not being used, this command will return an error. If it is being used, it will return details about the organization.
+
+4. Check for Route53 Policies: Finally, you can check if there are any policies in Route53 that are using AWS Organizations. This can be done using the following command:
+   ```
+   aws route53 list-query-logging-configs
+   ```
+   This command will return a list of all the query logging configurations. If any of these configurations are using AWS Organizations, it means that AWS Organizations is being used in Route53.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. This will allow you to interact with AWS services using Python.
+
+```python
+pip install boto3
+aws configure
+```
+
+2. Create a Python script that uses Boto3 to interact with the Route53 service. The script will list all the hosted zones in your AWS account and check if AWS Organizations is used.
+
+```python
+import boto3
+
+def check_organizations_used():
+    client = boto3.client('route53')
+    response = client.list_hosted_zones()
+    for zone in response['HostedZones']:
+        if 'Config' in zone and 'PrivateZone' in zone['Config']:
+            if zone['Config']['PrivateZone'] == False:
+                print(f"Public hosted zone detected: {zone['Name']}")
+                return False
+    return True
+
+if __name__ == "__main__":
+    if check_organizations_used():
+        print("AWS Organizations is used in all Route53 hosted zones.")
+    else:
+        print("AWS Organizations is not used in all Route53 hosted zones.")
+```
+
+3. Run the Python script. If AWS Organizations is not used in all Route53 hosted zones, the script will print a message indicating this.
+
+```bash
+python check_organizations.py
+```
+
+4. Review the output of the script. If AWS Organizations is not used in all Route53 hosted zones, you will need to take further action to remediate this misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,240 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent expired domains in Route 53 using the AWS Management Console, follow these steps:
+
+1. **Access Route 53 Console:**
+   - Sign in to the AWS Management Console.
+   - Navigate to the Route 53 service by searching for "Route 53" in the search bar and selecting it.
+
+2. **Review Registered Domains:**
+   - In the Route 53 dashboard, click on "Registered domains" in the left-hand navigation pane.
+   - This will display a list of all domains registered through Route 53.
+
+3. **Check Expiration Dates:**
+   - For each domain listed, check the "Expiration date" column to identify any domains that are nearing expiration or have already expired.
+
+4. **Set Up Notifications:**
+   - To ensure you are notified before a domain expires, set up email notifications.
+   - Click on the domain name to view its details.
+   - Under the "Expiration" section, ensure that the contact information is up-to-date so that renewal reminders are sent to the correct email addresses.
+
+By regularly reviewing the expiration dates and setting up notifications, you can prevent domains from expiring unexpectedly.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent expired domains in Route 53 using AWS CLI, you can follow these steps:
+
+1. **List All Hosted Zones:**
+   Use the following command to list all hosted zones in your AWS account. This will help you identify the domains you need to monitor for expiration.
+
+   ```sh
+   aws route53 list-hosted-zones
+   ```
+
+2. **Get Domain Expiration Details:**
+   For each hosted zone, retrieve the domain registration details to check the expiration date. Replace `<domain-name>` with your actual domain name.
+
+   ```sh
+   aws route53domains get-domain-detail --domain-name <domain-name>
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   Create CloudWatch alarms to monitor the expiration dates of your domains. This can be done by creating a custom metric that tracks the expiration date and setting up an alarm to notify you before the domain expires.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "DomainExpirationAlarm" --metric-name "DomainExpiration" --namespace "AWS/Route53" --statistic "Minimum" --period 86400 --threshold 30 --comparison-operator "LessThanThreshold" --evaluation-periods 1 --alarm-actions <SNS-topic-ARN>
+   ```
+
+4. **Automate Notifications:**
+   Set up an SNS topic to receive notifications when the CloudWatch alarm is triggered. This ensures you are alerted well in advance of any domain expiration.
+
+   ```sh
+   aws sns create-topic --name DomainExpirationNotifications
+   aws sns subscribe --topic-arn <SNS-topic-ARN> --protocol email --notification-endpoint <your-email@example.com>
+   ```
+
+By following these steps, you can effectively monitor and prevent any expired domains in Route 53 using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent expired domains in AWS Route 53 using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Authentication:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   ```python
+   import boto3
+   from botocore.exceptions import NoCredentialsError, PartialCredentialsError
+
+   # Initialize a session using Amazon Route 53
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-east-1'  # Specify your region
+   )
+
+   route53 = session.client('route53')
+   ```
+
+2. **List All Hosted Zones:**
+   - Retrieve all hosted zones to check the domains.
+
+   ```python
+   def list_hosted_zones():
+       try:
+           response = route53.list_hosted_zones()
+           return response['HostedZones']
+       except (NoCredentialsError, PartialCredentialsError) as e:
+           print(f"Error: {e}")
+           return []
+   ```
+
+3. **Check Domain Expiry:**
+   - Use a WHOIS lookup to check the expiration date of each domain. You can use a third-party library like `whois` for this purpose.
+
+   ```bash
+   pip install python-whois
+   ```
+
+   ```python
+   import whois
+   from datetime import datetime
+
+   def check_domain_expiry(domain_name):
+       try:
+           domain_info = whois.whois(domain_name)
+           expiry_date = domain_info.expiration_date
+           if isinstance(expiry_date, list):
+               expiry_date = expiry_date[0]
+           return expiry_date
+       except Exception as e:
+           print(f"Error checking domain {domain_name}: {e}")
+           return None
+   ```
+
+4. **Automate the Monitoring and Alerting:**
+   - Create a script to automate the monitoring of domain expiry and send alerts if a domain is about to expire.
+
+   ```python
+   import smtplib
+   from email.mime.text import MIMEText
+
+   def send_alert(domain_name, expiry_date):
+       msg = MIMEText(f"The domain {domain_name} is expiring on {expiry_date}. Please renew it.")
+       msg['Subject'] = f"Domain Expiry Alert: {domain_name}"
+       msg['From'] = 'your-email@example.com'
+       msg['To'] = 'admin@example.com'
+
+       try:
+           with smtplib.SMTP('smtp.example.com') as server:
+               server.login('your-email@example.com', 'your-email-password')
+               server.sendmail(msg['From'], [msg['To']], msg.as_string())
+           print(f"Alert sent for domain {domain_name}")
+       except Exception as e:
+           print(f"Error sending alert: {e}")
+
+   def monitor_domains():
+       hosted_zones = list_hosted_zones()
+       for zone in hosted_zones:
+           domain_name = zone['Name']
+           expiry_date = check_domain_expiry(domain_name)
+           if expiry_date and (expiry_date - datetime.now()).days < 30:
+               send_alert(domain_name, expiry_date)
+
+   if __name__ == "__main__":
+       monitor_domains()
+   ```
+
+By following these steps, you can automate the process of monitoring domain expiry in AWS Route 53 and prevent any expired domains using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Route 53 dashboard.
+2. In the navigation pane, select "Hosted zones". This will display a list of all the domains that are managed by Route 53.
+3. Click on the domain name that you want to check. This will open the domain details page.
+4. In the domain details page, check the "Domain Registration" section. If the domain is expired, the "Expiration Date" will be in the past.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List Hosted Zones: Use the following command to list all the hosted zones in your AWS account. This will give you the ID of each hosted zone, which you will need in the next step.
+   ```
+   aws route53 list-hosted-zones
+   ```
+
+3. List Resource Record Sets: For each hosted zone ID obtained from the previous step, use the following command to list all the resource record sets. This will give you the details of each domain, including its type and TTL (Time to Live).
+   ```
+   aws route53 list-resource-record-sets --hosted-zone-id <Your Hosted Zone ID>
+   ```
+
+4. Check Domain Expiry: Unfortunately, AWS CLI does not provide a direct way to check the expiry date of a domain. However, you can use the `aws route53domains get-domain-detail` command to get the details of a domain, which includes the expiry date. Replace `<Your Domain Name>` with the name of your domain.
+   ```
+   aws route53domains get-domain-detail --domain-name <Your Domain Name>
+   ```
+   Look for the `Expiry` field in the output. If the expiry date is in the past, then the domain has expired.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the AWS SDK for Python (Boto3) which allows Python developer to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+   
+2. Configure AWS Credentials: You need to configure your AWS credentials. You can configure credentials by using the AWS CLI or by directly creating the credentials file. The default location for the file is `~/.aws/credentials`. At a minimum, the credentials file should specify the access key and secret access key. To specify these for the default profile, you can use the following lines:
+
+   ```python
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+   
+3. Write a Python script to list all the domains in Route 53 and check their expiration date:
+
+   ```python
+   import boto3
+   from datetime import datetime
+
+   # Create a client
+   client = boto3.client('route53domains')
+
+   # Get the list of domains
+   response = client.list_domains()
+
+   # Iterate over each domain
+   for domain in response['Domains']:
+       # Get the domain name and expiration date
+       domain_name = domain['DomainName']
+       expiration_date = domain['Expiry']
+
+       # Check if the domain is expired
+       if expiration_date < datetime.now():
+           print(f"The domain {domain_name} is expired.")
+   ```
+   
+4. Run the Python script: You can run the Python script using any Python environment. If the script prints any domain names, those domains are expired. If it doesn't print anything, there are no expired domains in Route 53.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
