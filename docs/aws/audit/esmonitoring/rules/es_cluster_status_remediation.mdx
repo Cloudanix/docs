@@ -1,6 +1,225 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To ensure that your Elasticsearch cluster status is healthy in AWS, you can follow these steps using the AWS Management Console:
+
+1. **Monitor Cluster Health:**
+   - Navigate to the Amazon Elasticsearch Service in the AWS Management Console.
+   - Select your Elasticsearch domain.
+   - Go to the "Cluster health" tab to monitor the status of your cluster. Ensure that the status is green, indicating that all primary and replica shards are allocated.
+
+2. **Configure Alarms:**
+   - Set up CloudWatch alarms to monitor key metrics such as cluster status, CPU utilization, and disk space.
+   - Go to the CloudWatch console, create new alarms for your Elasticsearch domain, and set thresholds that will trigger notifications if the cluster status changes to yellow or red.
+
+3. **Optimize Shard Allocation:**
+   - Ensure that your index settings are optimized for shard allocation.
+   - In the Elasticsearch Service console, review your index settings and adjust the number of primary and replica shards to balance the load across your nodes.
+
+4. **Scale Your Cluster:**
+   - Adjust the instance type and number of nodes in your Elasticsearch cluster to handle your workload.
+   - In the Elasticsearch Service console, select your domain, go to the "Cluster configuration" tab, and modify the instance type or add more nodes if necessary to ensure sufficient resources for your cluster.
+
+By following these steps, you can proactively monitor and manage your Elasticsearch cluster to maintain a healthy status.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Elasticsearch cluster status remains healthy in AWS, you can follow these steps using the AWS CLI:
+
+1. **Create an Elasticsearch Domain with Sufficient Instance Types and Storage:**
+   Ensure that you are using appropriate instance types and storage configurations to handle your workload. Use the `create-elasticsearch-domain` command to set up your domain with the necessary configurations.
+
+   ```sh
+   aws es create-elasticsearch-domain --domain-name my-domain --elasticsearch-version 7.10 --elasticsearch-cluster-config InstanceType=m5.large.elasticsearch,InstanceCount=3 --ebs-options EBSEnabled=true,VolumeType=gp2,VolumeSize=100
+   ```
+
+2. **Enable Zone Awareness:**
+   To improve the availability and fault tolerance of your Elasticsearch cluster, enable zone awareness. This ensures that your nodes are distributed across multiple Availability Zones.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name my-domain --elasticsearch-cluster-config ZoneAwarenessEnabled=true
+   ```
+
+3. **Set Up Automated Snapshots:**
+   Configure automated snapshots to back up your data regularly. This helps in recovering from any potential data loss and maintaining cluster health.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name my-domain --snapshot-options AutomatedSnapshotStartHour=0
+   ```
+
+4. **Monitor Cluster Health Using CloudWatch:**
+   Set up CloudWatch alarms to monitor the health of your Elasticsearch cluster. This allows you to take proactive measures if any issues are detected.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ElasticsearchClusterHealth" --metric-name ClusterStatus.red --namespace AWS/ES --statistic Maximum --period 300 --threshold 1 --comparison-operator GreaterThanOrEqualToThreshold --dimensions Name=DomainName,Value=my-domain --evaluation-periods 1 --alarm-actions arn:aws:sns:us-west-2:123456789012:MySNSTopic
+   ```
+
+By following these steps, you can help ensure that your Elasticsearch cluster remains healthy and is configured to handle your workload effectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that your Elasticsearch cluster status remains healthy, you can use Python scripts to monitor and manage the cluster. Here are four key steps to prevent the cluster from becoming unhealthy:
+
+### 1. Monitor Cluster Health
+Use the Elasticsearch Python client to regularly check the cluster health status. This will help you identify issues before they become critical.
+
+```python
+from elasticsearch import Elasticsearch
+
+# Initialize the Elasticsearch client
+es = Elasticsearch(['http://localhost:9200'])
+
+# Function to check cluster health
+def check_cluster_health():
+    health = es.cluster.health()
+    status = health['status']
+    if status != 'green':
+        print(f"Cluster status is {status}. Immediate action required!")
+    else:
+        print("Cluster status is healthy (green).")
+
+# Call the function to check cluster health
+check_cluster_health()
+```
+
+### 2. Ensure Sufficient Resources
+Ensure that your cluster has sufficient resources (CPU, memory, disk space). You can use the Elasticsearch client to monitor node stats and take action if resources are low.
+
+```python
+def check_node_stats():
+    stats = es.nodes.stats()
+    for node_id, node_stats in stats['nodes'].items():
+        cpu_usage = node_stats['os']['cpu']['percent']
+        free_memory = node_stats['os']['mem']['free_percent']
+        disk_free = node_stats['fs']['total']['available_in_bytes']
+        
+        if cpu_usage > 80:
+            print(f"Node {node_id} CPU usage is high: {cpu_usage}%")
+        if free_memory < 20:
+            print(f"Node {node_id} memory is low: {free_memory}% free")
+        if disk_free < 10 * 1024 * 1024 * 1024:  # less than 10GB
+            print(f"Node {node_id} disk space is low: {disk_free / (1024 * 1024 * 1024)} GB free")
+
+# Call the function to check node stats
+check_node_stats()
+```
+
+### 3. Manage Shards and Indices
+Ensure that your indices and shards are balanced across the cluster. You can use the Elasticsearch client to monitor and manage shard allocation.
+
+```python
+def check_shard_allocation():
+    allocation = es.cat.allocation(format='json')
+    for node in allocation:
+        shards = int(node['shards'])
+        if shards > 100:  # Example threshold
+            print(f"Node {node['node']} has too many shards: {shards}")
+
+# Call the function to check shard allocation
+check_shard_allocation()
+```
+
+### 4. Set Up Alerts
+Set up alerts to notify you when the cluster status changes or when resource usage exceeds thresholds. You can use a combination of Python and a notification service like AWS SNS, Slack, or email.
+
+```python
+import smtplib
+from email.mime.text import MIMEText
+
+def send_alert(message):
+    msg = MIMEText(message)
+    msg['Subject'] = 'Elasticsearch Cluster Alert'
+    msg['From'] = 'your-email@example.com'
+    msg['To'] = 'recipient@example.com'
+
+    with smtplib.SMTP('smtp.example.com') as server:
+        server.login('your-email@example.com', 'your-password')
+        server.sendmail(msg['From'], [msg['To']], msg.as_string())
+
+# Example usage
+if __name__ == "__main__":
+    health = es.cluster.health()
+    if health['status'] != 'green':
+        send_alert(f"Cluster status is {health['status']}. Immediate action required!")
+```
+
+By implementing these steps, you can proactively monitor and manage your Elasticsearch cluster to ensure it remains healthy.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon Elasticsearch Service dashboard. 
+
+2. In the navigation pane, choose "Elasticsearch Service" to open the Amazon Elasticsearch Service console.
+
+3. In the Amazon Elasticsearch Service console, you will see a list of your Elasticsearch domains. Click on the domain name for which you want to check the cluster status.
+
+4. On the domain dashboard, you can see the cluster health status under the "Cluster health" section. The status can be either "Green", "Yellow", or "Red". "Green" means the cluster is healthy, "Yellow" means the cluster is at risk, and "Red" means the cluster is unhealthy.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can run any AWS CLI commands, you need to install and configure the AWS CLI on your local machine. You can do this by following the instructions provided in the AWS CLI User Guide.
+
+2. Get the domain name of your Elasticsearch cluster: You can get the domain name of your Elasticsearch cluster from the AWS Management Console. Navigate to the Elasticsearch service, select your cluster, and then copy the domain name.
+
+3. Use the 'es:DescribeElasticsearchDomain' command: You can use the 'es:DescribeElasticsearchDomain' command to get the status of your Elasticsearch cluster. Replace 'your_domain_name' with the actual domain name of your Elasticsearch cluster.
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name your_domain_name
+   ```
+
+4. Check the 'ClusterHealth' status: The output of the 'es:DescribeElasticsearchDomain' command includes a 'ClusterHealth' status. If the 'ClusterHealth' status is 'green', your Elasticsearch cluster is healthy. If the 'ClusterHealth' status is 'yellow' or 'red', your Elasticsearch cluster has a misconfiguration or other issue that needs to be addressed.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with the ElasticSearch service, you will need the `elasticsearch` Python library. You can install it using pip:
+
+```python
+pip install elasticsearch
+```
+
+2. Connect to the ElasticSearch service: You will need to create a connection to the ElasticSearch service. You can do this using the `Elasticsearch` class in the `elasticsearch` library. You will need to provide the host and port of your ElasticSearch service.
+
+```python
+from elasticsearch import Elasticsearch
+
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+```
+
+3. Check the cluster health: You can check the health of the ElasticSearch cluster using the `cluster.health` method. This will return a dictionary with information about the cluster, including its health status.
+
+```python
+health = es.cluster.health()
+print(health['status'])
+```
+
+4. Analyze the health status: The health status of the cluster can be one of three values: "green", "yellow", or "red". "Green" means that all primary and replica shards are allocated. "Yellow" means that all primary shards are allocated, but at least one replica is missing. "Red" means that at least one primary shard is not allocated.
+
+```python
+if health['status'] == 'green':
+    print('Cluster is healthy')
+elif health['status'] == 'yellow':
+    print('Cluster is at risk, at least one replica is missing')
+else:
+    print('Cluster is unhealthy, at least one primary shard is not allocated')
+```
+
+This script will help you detect the health status of your ElasticSearch cluster.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

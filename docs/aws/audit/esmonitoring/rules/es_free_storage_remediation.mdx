@@ -1,6 +1,293 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elasticsearch from running out of free storage space in AWS using the AWS Management Console, follow these steps:
+
+1. **Set Up CloudWatch Alarms:**
+   - Navigate to the **CloudWatch** service in the AWS Management Console.
+   - Go to **Alarms** and click on **Create Alarm**.
+   - Select the **Elasticsearch** metrics namespace.
+   - Choose the metric **FreeStorageSpace**.
+   - Set a threshold for the alarm to trigger when free storage space is below a certain value (e.g., 20% of total storage).
+   - Configure notifications to alert you when the alarm state is triggered.
+
+2. **Enable Automated Snapshots:**
+   - Navigate to the **Elasticsearch Service** in the AWS Management Console.
+   - Select your Elasticsearch domain.
+   - Go to the **Snapshots** tab.
+   - Enable automated snapshots to ensure you have backups in case of data loss due to storage issues.
+
+3. **Monitor and Scale Storage:**
+   - Regularly monitor the storage usage of your Elasticsearch domain.
+   - Navigate to the **Elasticsearch Service** in the AWS Management Console.
+   - Select your Elasticsearch domain and go to the **Cluster Health** tab.
+   - Check the storage metrics and consider scaling up your storage if you are consistently approaching the storage limit.
+
+4. **Optimize Index Management:**
+   - Implement index lifecycle management policies to automatically delete or archive old indices.
+   - Navigate to the **Elasticsearch Service** in the AWS Management Console.
+   - Select your Elasticsearch domain and go to the **Indices** tab.
+   - Review and manage your indices to ensure that old or unnecessary data is removed, freeing up storage space.
+
+By following these steps, you can proactively manage and prevent Elasticsearch from running out of free storage space in AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elasticsearch from running out of free storage space in AWS using the AWS CLI, you can follow these steps:
+
+1. **Monitor Free Storage Space:**
+   Set up CloudWatch alarms to monitor the free storage space of your Elasticsearch domain. This will help you get notified before the storage space runs out.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "ElasticsearchFreeStorageSpace" \
+   --metric-name FreeStorageSpace \
+   --namespace AWS/ES \
+   --statistic Average \
+   --period 300 \
+   --threshold 10000000000 \
+   --comparison-operator LessThanThreshold \
+   --dimensions Name=DomainName,Value=your-domain-name \
+   --evaluation-periods 1 \
+   --alarm-actions arn:aws:sns:region:account-id:your-sns-topic
+   ```
+
+2. **Enable Auto-Tune:**
+   Enable Auto-Tune to automatically optimize your Elasticsearch domain's configuration based on the workload.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name your-domain-name \
+   --auto-tune-options DesiredState=ENABLED
+   ```
+
+3. **Increase EBS Volume Size:**
+   Ensure that your Elasticsearch domain has sufficient EBS volume size. You can update the EBS volume size if needed.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name your-domain-name \
+   --elasticsearch-cluster-config InstanceType=m5.large.elasticsearch,InstanceCount=3 \
+   --ebs-options EBSEnabled=true,VolumeType=gp2,VolumeSize=100
+   ```
+
+4. **Enable Snapshot Backups:**
+   Regularly take snapshots of your Elasticsearch domain to ensure data durability and to free up space by deleting old indices.
+
+   ```sh
+   aws es create-elasticsearch-domain --domain-name your-domain-name \
+   --snapshot-options AutomatedSnapshotStartHour=0
+   ```
+
+By following these steps, you can proactively manage and prevent Elasticsearch from running out of free storage space using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch from running out of free storage space in AWS, Azure, and GCP using Python scripts, you can follow these steps:
+
+### 1. AWS (Amazon Web Services)
+
+**Step 1: Install Boto3**
+```bash
+pip install boto3
+```
+
+**Step 2: Python Script to Monitor and Alert for Free Storage Space**
+```python
+import boto3
+
+def check_elasticsearch_free_storage_space(domain_name, threshold):
+    client = boto3.client('es')
+    response = client.describe_elasticsearch_domain(DomainName=domain_name)
+    storage_type = response['DomainStatus']['EBSOptions']['VolumeType']
+    storage_size = response['DomainStatus']['EBSOptions']['VolumeSize']
+    
+    cloudwatch = boto3.client('cloudwatch')
+    metrics = cloudwatch.get_metric_statistics(
+        Namespace='AWS/ES',
+        MetricName='FreeStorageSpace',
+        Dimensions=[
+            {
+                'Name': 'DomainName',
+                'Value': domain_name
+            },
+        ],
+        StartTime=datetime.utcnow() - timedelta(minutes=10),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    
+    free_storage_space = metrics['Datapoints'][0]['Average']
+    
+    if free_storage_space < threshold:
+        print(f"Warning: Free storage space for {domain_name} is below threshold.")
+        # Add alerting mechanism here (e.g., SNS, email, etc.)
+
+# Example usage
+check_elasticsearch_free_storage_space('your-domain-name', 1000000000)  # Threshold in bytes
+```
+
+### 2. Azure (Microsoft Azure)
+
+**Step 1: Install Azure SDK**
+```bash
+pip install azure-mgmt-elasticsearch
+```
+
+**Step 2: Python Script to Monitor and Alert for Free Storage Space**
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.elasticsearch import ElasticManager
+
+def check_elasticsearch_free_storage_space(resource_group_name, domain_name, threshold):
+    credential = DefaultAzureCredential()
+    client = ElasticManager(credential, subscription_id)
+    
+    domain = client.elasticsearch.get(resource_group_name, domain_name)
+    storage_size = domain.properties.storage_size
+    free_storage_space = domain.properties.free_storage_space
+    
+    if free_storage_space < threshold:
+        print(f"Warning: Free storage space for {domain_name} is below threshold.")
+        # Add alerting mechanism here (e.g., Azure Monitor, email, etc.)
+
+# Example usage
+check_elasticsearch_free_storage_space('your-resource-group', 'your-domain-name', 1000000000)  # Threshold in bytes
+```
+
+### 3. GCP (Google Cloud Platform)
+
+**Step 1: Install Google Cloud SDK**
+```bash
+pip install google-cloud-monitoring
+```
+
+**Step 2: Python Script to Monitor and Alert for Free Storage Space**
+```python
+from google.cloud import monitoring_v3
+from google.oauth2 import service_account
+
+def check_elasticsearch_free_storage_space(project_id, instance_id, threshold):
+    client = monitoring_v3.MetricServiceClient()
+    project_name = f"projects/{project_id}"
+    
+    interval = monitoring_v3.TimeInterval({
+        "end_time": {"seconds": int(time.time())},
+        "start_time": {"seconds": int(time.time()) - 600},
+    })
+    
+    results = client.list_time_series(
+        request={
+            "name": project_name,
+            "filter": f'metric.type="custom.googleapis.com/elasticsearch/free_storage_space" AND resource.labels.instance_id="{instance_id}"',
+            "interval": interval,
+            "view": monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        }
+    )
+    
+    for result in results:
+        free_storage_space = result.points[0].value.int64_value
+        if free_storage_space < threshold:
+            print(f"Warning: Free storage space for {instance_id} is below threshold.")
+            # Add alerting mechanism here (e.g., Stackdriver, email, etc.)
+
+# Example usage
+check_elasticsearch_free_storage_space('your-project-id', 'your-instance-id', 1000000000)  # Threshold in bytes
+```
+
+### Summary
+1. **AWS**: Use Boto3 to monitor Elasticsearch free storage space and set up alerts.
+2. **Azure**: Use Azure SDK to monitor Elasticsearch free storage space and set up alerts.
+3. **GCP**: Use Google Cloud Monitoring to monitor Elasticsearch free storage space and set up alerts.
+
+These scripts will help you monitor the free storage space in Elasticsearch and alert you when it falls below a specified threshold, thus preventing misconfigurations related to insufficient storage.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon Elasticsearch Service console at https://console.aws.amazon.com/es/.
+
+2. In the navigation pane, choose "Domains". This will display a list of all your Elasticsearch domains.
+
+3. Select the domain you want to check for free storage space. This will open the dashboard for that domain.
+
+4. In the "Overview" tab, look for the "Free Storage Space" metric. This will show you the amount of free storage space available in your Elasticsearch domain. If the free storage space is less than 20%, it's a sign of misconfiguration as it could lead to performance issues or even data loss.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS access key ID, secret access key, default region name, and default output format.
+
+2. List all Elasticsearch domains: Use the following command to list all the Elasticsearch domains in your AWS account.
+
+   ```
+   aws es list-domain-names
+   ```
+
+   This command will return a list of all Elasticsearch domains. Note down the domain names for which you want to check the free storage space.
+
+3. Describe the Elasticsearch domain: Use the following command to get detailed information about a specific Elasticsearch domain.
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name your_domain_name
+   ```
+
+   Replace 'your_domain_name' with the name of your Elasticsearch domain. This command will return a JSON object containing detailed information about the domain.
+
+4. Check the free storage space: In the output of the previous command, look for the 'EBSOptions' field. This field contains information about the EBS volumes attached to the Elasticsearch domain. The 'VolumeSize' subfield shows the total size of the EBS volume, and the 'FreeStorageSpace' subfield shows the amount of free storage space. If the 'FreeStorageSpace' is low, it indicates that the Elasticsearch domain does not have enough free storage space.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries:
+   You will need the `elasticsearch` and `boto3` libraries. You can install them using pip:
+   ```
+   pip install elasticsearch boto3
+   ```
+
+2. Connect to Elasticsearch:
+   Use the `Elasticsearch` class from the `elasticsearch` library to connect to your Elasticsearch instance. You will need the endpoint of your Elasticsearch instance, which you can get from the AWS Management Console, and your AWS credentials, which you can get from the `boto3` library.
+   ```python
+   from elasticsearch import Elasticsearch
+   import boto3
+
+   session = boto3.Session()
+   credentials = session.get_credentials()
+
+   es = Elasticsearch(
+       hosts=[{'host': 'my-elasticsearch-endpoint', 'port': 443}],
+       http_auth=(credentials.access_key, credentials.secret_key),
+       scheme="https",
+       verify_certs=True
+   )
+   ```
+
+3. Get the Elasticsearch cluster stats:
+   Use the `cluster.stats` method from the `Elasticsearch` instance to get the stats of your Elasticsearch cluster. This will return a dictionary with the stats of your cluster.
+   ```python
+   stats = es.cluster.stats()
+   ```
+
+4. Check the free storage space:
+   The `stats` dictionary contains a `nodes` key, which contains a `fs` key, which contains a `total` key, which contains a `free_in_bytes` key. This key contains the free storage space in bytes. You can check if this value is below a certain threshold to detect if there is not enough free storage space.
+   ```python
+   free_storage_space = stats['nodes']['fs']['total']['free_in_bytes']
+   if free_storage_space < 10**9:  # less than 1 GB
+       print("Not enough free storage space")
+   else:
+       print("Enough free storage space")
+   ```
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,272 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of ElasticSearch not having logging enabled in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to Amazon OpenSearch Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "OpenSearch Service" and select it from the dropdown. (Note: Amazon OpenSearch Service is the successor to Amazon Elasticsearch Service.)
+
+2. **Select Your Domain:**
+   - In the OpenSearch Service dashboard, you will see a list of your domains.
+   - Click on the domain name for which you want to enable logging.
+
+3. **Configure Logs:**
+   - In the domain details page, navigate to the "Logs" tab.
+   - Here, you will see options to enable different types of logs such as Index Slow Logs, Search Slow Logs, and Error Logs.
+   - For each type of log, click on the "Enable" button and configure the necessary settings, such as the CloudWatch Logs group where the logs will be sent.
+
+4. **Save Changes:**
+   - After configuring the logging settings, make sure to save the changes.
+   - AWS will start sending the specified logs to the configured CloudWatch Logs group.
+
+By following these steps, you can ensure that logging is enabled for your Amazon OpenSearch Service (formerly Elasticsearch) domains, which helps in monitoring and troubleshooting.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of ElasticSearch not having logging enabled in AWS using the AWS CLI, you can follow these steps:
+
+1. **Create a CloudWatch Log Group:**
+   Ensure you have a CloudWatch Log Group where the logs will be stored.
+   ```sh
+   aws logs create-log-group --log-group-name my-elasticsearch-logs
+   ```
+
+2. **Create an IAM Role for Elasticsearch Service:**
+   Create an IAM role that grants the Elasticsearch service permissions to write logs to CloudWatch.
+   ```sh
+   aws iam create-role --role-name ElasticsearchLoggingRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+   The `trust-policy.json` should contain:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "Service": "es.amazonaws.com"
+         },
+         "Action": "sts:AssumeRole"
+       }
+     ]
+   }
+   ```
+
+3. **Attach Policy to IAM Role:**
+   Attach a policy to the IAM role that allows it to write logs to CloudWatch.
+   ```sh
+   aws iam put-role-policy --role-name ElasticsearchLoggingRole --policy-name ElasticsearchLoggingPolicy --policy-document file://logging-policy.json
+   ```
+
+   The `logging-policy.json` should contain:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "logs:PutLogEvents",
+           "logs:CreateLogStream",
+           "logs:CreateLogGroup"
+         ],
+         "Resource": "arn:aws:logs:*:*:log-group:my-elasticsearch-logs:*"
+       }
+     ]
+   }
+   ```
+
+4. **Enable Logging on Elasticsearch Domain:**
+   Update your Elasticsearch domain to enable logging and specify the CloudWatch Log Group and IAM Role.
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name my-elasticsearch-domain --log-publishing-options '{"INDEX_SLOW_LOGS": {"CloudWatchLogsLogGroupArn": "arn:aws:logs:region:account-id:log-group:my-elasticsearch-logs", "Enabled": true}, "SEARCH_SLOW_LOGS": {"CloudWatchLogsLogGroupArn": "arn:aws:logs:region:account-id:log-group:my-elasticsearch-logs", "Enabled": true}, "ES_APPLICATION_LOGS": {"CloudWatchLogsLogGroupArn": "arn:aws:logs:region:account-id:log-group:my-elasticsearch-logs", "Enabled": true}}'
+   ```
+
+Replace `region`, `account-id`, and `my-elasticsearch-domain` with your specific AWS region, account ID, and Elasticsearch domain name, respectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of ElasticSearch not having logging enabled in ElasticSearch using Python scripts, you can follow these steps:
+
+1. **Install Required Libraries**:
+   Ensure you have the necessary Python libraries installed. You will need `boto3` for AWS, `azure-mgmt-elasticsearch` for Azure, and `google-cloud-logging` for GCP.
+
+   ```bash
+   pip install boto3 azure-mgmt-elasticsearch google-cloud-logging
+   ```
+
+2. **AWS: Enable Logging for ElasticSearch**:
+   Use the `boto3` library to enable logging for an AWS ElasticSearch domain.
+
+   ```python
+   import boto3
+
+   def enable_aws_elasticsearch_logging(domain_name, log_type):
+       client = boto3.client('es')
+       response = client.update_elasticsearch_domain_config(
+           DomainName=domain_name,
+           LogPublishingOptions={
+               log_type: {
+                   'CloudWatchLogsLogGroupArn': 'arn:aws:logs:region:account-id:log-group:log-group-name',
+                   'Enabled': True
+               }
+           }
+       )
+       print(response)
+
+   enable_aws_elasticsearch_logging('your-domain-name', 'INDEX_SLOW_LOGS')
+   ```
+
+3. **Azure: Enable Logging for ElasticSearch**:
+   Use the `azure-mgmt-elasticsearch` library to enable logging for an Azure ElasticSearch instance.
+
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.elasticsearch import ElasticSearchManagementClient
+
+   def enable_azure_elasticsearch_logging(resource_group_name, elasticsearch_name):
+       credential = DefaultAzureCredential()
+       client = ElasticSearchManagementClient(credential, 'your-subscription-id')
+       response = client.elasticsearch.update(
+           resource_group_name,
+           elasticsearch_name,
+           {
+               'properties': {
+                   'diagnosticSettings': {
+                       'enabled': True,
+                       'logAnalyticsWorkspaceId': 'your-log-analytics-workspace-id'
+                   }
+               }
+           }
+       )
+       print(response)
+
+   enable_azure_elasticsearch_logging('your-resource-group-name', 'your-elasticsearch-name')
+   ```
+
+4. **GCP: Enable Logging for ElasticSearch**:
+   Use the `google-cloud-logging` library to enable logging for a GCP ElasticSearch instance.
+
+   ```python
+   from google.cloud import logging_v2
+
+   def enable_gcp_elasticsearch_logging(project_id, log_name):
+       client = logging_v2.LoggingServiceV2Client()
+       log_name = f'projects/{project_id}/logs/{log_name}'
+       sink_name = f'projects/{project_id}/sinks/{log_name}-sink'
+       destination = f'bigquery.googleapis.com/projects/{project_id}/datasets/your-dataset'
+
+       sink = logging_v2.types.LogSink(
+           name=sink_name,
+           destination=destination,
+           filter=f'logName="{log_name}"'
+       )
+
+       response = client.create_sink(
+           parent=f'projects/{project_id}',
+           sink=sink
+       )
+       print(response)
+
+   enable_gcp_elasticsearch_logging('your-project-id', 'your-log-name')
+   ```
+
+These scripts will help you enable logging for ElasticSearch in AWS, Azure, and GCP, ensuring that the misconfiguration of not having logging enabled is prevented.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard. You can do this by typing "Elasticsearch Service" in the search bar and selecting it from the dropdown menu.
+3. In the Amazon Elasticsearch dashboard, you will see a list of all your Elasticsearch domains. Click on the domain name for which you want to check the logging status.
+4. In the domain configuration page, scroll down to the "Logs" section. Here, you can see if the "Error Logs" and "Slow Logs" are enabled or not. If they are not enabled, it means that logging is not enabled for this Elasticsearch domain.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all the Elasticsearch domains: Use the following command to list all the Elasticsearch domains in your AWS account.
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domain names.
+
+3. Describe the Elasticsearch domain configuration: For each domain, you need to describe the domain configuration to check if logging is enabled. Use the following command:
+
+   ```
+   aws es describe-elasticsearch-domain-config --domain-name your_domain_name
+   ```
+   Replace "your_domain_name" with the name of your Elasticsearch domain. This command will return the configuration details of the specified Elasticsearch domain.
+
+4. Check if logging is enabled: In the output of the previous command, look for the "LogPublishingOptions" field. If the "LogPublishingOptions" field is present and the "Enabled" field under it is set to true, then logging is enabled. If the "LogPublishingOptions" field is not present or the "Enabled" field is set to false, then logging is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: To interact with AWS services, you need to install the boto3 library. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Configure AWS credentials: Before you can interact with AWS services, you need to set up your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the command line, type:
+
+   ```bash
+   aws configure
+   ```
+
+   Then follow the prompts to input your AWS Access Key ID and Secret Access Key. These are the same as your AWS credentials.
+
+3. Create a Python script to check if logging is enabled for ElasticSearch:
+
+   ```python
+   import boto3
+
+   def check_elasticsearch_logging():
+       client = boto3.client('es')
+       domains = client.list_domain_names()
+       for domain in domains['DomainNames']:
+           domain_name = domain['DomainName']
+           response = client.describe_elasticsearch_domain(DomainName=domain_name)
+           if 'LogPublishingOptions' in response['DomainStatus']:
+               if 'INDEX_SLOW_LOGS' in response['DomainStatus']['LogPublishingOptions']:
+                   if response['DomainStatus']['LogPublishingOptions']['INDEX_SLOW_LOGS']['Enabled']:
+                       print(f"Logging is enabled for {domain_name}")
+                   else:
+                       print(f"Logging is not enabled for {domain_name}")
+               else:
+                   print(f"Logging is not enabled for {domain_name}")
+           else:
+               print(f"Logging is not enabled for {domain_name}")
+
+   if __name__ == "__main__":
+       check_elasticsearch_logging()
+   ```
+
+4. Run the script: You can run the script using the Python interpreter from your command line:
+
+   ```bash
+   python check_elasticsearch_logging.py
+   ```
+
+   This script will print out whether logging is enabled for each ElasticSearch domain in your AWS account. If logging is not enabled for a domain, it will print out a message saying so.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

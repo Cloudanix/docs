@@ -23,6 +23,255 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elasticsearch Domains from being accessible only from whitelisted IP addresses in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Elasticsearch Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Elasticsearch Service" and select it from the dropdown.
+
+2. **Select the Domain:**
+   - In the Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains.
+   - Click on the domain name that you want to configure.
+
+3. **Modify Access Policy:**
+   - In the domain details page, navigate to the "Access policies" tab.
+   - Click on the "Edit access policy" button.
+   - Modify the access policy to allow access only from specific IP addresses. You can use an IP-based policy to whitelist specific IP addresses or CIDR blocks.
+
+4. **Save Changes:**
+   - After updating the access policy, click the "Save changes" button to apply the new policy.
+   - Ensure that the policy is correctly configured by testing access from the whitelisted IP addresses and verifying that other IP addresses are denied access.
+
+By following these steps, you can ensure that your Elasticsearch domains are accessible only from whitelisted IP addresses, enhancing the security of your Elasticsearch service.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elasticsearch domains from being accessible only from whitelisted IP addresses using AWS CLI, follow these steps:
+
+1. **Create a Security Group with Whitelisted IPs:**
+   First, create a security group that allows access only from the whitelisted IP addresses.
+
+   ```sh
+   aws ec2 create-security-group --group-name my-elasticsearch-sg --description "Security group for Elasticsearch with whitelisted IPs"
+   ```
+
+2. **Authorize Inbound Rules for the Security Group:**
+   Add inbound rules to the security group to allow access from the specific IP addresses.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-name my-elasticsearch-sg --protocol tcp --port 443 --cidr <WHITELISTED_IP>/32
+   ```
+
+   Repeat the above command for each whitelisted IP address.
+
+3. **Associate the Security Group with the Elasticsearch Domain:**
+   Modify the Elasticsearch domain to associate it with the newly created security group.
+
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name my-elasticsearch-domain --vpc-options SecurityGroupIds=<SECURITY_GROUP_ID>
+   ```
+
+4. **Verify the Configuration:**
+   Ensure that the Elasticsearch domain is now using the correct security group.
+
+   ```sh
+   aws es describe-elasticsearch-domain --domain-name my-elasticsearch-domain
+   ```
+
+   Check the `VPCOptions` section in the output to confirm that the correct security group is associated.
+
+By following these steps, you can ensure that your Elasticsearch domain is accessible only from the whitelisted IP addresses using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch domains from being accessible only from whitelisted IP addresses using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to achieve this:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session with your AWS credentials and region.
+
+3. **Define the Access Policy**:
+   Create an access policy that allows access only from specific IP addresses.
+
+4. **Update the Elasticsearch Domain Access Policy**:
+   Use the `update_elasticsearch_domain_config` method to apply the access policy to your Elasticsearch domain.
+
+Here is a Python script that demonstrates these steps:
+
+```python
+import boto3
+import json
+
+# Step 1: Initialize a Boto3 session
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY_ID',
+    aws_secret_access_key='YOUR_AWS_SECRET_ACCESS_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+
+# Step 2: Create an Elasticsearch client
+es_client = session.client('es')
+
+# Step 3: Define the access policy
+# Replace 'YOUR_ELASTICSEARCH_DOMAIN_NAME' with your domain name
+# Replace 'YOUR_WHITELISTED_IP' with the IP address you want to whitelist
+access_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "es:*",
+            "Condition": {
+                "IpAddress": {
+                    "aws:SourceIp": "YOUR_WHITELISTED_IP"
+                }
+            },
+            "Resource": "arn:aws:es:YOUR_AWS_REGION:YOUR_AWS_ACCOUNT_ID:domain/YOUR_ELASTICSEARCH_DOMAIN_NAME/*"
+        }
+    ]
+}
+
+# Step 4: Update the Elasticsearch domain access policy
+response = es_client.update_elasticsearch_domain_config(
+    DomainName='YOUR_ELASTICSEARCH_DOMAIN_NAME',
+    AccessPolicies=json.dumps(access_policy)
+)
+
+print("Access policy updated:", response)
+```
+
+### Key Points:
+1. **Initialize Boto3 Session**: Ensure you have the correct AWS credentials and region.
+2. **Create Elasticsearch Client**: Use the session to create an Elasticsearch client.
+3. **Define Access Policy**: Create a JSON policy that restricts access to specific IP addresses.
+4. **Update Domain Access Policy**: Apply the policy to your Elasticsearch domain using the `update_elasticsearch_domain_config` method.
+
+This script will help you ensure that your Elasticsearch domain is only accessible from the whitelisted IP addresses, thereby preventing unauthorized access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard. 
+3. In the navigation pane, choose "Domains".
+4. Select the Elasticsearch domain that you want to examine. In the "Access Policy" section, check if the policy allows access from IP addresses other than the ones that are whitelisted. If the policy allows access from any IP address (0.0.0.0/0), then the selected Elasticsearch domain is accessible from any IP, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI. Make sure you have the necessary permissions to access the Elasticsearch domains.
+
+2. List all the Elasticsearch domains using the following command:
+```
+aws es list-domain-names
+```
+This command will return a list of all Elasticsearch domain names.
+
+3. For each domain, you can describe the Elasticsearch domain configuration using the following command:
+```
+aws es describe-elasticsearch-domain-config --domain-name <your-domain-name>
+```
+Replace `<your-domain-name>` with the name of your Elasticsearch domain. This command will return the configuration information of the specified Elasticsearch domain.
+
+4. Check the `AccessPolicies` in the output of the above command. This policy defines who can access the Elasticsearch domain and their permissions. If the `AccessPolicies` allows access from IP addresses that are not in your whitelist, then the Elasticsearch domain is misconfigured. The `AccessPolicies` should only allow access from whitelisted IP addresses.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries and establish a connection with AWS using Boto3 in Python. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+# Create an AWS session
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+
+# Create an Elasticsearch client
+es_client = session.client('es')
+```
+
+2. List all the Elasticsearch domains using the `list_domain_names` function. Then, for each domain, get the access policy using the `describe_elasticsearch_domain_config` function.
+
+```python
+try:
+    # List all Elasticsearch domains
+    domains = es_client.list_domain_names()
+except ClientError as e:
+    print(f"Error: {e}")
+
+for domain in domains['DomainNames']:
+    try:
+        # Get the access policy for each domain
+        response = es_client.describe_elasticsearch_domain_config(DomainName=domain['DomainName'])
+        access_policy = response['DomainConfig']['AccessPolicies']['Options']
+    except ClientError as e:
+        print(f"Error: {e}")
+```
+
+3. Parse the access policy to check if it allows access from IP addresses that are not in the whitelist. The access policy is in JSON format and can be parsed using the `json` library in Python. If the `Principal` field in the policy is set to `AWS: "*"`, it means that the domain is accessible from any IP address.
+
+```python
+import json
+
+for domain in domains['DomainNames']:
+    try:
+        response = es_client.describe_elasticsearch_domain_config(DomainName=domain['DomainName'])
+        access_policy = response['DomainConfig']['AccessPolicies']['Options']
+        policy = json.loads(access_policy)
+
+        for statement in policy['Statement']:
+            if statement['Principal'] == {"AWS": "*"}:
+                print(f"Domain {domain['DomainName']} is accessible from any IP address.")
+    except ClientError as e:
+        print(f"Error: {e}")
+```
+
+4. If the `Principal` field is not set to `AWS: "*"`, check the `IpAddress` field in the `Condition` section of the policy. If the IP address is not in the whitelist, print a message.
+
+```python
+whitelist = ['192.0.2.0/24', '203.0.113.0/24']  # Replace with your IP whitelist
+
+for domain in domains['DomainNames']:
+    try:
+        response = es_client.describe_elasticsearch_domain_config(DomainName=domain['DomainName'])
+        access_policy = response['DomainConfig']['AccessPolicies']['Options']
+        policy = json.loads(access_policy)
+
+        for statement in policy['Statement']:
+            if 'IpAddress' in statement['Condition']['IpAddress']:
+                ip_address = statement['Condition']['IpAddress']['aws:SourceIp']
+                if ip_address not in whitelist:
+                    print(f"Domain {domain['DomainName']} is accessible from a non-whitelisted IP address: {ip_address}")
+    except ClientError as e:
+        print(f"Error: {e}")
+```
+
+This script will print a message for each Elasticsearch domain that is accessible from a non-whitelisted IP address.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

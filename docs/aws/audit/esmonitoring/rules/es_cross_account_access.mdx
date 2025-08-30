@@ -23,6 +23,239 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elasticsearch Domains from allowing cross-account access in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Elasticsearch Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Elasticsearch Service" and select it from the dropdown.
+
+2. **Select the Domain:**
+   - In the Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains.
+   - Click on the domain name that you want to configure.
+
+3. **Modify Access Policy:**
+   - In the domain details page, navigate to the "Access policies" tab.
+   - Review the existing access policy. Ensure that the policy does not include any cross-account access permissions. Specifically, look for any `Principal` elements that reference accounts other than your own.
+
+4. **Update and Save the Policy:**
+   - If you find any cross-account access permissions, modify the policy to restrict access to only the necessary AWS accounts or IAM roles within your organization.
+   - Use the AWS Identity and Access Management (IAM) policy syntax to specify the allowed principals.
+   - After making the necessary changes, click "Save" to update the access policy.
+
+By following these steps, you can ensure that your Elasticsearch domains do not allow cross-account access, thereby enhancing the security of your Elasticsearch data.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elasticsearch Domains from allowing cross-account access in AWS using the AWS CLI, you can follow these steps:
+
+1. **Describe the Current Access Policy:**
+   First, you need to check the current access policy of your Elasticsearch domain to understand its current state.
+   ```sh
+   aws es describe-elasticsearch-domain --domain-name <your-domain-name>
+   ```
+
+2. **Create a Secure Access Policy:**
+   Create a JSON file (e.g., `secure-access-policy.json`) with a secure access policy that restricts access to only the necessary AWS accounts or IAM roles. Here is an example of a restrictive policy:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::<your-account-id>:role/<your-role-name>"
+         },
+         "Action": "es:*",
+         "Resource": "arn:aws:es:<region>:<your-account-id>:domain/<your-domain-name>/*"
+       }
+     ]
+   }
+   ```
+
+3. **Update the Access Policy:**
+   Use the AWS CLI to update the access policy of your Elasticsearch domain with the secure policy you created.
+   ```sh
+   aws es update-elasticsearch-domain-config --domain-name <your-domain-name> --access-policies file://secure-access-policy.json
+   ```
+
+4. **Verify the Updated Access Policy:**
+   Finally, verify that the access policy has been updated correctly by describing the domain again.
+   ```sh
+   aws es describe-elasticsearch-domain --domain-name <your-domain-name>
+   ```
+
+By following these steps, you can ensure that your Elasticsearch domain does not allow cross-account access, thereby enhancing its security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elasticsearch Domains from allowing cross-account access in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+3. **Create a Python Script to Check and Update Access Policies**:
+   Write a Python script to check the access policies of your Elasticsearch domains and update them to prevent cross-account access.
+
+4. **Implement the Script**:
+   Below is a sample Python script to prevent cross-account access to Elasticsearch domains:
+
+   ```python
+   import boto3
+   import json
+
+   # Initialize a session using Amazon ES
+   client = boto3.client('es')
+
+   # List all Elasticsearch domains
+   response = client.list_domain_names()
+   domain_names = [domain['DomainName'] for domain in response['DomainNames']]
+
+   for domain_name in domain_names:
+       # Get the current access policy of the domain
+       policy_response = client.describe_elasticsearch_domain_config(DomainName=domain_name)
+       current_policy = policy_response['DomainConfig']['AccessPolicies']['Options']
+
+       # Parse the current policy
+       policy = json.loads(current_policy)
+
+       # Check for cross-account access
+       cross_account_access = False
+       for statement in policy['Statement']:
+           if 'AWS' in statement['Principal']:
+               if isinstance(statement['Principal']['AWS'], list):
+                   for account in statement['Principal']['AWS']:
+                       if account != '*':
+                           cross_account_access = True
+               elif statement['Principal']['AWS'] != '*':
+                   cross_account_access = True
+
+       # If cross-account access is found, update the policy to restrict it
+       if cross_account_access:
+           for statement in policy['Statement']:
+               if 'AWS' in statement['Principal']:
+                   if isinstance(statement['Principal']['AWS'], list):
+                       statement['Principal']['AWS'] = [account for account in statement['Principal']['AWS'] if account == '*']
+                   elif statement['Principal']['AWS'] != '*':
+                       statement['Principal']['AWS'] = '*'
+
+           # Convert the policy back to JSON
+           updated_policy = json.dumps(policy)
+
+           # Update the domain's access policy
+           client.update_elasticsearch_domain_config(
+               DomainName=domain_name,
+               AccessPolicies=updated_policy
+           )
+
+           print(f"Updated access policy for domain: {domain_name}")
+
+   print("Completed updating access policies for all domains.")
+   ```
+
+### Explanation:
+1. **Install Boto3 Library**: Ensure you have the necessary library to interact with AWS services.
+2. **Set Up AWS Credentials**: Make sure your script can authenticate with AWS.
+3. **Create a Python Script**: Write a script to list all Elasticsearch domains and check their access policies.
+4. **Implement the Script**: The script checks for cross-account access and updates the access policies to restrict it.
+
+This script ensures that Elasticsearch domains do not allow cross-account access by modifying the access policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Amazon Elasticsearch Service dashboard by choosing "Elasticsearch Service" from the "Services" dropdown menu.
+3. In the Amazon Elasticsearch Service dashboard, you will see a list of your Elasticsearch domains. Click on the domain name that you want to check.
+4. In the domain dashboard, navigate to the "Access Policy" section. Here, you can see the access policy for the domain. If the policy allows access from AWS accounts other than your own, then the Elasticsearch domain is misconfigured to allow cross-account access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI. Make sure you have the necessary permissions to access the Elasticsearch domains.
+
+2. Use the following command to list all the Elasticsearch domains:
+
+   ```
+   aws es list-domain-names
+   ```
+   This command will return a list of all Elasticsearch domain names.
+
+3. For each domain, you need to check the access policy. Use the following command:
+
+   ```
+   aws es describe-elasticsearch-domain --domain-name <your-domain-name>
+   ```
+   Replace `<your-domain-name>` with the name of your domain. This command will return the configuration information for the specified Amazon Elasticsearch domain, including the domain ID, domain endpoint, and domain ARN.
+
+4. In the output of the above command, look for the `AccessPolicies` field. This field contains the access policies for the domain. If the `Principal` field in the access policy contains an AWS account ID other than the current account or `'*'` (which allows access from any AWS account), then the Elasticsearch domain allows cross-account access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError
+```
+
+2. Create a session using your AWS credentials. You can configure credentials in the AWS credentials profile file on your local system.
+
+```python
+session = boto3.Session(profile_name='prod')
+es_client = session.client('es')
+```
+
+3. List all Elasticsearch domains and check their access policies. The `list_domain_names` method returns all Elasticsearch domains owned by the current user's account.
+
+```python
+def check_es_domains():
+    domains = es_client.list_domain_names()
+    for domain in domains['DomainNames']:
+        domain_name = domain['DomainName']
+        domain_config = es_client.describe_elasticsearch_domain(DomainName=domain_name)
+        access_policies = domain_config['DomainStatus']['AccessPolicies']
+        check_access_policy(access_policies, domain_name)
+```
+
+4. Define the `check_access_policy` function. This function will parse the access policy of each domain and check if it allows cross-account access. If it does, it will print a warning message.
+
+```python
+import json
+
+def check_access_policy(policy, domain_name):
+    policy = json.loads(policy)
+    statements = policy['Statement']
+    for statement in statements:
+        if statement['Effect'] == 'Allow' and 'AWS' in statement['Principal']:
+            aws_accounts = statement['Principal']['AWS']
+            if isinstance(aws_accounts, list) and len(aws_accounts) > 1:
+                print(f"Warning: Elasticsearch domain {domain_name} allows cross-account access.")
+            elif isinstance(aws_accounts, str) and aws_accounts != '*':
+                print(f"Warning: Elasticsearch domain {domain_name} allows cross-account access.")
+```
+
+This script will check all Elasticsearch domains in the specified AWS account and print a warning message for each domain that allows cross-account access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
