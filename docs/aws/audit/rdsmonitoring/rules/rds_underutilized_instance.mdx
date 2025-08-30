@@ -23,6 +23,263 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being underutilized in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Enhanced Monitoring:**
+   - Navigate to the RDS Dashboard in the AWS Management Console.
+   - Select the RDS instance you want to monitor.
+   - Click on the "Modify" button.
+   - In the "Monitoring" section, enable "Enhanced Monitoring" and set the granularity to a suitable level (e.g., 1 minute).
+   - Click "Continue" and then "Modify DB Instance" to apply the changes.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" and then "Create Alarm."
+   - Select the RDS metrics you want to monitor, such as CPU Utilization, Freeable Memory, and Database Connections.
+   - Set thresholds for these metrics to identify underutilization (e.g., CPU Utilization below 20% for a prolonged period).
+   - Configure actions to be taken when the alarm state is triggered, such as sending notifications via SNS.
+
+3. **Review and Right-Size Instances:**
+   - Regularly review the performance metrics of your RDS instances from the RDS Dashboard.
+   - Compare the current instance type and size with the actual resource usage.
+   - If an instance is consistently underutilized, consider resizing it to a smaller instance type using the "Modify" option.
+
+4. **Implement Auto Scaling:**
+   - For Aurora RDS instances, consider enabling Auto Scaling.
+   - Navigate to the RDS Dashboard and select your Aurora cluster.
+   - Click on "Modify" and scroll to the "Auto Scaling" section.
+   - Enable Auto Scaling for read replicas and configure the minimum and maximum capacity.
+   - This ensures that the number of read replicas adjusts automatically based on the workload, preventing underutilization.
+
+By following these steps, you can effectively monitor and manage the utilization of your RDS instances, ensuring they are appropriately sized for their workloads.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being underutilized in AWS using the AWS CLI, you can follow these steps:
+
+1. **Monitor RDS Instance Metrics:**
+   - Use the `aws cloudwatch get-metric-statistics` command to monitor key metrics such as CPUUtilization, DatabaseConnections, and FreeableMemory. This helps in identifying underutilized instances.
+   ```sh
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> --start-time <start-time> --end-time <end-time> --period 300 --statistics Average
+   ```
+
+2. **Enable Enhanced Monitoring:**
+   - Enable Enhanced Monitoring for your RDS instances to get more granular metrics. This can be done using the `aws rds modify-db-instance` command.
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> --monitoring-interval 60 --apply-immediately
+   ```
+
+3. **Set Up CloudWatch Alarms:**
+   - Create CloudWatch Alarms to notify you when an RDS instance is underutilized. Use the `aws cloudwatch put-metric-alarm` command.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RDS-Underutilized-Alarm" --metric-name CPUUtilization --namespace AWS/RDS --statistic Average --period 300 --threshold 10 --comparison-operator LessThanThreshold --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> --evaluation-periods 2 --alarm-actions <sns-topic-arn>
+   ```
+
+4. **Automate Instance Right-Sizing:**
+   - Use AWS Lambda and CloudWatch Events to automate the process of right-sizing underutilized RDS instances. Create a Lambda function that checks the utilization metrics and modifies the instance type if necessary. Use the `aws rds modify-db-instance` command within your Lambda function.
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> --db-instance-class <new-db-instance-class> --apply-immediately
+   ```
+
+By following these steps, you can effectively monitor and manage the utilization of your RDS instances, ensuring they are not underutilized.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being underutilized in AWS using Python scripts, you can follow these steps:
+
+1. **Monitor RDS Instance Metrics:**
+   Use AWS CloudWatch to monitor key metrics such as CPU utilization, memory usage, and IOPS. You can use the `boto3` library to interact with AWS services.
+
+   ```python
+   import boto3
+
+   cloudwatch = boto3.client('cloudwatch')
+
+   def get_rds_metrics(instance_id):
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/RDS',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance_id
+               },
+           ],
+           StartTime=datetime.utcnow() - timedelta(days=1),
+           EndTime=datetime.utcnow(),
+           Period=3600,
+           Statistics=['Average']
+       )
+       return metrics['Datapoints']
+   ```
+
+2. **Set Up Alarms for Underutilization:**
+   Create CloudWatch alarms to notify you when an RDS instance is underutilized. This can be done using the `boto3` library.
+
+   ```python
+   def create_underutilization_alarm(instance_id):
+       cloudwatch.put_metric_alarm(
+           AlarmName=f'UnderutilizationAlarm-{instance_id}',
+           MetricName='CPUUtilization',
+           Namespace='AWS/RDS',
+           Statistic='Average',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance_id
+               },
+           ],
+           Period=3600,
+           EvaluationPeriods=1,
+           Threshold=20.0,  # Example threshold for underutilization
+           ComparisonOperator='LessThanThreshold',
+           AlarmActions=[
+               'arn:aws:sns:region:account-id:alarm-topic'  # Replace with your SNS topic ARN
+           ]
+       )
+   ```
+
+3. **Automate Instance Right-Sizing:**
+   Implement a script to automatically resize underutilized RDS instances. This can be done by modifying the instance class based on the utilization metrics.
+
+   ```python
+   rds = boto3.client('rds')
+
+   def resize_rds_instance(instance_id, new_instance_class):
+       rds.modify_db_instance(
+           DBInstanceIdentifier=instance_id,
+           DBInstanceClass=new_instance_class,
+           ApplyImmediately=True
+       )
+   ```
+
+4. **Schedule Regular Checks:**
+   Schedule the script to run at regular intervals (e.g., daily) to check for underutilized instances and take appropriate actions.
+
+   ```python
+   import schedule
+   import time
+
+   def check_and_resize_instances():
+       instances = ['instance-id-1', 'instance-id-2']  # Replace with your instance IDs
+       for instance_id in instances:
+           metrics = get_rds_metrics(instance_id)
+           if metrics and metrics[0]['Average'] < 20.0:  # Example threshold for underutilization
+               resize_rds_instance(instance_id, 'db.t3.small')  # Example new instance class
+
+   schedule.every().day.at("01:00").do(check_and_resize_instances)
+
+   while True:
+       schedule.run_pending()
+       time.sleep(1)
+   ```
+
+These steps will help you monitor, alert, and automatically resize underutilized RDS instances using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Login to AWS Management Console: First, you need to log in to your AWS Management Console. Make sure you have the necessary permissions to access the RDS dashboard.
+
+2. Navigate to RDS Dashboard: Once you are logged in, navigate to the RDS service from the list of services provided by AWS. This will take you to the RDS dashboard where you can see all your RDS instances.
+
+3. Check RDS Instances: In the RDS dashboard, you will see a list of all your RDS instances. Click on the instance that you want to check for underutilization. This will take you to the instance details page.
+
+4. Check Utilization Metrics: In the instance details page, navigate to the "Monitoring" tab. Here, you can see various metrics related to the utilization of your RDS instance. Check the "CPU Utilization" and "Freeable Memory" metrics. If the CPU Utilization is consistently low (less than 20%) and the Freeable Memory is high, it indicates that the RDS instance is underutilized.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI:** Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer) with the command `pip install awscli`. After installation, you can configure it using `aws configure` command and provide your AWS credentials (Access Key ID, Secret Access Key, Default region name, Default output format).
+
+2. **List all RDS Instances:** Use the AWS CLI command `aws rds describe-db-instances` to list all the RDS instances. This command will return a JSON output with the details of all RDS instances.
+
+    ```
+    aws rds describe-db-instances
+    ```
+
+3. **Check CPU Utilization:** For each RDS instance, you can check the CPU utilization using the `aws cloudwatch get-metric-statistics` command. You need to provide the namespace as 'AWS/RDS', the metric name as 'CPUUtilization', the start and end time for the period you want to check, the period in seconds (for example, 3600 for one hour), the statistics as 'Average', and the dimensions as the DB instance identifier.
+
+    ```
+    aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name CPUUtilization --start-time 2021-01-01T00:00:00 --end-time 2021-01-01T01:00:00 --period 3600 --statistics Average --dimensions Name=DBInstanceIdentifier,Value=mydbinstance
+    ```
+
+4. **Analyze the Output:** The command will return a JSON output with the average CPU utilization for the specified period. If the CPU utilization is consistently low (for example, less than 20%), the RDS instance may be underutilized. You can automate this process using a Python script that iterates over all RDS instances and checks their CPU utilization.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install Boto3. You can do this by running the command `pip install boto3`. After installing Boto3, you need to configure it. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, AWS Secret Access Key, Default region name, and Default output format when prompted.
+
+2. Import necessary libraries and establish a session:
+   In your Python script, you need to import the necessary libraries and establish a session with AWS. Here is an example:
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Connect to the RDS service and retrieve all RDS instances:
+   Next, you need to connect to the RDS service and retrieve all RDS instances. Here is an example:
+
+   ```python
+   rds = session.client('rds')
+
+   response = rds.describe_db_instances()
+
+   for instance in response['DBInstances']:
+       print(instance['DBInstanceIdentifier'])
+   ```
+
+4. Check the utilization of each RDS instance:
+   Finally, you need to check the utilization of each RDS instance. You can do this by using the CloudWatch service to retrieve the CPUUtilization metric for each instance. Here is an example:
+
+   ```python
+   cloudwatch = session.client('cloudwatch')
+
+   for instance in response['DBInstances']:
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/RDS',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'DBInstanceIdentifier',
+                   'Value': instance['DBInstanceIdentifier']
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=60,
+           Statistics=['Average']
+       )
+
+       if metrics['Datapoints']:
+           avg_cpu_utilization = metrics['Datapoints'][0]['Average']
+           if avg_cpu_utilization < 20:  # or any threshold you consider underutilization
+               print(f"RDS instance {instance['DBInstanceIdentifier']} is underutilized with average CPU utilization of {avg_cpu_utilization}%")
+   ```
+   
+This script will print out the identifiers of all RDS instances that are underutilized, i.e., their average CPU utilization over the last 10 minutes is less than 20%. You can adjust the threshold and the time period as needed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -22,6 +22,256 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of Document DB Cluster not having a proper backup retention period in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon RDS console at [https://console.aws.amazon.com/rds](https://console.aws.amazon.com/rds).
+
+2. **Select the DocumentDB Cluster:**
+   - In the navigation pane, choose "Databases" to view your list of RDS instances and DocumentDB clusters.
+   - Select the DocumentDB cluster you want to configure.
+
+3. **Modify the Cluster:**
+   - With the cluster selected, click on the "Modify" button in the top right corner of the console.
+
+4. **Set Backup Retention Period:**
+   - Scroll down to the "Backup" section.
+   - Set the "Backup retention period" to the desired number of days (between 1 and 35 days).
+   - Click on the "Continue" button, review the changes, and then click on "Modify cluster" to apply the changes.
+
+By following these steps, you ensure that your DocumentDB cluster has an appropriate backup retention period configured, which helps in preventing data loss and ensuring data recovery.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of a DocumentDB cluster not having a proper backup retention period in Amazon RDS using AWS CLI, follow these steps:
+
+1. **Check Current Backup Retention Settings:**
+   First, you need to check the current backup retention settings for your DocumentDB cluster. Use the following command to describe your cluster and see the current configuration:
+   ```sh
+   aws docdb describe-db-clusters --db-cluster-identifier <your-cluster-identifier>
+   ```
+
+2. **Modify Backup Retention Period:**
+   If the backup retention period is not set or is set to a value that does not meet your requirements, you can modify it using the following command. Set the `--backup-retention-period` to the desired number of days (e.g., 7 days):
+   ```sh
+   aws docdb modify-db-cluster --db-cluster-identifier <your-cluster-identifier> --backup-retention-period 7 --apply-immediately
+   ```
+
+3. **Verify Changes:**
+   After modifying the backup retention period, verify that the changes have been applied correctly by describing the cluster again:
+   ```sh
+   aws docdb describe-db-clusters --db-cluster-identifier <your-cluster-identifier>
+   ```
+
+4. **Automate Compliance Checks:**
+   To ensure that all new clusters have the correct backup retention period, you can create a script or use AWS Config rules to automatically check and enforce this setting. For example, you can use a simple Python script with Boto3 to periodically check and update the backup retention period for all clusters.
+
+   Example Python script:
+   ```python
+   import boto3
+
+   client = boto3.client('docdb')
+
+   def ensure_backup_retention(cluster_identifier, retention_period):
+       response = client.describe_db_clusters(DBClusterIdentifier=cluster_identifier)
+       clusters = response['DBClusters']
+       for cluster in clusters:
+           if cluster['BackupRetentionPeriod'] < retention_period:
+               client.modify_db_cluster(
+                   DBClusterIdentifier=cluster_identifier,
+                   BackupRetentionPeriod=retention_period,
+                   ApplyImmediately=True
+               )
+               print(f"Updated backup retention period for {cluster_identifier} to {retention_period} days.")
+
+   # Example usage
+   ensure_backup_retention('<your-cluster-identifier>', 7)
+   ```
+
+By following these steps, you can ensure that your DocumentDB clusters in Amazon RDS have the appropriate backup retention period configured, thereby preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of Document DB Cluster not having a proper backup retention policy in AWS RDS using Python scripts, you can follow these steps:
+
+1. **Install and Configure AWS SDK (Boto3):**
+   Ensure you have the AWS SDK for Python (Boto3) installed and configured with the necessary permissions to interact with RDS.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Set Backup Retention:**
+   Write a Python script that sets the backup retention period for your Document DB clusters. This script will check the current backup retention period and update it if necessary.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon RDS
+   client = boto3.client('rds')
+
+   # Function to set backup retention period
+   def set_backup_retention(cluster_identifier, retention_period):
+       try:
+           response = client.modify_db_cluster(
+               DBClusterIdentifier=cluster_identifier,
+               BackupRetentionPeriod=retention_period,
+               ApplyImmediately=True
+           )
+           print(f"Backup retention period set to {retention_period} days for cluster {cluster_identifier}.")
+       except Exception as e:
+           print(f"Error setting backup retention period: {e}")
+
+   # List of Document DB clusters to check
+   clusters = ['your-cluster-identifier-1', 'your-cluster-identifier-2']
+
+   # Desired backup retention period in days
+   desired_retention_period = 7
+
+   for cluster in clusters:
+       set_backup_retention(cluster, desired_retention_period)
+   ```
+
+3. **Automate the Script Execution:**
+   Schedule the script to run at regular intervals using a cron job (Linux) or Task Scheduler (Windows) to ensure that the backup retention policy is always enforced.
+
+   Example of a cron job entry to run the script daily at midnight:
+   ```bash
+   0 0 * * * /usr/bin/python3 /path/to/your/script.py
+   ```
+
+4. **Monitor and Alert:**
+   Implement monitoring and alerting to ensure that the backup retention policy is not altered. You can use AWS CloudWatch to set up alarms that trigger if the backup retention period is changed.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon CloudWatch
+   cloudwatch = boto3.client('cloudwatch')
+
+   # Function to create a CloudWatch alarm
+   def create_backup_retention_alarm(cluster_identifier):
+       try:
+           response = cloudwatch.put_metric_alarm(
+               AlarmName=f'BackupRetentionPeriodAlarm-{cluster_identifier}',
+               MetricName='BackupRetentionPeriod',
+               Namespace='AWS/RDS',
+               Statistic='Minimum',
+               Period=86400,  # 1 day
+               EvaluationPeriods=1,
+               Threshold=desired_retention_period,
+               ComparisonOperator='LessThanThreshold',
+               Dimensions=[
+                   {
+                       'Name': 'DBClusterIdentifier',
+                       'Value': cluster_identifier
+                   },
+               ],
+               AlarmActions=[
+                   'arn:aws:sns:your-sns-topic-arn'  # Replace with your SNS topic ARN
+               ],
+               AlarmDescription=f'Alarm when backup retention period is less than {desired_retention_period} days for cluster {cluster_identifier}.',
+               ActionsEnabled=True
+           )
+           print(f"Alarm created for cluster {cluster_identifier}.")
+       except Exception as e:
+           print(f"Error creating alarm: {e}")
+
+   for cluster in clusters:
+       create_backup_retention_alarm(cluster)
+   ```
+
+By following these steps, you can ensure that your Document DB clusters in AWS RDS always have the desired backup retention period set, preventing misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. In the list of DB instances, choose the name of the DocumentDB instance that you want to check.
+
+4. In the "Details" section, look for the "Backup" section. Here, you can see the "Backup Retention Period" setting. This setting indicates the number of days that Amazon RDS will retain automatic backups of your DB instance.
+
+5. If the "Backup Retention Period" is set to 0, it means that the backup retention is disabled for the selected DocumentDB cluster.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local system and configure it with your AWS account credentials. You can do this by following the instructions provided in the AWS CLI User Guide.
+
+2. List all DocumentDB clusters: Use the `describe-db-clusters` command to list all the DocumentDB clusters in your AWS account. The command should look like this:
+
+   ```
+   aws docdb describe-db-clusters --region your-region-name
+   ```
+
+   Replace `your-region-name` with the name of the AWS region where your DocumentDB clusters are located.
+
+3. Check backup retention period: The output of the `describe-db-clusters` command includes a `BackupRetentionPeriod` field for each DocumentDB cluster. This field indicates the number of days for which automated backups are retained. 
+
+   You can use the `jq` command-line tool to filter the output and display only the `DBClusterIdentifier` and `BackupRetentionPeriod` fields:
+
+   ```
+   aws docdb describe-db-clusters --region your-region-name | jq -r '.DBClusters[] | {DBClusterIdentifier: .DBClusterIdentifier, BackupRetentionPeriod: .BackupRetentionPeriod}'
+   ```
+
+4. Analyze the output: Go through the output and check the `BackupRetentionPeriod` for each DocumentDB cluster. If the `BackupRetentionPeriod` is less than the desired number of days, then the DocumentDB cluster is misconfigured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. First, you need to install the AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Now, create a client for 'rds' service:
+
+```python
+rds = session.client('rds')
+```
+
+4. Now, you can list all the DocumentDB clusters and check their backup retention period. If the backup retention period is less than 7 days, print a warning message:
+
+```python
+clusters = rds.describe_db_clusters()
+
+for cluster in clusters['DBClusters']:
+    if cluster['BackupRetentionPeriod'] < 7:
+        print(f"Warning: The backup retention period for the cluster {cluster['DBClusterIdentifier']} is less than 7 days.")
+```
+
+This script will check all your DocumentDB clusters in the 'us-west-2' region. If you have clusters in other regions, you need to create a session for each of those regions and repeat the process.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,260 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being idle in AWS using the AWS Management Console, follow these steps:
+
+1. **Enable Enhanced Monitoring:**
+   - Navigate to the RDS Dashboard in the AWS Management Console.
+   - Select the RDS instance you want to monitor.
+   - Click on the "Modify" button.
+   - In the "Monitoring" section, enable "Enhanced Monitoring" and set the granularity to a suitable interval (e.g., 1 minute).
+   - Click "Continue" and then "Modify DB Instance" to apply the changes.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the CloudWatch Dashboard in the AWS Management Console.
+   - Click on "Alarms" and then "Create Alarm."
+   - Select the RDS metrics (e.g., CPUUtilization, DatabaseConnections) that indicate activity.
+   - Set thresholds that define when an instance is considered idle (e.g., CPUUtilization < 5% for 24 hours).
+   - Configure the alarm actions to notify you via SNS or take automated actions.
+
+3. **Automate Idle Instance Detection with AWS Config:**
+   - Navigate to the AWS Config Dashboard.
+   - Click on "Rules" and then "Add rule."
+   - Search for and select the "rds-instance-idle" managed rule.
+   - Configure the rule to evaluate your RDS instances and specify the idle criteria.
+   - Enable the rule to continuously monitor and report on idle RDS instances.
+
+4. **Implement Auto Scaling Policies:**
+   - Go to the RDS Dashboard and select your RDS instance.
+   - Click on the "Modify" button.
+   - In the "Auto Scaling" section, enable auto-scaling for read replicas or storage.
+   - Configure the scaling policies to ensure that resources are adjusted based on demand, reducing the likelihood of idle instances.
+
+By following these steps, you can proactively monitor and manage your RDS instances to prevent them from being idle, ensuring efficient resource utilization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being idle using AWS CLI, you can follow these steps:
+
+1. **Enable CloudWatch Alarms for CPU Utilization:**
+   Set up CloudWatch alarms to monitor the CPU utilization of your RDS instances. If the CPU utilization is below a certain threshold for a specified period, you can take action to investigate or terminate the idle instance.
+
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "RDS-CPU-Utilization-Low" \
+   --metric-name CPUUtilization --namespace AWS/RDS --statistic Average \
+   --period 300 --threshold 10 --comparison-operator LessThanThreshold \
+   --dimensions Name=DBInstanceIdentifier,Value=<your-db-instance-identifier> \
+   --evaluation-periods 2 --alarm-actions <your-sns-topic-arn>
+   ```
+
+2. **Automate Instance Start/Stop Based on Schedule:**
+   Use AWS CLI to create a Lambda function that starts and stops RDS instances based on a schedule. This can help ensure that instances are not running when they are not needed.
+
+   ```sh
+   aws lambda create-function --function-name ManageRDSInstances \
+   --runtime python3.8 --role <your-lambda-execution-role-arn> \
+   --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+3. **Enable Enhanced Monitoring:**
+   Enable Enhanced Monitoring for your RDS instances to get more granular metrics, which can help you better understand the usage patterns and identify idle instances.
+
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> \
+   --monitoring-interval 60 --monitoring-role-arn <your-monitoring-role-arn>
+   ```
+
+4. **Set Up Automated Backups and Snapshots:**
+   Ensure that automated backups and snapshots are configured. This allows you to safely terminate idle instances without losing data, as you can restore from a backup if needed.
+
+   ```sh
+   aws rds modify-db-instance --db-instance-identifier <your-db-instance-identifier> \
+   --backup-retention-period 7
+   ```
+
+By following these steps, you can proactively monitor and manage your RDS instances to prevent them from being idle, thereby optimizing costs and resource utilization.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being idle in AWS using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have Boto3 installed and configured with the necessary AWS credentials.
+
+```bash
+pip install boto3
+```
+
+### 2. **Monitor RDS Instance Metrics**
+Use CloudWatch to monitor RDS instance metrics such as CPU utilization, read/write IOPS, and connections. If these metrics are consistently low, the instance might be idle.
+
+```python
+import boto3
+
+cloudwatch = boto3.client('cloudwatch')
+
+def get_rds_metrics(instance_id):
+    metrics = cloudwatch.get_metric_statistics(
+        Namespace='AWS/RDS',
+        MetricName='CPUUtilization',
+        Dimensions=[{'Name': 'DBInstanceIdentifier', 'Value': instance_id}],
+        StartTime=datetime.utcnow() - timedelta(minutes=60),
+        EndTime=datetime.utcnow(),
+        Period=300,
+        Statistics=['Average']
+    )
+    return metrics['Datapoints']
+```
+
+### 3. **Automate Idle Detection**
+Create a script to automatically detect idle RDS instances based on the metrics retrieved.
+
+```python
+def is_instance_idle(instance_id):
+    metrics = get_rds_metrics(instance_id)
+    if not metrics:
+        return False
+    avg_cpu_utilization = sum([point['Average'] for point in metrics]) / len(metrics)
+    return avg_cpu_utilization < 5  # Threshold for idleness
+```
+
+### 4. **Schedule Regular Checks**
+Use AWS Lambda and CloudWatch Events to schedule regular checks for idle RDS instances.
+
+```python
+import boto3
+
+rds = boto3.client('rds')
+
+def check_and_notify_idle_instances():
+    instances = rds.describe_db_instances()
+    idle_instances = []
+    for instance in instances['DBInstances']:
+        instance_id = instance['DBInstanceIdentifier']
+        if is_instance_idle(instance_id):
+            idle_instances.append(instance_id)
+    
+    if idle_instances:
+        # Notify or take action
+        print(f"Idle RDS Instances: {idle_instances}")
+
+# Schedule this function using AWS Lambda and CloudWatch Events
+```
+
+### Summary
+1. **Set Up AWS SDK for Python (Boto3)**: Install and configure Boto3.
+2. **Monitor RDS Instance Metrics**: Use CloudWatch to monitor key metrics.
+3. **Automate Idle Detection**: Create a script to detect idle instances.
+4. **Schedule Regular Checks**: Use AWS Lambda and CloudWatch Events to automate regular checks.
+
+By following these steps, you can proactively prevent RDS instances from being idle, ensuring efficient resource utilization.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard. 
+
+2. In the navigation pane, choose "Databases". This will display a list of all your RDS instances.
+
+3. Select the RDS instance you want to check. In the instance details section, look for the "Monitoring" tab.
+
+4. In the Monitoring tab, check the "CPU Utilization" and "Database Connections" metrics. If the CPU Utilization is consistently low (near 0%) and there are no database connections over a prolonged period, the RDS instance might be idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all RDS instances: Use the following AWS CLI command to list all the RDS instances in your AWS account:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]'
+   ```
+
+   This command will return a list of all RDS instances in your AWS account.
+
+3. Check the connection count: For each RDS instance, you can check the number of connections to it using the following AWS CLI command:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name DatabaseConnections --dimensions Name=DBInstanceIdentifier,Value=<DBInstanceIdentifier> --start-time <start-time> --end-time <end-time> --period 3600 --statistics Maximum
+   ```
+
+   Replace `<DBInstanceIdentifier>` with the identifier of the RDS instance you want to check, and `<start-time>` and `<end-time>` with the time period you want to check. This command will return the maximum number of connections to the RDS instance during the specified time period.
+
+4. Analyze the results: If the maximum number of connections to an RDS instance is consistently low (or zero) over a long period of time, it indicates that the RDS instance is idle. You can then decide whether to keep it running or stop it to save costs.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. 
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. You can configure credentials in several ways. You can load them from a .aws/credentials file, or from environment variables. 
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a client for RDS and get the list of all RDS instances.
+
+```python
+rds = session.client('rds')
+try:
+    response = rds.describe_db_instances()
+except ClientError as e:
+    print("Error in getting RDS instances: ", e)
+```
+
+4. Check the CPUUtilization and DatabaseConnections CloudWatch metrics for each RDS instance. If these metrics are consistently low over a significant period of time, the RDS instance might be idle. 
+
+```python
+cloudwatch = session.client('cloudwatch')
+
+for instance in response['DBInstances']:
+    instance_id = instance['DBInstanceIdentifier']
+    metrics = ['CPUUtilization', 'DatabaseConnections']
+    for metric in metrics:
+        response = cloudwatch.get_metric_statistics(
+            Namespace='AWS/RDS',
+            MetricName=metric,
+            Dimensions=[
+                {
+                    'Name': 'DBInstanceIdentifier',
+                    'Value': instance_id
+                },
+            ],
+            StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+            EndTime=datetime.datetime.utcnow(),
+            Period=60,
+            Statistics=['Average'],
+        )
+        if response['Datapoints']:
+            avg_metric = response['Datapoints'][0]['Average']
+            if avg_metric < 1:
+                print(f"RDS instance {instance_id} might be idle. Average {metric} in the last 10 minutes: {avg_metric}")
+```
+
+This script will print out the IDs of the RDS instances that might be idle. You can adjust the threshold for the metrics and the time period as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

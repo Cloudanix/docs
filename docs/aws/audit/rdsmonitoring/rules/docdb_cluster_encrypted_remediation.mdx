@@ -1,6 +1,226 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent DocumentDB clusters from being unencrypted in Amazon RDS using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the Amazon RDS console at [https://console.aws.amazon.com/rds/](https://console.aws.amazon.com/rds/).
+
+2. **Create or Modify a Cluster:**
+   - To create a new DocumentDB cluster, click on "Create database" and select "Amazon DocumentDB (with MongoDB compatibility)".
+   - To modify an existing cluster, select the cluster from the list and click on the "Modify" button.
+
+3. **Enable Encryption:**
+   - For a new cluster, in the "Settings" section, ensure that the "Enable encryption" option is selected.
+   - For an existing cluster, in the "Storage & encryption" section, ensure that the "Enable encryption" option is selected. Note that you cannot enable encryption on an existing unencrypted cluster; you would need to create a new encrypted cluster and migrate your data.
+
+4. **Select KMS Key:**
+   - Choose the AWS Key Management Service (KMS) key that you want to use for encryption. You can select the default key or a custom key that you have created in the KMS console.
+
+By following these steps, you can ensure that your DocumentDB clusters are encrypted, thereby preventing the misconfiguration of having unencrypted clusters.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that your Amazon DocumentDB clusters are encrypted in RDS using the AWS CLI, follow these steps:
+
+1. **Create a KMS Key for Encryption:**
+   First, you need to create a KMS (Key Management Service) key that will be used to encrypt your DocumentDB clusters.
+
+   ```sh
+   aws kms create-key --description "Key for DocumentDB encryption"
+   ```
+
+2. **Create a DocumentDB Cluster with Encryption Enabled:**
+   When creating a new DocumentDB cluster, specify the KMS key ID to enable encryption.
+
+   ```sh
+   aws docdb create-db-cluster \
+       --db-cluster-identifier my-docdb-cluster \
+       --engine docdb \
+       --master-username myuser \
+       --master-user-password mypassword \
+       --kms-key-id <your-kms-key-id>
+   ```
+
+3. **Modify an Existing DocumentDB Cluster to Enable Encryption:**
+   Note that you cannot directly enable encryption on an existing unencrypted cluster. Instead, you need to create a snapshot of the existing cluster, then restore the snapshot with encryption enabled.
+
+   ```sh
+   aws docdb create-db-cluster-snapshot \
+       --db-cluster-snapshot-identifier my-docdb-cluster-snapshot \
+       --db-cluster-identifier my-docdb-cluster
+   ```
+
+   ```sh
+   aws docdb restore-db-cluster-from-snapshot \
+       --db-cluster-identifier my-new-docdb-cluster \
+       --snapshot-identifier my-docdb-cluster-snapshot \
+       --kms-key-id <your-kms-key-id>
+   ```
+
+4. **Ensure Encryption is Enabled in Cluster Parameter Group:**
+   Make sure that the parameter group associated with your DocumentDB cluster has encryption settings enabled.
+
+   ```sh
+   aws docdb modify-db-cluster \
+       --db-cluster-identifier my-docdb-cluster \
+       --apply-immediately \
+       --kms-key-id <your-kms-key-id>
+   ```
+
+By following these steps, you can ensure that your Amazon DocumentDB clusters are encrypted, thereby preventing misconfigurations related to encryption.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to DocumentDB clusters not being encrypted in Amazon RDS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Below are the steps to ensure that your DocumentDB clusters are encrypted:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip.
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+   ```bash
+   aws configure
+   ```
+
+3. **Create a Python Script to Check and Enforce Encryption**:
+   Write a Python script that checks if the DocumentDB clusters are encrypted and enforces encryption if they are not.
+
+   ```python
+   import boto3
+
+   def ensure_docdb_encryption(cluster_identifier, kms_key_id):
+       client = boto3.client('docdb')
+
+       # Describe the cluster to check its encryption status
+       response = client.describe_db_clusters(DBClusterIdentifier=cluster_identifier)
+       clusters = response['DBClusters']
+
+       for cluster in clusters:
+           if not cluster['StorageEncrypted']:
+               print(f"Cluster {cluster_identifier} is not encrypted. Enabling encryption...")
+
+               # Modify the cluster to enable encryption
+               client.modify_db_cluster(
+                   DBClusterIdentifier=cluster_identifier,
+                   StorageEncrypted=True,
+                   KmsKeyId=kms_key_id
+               )
+               print(f"Encryption enabled for cluster {cluster_identifier}.")
+           else:
+               print(f"Cluster {cluster_identifier} is already encrypted.")
+
+   if __name__ == "__main__":
+       cluster_identifier = 'your-cluster-identifier'
+       kms_key_id = 'your-kms-key-id'
+       ensure_docdb_encryption(cluster_identifier, kms_key_id)
+   ```
+
+4. **Run the Script**:
+   Execute the script to ensure that your DocumentDB clusters are encrypted.
+   ```bash
+   python ensure_docdb_encryption.py
+   ```
+
+### Summary
+1. Install the Boto3 library.
+2. Set up AWS credentials.
+3. Create a Python script to check and enforce encryption on DocumentDB clusters.
+4. Run the script to ensure encryption is enabled.
+
+This script will check if the specified DocumentDB cluster is encrypted and will enable encryption if it is not. Make sure to replace `'your-cluster-identifier'` and `'your-kms-key-id'` with your actual cluster identifier and KMS key ID.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" from the top menu, then selecting "RDS" under the "Database" category.
+3. In the RDS dashboard, select "Databases" from the left-hand menu. This will display a list of all your RDS instances.
+4. For each DocumentDB cluster, check the "Encryption" column. If the status is "Disabled" or "Not Enabled", then the DocumentDB cluster is not encrypted.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS resources.
+
+2. Once the AWS CLI is set up, you can list all the DocumentDB clusters in your account using the following command:
+
+   ```
+   aws docdb describe-db-clusters --query 'DBClusters[*].[DBClusterIdentifier,StorageEncrypted]' --output text
+   ```
+
+   This command will return a list of all DocumentDB clusters along with their encryption status. The 'StorageEncrypted' field indicates whether the cluster is encrypted or not.
+
+3. To filter out the clusters that are not encrypted, you can use the following command:
+
+   ```
+   aws docdb describe-db-clusters --query 'DBClusters[?StorageEncrypted==`false`].[DBClusterIdentifier]' --output text
+   ```
+
+   This command will return a list of DocumentDB clusters that are not encrypted.
+
+4. If the output of the above command is not empty, it means there are unencrypted DocumentDB clusters in your account. You should take necessary actions to encrypt these clusters.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Before you can start writing Python scripts to manage AWS resources, you need to set up AWS SDK for Python (Boto3) on your machine. You can install it using pip:
+
+   ```
+   pip install boto3
+   ```
+
+   Then, configure your AWS credentials to allow Boto3 to interact with AWS services on your behalf. You can do this by setting the following environment variables:
+
+   ```
+   AWS_ACCESS_KEY_ID='your_access_key'
+   AWS_SECRET_ACCESS_KEY='your_secret_key'
+   ```
+
+2. Import the necessary modules and create a session: In your Python script, you need to import Boto3 and create a session using your AWS credentials.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Use the `describe_db_clusters` method to retrieve information about your DocumentDB clusters: You can use the `describe_db_clusters` method of the `rds` client to retrieve information about your DocumentDB clusters. This method returns a dictionary that includes information about all your clusters.
+
+   ```python
+   rds = session.client('rds')
+   response = rds.describe_db_clusters()
+   ```
+
+4. Check the `StorageEncrypted` attribute of each cluster: The `StorageEncrypted` attribute indicates whether the cluster is encrypted. You can iterate over the clusters and print out the ones that are not encrypted.
+
+   ```python
+   for cluster in response['DBClusters']:
+       if not cluster['StorageEncrypted']:
+           print(f"Cluster {cluster['DBClusterIdentifier']} is not encrypted.")
+   ```
+   
+This script will help you identify any DocumentDB clusters in your AWS account that are not encrypted.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

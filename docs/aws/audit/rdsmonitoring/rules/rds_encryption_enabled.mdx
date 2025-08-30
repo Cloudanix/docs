@@ -23,6 +23,230 @@ HIPAA, GDPR, CISAWS, CBP, NIST, AWSWAF, HITRUST, SOC2, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being created without encryption enabled using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "RDS" to go to the Amazon RDS dashboard.
+
+2. **Create or Modify a DB Instance:**
+   - To create a new DB instance, click on "Create database."
+   - To modify an existing DB instance, select the instance from the list and click on "Modify."
+
+3. **Enable Encryption:**
+   - For a new DB instance, in the "Settings" section, ensure that the "Enable encryption" checkbox is selected.
+   - For an existing DB instance, in the "Storage" section, ensure that the "Enable encryption" checkbox is selected. Note that you cannot enable encryption on an existing unencrypted DB instance directly; you would need to create a snapshot and then restore it with encryption enabled.
+
+4. **Select KMS Key:**
+   - Choose the AWS Key Management Service (KMS) key that you want to use for encryption. If you do not have a KMS key, you can create one in the IAM section of the AWS Management Console.
+
+By following these steps, you can ensure that your RDS instances are created with encryption enabled, thereby enhancing the security of your data at rest.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being created without encryption enabled using the AWS CLI, you can follow these steps:
+
+1. **Create a KMS Key for Encryption:**
+   Ensure you have a KMS key that will be used for encrypting your RDS instances. If you don't have one, you can create it using the following command:
+   ```sh
+   aws kms create-key --description "RDS Encryption Key"
+   ```
+
+2. **Create a Parameter Group with Encryption Enabled:**
+   Create a DB parameter group that enforces encryption. Note that encryption is specified at the time of instance creation, not in the parameter group, but having a parameter group can help manage other security settings.
+   ```sh
+   aws rds create-db-parameter-group --db-parameter-group-name my-encrypted-param-group --db-parameter-group-family mysql5.7 --description "Parameter group for encrypted RDS instances"
+   ```
+
+3. **Create an Encrypted RDS Instance:**
+   When creating an RDS instance, specify the `--storage-encrypted` flag and provide the KMS key ID to ensure the instance is encrypted.
+   ```sh
+   aws rds create-db-instance --db-instance-identifier mydbinstance --db-instance-class db.t2.micro --engine mysql --master-username admin --master-user-password password --allocated-storage 20 --storage-encrypted --kms-key-id <your-kms-key-id> --db-parameter-group-name my-encrypted-param-group
+   ```
+
+4. **Modify Existing RDS Instances to Enable Encryption:**
+   Note that you cannot directly enable encryption on an existing RDS instance. Instead, you need to create a snapshot of the instance, copy the snapshot with encryption enabled, and then restore the instance from the encrypted snapshot.
+   ```sh
+   # Create a snapshot of the existing instance
+   aws rds create-db-snapshot --db-snapshot-identifier mydbsnapshot --db-instance-identifier mydbinstance
+
+   # Copy the snapshot with encryption enabled
+   aws rds copy-db-snapshot --source-db-snapshot-identifier mydbsnapshot --target-db-snapshot-identifier myencryptedsnapshot --kms-key-id <your-kms-key-id>
+
+   # Restore the instance from the encrypted snapshot
+   aws rds restore-db-instance-from-db-snapshot --db-instance-identifier mynewdbinstance --db-snapshot-identifier myencryptedsnapshot
+   ```
+
+By following these steps, you can ensure that your RDS instances are created with encryption enabled, thereby preventing misconfigurations related to unencrypted RDS instances.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being created without encryption enabled using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to ensure that RDS instances are created with encryption enabled:
+
+1. **Install Boto3**:
+   Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python Script to Enforce Encryption**:
+   Write a Python script that will create an RDS instance with encryption enabled. This script will use the `create_db_instance` method from Boto3's RDS client.
+
+3. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured properly. You can set them up using the AWS CLI or by configuring the `~/.aws/credentials` file.
+
+4. **Python Script Example**:
+   Here is an example Python script to create an encrypted RDS instance:
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon RDS
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the RDS client
+   rds_client = session.client('rds')
+
+   # Function to create an encrypted RDS instance
+   def create_encrypted_rds_instance():
+       try:
+           response = rds_client.create_db_instance(
+               DBInstanceIdentifier='mydbinstance',
+               AllocatedStorage=20,
+               DBName='mydatabase',
+               Engine='mysql',
+               MasterUsername='admin',
+               MasterUserPassword='password',
+               DBInstanceClass='db.t2.micro',
+               StorageEncrypted=True,  # Enable encryption
+               KmsKeyId='your-kms-key-id'  # Optional: Specify your KMS key ID
+           )
+           print("RDS instance created successfully:", response)
+       except Exception as e:
+           print("Error creating RDS instance:", e)
+
+   # Call the function to create the encrypted RDS instance
+   create_encrypted_rds_instance()
+   ```
+
+### Key Points:
+
+1. **Install Boto3**:
+   Ensure Boto3 is installed in your Python environment using `pip install boto3`.
+
+2. **Initialize Boto3 Session**:
+   Set up a Boto3 session with your AWS credentials and region.
+
+3. **Create RDS Instance with Encryption**:
+   Use the `create_db_instance` method with the `StorageEncrypted` parameter set to `True` to ensure the RDS instance is encrypted.
+
+4. **Optional KMS Key**:
+   Optionally, specify a KMS key ID for encryption if you have a specific key you want to use.
+
+By following these steps, you can ensure that any RDS instances created using your Python script will have encryption enabled, thus preventing the misconfiguration of unencrypted RDS instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" from the top menu, then selecting "RDS" under the "Database" category.
+3. In the navigation pane, click on "Databases". This will display a list of all your RDS instances.
+4. Select the RDS instance you want to check, then look under the "Details" section. There should be a field labeled "Encryption". If the value is "Enabled", then encryption is turned on for that instance. If the value is "Disabled", then encryption is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all RDS instances: Once your AWS CLI is set up, you can list all your RDS instances by running the following command:
+   ```
+   aws rds describe-db-instances
+   ```
+   This command will return a JSON output with the details of all your RDS instances.
+
+3. Check encryption status: To check the encryption status of each RDS instance, you need to look at the "StorageEncrypted" field in the output. If the value of this field is "false", it means that the RDS instance is not encrypted.
+
+4. Automate the process with a script: You can automate the process of checking the encryption status of all RDS instances with a Python script. Here is a simple script that uses the boto3 library to do this:
+
+   ```python
+   import boto3
+
+   client = boto3.client('rds')
+
+   response = client.describe_db_instances()
+
+   for instance in response['DBInstances']:
+       if not instance['StorageEncrypted']:
+           print(f"RDS instance {instance['DBInstanceIdentifier']} is not encrypted.")
+   ```
+   This script will print the identifiers of all RDS instances that are not encrypted.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) on your local system. Boto3 makes it easy to integrate your Python application, library, or script with AWS services including AWS S3, AWS EC2, AWS DynamoDB, and much more.
+
+   You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+   ```
+
+3. Now, use the `describe_db_instances()` function to get a list of all RDS instances. 
+
+   ```python
+   rds = session.client('rds')
+   response = rds.describe_db_instances()
+   ```
+
+4. Iterate over the instances and check the `StorageEncrypted` attribute. If it's `False`, the RDS instance is not encrypted.
+
+   ```python
+   for instance in response['DBInstances']:
+       if not instance['StorageEncrypted']:
+           print(f"RDS instance {instance['DBInstanceIdentifier']} is not encrypted.")
+   ```
+   
+This script will print out the identifiers of all RDS instances that do not have encryption enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 Amazon RDS does not support enabling encryption on an existing unencrypted DB instance. However, you can achieve encryption by creating a new encrypted instance and migrating the data. Here are the steps for AWS Console:

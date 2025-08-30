@@ -1,6 +1,259 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS DB Instances from being provisioned in VPC public subnets using the AWS Management Console, follow these steps:
+
+1. **Create a Private Subnet:**
+   - Navigate to the VPC Dashboard.
+   - Select "Subnets" from the left-hand menu.
+   - Click on "Create Subnet" and ensure you select a private subnet by associating it with a route table that does not have an internet gateway.
+
+2. **Modify the DB Subnet Group:**
+   - Go to the RDS Dashboard.
+   - In the left-hand menu, select "Subnet groups."
+   - Click on "Create DB Subnet Group" or modify an existing one.
+   - Ensure that only private subnets are included in the DB Subnet Group.
+
+3. **Launch RDS Instance in Private Subnet:**
+   - When creating a new RDS instance, in the "Network & Security" section, select the appropriate VPC.
+   - Choose the DB Subnet Group that contains only private subnets.
+
+4. **Review Security Group Settings:**
+   - Ensure that the security group associated with your RDS instance does not allow inbound traffic from the internet (0.0.0.0/0).
+   - Configure the security group to allow access only from specific IP addresses or other security groups within your VPC.
+
+By following these steps, you can ensure that your RDS instances are provisioned in private subnets, enhancing the security of your database instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS DB instances from being provisioned in VPC public subnets using AWS CLI, follow these steps:
+
+1. **Identify the Subnet IDs of Private Subnets:**
+   Ensure you have the subnet IDs of the private subnets where you want to provision your RDS instances. You can list your subnets and filter by the `mapPublicIpOnLaunch` attribute to identify private subnets.
+
+   ```sh
+   aws ec2 describe-subnets --filters "Name=mapPublicIpOnLaunch,Values=false" --query "Subnets[*].SubnetId"
+   ```
+
+2. **Create a DB Subnet Group:**
+   Create a DB subnet group that includes only the private subnets. This subnet group will be used when creating your RDS instances to ensure they are placed in private subnets.
+
+   ```sh
+   aws rds create-db-subnet-group \
+       --db-subnet-group-name my-private-subnet-group \
+       --db-subnet-group-description "Subnet group for private subnets" \
+       --subnet-ids subnet-xxxxxxxx subnet-yyyyyyyy
+   ```
+
+3. **Specify the DB Subnet Group When Creating an RDS Instance:**
+   When you create a new RDS instance, specify the DB subnet group that you created in the previous step. This ensures the RDS instance is provisioned in the private subnets.
+
+   ```sh
+   aws rds create-db-instance \
+       --db-instance-identifier mydbinstance \
+       --db-instance-class db.t2.micro \
+       --engine mysql \
+       --master-username admin \
+       --master-user-password password \
+       --allocated-storage 20 \
+       --db-subnet-group-name my-private-subnet-group
+   ```
+
+4. **Modify Existing RDS Instances to Use the Private Subnet Group:**
+   If you have existing RDS instances in public subnets, modify them to use the private subnet group. Note that this may cause downtime as the instance will be moved to a different subnet.
+
+   ```sh
+   aws rds modify-db-instance \
+       --db-instance-identifier mydbinstance \
+       --db-subnet-group-name my-private-subnet-group \
+       --apply-immediately
+   ```
+
+By following these steps, you can ensure that your RDS instances are provisioned in private subnets, thereby preventing them from being exposed to the public internet.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS DB Instances from being provisioned in VPC public subnets using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to achieve this:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Python Script to Check Subnet Type:**
+   Write a Python script to check if a subnet is public or private. Public subnets have a route to an Internet Gateway (IGW).
+
+   ```python
+   import boto3
+
+   def is_public_subnet(subnet_id):
+       ec2 = boto3.client('ec2')
+       response = ec2.describe_route_tables(
+           Filters=[
+               {
+                   'Name': 'association.subnet-id',
+                   'Values': [subnet_id]
+               }
+           ]
+       )
+       for route_table in response['RouteTables']:
+           for route in route_table['Routes']:
+               if 'GatewayId' in route and route['GatewayId'].startswith('igw-'):
+                   return True
+       return False
+   ```
+
+3. **Prevent RDS Instance Creation in Public Subnets:**
+   Modify the script to prevent the creation of RDS instances in public subnets by checking the subnet type before creating the instance.
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   def create_rds_instance(subnet_id, db_instance_identifier, db_instance_class, engine):
+       if is_public_subnet(subnet_id):
+           print(f"Error: Subnet {subnet_id} is a public subnet. RDS instances should not be provisioned in public subnets.")
+           return
+
+       rds = boto3.client('rds')
+       try:
+           response = rds.create_db_instance(
+               DBInstanceIdentifier=db_instance_identifier,
+               DBInstanceClass=db_instance_class,
+               Engine=engine,
+               DBSubnetGroupName=subnet_id
+           )
+           print(f"RDS instance {db_instance_identifier} created successfully.")
+       except ClientError as e:
+           print(f"Error creating RDS instance: {e}")
+
+   # Example usage
+   create_rds_instance('subnet-12345678', 'mydbinstance', 'db.t2.micro', 'mysql')
+   ```
+
+4. **Automate and Integrate with CI/CD Pipelines:**
+   Integrate this script into your CI/CD pipeline to ensure that any attempt to create an RDS instance in a public subnet is automatically checked and prevented.
+
+   ```yaml
+   # Example GitHub Actions workflow
+   name: Prevent RDS in Public Subnets
+
+   on: [push]
+
+   jobs:
+     check-rds-subnet:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Checkout code
+           uses: actions/checkout@v2
+
+         - name: Set up Python
+           uses: actions/setup-python@v2
+           with:
+             python-version: '3.x'
+
+         - name: Install dependencies
+           run: pip install boto3
+
+         - name: Run script
+           run: python your_script.py
+           env:
+             AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+             AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+             AWS_DEFAULT_REGION: 'us-west-2'
+   ```
+
+By following these steps, you can ensure that RDS instances are not provisioned in public subnets, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the RDS dashboard by selecting "Services" then "RDS" from the drop-down menu.
+3. In the navigation pane, click on "Databases".
+4. Select the RDS DB instance that you want to examine.
+5. In the "Connectivity & security" tab, under "VPC and subnet information", check the "Subnet group" details. Click on the link to the subnet group.
+6. In the subnet group details page, under "Subnets", check the "Availability Zone and Subnet" section. If the "Publicly accessible" attribute is set to "Yes", then the selected Amazon RDS DB instance is running within a VPC and is using a subnet that is not configured as a private subnet.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the DB instances in your AWS account. You can do this by using the AWS CLI command `aws rds describe-db-instances`. This command will return a JSON output with all the DB instances.
+
+2. Next, you need to list all the subnets in your VPC. You can do this by using the AWS CLI command `aws ec2 describe-subnets`. This command will return a JSON output with all the subnets in your VPC.
+
+3. Now, you need to check if any of the DB instances are in a public subnet. You can do this by checking the 'MapPublicIpOnLaunch' attribute of each subnet. If this attribute is set to 'true', then the subnet is public. You can use the following command to check this: `aws ec2 describe-subnets --query 'Subnets[?MapPublicIpOnLaunch==`true`]'`.
+
+4. Finally, you need to check if any of the DB instances are in these public subnets. You can do this by comparing the 'DBSubnetGroup' attribute of each DB instance with the 'SubnetId' attribute of each public subnet. If there is a match, then the DB instance is in a public subnet. You can use a Python script to do this comparison.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. You can configure your credentials in the AWS credentials file. The default location for the file is `~/.aws/credentials`.
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a client for 'rds' and 'ec2' to fetch the RDS instances and VPC details.
+
+```python
+rds = session.client('rds')
+ec2 = session.client('ec2')
+```
+
+4. Now, fetch all the DB instances and check if they are in a VPC. If they are, check if the subnet they are in is a public subnet. A subnet is considered public if it has a route to an Internet Gateway.
+
+```python
+try:
+    dbs = rds.describe_db_instances()
+    for db in dbs['DBInstances']:
+        if 'DBSubnetGroup' in db:
+            subnet_group = db['DBSubnetGroup']
+            for subnet in subnet_group['Subnets']:
+                subnet_id = subnet['SubnetIdentifier']
+                subnet_details = ec2.describe_subnets(SubnetIds=[subnet_id])
+                for route_table in subnet_details['Subnets'][0]['RouteTable']['Routes']:
+                    if 'GatewayId' in route_table and 'igw' in route_table['GatewayId']:
+                        print(f"DB instance {db['DBInstanceIdentifier']} is in a public subnet")
+except BotoCoreError as e:
+    print(e)
+except ClientError as e:
+    print(e)
+```
+
+This script will print out the identifiers of all DB instances that are in a public subnet.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
