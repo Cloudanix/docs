@@ -1,6 +1,297 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent duplicate entries in CloudTrail logs using the AWS Management Console, follow these steps:
+
+1. **Enable Multi-Region Trails:**
+   - Go to the AWS Management Console and open the CloudTrail console.
+   - Click on "Trails" in the navigation pane.
+   - Select your trail or create a new one.
+   - In the trail settings, ensure that the "Apply trail to all regions" option is enabled. This ensures that CloudTrail captures all events across all regions in a single trail, reducing the risk of duplicate entries.
+
+2. **Use a Single S3 Bucket for Log Storage:**
+   - In the CloudTrail console, under the trail settings, specify a single S3 bucket for storing your CloudTrail logs.
+   - Ensure that all trails (if you have multiple) are configured to use this same S3 bucket. This centralizes log storage and helps avoid duplication.
+
+3. **Enable Log File Integrity Validation:**
+   - In the CloudTrail console, select your trail.
+   - Enable the "Enable log file validation" option. This feature helps ensure the integrity of your log files and can help identify any duplicate entries.
+
+4. **Review and Consolidate Trails:**
+   - Regularly review your existing trails in the CloudTrail console.
+   - Consolidate multiple trails that might be capturing the same events into a single trail where possible. This reduces the chances of duplicate log entries.
+
+By following these steps, you can effectively prevent duplicate entries in your CloudTrail logs using the AWS Management Console.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent duplicate entries in CloudTrail logs using AWS CLI, you can follow these steps:
+
+1. **Create a New CloudTrail Trail:**
+   Ensure you have a single, well-configured CloudTrail trail to avoid duplicate entries. Use the following command to create a new trail:
+
+   ```sh
+   aws cloudtrail create-trail --name my-trail --s3-bucket-name my-trail-bucket
+   ```
+
+2. **Enable Log File Validation:**
+   Enable log file validation to ensure the integrity of the log files and prevent duplicates. Use the following command:
+
+   ```sh
+   aws cloudtrail update-trail --name my-trail --enable-log-file-validation
+   ```
+
+3. **Ensure Only One Trail is Logging for Each Region:**
+   Verify that you have only one trail logging events for each region. List all trails and check their configurations:
+
+   ```sh
+   aws cloudtrail describe-trails
+   ```
+
+   If you find multiple trails logging for the same region, consider consolidating them.
+
+4. **Enable Multi-Region Trail:**
+   If you need to log events from multiple regions, enable the multi-region trail option to avoid creating separate trails for each region:
+
+   ```sh
+   aws cloudtrail update-trail --name my-trail --is-multi-region-trail
+   ```
+
+By following these steps, you can prevent duplicate entries in CloudTrail logs using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent duplicate entries in AWS CloudTrail logs using Python scripts, you can follow these steps:
+
+### 1. Set Up AWS SDK for Python (Boto3)
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. Create a Python Script to Check for Duplicate Entries
+You can create a Python script that will check for duplicate entries in CloudTrail logs and take appropriate actions to prevent them.
+
+### 3. Use Boto3 to Interact with CloudTrail
+Here is a sample Python script that demonstrates how to interact with CloudTrail and check for duplicate entries:
+
+```python
+import boto3
+import hashlib
+
+# Initialize a session using Amazon CloudTrail
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+cloudtrail = session.client('cloudtrail')
+
+# Function to get CloudTrail events
+def get_cloudtrail_events():
+    response = cloudtrail.lookup_events(
+        LookupAttributes=[
+            {
+                'AttributeKey': 'EventName',
+                'AttributeValue': 'PutObject'
+            },
+        ],
+        MaxResults=50
+    )
+    return response['Events']
+
+# Function to check for duplicate entries
+def check_for_duplicates(events):
+    event_hashes = set()
+    duplicates = []
+
+    for event in events:
+        event_str = str(event)
+        event_hash = hashlib.md5(event_str.encode()).hexdigest()
+
+        if event_hash in event_hashes:
+            duplicates.append(event)
+        else:
+            event_hashes.add(event_hash)
+
+    return duplicates
+
+# Main function
+def main():
+    events = get_cloudtrail_events()
+    duplicates = check_for_duplicates(events)
+
+    if duplicates:
+        print("Duplicate entries found:")
+        for duplicate in duplicates:
+            print(duplicate)
+    else:
+        print("No duplicate entries found.")
+
+if __name__ == "__main__":
+    main()
+```
+
+### 4. Automate the Script Execution
+To ensure continuous monitoring, you can automate the execution of this script using AWS Lambda or a cron job on an EC2 instance. This will help in regularly checking for duplicate entries and taking necessary actions.
+
+#### Using AWS Lambda:
+1. **Create a Lambda Function**: Go to the AWS Lambda console and create a new function.
+2. **Upload the Script**: Upload the Python script to the Lambda function.
+3. **Set Up a Trigger**: Set up a CloudWatch Events rule to trigger the Lambda function at regular intervals.
+
+#### Using EC2 and Cron Job:
+1. **Launch an EC2 Instance**: Launch an EC2 instance with the necessary IAM role and permissions.
+2. **Upload the Script**: Upload the Python script to the EC2 instance.
+3. **Set Up a Cron Job**: Edit the crontab file to schedule the script execution.
+
+```bash
+crontab -e
+```
+
+Add the following line to run the script every hour:
+
+```bash
+0 * * * * /usr/bin/python3 /path/to/your_script.py
+```
+
+By following these steps, you can prevent duplicate entries in AWS CloudTrail logs using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the CloudTrail console at https://console.aws.amazon.com/cloudtrail/.
+
+2. In the navigation pane, click on "Trails". 
+
+3. In the Trails page, check the list of trails. If there are multiple trails that apply to the same resources (like a bucket or a region), it means there are duplicate entries. 
+
+4. To further investigate, click on each trail name to view its details. Check the "S3 bucket" and "Apply trail to all regions" fields. If two or more trails are applying to the same S3 bucket or region, it confirms the presence of duplicate entries.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access CloudTrail logs.
+
+2. Once AWS CLI is installed and configured, you can use the following command to list all the trails in your AWS account:
+
+   ```
+   aws cloudtrail describe-trails
+   ```
+   This command will return a JSON output with details of all the trails.
+
+3. To check for duplicate entries in CloudTrail logs, you can use the following command:
+
+   ```
+   aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=eventName
+   ```
+   Replace 'eventName' with the name of the event you want to check for duplicates. This command will return a list of all the events with the specified name.
+
+4. To detect duplicate entries, you can write a Python script that parses the JSON output from the above command and checks for duplicate entries. Here is a simple example:
+
+   ```python
+   import json
+   import subprocess
+
+   def get_cloudtrail_events(event_name):
+       command = ['aws', 'cloudtrail', 'lookup-events', '--lookup-attributes', 'AttributeKey=EventName,AttributeValue={}'.format(event_name)]
+       process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+       stdout, stderr = process.communicate()
+       if process.returncode != 0:
+           raise Exception('Error executing command: {}'.format(stderr.decode('utf-8')))
+       return json.loads(stdout.decode('utf-8'))
+
+   def check_for_duplicates(events):
+       event_ids = [event['EventId'] for event in events['Events']]
+       if len(event_ids) != len(set(event_ids)):
+           print('Duplicate entries found')
+       else:
+           print('No duplicate entries found')
+
+   events = get_cloudtrail_events('eventName')
+   check_for_duplicates(events)
+   ```
+   Replace 'eventName' with the name of the event you want to check for duplicates. This script will print 'Duplicate entries found' if there are duplicate entries in the CloudTrail logs, and 'No duplicate entries found' otherwise.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a session**: First, you need to import the necessary libraries in your Python script. You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. After importing the libraries, establish a session with AWS using your access key and secret access key.
+
+    ```python
+    import boto3
+
+    session = boto3.Session(
+        aws_access_key_id='YOUR_ACCESS_KEY',
+        aws_secret_access_key='YOUR_SECRET_KEY',
+        region_name='YOUR_REGION'
+    )
+    ```
+
+2. **Create CloudTrail client**: After establishing a session, create a CloudTrail client. This client will allow you to interact with the CloudTrail service and fetch the necessary logs.
+
+    ```python
+    cloudtrail = session.client('cloudtrail')
+    ```
+
+3. **Fetch and analyze CloudTrail logs**: Now, fetch the CloudTrail logs using the lookup_events() function. This function returns a dictionary containing the CloudTrail event list. You can then iterate over this list and check for duplicate entries.
+
+    ```python
+    response = cloudtrail.lookup_events(
+        LookupAttributes=[
+            {
+                'AttributeKey': 'EventName',
+                'AttributeValue': 'CreateTrail'
+            },
+        ],
+    )
+
+    events = response['Events']
+    event_ids = [event['EventId'] for event in events]
+
+    if len(event_ids) != len(set(event_ids)):
+        print("Duplicate entries found in CloudTrail logs.")
+    else:
+        print("No duplicate entries found in CloudTrail logs.")
+    ```
+
+4. **Handle pagination**: The lookup_events() function returns a maximum of 50 events per call by default. If you have more than 50 events, you need to handle pagination by using the NextToken parameter in the lookup_events() function.
+
+    ```python
+    while 'NextToken' in response:
+        response = cloudtrail.lookup_events(
+            NextToken=response['NextToken'],
+            LookupAttributes=[
+                {
+                    'AttributeKey': 'EventName',
+                    'AttributeValue': 'CreateTrail'
+                },
+            ],
+        )
+
+        events = response['Events']
+        event_ids = [event['EventId'] for event in events]
+
+        if len(event_ids) != len(set(event_ids)):
+            print("Duplicate entries found in CloudTrail logs.")
+        else:
+            print("No duplicate entries found in CloudTrail logs.")
+    ```
+This script will help you detect duplicate entries in your CloudTrail logs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

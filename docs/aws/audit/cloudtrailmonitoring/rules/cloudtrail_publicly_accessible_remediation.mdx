@@ -1,6 +1,184 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent CloudTrail logging buckets from being publicly accessible in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to S3 Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "S3" to go to the Amazon S3 console.
+
+2. **Locate the CloudTrail Bucket:**
+   - In the S3 console, find and select the bucket that is used for CloudTrail logs.
+
+3. **Check Bucket Permissions:**
+   - Go to the "Permissions" tab of the selected bucket.
+   - Review the "Block public access (bucket settings)" section. Ensure that all options to block public access are enabled:
+     - Block all public access
+     - Block public access to buckets and objects granted through new access control lists (ACLs)
+     - Block public access to buckets and objects granted through any access control lists (ACLs)
+     - Block public access to buckets and objects granted through new public bucket or access point policies
+     - Block public and cross-account access to buckets and objects through any public bucket or access point policies
+
+4. **Review and Edit Bucket Policy:**
+   - Still in the "Permissions" tab, scroll down to the "Bucket policy" section.
+   - Ensure that the bucket policy does not allow public access. If there are any statements that grant public access (e.g., `"Effect": "Allow", "Principal": "*"`), modify or remove them to restrict access.
+
+By following these steps, you can ensure that your CloudTrail logging buckets are not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent CloudTrail logging buckets from being publicly accessible using AWS CLI, you can follow these steps:
+
+1. **Identify the S3 Bucket Used by CloudTrail:**
+   First, identify the S3 bucket that is used by CloudTrail to store logs. You can list all CloudTrails and their configurations to find the bucket name.
+   ```sh
+   aws cloudtrail describe-trails --query 'trailList[*].S3BucketName'
+   ```
+
+2. **Check the Bucket Policy:**
+   Review the current bucket policy to ensure it does not allow public access. You can retrieve the bucket policy using:
+   ```sh
+   aws s3api get-bucket-policy --bucket <bucket-name>
+   ```
+
+3. **Remove Public Access Permissions:**
+   If the bucket policy allows public access, you need to remove or modify the policy to restrict public access. You can use the following command to delete the existing bucket policy:
+   ```sh
+   aws s3api delete-bucket-policy --bucket <bucket-name>
+   ```
+
+4. **Enable Block Public Access:**
+   Ensure that the bucket has public access blocked. This can be done by enabling the block public access settings:
+   ```sh
+   aws s3api put-public-access-block --bucket <bucket-name> --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+   ```
+
+By following these steps, you can prevent CloudTrail logging buckets from being publicly accessible using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent CloudTrail logging buckets from being publicly accessible in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for S3 and CloudTrail.
+   ```python
+   import boto3
+
+   s3_client = boto3.client('s3')
+   cloudtrail_client = boto3.client('cloudtrail')
+   ```
+
+3. **Retrieve CloudTrail Logging Buckets**:
+   Retrieve the S3 bucket names used for CloudTrail logging.
+   ```python
+   def get_cloudtrail_buckets():
+       trails = cloudtrail_client.describe_trails()
+       bucket_names = set()
+       for trail in trails['trailList']:
+           bucket_names.add(trail['S3BucketName'])
+       return bucket_names
+
+   cloudtrail_buckets = get_cloudtrail_buckets()
+   ```
+
+4. **Check and Update Bucket Policies**:
+   Check the bucket policies and update them to ensure they are not publicly accessible.
+   ```python
+   def ensure_bucket_not_public(bucket_name):
+       try:
+           bucket_policy = s3_client.get_bucket_policy(Bucket=bucket_name)
+           policy = json.loads(bucket_policy['Policy'])
+           # Check for public access statements and remove them
+           new_statements = []
+           for statement in policy['Statement']:
+               if statement['Effect'] == 'Allow' and 'Principal' in statement and statement['Principal'] == '*':
+                   continue  # Skip public access statements
+               new_statements.append(statement)
+           policy['Statement'] = new_statements
+           s3_client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
+       except s3_client.exceptions.NoSuchBucketPolicy:
+           # No policy exists, nothing to do
+           pass
+
+   for bucket in cloudtrail_buckets:
+       ensure_bucket_not_public(bucket)
+   ```
+
+This script ensures that the S3 buckets used for CloudTrail logging are not publicly accessible by checking and updating their bucket policies.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon S3 console at https://console.aws.amazon.com/s3/.
+
+2. In the Bucket name list, choose the name of the bucket that you want to check.
+
+3. Choose the Permissions tab.
+
+4. Under the Block public access (bucket settings) section, check if the settings are turned on. If any of the settings are turned off, it means that the bucket is publicly accessible. 
+
+Note: This is a basic check. For a more thorough check, you should also review the bucket policy and Access Control List (ACL).
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the S3 buckets in your AWS account. You can do this by using the AWS CLI command `aws s3api list-buckets`. This command will return a list of all the S3 buckets in your account.
+
+2. Next, you need to identify the bucket that is used for CloudTrail logging. You can do this by using the AWS CLI command `aws cloudtrail describe-trails`. This command will return a list of all the CloudTrail trails in your account, including the S3 bucket that each trail logs to.
+
+3. Once you have identified the S3 bucket used for CloudTrail logging, you can check its access control list (ACL) to see if it is publicly accessible. You can do this by using the AWS CLI command `aws s3api get-bucket-acl --bucket bucket-name`. Replace "bucket-name" with the name of your CloudTrail logging bucket. This command will return the ACL for the bucket. If the ACL includes the group `http://acs.amazonaws.com/groups/global/AllUsers` or `http://acs.amazonaws.com/groups/global/AuthenticatedUsers` with permissions `READ` or `WRITE`, then the bucket is publicly accessible.
+
+4. Additionally, you can check the bucket policy to see if it allows public access. You can do this by using the AWS CLI command `aws s3api get-bucket-policy --bucket bucket-name`. Replace "bucket-name" with the name of your CloudTrail logging bucket. This command will return the bucket policy. If the policy includes a statement with the principal `*` (which represents all users) and allows the actions `s3:GetObject` or `s3:ListBucket`, then the bucket is publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary AWS SDK for Python (Boto3) modules and initialize a client for AWS S3 and CloudTrail:
+
+```python
+import boto3
+s3 = boto3.client('s3')
+cloudtrail = boto3.client('cloudtrail')
+```
+
+2. Get a list of all CloudTrail trails and their respective S3 bucket names:
+
+```python
+trails = cloudtrail.describe_trails()
+bucket_names = [trail['S3BucketName'] for trail in trails['trailList']]
+```
+
+3. For each bucket, get the bucket policy and check if it allows public access:
+
+```python
+for bucket_name in bucket_names:
+    bucket_policy = s3.get_bucket_policy(Bucket=bucket_name)
+    is_public = any(statement['Principal'] == '*' for statement in bucket_policy['Policy']['Statement'])
+    if is_public:
+        print(f'Bucket {bucket_name} is publicly accessible.')
+```
+
+4. If the bucket is publicly accessible, the script will print a message indicating this. If no such message is printed for a bucket, it is not publicly accessible.
+
+Please note that this script only checks if the bucket policy allows public access. There are other ways a bucket can be made publicly accessible, such as through the bucket's ACLs or through a public access block configuration. To fully ensure a bucket is not publicly accessible, you would need to check these as well.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
