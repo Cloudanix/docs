@@ -23,6 +23,283 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent AWS SES (Simple Email Service) identities from being exposed in SES using the AWS Management Console, follow these steps:
+
+1. **Navigate to SES Dashboard:**
+   - Sign in to the AWS Management Console.
+   - Open the SES console by searching for "SES" in the services search bar and selecting "Simple Email Service."
+
+2. **Review Verified Identities:**
+   - In the SES console, click on "Verified identities" in the left-hand navigation pane.
+   - Review the list of verified email addresses and domains to ensure that only necessary and authorized identities are listed.
+
+3. **Configure Identity Policies:**
+   - Select an identity (email address or domain) from the list.
+   - Click on the "Identity policies" tab.
+   - Ensure that the policies associated with the identity are restrictive and only allow necessary actions. Avoid overly permissive policies that could expose the identity.
+
+4. **Enable DKIM and SPF:**
+   - For each verified domain, ensure that DomainKeys Identified Mail (DKIM) and Sender Policy Framework (SPF) are enabled and properly configured.
+   - This can be done by selecting the domain, clicking on "DKIM" and "SPF" tabs, and following the instructions to add the necessary DNS records to your domain's DNS settings.
+
+By following these steps, you can help ensure that your SES identities are not exposed and are properly secured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent AWS SES identities from being exposed in SES using AWS CLI, you can follow these steps:
+
+1. **Create a New SES Identity with Proper Permissions:**
+   Ensure that you create SES identities (email addresses or domains) with the appropriate permissions and policies. Use the following command to create a new verified email identity:
+   ```sh
+   aws ses verify-email-identity --email-address your-email@example.com
+   ```
+
+2. **Set Up SES Sending Authorization Policies:**
+   Configure sending authorization policies to control who can send emails on behalf of your SES identities. Use the following command to attach a policy to an identity:
+   ```sh
+   aws ses put-identity-policy --identity your-email@example.com --policy-name MyPolicy --policy '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Principal": {
+           "AWS": "arn:aws:iam::123456789012:root"
+         },
+         "Action": "ses:SendEmail",
+         "Resource": "arn:aws:ses:us-east-1:123456789012:identity/your-email@example.com"
+       }
+     ]
+   }'
+   ```
+
+3. **Enable DKIM for Email Identities:**
+   Enable DomainKeys Identified Mail (DKIM) for your email identities to ensure email integrity and authenticity. Use the following command to enable DKIM for a domain:
+   ```sh
+   aws ses set-identity-dkim-enabled --identity your-domain.com --dkim-enabled
+   ```
+
+4. **Use IAM Roles and Policies for Access Control:**
+   Ensure that you use IAM roles and policies to restrict access to SES resources. Create a policy that grants the necessary permissions and attach it to the appropriate IAM role or user. For example:
+   ```sh
+   aws iam create-policy --policy-name SESAccessPolicy --policy-document '{
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "ses:SendEmail",
+           "ses:SendRawEmail"
+         ],
+         "Resource": "arn:aws:ses:us-east-1:123456789012:identity/your-email@example.com"
+       }
+     ]
+   }'
+   ```
+
+By following these steps, you can prevent AWS SES identities from being exposed and ensure that only authorized entities can send emails using your SES identities.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent AWS SES (Simple Email Service) identities from being exposed, you can use the AWS SDK for Python (Boto3) to manage and configure SES identities securely. Here are the steps to prevent SES identities from being exposed:
+
+### 1. **Set Up Boto3 and AWS Credentials**
+
+First, ensure you have Boto3 installed and configured with your AWS credentials.
+
+```bash
+pip install boto3
+```
+
+Configure your AWS credentials using the AWS CLI or by setting environment variables.
+
+### 2. **Create a Python Script to Manage SES Identities**
+
+Below is a Python script that demonstrates how to manage SES identities securely:
+
+```python
+import boto3
+
+# Initialize a session using Amazon SES
+ses_client = boto3.client('ses', region_name='us-east-1')
+
+# Function to create a new verified email identity
+def create_verified_email_identity(email):
+    response = ses_client.verify_email_identity(
+        EmailAddress=email
+    )
+    print(f"Verification email sent to {email}. Response: {response}")
+
+# Function to list all verified email identities
+def list_verified_email_identities():
+    response = ses_client.list_identities(
+        IdentityType='EmailAddress'
+    )
+    print("Verified email identities:")
+    for identity in response['Identities']:
+        print(identity)
+
+# Function to delete an email identity
+def delete_email_identity(email):
+    response = ses_client.delete_identity(
+        Identity=email
+    )
+    print(f"Deleted email identity: {email}. Response: {response}")
+
+# Example usage
+if __name__ == "__main__":
+    email_to_verify = "example@example.com"
+    create_verified_email_identity(email_to_verify)
+    list_verified_email_identities()
+    delete_email_identity(email_to_verify)
+```
+
+### 3. **Use IAM Policies to Restrict Access**
+
+Ensure that only authorized users and roles have permissions to manage SES identities. Create an IAM policy that restricts access to SES actions and attach it to the appropriate IAM users or roles.
+
+Example IAM policy:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ses:VerifyEmailIdentity",
+                "ses:ListIdentities",
+                "ses:DeleteIdentity"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+### 4. **Monitor and Audit SES Identity Usage**
+
+Regularly monitor and audit the usage of SES identities to ensure they are not being exposed or misused. You can use AWS CloudTrail to log and monitor SES API calls.
+
+Example of enabling CloudTrail logging for SES:
+
+```python
+import boto3
+
+# Initialize a session using CloudTrail
+cloudtrail_client = boto3.client('cloudtrail', region_name='us-east-1')
+
+# Create a new trail
+response = cloudtrail_client.create_trail(
+    Name='SESIdentityTrail',
+    S3BucketName='your-s3-bucket-name',
+    IncludeGlobalServiceEvents=True,
+    IsMultiRegionTrail=True
+)
+
+# Start logging
+cloudtrail_client.start_logging(
+    Name='SESIdentityTrail'
+)
+
+print("CloudTrail logging started for SES identity management.")
+```
+
+By following these steps, you can prevent AWS SES identities from being exposed and ensure they are managed securely using Python scripts and AWS best practices.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon SES console at https://console.aws.amazon.com/ses/.
+
+2. In the navigation pane, under Identity Management, choose "Identities". This will display a list of all identities (email addresses and domains) that you have verified with Amazon SES.
+
+3. Check the list of identities for any that should not be exposed. This could include personal email addresses, sensitive business domains, or any other identities that should not be publicly accessible.
+
+4. For each identity, you can click on it to view more details. Under the "Identity Policies" section, you can view the policy document to see who has permissions to send emails from this identity. If the policy is too permissive (for example, if it allows "Everyone" to send emails), this could be a sign of misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all SES identities: Once your AWS CLI is set up, you can list all the SES identities in your account by running the following command:
+   ```
+   aws ses list-identities
+   ```
+   This command will return a list of all identities (email addresses and domains) that are associated with your AWS account.
+
+3. Get identity policies: For each identity, you can get the policy associated with it by running the following command:
+   ```
+   aws ses get-identity-policies --identity "identity-name"
+   ```
+   Replace "identity-name" with the name of the identity you want to check. This command will return the policy document associated with the specified identity.
+
+4. Check the policy: The policy document returned in the previous step will contain information about who has what permissions for the specified identity. You need to manually check this policy to see if it exposes the identity to the public. If the policy allows actions from a principal that is set to "*", this means the identity is exposed to the public.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can do this by running the command `pip install boto3` in your terminal.
+
+2. Import the necessary modules and establish a session with AWS using your credentials. Here's a basic setup:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'  # or any other region you prefer
+)
+```
+
+3. Now, create a client for the SES service:
+
+```python
+ses_client = session.client('ses')
+```
+
+4. Use the `list_identities()` method to retrieve all identities (email addresses and domains) associated with your AWS account. Then, check if any of these identities are exposed:
+
+```python
+def check_ses_identities_exposure():
+    response = ses_client.list_identities()
+    identities = response['Identities']
+    
+    for identity in identities:
+        attributes = ses_client.get_identity_attributes(Identity=identity)
+        if 'ForwardingEnabled' in attributes['Attributes']:
+            if attributes['Attributes']['ForwardingEnabled'] == 'true':
+                print(f"Identity {identity} is exposed.")
+                
+check_ses_identities_exposure()
+```
+
+This script will print out all identities that have forwarding enabled, which means they are potentially exposed. Note that you'll need to replace `'YOUR_ACCESS_KEY'` and `'YOUR_SECRET_KEY'` with your actual AWS access key and secret key.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
