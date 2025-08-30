@@ -1,6 +1,104 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the RDS dashboard. 
+
+2. In the navigation pane, choose "Databases". This will display a list of all your RDS instances.
+
+3. Select the RDS instance you want to check. In the instance details section, look for the "Monitoring" tab.
+
+4. In the Monitoring tab, check the "CPU Utilization" and "Database Connections" metrics. If the CPU Utilization is consistently low (near 0%) and there are no database connections over a prolonged period, the RDS instance might be idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all RDS instances: Use the following AWS CLI command to list all the RDS instances in your AWS account:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]'
+   ```
+
+   This command will return a list of all RDS instances in your AWS account.
+
+3. Check the connection count: For each RDS instance, you can check the number of connections to it using the following AWS CLI command:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/RDS --metric-name DatabaseConnections --dimensions Name=DBInstanceIdentifier,Value=<DBInstanceIdentifier> --start-time <start-time> --end-time <end-time> --period 3600 --statistics Maximum
+   ```
+
+   Replace `<DBInstanceIdentifier>` with the identifier of the RDS instance you want to check, and `<start-time>` and `<end-time>` with the time period you want to check. This command will return the maximum number of connections to the RDS instance during the specified time period.
+
+4. Analyze the results: If the maximum number of connections to an RDS instance is consistently low (or zero) over a long period of time, it indicates that the RDS instance is idle. You can then decide whether to keep it running or stop it to save costs.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries: You will need the boto3 library, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. 
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+```
+
+2. Create a session using your AWS credentials. You can configure credentials in several ways. You can load them from a .aws/credentials file, or from environment variables. 
+
+```python
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+3. Create a client for RDS and get the list of all RDS instances.
+
+```python
+rds = session.client('rds')
+try:
+    response = rds.describe_db_instances()
+except ClientError as e:
+    print("Error in getting RDS instances: ", e)
+```
+
+4. Check the CPUUtilization and DatabaseConnections CloudWatch metrics for each RDS instance. If these metrics are consistently low over a significant period of time, the RDS instance might be idle. 
+
+```python
+cloudwatch = session.client('cloudwatch')
+
+for instance in response['DBInstances']:
+    instance_id = instance['DBInstanceIdentifier']
+    metrics = ['CPUUtilization', 'DatabaseConnections']
+    for metric in metrics:
+        response = cloudwatch.get_metric_statistics(
+            Namespace='AWS/RDS',
+            MetricName=metric,
+            Dimensions=[
+                {
+                    'Name': 'DBInstanceIdentifier',
+                    'Value': instance_id
+                },
+            ],
+            StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+            EndTime=datetime.datetime.utcnow(),
+            Period=60,
+            Statistics=['Average'],
+        )
+        if response['Datapoints']:
+            avg_metric = response['Datapoints'][0]['Average']
+            if avg_metric < 1:
+                print(f"RDS instance {instance_id} might be idle. Average {metric} in the last 10 minutes: {avg_metric}")
+```
+
+This script will print out the IDs of the RDS instances that might be idle. You can adjust the threshold for the metrics and the time period as per your requirements.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
