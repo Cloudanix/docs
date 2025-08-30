@@ -23,6 +23,230 @@ NISTCSF
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent CloudFront distributions from using outdated security policies and ciphers in the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudFront Distributions:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudFront" and select "CloudFront" from the dropdown.
+
+2. **Select the Distribution:**
+   - In the CloudFront dashboard, you will see a list of your distributions.
+   - Click on the ID of the distribution you want to configure.
+
+3. **Edit Distribution Settings:**
+   - In the distribution settings, go to the "General" tab.
+   - Click on the "Edit" button to modify the distribution settings.
+
+4. **Configure Security Policy:**
+   - Scroll down to the "SSL/TLS Settings" section.
+   - In the "Security Policy" dropdown, select a security policy that uses appropriate versions and ciphers (e.g., TLSv1.2_2018 or TLSv1.2_2019).
+   - Click "Yes, Edit" to save the changes.
+
+By following these steps, you ensure that your CloudFront distributions use up-to-date security policies and ciphers, enhancing the security of your content delivery.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent CloudFront distributions from using outdated security policies and ciphers, you can configure the distribution to use a more secure SSL/TLS policy using the AWS CLI. Here are the steps:
+
+1. **List Existing CloudFront Distributions:**
+   First, identify the CloudFront distribution you want to update by listing all distributions.
+   ```sh
+   aws cloudfront list-distributions
+   ```
+
+2. **Get the Current Configuration:**
+   Retrieve the current configuration of the specific CloudFront distribution. Replace `DISTRIBUTION_ID` with your actual distribution ID.
+   ```sh
+   aws cloudfront get-distribution-config --id DISTRIBUTION_ID
+   ```
+
+3. **Update the Distribution Configuration:**
+   Modify the distribution configuration to use a more secure SSL/TLS policy. You will need to update the `ViewerCertificate` section of the configuration. Here is an example of how to set it to use the `TLSv1.2_2018` policy:
+   ```sh
+   aws cloudfront update-distribution --id DISTRIBUTION_ID --if-match E2QWRUHAPOMQZL --distribution-config file://distribution-config.json
+   ```
+   Ensure that your `distribution-config.json` file includes the following in the `ViewerCertificate` section:
+   ```json
+   {
+     "ViewerCertificate": {
+       "SSLSupportMethod": "sni-only",
+       "MinimumProtocolVersion": "TLSv1.2_2018",
+       "CertificateSource": "acm"
+     }
+   }
+   ```
+   Replace `E2QWRUHAPOMQZL` with the `ETag` value obtained from the `get-distribution-config` command.
+
+4. **Verify the Update:**
+   Confirm that the distribution has been updated with the new security policy.
+   ```sh
+   aws cloudfront get-distribution --id DISTRIBUTION_ID
+   ```
+
+By following these steps, you can ensure that your CloudFront distributions use appropriate security policies and ciphers to enhance security.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent CloudFront distributions from using insecure security policies, you can use the AWS SDK for Python (Boto3) to ensure that your CloudFront distributions are configured with appropriate security policies and ciphers. Below are the steps to achieve this:
+
+### Step 1: Install Boto3
+Ensure you have Boto3 installed in your Python environment. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client for CloudFront:
+```python
+import boto3
+
+client = boto3.client('cloudfront')
+```
+
+### Step 3: Define the Secure Security Policy
+Define the security policy that you want to enforce. For example, you might want to use `TLSv1.2_2018` which is a more secure policy:
+```python
+secure_policy = 'TLSv1.2_2018'
+```
+
+### Step 4: Update CloudFront Distributions
+Fetch the list of CloudFront distributions and update their security policies if they do not match the desired secure policy:
+```python
+def update_security_policy(distribution_id, secure_policy):
+    # Get the current distribution configuration
+    response = client.get_distribution_config(Id=distribution_id)
+    config = response['DistributionConfig']
+    etag = response['ETag']
+    
+    # Check and update the security policy
+    if config['ViewerCertificate']['MinimumProtocolVersion'] != secure_policy:
+        config['ViewerCertificate']['MinimumProtocolVersion'] = secure_policy
+        
+        # Update the distribution with the new configuration
+        client.update_distribution(
+            DistributionConfig=config,
+            Id=distribution_id,
+            IfMatch=etag
+        )
+        print(f"Updated distribution {distribution_id} to use security policy {secure_policy}")
+    else:
+        print(f"Distribution {distribution_id} already uses the secure policy {secure_policy}")
+
+# List all distributions and update their security policies
+distributions = client.list_distributions()
+for distribution in distributions['DistributionList']['Items']:
+    update_security_policy(distribution['Id'], secure_policy)
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed in your Python environment.
+2. **Initialize Boto3 Client**: Initialize the Boto3 client for CloudFront.
+3. **Define Secure Policy**: Define the secure security policy you want to enforce.
+4. **Update Distributions**: Fetch and update CloudFront distributions to use the secure policy.
+
+This script will ensure that all your CloudFront distributions are using the specified secure security policy, thereby preventing misconfigurations related to security policies and ciphers.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the CloudFront console at https://console.aws.amazon.com/cloudfront/.
+
+2. In the CloudFront console, click on the ID of the distribution that you want to check.
+
+3. In the distribution settings, click on the "Behaviors" tab.
+
+4. In the Behaviors settings, look for the "SSL Protocol" field. This field indicates the security policy that the CloudFront distribution is using. The security policy determines the SSL/TLS protocol that CloudFront uses to communicate with viewers, and the cipher that CloudFront uses to encrypt the content that it returns to viewers. 
+
+Note: The security policy should be set to TLSv1.1_2016 or later, and the cipher should be set to ECDHE-ECDSA-AES128-GCM-SHA256 or stronger to ensure that the CloudFront distribution is using a security policy with an appropriate version and ciphers.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List CloudFront Distributions: Use the AWS CLI command "list-distributions" to get a list of all the CloudFront distributions in your AWS account. The command is as follows:
+   ```
+   aws cloudfront list-distributions
+   ```
+   This command will return a JSON output with details of all the CloudFront distributions.
+
+3. Extract the ViewerCertificate details: From the JSON output, you can extract the details of the ViewerCertificate for each CloudFront distribution. This can be done using the 'jq' command-line JSON processor. The command is as follows:
+   ```
+   aws cloudfront list-distributions | jq -r '.DistributionList.Items[].ViewerCertificate'
+   ```
+   This command will return the details of the ViewerCertificate for each CloudFront distribution, which includes the SSL certificate information.
+
+4. Check the Security Policy: From the ViewerCertificate details, you can check the value of the 'MinimumProtocolVersion' field. This field indicates the security policy of the CloudFront distribution. If the value of this field is not 'TLSv1.2_2018' or 'TLSv1.2_2019', then the CloudFront distribution is using a security policy with inappropriate version and ciphers. The command to check the 'MinimumProtocolVersion' field is as follows:
+   ```
+   aws cloudfront list-distributions | jq -r '.DistributionList.Items[].ViewerCertificate.MinimumProtocolVersion'
+   ```
+   This command will return the value of the 'MinimumProtocolVersion' field for each CloudFront distribution.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, make sure you have the necessary Python libraries installed. You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can set your credentials via the AWS CLI, or by manually creating the files yourself. The default location for the file is `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+
+   ```bash
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Create a Python script: Now, you can create a Python script that uses the boto3 library to interact with the AWS CloudFront service. The script will list all your CloudFront distributions and check their security policies.
+
+   ```python
+   import boto3
+
+   client = boto3.client('cloudfront')
+
+   response = client.list_distributions()
+
+   for distribution in response['DistributionList']['Items']:
+       viewer_certificate = distribution['ViewerCertificate']
+       if 'MinimumProtocolVersion' not in viewer_certificate or viewer_certificate['MinimumProtocolVersion'] != 'TLSv1.2_2018':
+           print(f"Distribution {distribution['Id']} is using outdated or insecure TLS version")
+       if 'SSLSupportMethod' not in viewer_certificate or viewer_certificate['SSLSupportMethod'] != 'sni-only':
+           print(f"Distribution {distribution['Id']} is not using SNI for certificate delivery")
+   ```
+
+4. Run the Python script: Finally, you can run the Python script. It will print out the IDs of the CloudFront distributions that are using outdated or insecure TLS versions or are not using SNI for certificate delivery. If no such distributions are found, it will not print anything.
+
+   ```bash
+   python check_cloudfront_security.py
+   ```
+   
+This script will help you identify misconfigurations in your CloudFront distributions' security policies. However, it's important to note that this is a basic script and might need to be adjusted based on your specific needs and environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

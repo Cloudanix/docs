@@ -23,6 +23,262 @@ HITRUST, SOC2, NISTCSF, PCIDSS
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of not having HTTPS enabled on CloudFront distributions using the AWS Management Console, follow these steps:
+
+1. **Navigate to CloudFront Distributions:**
+   - Open the AWS Management Console.
+   - In the search bar, type "CloudFront" and select "CloudFront" from the dropdown list.
+   - This will take you to the CloudFront dashboard where you can see all your distributions.
+
+2. **Select the Distribution:**
+   - In the CloudFront dashboard, locate the distribution you want to configure.
+   - Click on the ID of the distribution to open its settings.
+
+3. **Edit Distribution Settings:**
+   - In the distribution settings, go to the "Behaviors" tab.
+   - Click on the "Edit" button next to the default behavior or any other behavior you want to configure.
+
+4. **Enable HTTPS:**
+   - In the behavior settings, find the "Viewer Protocol Policy" section.
+   - Select "Redirect HTTP to HTTPS" or "HTTPS Only" from the dropdown menu.
+   - Scroll down and click the "Yes, Edit" button to save your changes.
+
+By following these steps, you ensure that your CloudFront distribution enforces HTTPS, thereby enhancing the security of your content delivery.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of not having HTTPS enabled on CloudFront distributions using AWS CLI, follow these steps:
+
+1. **Create or Update CloudFront Distribution with HTTPS Only:**
+   Ensure that your CloudFront distribution is configured to use HTTPS by setting the `ViewerProtocolPolicy` to `redirect-to-https` or `https-only`.
+
+   ```sh
+   aws cloudfront create-distribution --distribution-config file://distribution-config.json
+   ```
+
+   or if updating an existing distribution:
+
+   ```sh
+   aws cloudfront update-distribution --id <DISTRIBUTION_ID> --distribution-config file://distribution-config.json
+   ```
+
+   In your `distribution-config.json`, ensure the `ViewerProtocolPolicy` is set correctly:
+
+   ```json
+   {
+     "ViewerCertificate": {
+       "CloudFrontDefaultCertificate": true,
+       "MinimumProtocolVersion": "TLSv1.2_2018"
+     },
+     "DefaultCacheBehavior": {
+       "ViewerProtocolPolicy": "redirect-to-https"
+     }
+   }
+   ```
+
+2. **Set Up Custom SSL Certificate:**
+   If you are using a custom domain, ensure you have an SSL certificate from AWS Certificate Manager (ACM) and associate it with your CloudFront distribution.
+
+   ```sh
+   aws cloudfront update-distribution --id <DISTRIBUTION_ID> --distribution-config file://distribution-config.json
+   ```
+
+   In your `distribution-config.json`, include the `ACMCertificateArn`:
+
+   ```json
+   {
+     "ViewerCertificate": {
+       "ACMCertificateArn": "arn:aws:acm:region:account-id:certificate/certificate-id",
+       "SSLSupportMethod": "sni-only",
+       "MinimumProtocolVersion": "TLSv1.2_2018"
+     }
+   }
+   ```
+
+3. **Ensure All Cache Behaviors Use HTTPS:**
+   Make sure all cache behaviors in your distribution are set to use HTTPS.
+
+   ```sh
+   aws cloudfront update-distribution --id <DISTRIBUTION_ID> --distribution-config file://distribution-config.json
+   ```
+
+   In your `distribution-config.json`, for each cache behavior, set `ViewerProtocolPolicy` to `redirect-to-https` or `https-only`:
+
+   ```json
+   {
+     "CacheBehaviors": [
+       {
+         "PathPattern": "/path",
+         "ViewerProtocolPolicy": "redirect-to-https"
+       }
+     ]
+   }
+   ```
+
+4. **Verify Distribution Configuration:**
+   After making changes, verify the configuration to ensure HTTPS is enabled.
+
+   ```sh
+   aws cloudfront get-distribution-config --id <DISTRIBUTION_ID>
+   ```
+
+   Check the output to confirm that `ViewerProtocolPolicy` is set to `redirect-to-https` or `https-only` and that the `ViewerCertificate` is properly configured.
+
+By following these steps, you can ensure that HTTPS is enabled on your CloudFront distributions using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of not having HTTPS enabled on CloudFront distributions using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed. If not, install it using pip:
+     ```bash
+     pip install boto3
+     ```
+
+2. **Create a Boto3 Session:**
+   - Initialize a session with your AWS credentials.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ```
+
+3. **Retrieve and Update CloudFront Distribution Configurations:**
+   - Fetch the current configuration of your CloudFront distribution.
+   - Modify the configuration to ensure HTTPS is enabled.
+   ```python
+   client = session.client('cloudfront')
+
+   distribution_id = 'YOUR_DISTRIBUTION_ID'
+
+   # Get the current distribution configuration
+   response = client.get_distribution_config(Id=distribution_id)
+   config = response['DistributionConfig']
+   etag = response['ETag']
+
+   # Ensure HTTPS is enabled
+   for origin in config['Origins']['Items']:
+       if 'CustomOriginConfig' in origin:
+           origin['CustomOriginConfig']['OriginProtocolPolicy'] = 'https-only'
+       elif 'S3OriginConfig' in origin:
+           origin['S3OriginConfig']['OriginProtocolPolicy'] = 'https-only'
+
+   # Update the distribution with the new configuration
+   client.update_distribution(
+       DistributionConfig=config,
+       Id=distribution_id,
+       IfMatch=etag
+   )
+   ```
+
+4. **Verify the Changes:**
+   - Optionally, you can verify that the changes have been applied correctly by fetching the distribution configuration again and checking the `OriginProtocolPolicy`.
+   ```python
+   response = client.get_distribution_config(Id=distribution_id)
+   config = response['DistributionConfig']
+
+   for origin in config['Origins']['Items']:
+       print(f"Origin ID: {origin['Id']}, Protocol Policy: {origin['CustomOriginConfig']['OriginProtocolPolicy'] if 'CustomOriginConfig' in origin else origin['S3OriginConfig']['OriginProtocolPolicy']}")
+   ```
+
+By following these steps, you can ensure that HTTPS is enabled on your CloudFront distributions using a Python script.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the CloudFront service. You can find this by typing 'CloudFront' into the search bar at the top of the console.
+3. In the CloudFront console, you will see a list of your CloudFront distributions. Click on the ID of the distribution you want to check.
+4. In the distribution settings, click on the 'Behaviors' tab. Here, you can see the 'Viewer Protocol Policy'. If it is set to 'HTTP and HTTPS', 'Redirect HTTP to HTTPS', or 'HTTPS Only', then HTTPS is enabled. If it is set to 'HTTP Only', then HTTPS is not enabled.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all CloudFront distributions: Use the following AWS CLI command to list all the CloudFront distributions in your AWS account:
+
+   ```
+   aws cloudfront list-distributions --query 'DistributionList.Items[*].Id' --output text
+   ```
+   This command will return a list of IDs for all your CloudFront distributions.
+
+3. Check HTTPS configuration for each distribution: For each distribution ID returned by the previous command, run the following command to check its HTTPS configuration:
+
+   ```
+   aws cloudfront get-distribution-config --id <distribution-id>
+   ```
+   Replace `<distribution-id>` with the actual ID of your CloudFront distribution. This command will return the configuration details of the specified distribution.
+
+4. Check the ViewerProtocolPolicy: In the output of the previous command, look for the `ViewerProtocolPolicy` field under `DefaultCacheBehavior`. If the value of this field is `allow-all`, it means that both HTTP and HTTPS are enabled on the distribution. If the value is `https-only`, it means that only HTTPS is enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3). You will need to set up your AWS credentials and AWS region to use Boto3. You can install Boto3 using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create a CloudFront client and retrieve all distributions:
+
+```python
+cf = session.client('cloudfront')
+distributions = cf.list_distributions()
+```
+
+4. Iterate over each distribution and check if HTTPS is enabled:
+
+```python
+for distribution in distributions['DistributionList']['Items']:
+    if 'ViewerCertificate' in distribution and 'MinimumProtocolVersion' in distribution['ViewerCertificate']:
+        if distribution['ViewerCertificate']['MinimumProtocolVersion'] != 'TLSv1.2_2018':
+            print(f"CloudFront distribution {distribution['Id']} does not have HTTPS enabled.")
+```
+
+This script will print out the IDs of all CloudFront distributions that do not have HTTPS enabled. The 'MinimumProtocolVersion' attribute is used to determine if HTTPS is enabled, as it specifies the minimum SSL/TLS protocol that can be used to access the content. If it's not set to 'TLSv1.2_2018' or higher, then HTTPS is not enabled.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
