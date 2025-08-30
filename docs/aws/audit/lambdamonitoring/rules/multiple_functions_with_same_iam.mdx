@@ -23,6 +23,243 @@ SOC2
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent multiple AWS Lambda functions from having the same IAM role using the AWS Management Console, follow these steps:
+
+1. **Review Existing IAM Roles:**
+   - Navigate to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Under the "Roles" section, review the existing IAM roles to understand their permissions and which Lambda functions are using them.
+
+2. **Create Unique IAM Roles for Each Lambda Function:**
+   - For each Lambda function, create a unique IAM role with the specific permissions required for that function.
+   - Go to the "Roles" section in IAM, click "Create role," and follow the prompts to create a new role with the necessary permissions.
+
+3. **Assign Unique IAM Roles to Lambda Functions:**
+   - Navigate to the Lambda service in the AWS Management Console.
+   - Select a Lambda function, go to the "Configuration" tab, and then to the "Permissions" section.
+   - Click "Edit" and assign the newly created unique IAM role to the Lambda function.
+
+4. **Regularly Audit IAM Role Assignments:**
+   - Periodically review the IAM roles assigned to Lambda functions to ensure that each function has a unique role.
+   - Use the AWS Config service to set up rules that check for compliance with this best practice and alert you if multiple functions are found to be using the same IAM role.
+
+By following these steps, you can ensure that each Lambda function has a unique IAM role, thereby reducing the risk of privilege escalation and improving the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent multiple AWS Lambda functions from having the same IAM role using AWS CLI, follow these steps:
+
+1. **Create Unique IAM Roles for Each Lambda Function:**
+   Ensure that each Lambda function has a unique IAM role with the necessary permissions. Use the `aws iam create-role` command to create a new IAM role for each Lambda function.
+
+   ```sh
+   aws iam create-role --role-name UniqueLambdaRole1 --assume-role-policy-document file://trust-policy.json
+   aws iam create-role --role-name UniqueLambdaRole2 --assume-role-policy-document file://trust-policy.json
+   ```
+
+2. **Attach Policies to Each IAM Role:**
+   Attach the necessary policies to each IAM role to grant the required permissions. Use the `aws iam attach-role-policy` command.
+
+   ```sh
+   aws iam attach-role-policy --role-name UniqueLambdaRole1 --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+   aws iam attach-role-policy --role-name UniqueLambdaRole2 --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+   ```
+
+3. **Assign Unique IAM Roles to Lambda Functions:**
+   When creating or updating Lambda functions, assign the unique IAM roles to each function using the `aws lambda create-function` or `aws lambda update-function-configuration` commands.
+
+   ```sh
+   aws lambda create-function --function-name MyLambdaFunction1 --runtime python3.8 --role arn:aws:iam::123456789012:role/UniqueLambdaRole1 --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   aws lambda create-function --function-name MyLambdaFunction2 --runtime python3.8 --role arn:aws:iam::123456789012:role/UniqueLambdaRole2 --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+   Or, if updating existing functions:
+
+   ```sh
+   aws lambda update-function-configuration --function-name MyLambdaFunction1 --role arn:aws:iam::123456789012:role/UniqueLambdaRole1
+   aws lambda update-function-configuration --function-name MyLambdaFunction2 --role arn:aws:iam::123456789012:role/UniqueLambdaRole2
+   ```
+
+4. **Verify IAM Role Assignments:**
+   Verify that each Lambda function has a unique IAM role assigned by using the `aws lambda get-function-configuration` command.
+
+   ```sh
+   aws lambda get-function-configuration --function-name MyLambdaFunction1
+   aws lambda get-function-configuration --function-name MyLambdaFunction2
+   ```
+
+   Check the `Role` field in the output to ensure that each function has a different IAM role.
+
+By following these steps, you can ensure that each AWS Lambda function has a unique IAM role, thereby preventing the misconfiguration of multiple functions sharing the same IAM role.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent multiple AWS Lambda functions from having the same IAM role using Python scripts, you can follow these steps:
+
+1. **List All Lambda Functions**:
+   Use the AWS SDK for Python (Boto3) to list all Lambda functions in your account.
+
+2. **Retrieve IAM Role for Each Function**:
+   For each Lambda function, retrieve its associated IAM role.
+
+3. **Check for Duplicate IAM Roles**:
+   Maintain a record of IAM roles and check for duplicates as you iterate through the list of Lambda functions.
+
+4. **Alert or Take Action**:
+   If a duplicate IAM role is found, you can either alert the user or take corrective action, such as assigning a unique IAM role to the function.
+
+Here is a Python script to achieve this:
+
+```python
+import boto3
+from collections import defaultdict
+
+# Initialize a session using Amazon Lambda
+client = boto3.client('lambda')
+
+# List all Lambda functions
+response = client.list_functions()
+
+# Dictionary to store IAM roles and associated functions
+iam_roles = defaultdict(list)
+
+# Iterate through each Lambda function
+for function in response['Functions']:
+    function_name = function['FunctionName']
+    # Get the function configuration to retrieve the IAM role
+    function_config = client.get_function_configuration(FunctionName=function_name)
+    iam_role = function_config['Role']
+    
+    # Store the function name under the IAM role
+    iam_roles[iam_role].append(function_name)
+
+# Check for duplicate IAM roles
+for role, functions in iam_roles.items():
+    if len(functions) > 1:
+        print(f"Warning: The IAM role {role} is used by multiple functions: {functions}")
+
+# Optionally, take corrective action here
+# For example, you could assign a new IAM role to the functions with duplicate roles
+```
+
+### Explanation:
+
+1. **List All Lambda Functions**:
+   - The `list_functions` method from Boto3 is used to retrieve all Lambda functions.
+
+2. **Retrieve IAM Role for Each Function**:
+   - For each function, the `get_function_configuration` method is used to get the IAM role associated with the function.
+
+3. **Check for Duplicate IAM Roles**:
+   - A dictionary (`iam_roles`) is used to map IAM roles to the list of functions using them. If an IAM role is associated with more than one function, it is considered a duplicate.
+
+4. **Alert or Take Action**:
+   - The script prints a warning message if a duplicate IAM role is found. You can extend this part to take corrective actions, such as assigning unique IAM roles to the functions.
+
+This script helps in identifying and preventing the misconfiguration where multiple Lambda functions share the same IAM role.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Lambda service. You can do this by typing "Lambda" into the search bar and selecting "Lambda" from the dropdown menu.
+3. Once you're in the Lambda service, you'll see a list of all your functions. Click on a function to view its details.
+4. In the function's details page, scroll down to the "Execution role" section. Here, you can see the IAM role that's associated with the function. Note down this IAM role.
+5. Repeat steps 3 and 4 for all the functions in your list. If you find that multiple functions are using the same IAM role, then you have detected a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all the Lambda functions in your AWS account. You can do this by using the AWS CLI command `aws lambda list-functions`. This command will return a JSON object with all your Lambda functions.
+
+    ```
+    aws lambda list-functions --region your-region
+    ```
+
+2. Next, you need to extract the IAM role for each Lambda function. You can do this by parsing the JSON object returned by the previous command. Each function's details are stored in a dictionary, and the IAM role can be found under the 'Role' key.
+
+    ```
+    aws lambda list-functions --region your-region --query 'Functions[*].[FunctionName,Role]' --output text
+    ```
+
+3. Now, you need to check if multiple functions are using the same IAM role. You can do this by storing the IAM roles in a list and then checking if any role appears more than once in the list. This can be done using a Python script. Here is a simple script that does this:
+
+    ```python
+    import subprocess
+    import collections
+
+    command = "aws lambda list-functions --region your-region --query 'Functions[*].[FunctionName,Role]' --output text"
+    output = subprocess.check_output(command, shell=True).decode('utf-8').split('\n')
+
+    roles = [line.split('\t')[1] for line in output if line]
+    duplicates = [item for item, count in collections.Counter(roles).items() if count > 1]
+
+    if duplicates:
+        print(f"The following IAM roles are used by multiple Lambda functions: {', '.join(duplicates)}")
+    else:
+        print("No IAM roles are used by multiple Lambda functions.")
+    ```
+
+4. Run the Python script. If there are any IAM roles used by multiple Lambda functions, they will be printed out. If not, a message will be printed saying that no IAM roles are used by multiple Lambda functions.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries and establish a session with AWS using Boto3. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others.
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+2. Create a client for AWS Lambda and IAM. 
+
+```python
+lambda_client = session.client('lambda')
+iam_client = session.client('iam')
+```
+
+3. Get a list of all the Lambda functions and their respective IAM roles. 
+
+```python
+functions = lambda_client.list_functions()['Functions']
+role_dict = {}
+
+for function in functions:
+    role = function['Role']
+    if role not in role_dict:
+        role_dict[role] = [function['FunctionName']]
+    else:
+        role_dict[role].append(function['FunctionName'])
+```
+
+4. Check if any IAM role is associated with more than one Lambda function. If it is, print out the function names and the IAM role.
+
+```python
+for role, functions in role_dict.items():
+    if len(functions) > 1:
+        print(f"IAM Role {role} is associated with multiple Lambda functions: {', '.join(functions)}")
+```
+
+This script will help you identify any IAM roles that are associated with more than one Lambda function, which could be a potential misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,293 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To ensure that your AWS Lambda functions have tags using the AWS Management Console, follow these steps:
+
+1. **Navigate to the Lambda Console:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "Lambda" to go to the Lambda dashboard.
+
+2. **Select the Lambda Function:**
+   - In the Lambda dashboard, you will see a list of your Lambda functions.
+   - Click on the name of the Lambda function you want to tag.
+
+3. **Access the Tags Section:**
+   - Once you are in the function's configuration page, look for the "Tags" tab in the left-hand navigation pane.
+   - Click on the "Tags" tab to open the tags management section.
+
+4. **Add Tags:**
+   - Click on the "Add new tag" button.
+   - Enter the key and value for your tag. For example, you might use `Environment` as the key and `Production` as the value.
+   - Click "Save" to apply the tags to your Lambda function.
+
+By following these steps, you can ensure that your Lambda functions are properly tagged, which helps in organizing, managing, and identifying resources within your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that AWS Lambda functions have tags using the AWS CLI, you can follow these steps:
+
+1. **Create a Tagging Policy:**
+   - Use AWS Organizations to create a Service Control Policy (SCP) that enforces tagging on Lambda functions. This policy can prevent the creation of Lambda functions without the required tags.
+   - Example SCP JSON:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Sid": "RequireTagsOnLambda",
+           "Effect": "Deny",
+           "Action": "lambda:CreateFunction",
+           "Resource": "*",
+           "Condition": {
+             "StringNotEquals": {
+               "aws:RequestTag/Environment": ["Production", "Development"]
+             }
+           }
+         }
+       ]
+     }
+     ```
+   - Apply this SCP to the appropriate Organizational Unit (OU) or account.
+
+2. **Create Lambda Function with Tags:**
+   - When creating a Lambda function, use the `--tags` parameter to add tags.
+   - Example command:
+     ```sh
+     aws lambda create-function \
+       --function-name MyFunction \
+       --runtime python3.8 \
+       --role arn:aws:iam::123456789012:role/execution_role \
+       --handler lambda_function.lambda_handler \
+       --zip-file fileb://function.zip \
+       --tags Environment=Production,Project=MyProject
+     ```
+
+3. **Update Existing Lambda Function with Tags:**
+   - Use the `tag-resource` command to add tags to an existing Lambda function.
+   - Example command:
+     ```sh
+     aws lambda tag-resource \
+       --resource arn:aws:lambda:us-west-2:123456789012:function:MyFunction \
+       --tags Environment=Production,Project=MyProject
+     ```
+
+4. **Automate Tagging with a Script:**
+   - Create a Python script to automate the tagging of Lambda functions.
+   - Example script:
+     ```python
+     import boto3
+
+     def tag_lambda_function(function_name, tags):
+         client = boto3.client('lambda')
+         response = client.tag_resource(
+             Resource=f'arn:aws:lambda:us-west-2:123456789012:function:{function_name}',
+             Tags=tags
+         )
+         return response
+
+     if __name__ == "__main__":
+         function_name = 'MyFunction'
+         tags = {
+             'Environment': 'Production',
+             'Project': 'MyProject'
+         }
+         response = tag_lambda_function(function_name, tags)
+         print(response)
+     ```
+
+By following these steps, you can ensure that your AWS Lambda functions are properly tagged, which helps in managing and organizing your resources effectively.
+</Accordion>
+
+<Accordion title='Using Python'>
+To ensure that AWS Lambda functions have tags using Python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps to prevent Lambda functions from being created without tags:
+
+1. **Set Up Boto3 and AWS Credentials:**
+   Ensure you have Boto3 installed and configured with your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   Configure your AWS credentials:
+
+   ```bash
+   aws configure
+   ```
+
+2. **Create a Python Script to Enforce Tagging:**
+   Write a Python script that checks for tags and enforces tagging when creating a Lambda function.
+
+   ```python
+   import boto3
+   from botocore.exceptions import ClientError
+
+   # Initialize a session using Amazon Lambda
+   session = boto3.Session()
+   lambda_client = session.client('lambda')
+
+   # Define the required tags
+   required_tags = {
+       'Environment': 'Production',
+       'Owner': 'TeamA'
+   }
+
+   def create_lambda_function(function_name, role_arn, handler, code):
+       try:
+           # Create the Lambda function
+           response = lambda_client.create_function(
+               FunctionName=function_name,
+               Runtime='python3.8',
+               Role=role_arn,
+               Handler=handler,
+               Code=code,
+               Tags=required_tags
+           )
+           print(f"Lambda function {function_name} created with tags.")
+           return response
+       except ClientError as e:
+           print(f"Error creating Lambda function: {e}")
+           return None
+
+   # Example usage
+   function_name = 'my_lambda_function'
+   role_arn = 'arn:aws:iam::123456789012:role/execution_role'
+   handler = 'lambda_function.lambda_handler'
+   code = {
+       'ZipFile': b'fileb://path_to_your_zip_file.zip'
+   }
+
+   create_lambda_function(function_name, role_arn, handler, code)
+   ```
+
+3. **Enforce Tagging on Existing Lambda Functions:**
+   Write a script to check existing Lambda functions and add missing tags.
+
+   ```python
+   def enforce_tags_on_existing_functions():
+       try:
+           # List all Lambda functions
+           response = lambda_client.list_functions()
+           functions = response['Functions']
+
+           for function in functions:
+               function_name = function['FunctionName']
+               # Get the current tags
+               current_tags = lambda_client.list_tags(Resource=function['FunctionArn'])['Tags']
+
+               # Check and add missing tags
+               missing_tags = {k: v for k, v in required_tags.items() if k not in current_tags}
+               if missing_tags:
+                   lambda_client.tag_resource(
+                       Resource=function['FunctionArn'],
+                       Tags=missing_tags
+                   )
+                   print(f"Added missing tags to {function_name}: {missing_tags}")
+               else:
+                   print(f"All required tags are present for {function_name}")
+
+       except ClientError as e:
+           print(f"Error enforcing tags on existing Lambda functions: {e}")
+
+   # Enforce tags on existing functions
+   enforce_tags_on_existing_functions()
+   ```
+
+4. **Automate Tagging Enforcement:**
+   Set up a scheduled AWS Lambda function or a CloudWatch rule to periodically run the script to ensure compliance.
+
+   ```python
+   import boto3
+
+   def lambda_handler(event, context):
+       enforce_tags_on_existing_functions()
+
+   # Deploy this function and set up a CloudWatch rule to trigger it periodically
+   ```
+
+By following these steps, you can ensure that all your AWS Lambda functions are created with the required tags and that existing functions are checked and updated accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the AWS Lambda service by typing 'Lambda' into the search bar and selecting 'Lambda' from the dropdown menu.
+3. Once you are in the AWS Lambda console, you will see a list of all your Lambda functions. Click on the name of the function you want to check for tags.
+4. In the function's detail page, scroll down to the 'Tags' section. If there are no tags listed, then the Lambda function does not have any tags.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to list all your Lambda functions. Open your terminal and run the following AWS CLI command:
+
+```bash
+aws lambda list-functions --region your-region
+```
+Replace "your-region" with your actual AWS region. This command will return a list of all your Lambda functions in the specified region.
+
+2. The output will be in JSON format. Each function will have an "FunctionName" field. You can use this field to get more information about each function. 
+
+3. To check if a function has tags, use the following command:
+
+```bash
+aws lambda list-tags --resource your-function-arn
+```
+Replace "your-function-arn" with the actual ARN of your Lambda function. This command will return a list of all tags associated with the specified function.
+
+4. If the output is empty, it means the function doesn't have any tags. If the output contains key-value pairs, these are the tags of your function. Repeat steps 3 and 4 for each function in your list.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. This will allow you to interact with AWS services including Lambda. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+3. Create a client for AWS Lambda:
+
+```python
+lambda_client = session.client('lambda')
+```
+
+4. Now, you can list all your Lambda functions and check if they have tags. If a function doesn't have tags, print its name:
+
+```python
+def check_lambda_tags():
+    functions = lambda_client.list_functions()
+    for function in functions['Functions']:
+        tags = lambda_client.list_tags(Resource=function['FunctionArn'])
+        if not tags['Tags']:
+            print(f"Lambda function {function['FunctionName']} does not have tags.")
+
+check_lambda_tags()
+```
+
+This script will print the names of all Lambda functions that do not have tags. You can run this script regularly to detect any misconfigurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
