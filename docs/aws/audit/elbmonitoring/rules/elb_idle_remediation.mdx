@@ -1,6 +1,85 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+2. In the navigation pane, under LOAD BALANCING, click on Load Balancers.
+3. You will see a list of all your Load Balancers. For each Load Balancer, check the 'Instances' tab in the bottom panel. If there are no instances associated with the Load Balancer, it is considered idle.
+4. Additionally, you can check the 'Monitoring' tab for each Load Balancer. If there is no traffic or very low traffic over a long period of time, the Load Balancer can be considered idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all ELBs: Use the following command to list all the Elastic Load Balancers (ELBs) in your AWS account:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with details about all your ELBs.
+
+3. Check for idle ELBs: An ELB is considered idle if it has no registered instances or if the instances registered to it are not receiving any traffic. You can check the number of registered instances for each ELB with the following command:
+
+   ```
+   aws elbv2 describe-target-health --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Replace `<load-balancer-arn>` with the ARN of your ELB. This command will return a JSON object with details about the health of the targets (instances) registered to your ELB.
+
+4. Check for traffic: You can check the traffic to your ELB by viewing its CloudWatch metrics. Use the following command to list the metrics for your ELB:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/ELB --metric-name RequestCount --dimensions Name=LoadBalancerName,Value=<load-balancer-name> --start-time <start-time> --end-time <end-time> --period 3600 --statistics Sum
+   ```
+
+   Replace `<load-balancer-name>`, `<start-time>`, and `<end-time>` with the name of your ELB and the time period you want to check, respectively. This command will return a JSON object with the sum of the RequestCount metric for each hour in the specified time period. If the sum is 0 for all hours, the ELB is idle.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials. You can use the AWS CLI to configure your credentials.
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 'elbv2' which is used for ELB operations.
+```python
+client = session.client('elbv2')
+```
+
+4. Now, we will describe all the load balancers and check if any of them have no instances attached. If a load balancer has no instances, it is considered idle.
+```python
+def check_idle_elbs(client):
+    response = client.describe_load_balancers()
+    for lb in response['LoadBalancers']:
+        instances_response = client.describe_target_health(
+            TargetGroupArn=lb['TargetGroupArn']
+        )
+        if not instances_response['TargetHealthDescriptions']:
+            print(f"Idle ELB detected: {lb['LoadBalancerName']}")
+
+check_idle_elbs(client)
+```
+This script will print the names of all idle ELBs. If no output is produced, it means there are no idle ELBs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,111 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers. This will display a list of all the Elastic Load Balancers (ELBs) in your account.
+
+3. For each ELB, check the Instances tab in the bottom panel. If there are no instances associated with the ELB, it is unused.
+
+4. Additionally, you can check the CloudWatch metrics for the ELB. If there is no traffic (RequestCount is zero) over a significant period of time, it is likely that the ELB is unused.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all ELBs: Once AWS CLI is set up, you can list all the Elastic Load Balancers (ELBs) in your account by running the following command:
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+   This command will return a JSON object containing details about all the ELBs in your account.
+
+3. Check for unused ELBs: To check if an ELB is unused, you need to check if it has any registered instances. You can do this by running the following command for each ELB:
+   ```
+   aws elbv2 describe-target-health --target-group-arn <TargetGroupArn>
+   ```
+   Replace `<TargetGroupArn>` with the ARN of the target group associated with the ELB. This command will return a JSON object containing details about the health of all targets in the target group. If the `TargetHealthDescriptions` array is empty, the ELB is unused.
+
+4. Automate the process: To automate the process of checking for unused ELBs, you can write a script that loops through all the ELBs in your account and checks if they have any registered instances. Here is a simple Python script that uses the `boto3` library to do this:
+   ```python
+   import boto3
+
+   client = boto3.client('elbv2')
+
+   elbs = client.describe_load_balancers()['LoadBalancers']
+
+   for elb in elbs:
+       target_groups = client.describe_target_groups(LoadBalancerArn=elb['LoadBalancerArn'])['TargetGroups']
+       for tg in target_groups:
+           target_health = client.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
+           if not target_health:
+               print(f"Unused ELB: {elb['LoadBalancerName']}")
+   ```
+   This script will print the names of all unused ELBs in your account.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): To interact with AWS services, you need to install and configure Boto3. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installing boto3, you need to configure it. You can do this by creating a new session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2'
+)
+```
+
+2. List all Elastic Load Balancers (ELBs): Use the `describe_load_balancers` method to list all ELBs in your AWS account:
+
+```python
+elb_client = session.client('elbv2')
+response = elb_client.describe_load_balancers()
+```
+
+3. Check for unused ELBs: For each ELB, use the `describe_target_health` method to check if there are any registered instances. If there are no registered instances, the ELB is unused:
+
+```python
+unused_elbs = []
+for elb in response['LoadBalancers']:
+    target_health_response = elb_client.describe_target_health(
+        TargetGroupArn=elb['TargetGroups'][0]['TargetGroupArn']
+    )
+    if not target_health_response['TargetHealthDescriptions']:
+        unused_elbs.append(elb['LoadBalancerName'])
+```
+
+4. Print or return the list of unused ELBs: If you want to print the list of unused ELBs, you can simply use the `print` function. If you want to return the list from a function, you can use the `return` statement:
+
+```python
+print('Unused ELBs:', unused_elbs)
+```
+
+Please note that this script assumes that you have the necessary permissions to list and describe ELBs in your AWS account. If you don't have these permissions, you need to update your IAM policy accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

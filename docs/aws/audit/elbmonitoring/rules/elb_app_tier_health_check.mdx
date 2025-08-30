@@ -24,6 +24,86 @@ HIPAA
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Load Balancing", click on "Load Balancers".
+3. Select the load balancer you want to check. In the "Description" tab below, find the "Health Check" section.
+4. Check the "Ping Target" field. It should be set to the correct protocol (HTTP or HTTPS) and the path should point to a valid URL that returns a 200 response code. The "Timeout" and "Interval" fields should be set to appropriate values. The "Unhealthy Threshold" should be set to a value that allows enough time for the instance to recover before it is taken out of service, and the "Healthy Threshold" should be set to a value that ensures the instance is stable before it is put back into service.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the available Elastic Load Balancers (ELBs) in your account using the following command:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON output with details of all the ELBs.
+
+3. To check the health check configurations of a specific ELB, you need to know its ARN (Amazon Resource Name). You can find the ARN in the output of the previous command. Once you have the ARN, use the following command to get the health check configurations:
+
+   ```
+   aws elbv2 describe-target-health --target-group-arn <your-target-group-arn>
+   ```
+
+   Replace `<your-target-group-arn>` with the ARN of your ELB. This command will return a JSON output with the health check configurations of the specified ELB.
+
+4. Now, you need to manually inspect the output and check if the right health check configurations are used. The important fields to look for are "HealthCheckPath", "HealthCheckIntervalSeconds", "HealthCheckTimeoutSeconds", and "HealthyThresholdCount". The exact values for these fields depend on your specific requirements, but generally, the health check path should be set to a URL that returns a 200 status code when the application is healthy, the health check interval should be set to a reasonable value to avoid unnecessary health checks, the health check timeout should be less than the health check interval, and the healthy threshold count should be set to a value that avoids flapping.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing the script, you need to install the necessary Python libraries. The AWS SDK for Python (Boto3) allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+   ```bash
+   pip install boto3
+   ```
+
+2. Configure AWS Credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. These can be configured in several ways, but the simplest is to use the AWS CLI:
+
+   ```bash
+   aws configure
+   ```
+
+   You'll be prompted to enter your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+3. Write the Python script: The following Python script uses Boto3 to retrieve all the ELBs in your AWS account and checks if the right health check configurations are used for App-Tier ELBs.
+
+   ```python
+   import boto3
+
+   def check_health_check_configurations():
+       elb = boto3.client('elbv2')
+       elbs = elb.describe_load_balancers()
+       for elb in elbs['LoadBalancers']:
+           if 'app-tier' in elb['LoadBalancerName']:
+               health_check = elb.describe_target_health(TargetGroupArn=elb['TargetGroups'][0]['TargetGroupArn'])
+               if health_check['HealthCheckIntervalSeconds'] != 30 or health_check['HealthCheckPath'] != '/healthcheck':
+                   print(f"ELB {elb['LoadBalancerName']} does not have the right health check configurations.")
+
+   if __name__ == "__main__":
+       check_health_check_configurations()
+   ```
+
+   This script retrieves all the ELBs and checks if the name contains 'app-tier'. If it does, it retrieves the health check configurations and checks if the interval is set to 30 seconds and the path is set to '/healthcheck'. If not, it prints a message indicating that the ELB does not have the right health check configurations.
+
+4. Run the Python script: You can run the Python script using the following command:
+
+   ```bash
+   python check_health_check_configurations.py
+   ```
+
+   This will print out the names of all the App-Tier ELBs that do not have the right health check configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

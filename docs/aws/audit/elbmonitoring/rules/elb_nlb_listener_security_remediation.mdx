@@ -1,6 +1,111 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 Dashboard by selecting "Services" from the top menu and then selecting "EC2" under the "Compute" category.
+3. In the EC2 Dashboard, under the "Load Balancing" section in the left navigation pane, click on "Load Balancers".
+4. In the "Load Balancers" page, select the Network Load Balancer (NLB) that you want to check. In the "Description" tab at the bottom, check the "Listeners" section. If the protocol is "TCP" and the port is "80", it means the NLB is using an insecure configuration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). Use the following command to install AWS CLI:
+
+   ```
+   pip install awscli
+   ```
+
+   After installation, you need to configure it with your AWS account. Use the following command and provide your AWS credentials:
+
+   ```
+   aws configure
+   ```
+
+2. **List all the Load Balancers**: Use the following command to list all the Network Load Balancers (NLBs) in your account:
+
+   ```
+   aws elbv2 describe-load-balancers --query 'LoadBalancers[?Type==`network`].LoadBalancerArn' --output text
+   ```
+
+   This command will list the ARNs of all the NLBs in your account.
+
+3. **Describe Load Balancer Attributes**: For each NLB ARN from the previous step, use the following command to describe its attributes:
+
+   ```
+   aws elbv2 describe-load-balancer-attributes --load-balancer-arn <NLB-ARN>
+   ```
+
+   Replace `<NLB-ARN>` with the ARN of the NLB. This command will list all the attributes of the NLB.
+
+4. **Check for Insecure Configurations**: In the output of the previous command, look for the `access_logs.s3.enabled` and `delete_protection.enabled` attributes. If `access_logs.s3.enabled` is set to `false`, it means that access logs are not enabled for the NLB which is a security risk. If `delete_protection.enabled` is set to `false`, it means that delete protection is not enabled for the NLB which is also a security risk.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if Network Load Balancers (NLBs) have insecure configurations in AWS Elastic Load Balancer using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including Elastic Load Balancer. Here are the steps:
+
+1. **Setup AWS SDK for Python (Boto3):**
+   First, you need to set up Boto3. Install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by setting the following environment variables:
+   ```
+   AWS_ACCESS_KEY_ID = 'your_access_key'
+   AWS_SECRET_ACCESS_KEY = 'your_secret_key'
+   ```
+
+2. **List all NLBs:**
+   Use the `describe_load_balancers()` function to list all NLBs. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('elbv2')
+   response = client.describe_load_balancers()
+
+   for lb in response['LoadBalancers']:
+       if lb['Type'] == 'network':
+           print(lb['LoadBalancerArn'])
+   ```
+   This script will print the ARN of all NLBs.
+
+3. **Check NLB configurations:**
+   For each NLB, use the `describe_load_balancer_attributes()` function to get its attributes. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('elbv2')
+   response = client.describe_load_balancer_attributes(
+       LoadBalancerArn='arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-load-balancer/6d0ecf831eec9f09'
+   )
+
+   for attr in response['Attributes']:
+       print(attr)
+   ```
+   This script will print the attributes of the specified NLB.
+
+4. **Detect insecure configurations:**
+   Analyze the attributes to detect insecure configurations. For example, if the `access_logs.s3.enabled` attribute is set to `false`, it means that access logs are not enabled, which is an insecure configuration. Here's a sample script:
+   ```python
+   import boto3
+
+   client = boto3.client('elbv2')
+   response = client.describe_load_balancer_attributes(
+       LoadBalancerArn='arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/my-load-balancer/6d0ecf831eec9f09'
+   )
+
+   for attr in response['Attributes']:
+       if attr['Key'] == 'access_logs.s3.enabled' and attr['Value'] == 'false':
+           print('Insecure configuration detected: Access logs are not enabled.')
+   ```
+   This script will print a warning message if access logs are not enabled for the specified NLB.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
