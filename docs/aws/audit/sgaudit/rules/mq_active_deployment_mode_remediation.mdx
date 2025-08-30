@@ -1,6 +1,239 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of "MQ Active Has Deployment Mode" in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "VPC" (Virtual Private Cloud).
+   - In the left-hand menu, select "Security Groups."
+
+2. **Review Security Group Rules:**
+   - Select the Security Group you want to review.
+   - Go to the "Inbound rules" and "Outbound rules" tabs to review the existing rules.
+   - Ensure that the rules are configured to allow only the necessary traffic. Remove any overly permissive rules that could expose your MQ service.
+
+3. **Restrict Access:**
+   - Edit the inbound rules to restrict access to only trusted IP addresses or specific VPCs.
+   - For example, if your MQ service should only be accessed from a specific IP range, add a rule that allows access only from that range and remove any broader rules.
+
+4. **Enable Logging and Monitoring:**
+   - Enable VPC Flow Logs to capture information about the IP traffic going to and from network interfaces in your VPC.
+   - Use AWS CloudTrail to monitor API calls and detect any unauthorized changes to your Security Groups.
+
+By following these steps, you can ensure that your Security Groups are configured correctly to prevent unauthorized access to your MQ service.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration of "MQ Active Has Deployment Mode" in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Create a Security Group with Specific Rules:**
+   Ensure that you create a security group with the least privilege principle, allowing only necessary traffic.
+
+   ```sh
+   aws ec2 create-security-group --group-name MySecureGroup --description "My secure group for MQ"
+   ```
+
+2. **Add Inbound Rules to Restrict Access:**
+   Add inbound rules to the security group to restrict access to only trusted IP addresses and necessary ports.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-name MySecureGroup --protocol tcp --port 5671 --cidr <trusted_ip_range>
+   ```
+
+3. **Add Outbound Rules to Restrict Traffic:**
+   Add outbound rules to the security group to restrict traffic to only necessary destinations.
+
+   ```sh
+   aws ec2 authorize-security-group-egress --group-name MySecureGroup --protocol tcp --port 5671 --cidr <trusted_ip_range>
+   ```
+
+4. **Review and Update Security Group Rules Regularly:**
+   Regularly review and update the security group rules to ensure they comply with the least privilege principle and remove any unnecessary rules.
+
+   ```sh
+   aws ec2 describe-security-groups --group-names MySecureGroup
+   ```
+
+By following these steps, you can prevent misconfigurations in your security groups related to MQ Active Deployment Mode using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of "MQ Active Has Deployment Mode" in Security Groups using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Initialize Boto3 Client**
+Initialize the Boto3 client for EC2, which will allow you to interact with Security Groups.
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+
+ec2 = session.client('ec2')
+```
+
+### 3. **Describe Security Groups**
+Fetch the details of all security groups to identify any that might have the "MQ Active Has Deployment Mode" misconfiguration.
+
+```python
+def describe_security_groups():
+    response = ec2.describe_security_groups()
+    return response['SecurityGroups']
+
+security_groups = describe_security_groups()
+```
+
+### 4. **Check and Update Security Groups**
+Iterate through the security groups and check for the specific misconfiguration. If found, update the security group to prevent the misconfiguration.
+
+```python
+def update_security_group(security_group_id):
+    # Example: Remove a specific rule that might be causing the misconfiguration
+    ec2.revoke_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': 'tcp',
+                'FromPort': 5672,  # Example port for MQ
+                'ToPort': 5672,
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            }
+        ]
+    )
+    print(f"Updated security group {security_group_id}")
+
+for sg in security_groups:
+    for permission in sg['IpPermissions']:
+        if permission['IpProtocol'] == 'tcp' and permission['FromPort'] == 5672 and permission['ToPort'] == 5672:
+            for ip_range in permission['IpRanges']:
+                if ip_range['CidrIp'] == '0.0.0.0/0':
+                    update_security_group(sg['GroupId'])
+```
+
+### Summary
+1. **Set Up AWS SDK (Boto3)**: Install and import Boto3.
+2. **Initialize Boto3 Client**: Create a session and initialize the EC2 client.
+3. **Describe Security Groups**: Fetch all security groups.
+4. **Check and Update Security Groups**: Identify misconfigurations and update the security groups to prevent them.
+
+This script will help you prevent the "MQ Active Has Deployment Mode" misconfiguration by ensuring that the security groups do not have overly permissive rules for MQ ports. Adjust the script as needed for your specific requirements and configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon MQ console at https://console.aws.amazon.com/amazon-mq/.
+
+2. In the navigation pane, choose "Broker" to view the list of brokers.
+
+3. Select the broker that you want to check. In the details pane, under "General information", check the "Deployment mode". If it is set to "Active/Standby", then the broker is in a highly available configuration.
+
+4. Additionally, you can check the security groups associated with the broker. In the details pane, under "Network and security", you can see the security groups associated with the broker. If there are any misconfigurations in the security groups, it could affect the availability of the broker.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-security-groups" command to list all the security groups and their details. The command is as follows:
+
+   ```
+   aws ec2 describe-security-groups
+   ```
+
+3. To check the MQ Active Has Deployment Mode, you need to filter the output for the specific security group. You can use the "jq" command-line JSON processor to filter the output. The command is as follows:
+
+   ```
+   aws ec2 describe-security-groups | jq '.SecurityGroups[] | select(.GroupName=="your-security-group-name")'
+   ```
+
+4. If the security group is misconfigured, it will not have the correct settings for the MQ Active Has Deployment Mode. You need to manually check the output for any misconfigurations. The correct configuration should have the "IpPermissions" field set to allow only the necessary traffic and the "IpPermissionsEgress" field set to allow only the necessary outbound traffic.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the necessary Python libraries. For AWS, you need boto3, for Azure, you need azure-mgmt-resource, and for GCP, you need google-cloud-securitycenter. You can install these libraries using pip.
+
+```python
+pip install boto3 azure-mgmt-resource google-cloud-securitycenter
+```
+
+2. Connect to the cloud service: The next step is to connect to the cloud service. Here is how you can do it for each cloud service:
+
+AWS:
+```python
+import boto3
+ec2 = boto3.resource('ec2')
+```
+
+Azure:
+```python
+from azure.mgmt.resource import ResourceManagementClient
+client = ResourceManagementClient(credentials, subscription_id)
+```
+
+GCP:
+```python
+from google.cloud import securitycenter_v1
+client = securitycenter_v1.SecurityCenterClient()
+```
+
+3. Get the security groups: Now, you can get the security groups and check if MQ Active Has Deployment Mode is enabled. Here is how you can do it:
+
+AWS:
+```python
+security_groups = ec2.security_groups.all()
+for group in security_groups:
+    if 'MQ Active Has Deployment Mode' in group.description:
+        print(f"Security group {group.id} has MQ Active Has Deployment Mode enabled.")
+```
+
+Azure:
+```python
+for group in client.security_groups.list():
+    if 'MQ Active Has Deployment Mode' in group.properties.description:
+        print(f"Security group {group.name} has MQ Active Has Deployment Mode enabled.")
+```
+
+GCP:
+```python
+for finding in client.list_findings(request={"parent": parent}):
+    if 'MQ Active Has Deployment Mode' in finding.finding.description:
+        print(f"Finding {finding.name} has MQ Active Has Deployment Mode enabled.")
+```
+
+4. Handle the results: The last step is to handle the results. You can print them, save them to a file, or send them to a monitoring system. It's up to you. Here is an example of how you can print the results:
+
+```python
+print(f"Found {len(results)} security groups with MQ Active Has Deployment Mode enabled.")
+for result in results:
+    print(f" - {result}")
+```
+
+Please note that the above scripts are just examples and might need to be adjusted based on your specific needs and environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,321 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration "MQ Rabbit Has Deployment Mode" in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to Security Groups:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" under the "Compute" section.
+   - In the left-hand menu, select "Security Groups" under the "Network & Security" section.
+
+2. **Review Security Group Rules:**
+   - Select the Security Group associated with your MQ Rabbit deployment.
+   - Click on the "Inbound rules" tab to review the current inbound rules.
+   - Ensure that only necessary ports are open and that the source IP ranges are restricted to trusted IPs.
+
+3. **Modify Inbound Rules:**
+   - If you find any overly permissive rules (e.g., allowing traffic from 0.0.0.0/0), click the "Edit inbound rules" button.
+   - Adjust the rules to restrict access to only the required IP addresses and ports. For example, limit access to the specific IP addresses that need to communicate with your MQ Rabbit instance.
+
+4. **Save Changes:**
+   - After making the necessary adjustments, click the "Save rules" button to apply the changes.
+   - Verify that the updated rules are now in effect and that they align with your security requirements.
+
+By following these steps, you can ensure that your Security Groups are properly configured to prevent unauthorized access to your MQ Rabbit deployment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the misconfiguration "MQ Rabbit Has Deployment Mode" in Security Groups using AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group:**
+   First, identify the security group associated with your MQ Rabbit deployment. You can list all security groups and find the relevant one using the following command:
+   ```sh
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{ID:GroupId,Name:GroupName}"
+   ```
+
+2. **Review Ingress Rules:**
+   Review the current ingress rules for the identified security group to ensure that only necessary ports are open. For example, if your security group ID is `sg-0123456789abcdef0`, use:
+   ```sh
+   aws ec2 describe-security-groups --group-ids sg-0123456789abcdef0 --query "SecurityGroups[*].IpPermissions"
+   ```
+
+3. **Remove Unnecessary Ingress Rules:**
+   If you find any unnecessary ingress rules, remove them. For example, to remove a rule that allows all traffic on port 5672 (default RabbitMQ port), use:
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id sg-0123456789abcdef0 --protocol tcp --port 5672 --cidr 0.0.0.0/0
+   ```
+
+4. **Add Specific Ingress Rules:**
+   Add specific ingress rules to allow only trusted IP addresses or ranges. For example, to allow traffic on port 5672 only from a specific IP address (e.g., `203.0.113.0`), use:
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id sg-0123456789abcdef0 --protocol tcp --port 5672 --cidr 203.0.113.0/32
+   ```
+
+By following these steps, you can ensure that your MQ Rabbit deployment is secured by properly configuring the associated security group using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration "MQ Rabbit Has Deployment Mode" in Security Groups using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3) for AWS:**
+
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create a Python Script to Check and Update Security Groups:**
+
+Here's a Python script to check and update security groups to prevent the misconfiguration:
+
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+ec2 = boto3.client('ec2')
+
+# Function to check and update security groups
+def update_security_groups():
+    # Describe all security groups
+    response = ec2.describe_security_groups()
+    
+    for sg in response['SecurityGroups']:
+        sg_id = sg['GroupId']
+        sg_name = sg['GroupName']
+        
+        # Check if the security group is associated with MQ Rabbit
+        if 'mq-rabbit' in sg_name.lower():
+            print(f"Updating Security Group: {sg_name} ({sg_id})")
+            
+            # Revoke all inbound rules
+            if sg['IpPermissions']:
+                ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=sg['IpPermissions'])
+            
+            # Revoke all outbound rules
+            if sg['IpPermissionsEgress']:
+                ec2.revoke_security_group_egress(GroupId=sg_id, IpPermissions=sg['IpPermissionsEgress'])
+            
+            # Add specific rules as per your security policy
+            # Example: Allow only specific IPs and ports
+            ec2.authorize_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        'IpProtocol': 'tcp',
+                        'FromPort': 5672,
+                        'ToPort': 5672,
+                        'IpRanges': [{'CidrIp': '203.0.113.0/24'}]
+                    }
+                ]
+            )
+            print(f"Security Group {sg_name} ({sg_id}) updated successfully.")
+
+# Run the function
+update_security_groups()
+```
+
+### 3. **Set Up Azure SDK (Azure SDK for Python):**
+
+Ensure you have the Azure SDK for Python installed:
+
+```bash
+pip install azure-mgmt-network
+```
+
+### 4. **Create a Python Script to Check and Update Network Security Groups in Azure:**
+
+Here's a Python script to check and update network security groups in Azure:
+
+```python
+from azure.identity import DefaultAzureCredential
+from azure.mgmt.network import NetworkManagementClient
+
+# Initialize the Azure credentials and client
+credential = DefaultAzureCredential()
+subscription_id = 'your_subscription_id'
+network_client = NetworkManagementClient(credential, subscription_id)
+
+# Function to check and update network security groups
+def update_network_security_groups():
+    nsg_list = network_client.network_security_groups.list_all()
+    
+    for nsg in nsg_list:
+        nsg_name = nsg.name
+        
+        # Check if the NSG is associated with MQ Rabbit
+        if 'mq-rabbit' in nsg_name.lower():
+            print(f"Updating Network Security Group: {nsg_name}")
+            
+            # Remove all security rules
+            nsg.security_rules = []
+            
+            # Add specific rules as per your security policy
+            # Example: Allow only specific IPs and ports
+            nsg.security_rules.append({
+                'name': 'AllowMQRabbit',
+                'properties': {
+                    'protocol': 'Tcp',
+                    'source_port_range': '*',
+                    'destination_port_range': '5672',
+                    'source_address_prefix': '203.0.113.0/24',
+                    'destination_address_prefix': '*',
+                    'access': 'Allow',
+                    'priority': 100,
+                    'direction': 'Inbound'
+                }
+            })
+            
+            # Update the NSG
+            network_client.network_security_groups.create_or_update(
+                'your_resource_group',
+                nsg_name,
+                nsg
+            )
+            print(f"Network Security Group {nsg_name} updated successfully.")
+
+# Run the function
+update_network_security_groups()
+```
+
+### 5. **Set Up GCP SDK (Google Cloud SDK for Python):**
+
+Ensure you have the Google Cloud SDK for Python installed:
+
+```bash
+pip install google-cloud-compute
+```
+
+### 6. **Create a Python Script to Check and Update Firewall Rules in GCP:**
+
+Here's a Python script to check and update firewall rules in GCP:
+
+```python
+from google.cloud import compute_v1
+
+# Initialize the GCP client
+client = compute_v1.FirewallsClient()
+
+# Function to check and update firewall rules
+def update_firewall_rules(project_id):
+    firewall_list = client.list(project=project_id)
+    
+    for firewall in firewall_list:
+        firewall_name = firewall.name
+        
+        # Check if the firewall rule is associated with MQ Rabbit
+        if 'mq-rabbit' in firewall_name.lower():
+            print(f"Updating Firewall Rule: {firewall_name}")
+            
+            # Remove all allowed rules
+            firewall.allowed = []
+            
+            # Add specific rules as per your security policy
+            # Example: Allow only specific IPs and ports
+            firewall.allowed.append({
+                'IPProtocol': 'tcp',
+                'ports': ['5672'],
+                'sourceRanges': ['203.0.113.0/24']
+            })
+            
+            # Update the firewall rule
+            client.update(project=project_id, firewall=firewall_name, firewall_resource=firewall)
+            print(f"Firewall Rule {firewall_name} updated successfully.")
+
+# Run the function
+update_firewall_rules('your_project_id')
+```
+
+These scripts will help you prevent the misconfiguration "MQ Rabbit Has Deployment Mode" by ensuring that only specific, secure rules are applied to the security groups, network security groups, and firewall rules in AWS, Azure, and GCP, respectively.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 Dashboard.
+2. In the left navigation pane, under Network & Security, click on "Security Groups".
+3. In the Security Groups page, you will see a list of all security groups. Find the security group associated with your RabbitMQ deployment.
+4. Check the Inbound and Outbound rules of the security group. If the security group is misconfigured, it may allow unrestricted access (0.0.0.0/0) to the RabbitMQ ports (5672 and 15672). This is a misconfiguration as it exposes the RabbitMQ server to the public internet.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can use the "describe-security-groups" command to list all the security groups in your AWS account. The command is as follows:
+
+   ```
+   aws ec2 describe-security-groups
+   ```
+
+   This command will return a JSON output with details of all the security groups.
+
+3. To check if MQ Rabbit has a deployment mode, you need to look for the security group associated with it. You can filter the security groups using the "query" option in the AWS CLI command. Replace "your-security-group-id" with the ID of your security group:
+
+   ```
+   aws ec2 describe-security-groups --group-ids your-security-group-id
+   ```
+
+4. The output will contain a section named "IpPermissions". This section contains all the inbound rules for the security group. If MQ Rabbit has a deployment mode, there should be an inbound rule allowing traffic on the port that MQ Rabbit uses for deployment mode. You can manually inspect this section to check for the rule. If the rule is not present, then MQ Rabbit does not have a deployment mode.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if MQ Rabbit has a deployment mode in Security Groups using Python scripts, you can use the Boto3 library for AWS. Here are the steps:
+
+1. **Install Boto3**: Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```python
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials**: Before you can start using Boto3, you need to set up authentication credentials for your AWS account using either the AWS CLI or by creating the credentials file yourself. The default location for the file is `~/.aws/credentials`. At the very least, the credentials file should specify the access key and secret access key. To specify these for the `default` profile, you can use the following format:
+   ```python
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. **Create a Python Script to List Security Groups**: You can use the `describe_security_groups` method to retrieve information about the security groups in your AWS environment. Here is a simple script that lists all security groups:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   print(response)
+   ```
+
+4. **Check for MQ Rabbit Deployment Mode**: Now, you need to modify the script to check if the MQ Rabbit has a deployment mode. You can do this by iterating over the security groups and checking the `GroupName` or `GroupId` depending on how you have set up your environment. Here is a simple script that checks if a security group with the name 'MQ_Rabbit_Deployment_Mode' exists:
+   ```python
+   import boto3
+
+   ec2 = boto3.client('ec2')
+
+   response = ec2.describe_security_groups()
+
+   for group in response['SecurityGroups']:
+       if group['GroupName'] == 'MQ_Rabbit_Deployment_Mode':
+           print('MQ Rabbit has a deployment mode in Security Groups')
+           break
+   else:
+       print('MQ Rabbit does not have a deployment mode in Security Groups')
+   ```
+
+Please note that this is a very basic script and might need to be adjusted based on your specific environment and requirements. For example, you might need to handle pagination if you have more than a certain number of security groups.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,220 @@ NIST
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent RDS instances from being publicly accessible in security groups using the AWS Management Console, follow these steps:
+
+1. **Navigate to RDS Dashboard:**
+   - Open the AWS Management Console.
+   - In the search bar, type "RDS" and select "RDS" from the dropdown to go to the RDS Dashboard.
+
+2. **Modify the Security Group:**
+   - In the RDS Dashboard, select "Databases" from the left-hand menu.
+   - Choose the RDS instance you want to modify.
+   - Scroll down to the "Connectivity & security" section and note the security group(s) associated with the instance.
+   - Click on the security group link to open the Amazon EC2 console with the security group selected.
+
+3. **Edit Inbound Rules:**
+   - In the EC2 console, with the security group selected, click on the "Inbound rules" tab.
+   - Click the "Edit inbound rules" button.
+   - Review the inbound rules and ensure that there are no rules allowing traffic from 0.0.0.0/0 (which means all IP addresses). If such a rule exists, modify it to restrict access to specific IP addresses or ranges that require access.
+
+4. **Save Changes:**
+   - After making the necessary changes to the inbound rules, click the "Save rules" button to apply the changes.
+
+By following these steps, you can ensure that your RDS instances are not publicly accessible, thereby enhancing the security of your database instances.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent RDS instances from being publicly accessible in AWS using the AWS CLI, you can follow these steps:
+
+1. **Identify the Security Group associated with the RDS instance:**
+   First, you need to identify the security group that is associated with your RDS instance. You can do this by describing your RDS instances and noting the security group IDs.
+
+   ```sh
+   aws rds describe-db-instances --query 'DBInstances[*].{DBInstanceIdentifier:DBInstanceIdentifier,VpcSecurityGroups:VpcSecurityGroups}'
+   ```
+
+2. **Describe the Security Group Rules:**
+   Next, describe the security group rules to identify any rules that allow public access (i.e., rules that allow access from `0.0.0.0/0`).
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+
+3. **Revoke Inbound Rules Allowing Public Access:**
+   If you find any inbound rules that allow access from `0.0.0.0/0`, you should revoke them. Replace `<security-group-id>` and `<rule-id>` with the appropriate values.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr 0.0.0.0/0
+   ```
+
+4. **Add More Restrictive Inbound Rules:**
+   Add more restrictive inbound rules to allow access only from specific IP addresses or CIDR blocks that you trust. Replace `<security-group-id>`, `<port-number>`, and `<trusted-cidr>` with the appropriate values.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr <trusted-cidr>
+   ```
+
+By following these steps, you can ensure that your RDS instances are not publicly accessible and are only accessible from trusted IP addresses or CIDR blocks.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent RDS instances from being publicly accessible in security groups using Python scripts, you can use the AWS SDK for Python (Boto3). Below are the steps to achieve this:
+
+### 1. Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### 2. Initialize Boto3 Client
+Initialize the Boto3 client for EC2 and RDS services:
+```python
+import boto3
+
+ec2_client = boto3.client('ec2')
+rds_client = boto3.client('rds')
+```
+
+### 3. Identify Publicly Accessible RDS Instances
+Fetch the list of RDS instances and check their security groups for public access:
+```python
+def get_publicly_accessible_rds_instances():
+    rds_instances = rds_client.describe_db_instances()
+    public_rds_instances = []
+
+    for instance in rds_instances['DBInstances']:
+        if instance['PubliclyAccessible']:
+            public_rds_instances.append(instance['DBInstanceIdentifier'])
+
+    return public_rds_instances
+```
+
+### 4. Modify Security Groups to Prevent Public Access
+For each publicly accessible RDS instance, modify its security group to remove public access:
+```python
+def revoke_public_access(security_group_id):
+    # Revoke ingress rules that allow public access (0.0.0.0/0)
+    ec2_client.revoke_security_group_ingress(
+        GroupId=security_group_id,
+        IpPermissions=[
+            {
+                'IpProtocol': '-1',
+                'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+            }
+        ]
+    )
+
+def secure_rds_instances():
+    public_rds_instances = get_publicly_accessible_rds_instances()
+
+    for db_instance_id in public_rds_instances:
+        response = rds_client.describe_db_instances(DBInstanceIdentifier=db_instance_id)
+        security_groups = response['DBInstances'][0]['VpcSecurityGroups']
+
+        for sg in security_groups:
+            revoke_public_access(sg['VpcSecurityGroupId'])
+
+if __name__ == "__main__":
+    secure_rds_instances()
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the Boto3 client for EC2 and RDS.
+3. **Identify Publicly Accessible RDS Instances**: Fetch and identify RDS instances that are publicly accessible.
+4. **Modify Security Groups**: Revoke public access by modifying the security group rules.
+
+This script will help you identify and secure RDS instances that are publicly accessible by modifying their security group rules to prevent public access.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon RDS console at https://console.aws.amazon.com/rds/.
+
+2. In the navigation pane, choose "Databases".
+
+3. Select the RDS instance that you want to check.
+
+4. In the "Connectivity & security" tab, under "Security" section, look for "Public accessibility". If it is set to "Yes", then the RDS instance is publicly accessible.
+
+5. Additionally, you can check the associated security groups. Under the "Security group rules" section, if there are inbound rules that allow all IP addresses (0.0.0.0/0) to access the RDS instance, it indicates that the RDS instance is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the RDS instances.
+
+2. Once the AWS CLI is installed and configured, you can list all the RDS instances using the following command:
+
+   ```
+   aws rds describe-db-instances --query 'DBInstances[*].[DBInstanceIdentifier]' --output text
+   ```
+
+   This command will return a list of all RDS instances.
+
+3. For each RDS instance, you can check the security group settings using the following command:
+
+   ```
+   aws rds describe-db-instances --db-instance-identifier <DBInstanceIdentifier> --query 'DBInstances[*].VpcSecurityGroups[*].VpcSecurityGroupId' --output text
+   ```
+
+   Replace `<DBInstanceIdentifier>` with the actual identifier of the RDS instance. This command will return the security group IDs associated with the RDS instance.
+
+4. For each security group, you can check if it allows public access using the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <SecurityGroupId> --query 'SecurityGroups[*].IpPermissions[*].IpRanges[*].CidrIp' --output text
+   ```
+
+   Replace `<SecurityGroupId>` with the actual ID of the security group. This command will return the IP ranges allowed by the security group. If the returned IP range is `0.0.0.0/0`, it means the security group allows public access.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   First, you need to install and configure AWS SDK for Python (Boto3). You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can configure your credentials either by exporting them directly into your environment or by setting them in the AWS credentials file. 
+
+2. Import necessary libraries and establish a session with AWS:
+   You need to import the Boto3 library and establish a session with AWS. Replace 'your_region' with the region of your AWS resources.
+   ```python
+   import boto3
+   session = boto3.Session(region_name='your_region')
+   ```
+
+3. Create a client for RDS and retrieve all DB instances:
+   You need to create a client for RDS and then retrieve all DB instances. 
+   ```python
+   rds = session.client('rds')
+   response = rds.describe_db_instances()
+   ```
+
+4. Check if RDS instances are publicly accessible:
+   Now, iterate over all DB instances and check if they are publicly accessible. If the 'PubliclyAccessible' attribute is True, then the RDS instance is publicly accessible.
+   ```python
+   for instance in response['DBInstances']:
+       if instance['PubliclyAccessible']:
+           print(f"RDS instance {instance['DBInstanceIdentifier']} is publicly accessible.")
+   ```
+   This script will print the identifiers of all publicly accessible RDS instances.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

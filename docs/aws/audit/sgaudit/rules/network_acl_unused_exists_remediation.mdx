@@ -1,6 +1,220 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent unused Network ACLs in Security Groups using the AWS Management Console, follow these steps:
+
+1. **Identify Unused Network ACLs:**
+   - Navigate to the **VPC Dashboard** in the AWS Management Console.
+   - Select **Network ACLs** from the left-hand menu.
+   - Review the list of Network ACLs and identify any that are not associated with any subnets.
+
+2. **Review Security Group Rules:**
+   - Go to the **EC2 Dashboard**.
+   - Select **Security Groups** from the left-hand menu.
+   - Review the inbound and outbound rules of each security group to ensure they are necessary and correctly configured.
+
+3. **Audit and Document:**
+   - Document the purpose and usage of each Network ACL and Security Group.
+   - Ensure that there is a clear understanding of which Network ACLs are in use and which are not.
+
+4. **Implement a Monitoring Strategy:**
+   - Set up AWS Config rules to monitor Network ACLs and Security Groups.
+   - Use AWS CloudWatch to create alarms for any changes or anomalies in Network ACLs and Security Groups.
+
+By following these steps, you can ensure that unused Network ACLs are identified and managed appropriately, reducing the risk of misconfigurations in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent unused Network ACLs in Security Groups using AWS CLI, you can follow these steps:
+
+1. **List All Network ACLs:**
+   First, identify all the Network ACLs in your VPC. This will help you determine which ones are currently in use and which ones are not.
+   ```sh
+   aws ec2 describe-network-acls --query 'NetworkAcls[*].{ID:NetworkAclId,VPC:VpcId}'
+   ```
+
+2. **List All Security Groups:**
+   Next, list all the security groups to cross-reference which Network ACLs are associated with them.
+   ```sh
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].{ID:GroupId,VPC:VpcId}'
+   ```
+
+3. **Identify Unused Network ACLs:**
+   Compare the list of Network ACLs with the list of security groups to identify any Network ACLs that are not associated with any security groups. This step might require some scripting or manual comparison.
+
+4. **Tag Unused Network ACLs for Review:**
+   Tag the unused Network ACLs for further review or automated cleanup. This helps in tracking and managing them effectively.
+   ```sh
+   aws ec2 create-tags --resources <NetworkAclId> --tags Key=Status,Value=Unused
+   ```
+
+By following these steps, you can systematically identify and tag unused Network ACLs, which can then be reviewed and removed if necessary. This helps in maintaining a clean and efficient network configuration in your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent unused Network ACLs in Security Groups using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK (Boto3) for AWS:**
+
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Identify Unused Network ACLs:**
+
+Create a Python script to identify unused Network ACLs. This script will list all Network ACLs and check if they are associated with any subnets.
+
+```python
+import boto3
+
+def get_unused_network_acls():
+    ec2 = boto3.client('ec2')
+    network_acls = ec2.describe_network_acls()
+    subnets = ec2.describe_subnets()
+
+    used_acl_ids = set()
+    for subnet in subnets['Subnets']:
+        if 'NetworkAclId' in subnet:
+            used_acl_ids.add(subnet['NetworkAclId'])
+
+    unused_acls = []
+    for acl in network_acls['NetworkAcls']:
+        if acl['NetworkAclId'] not in used_acl_ids:
+            unused_acls.append(acl['NetworkAclId'])
+
+    return unused_acls
+
+unused_acls = get_unused_network_acls()
+print("Unused Network ACLs:", unused_acls)
+```
+
+### 3. **Automate the Detection Process:**
+
+Set up a scheduled job (e.g., using AWS Lambda and CloudWatch Events) to run the above script periodically. This will help in continuously monitoring and identifying unused Network ACLs.
+
+### 4. **Notify or Log Unused Network ACLs:**
+
+Integrate the script with a notification system (e.g., AWS SNS) or logging system to alert administrators about unused Network ACLs. Here’s an example of how to send an SNS notification:
+
+```python
+import boto3
+
+def notify_unused_acls(unused_acls):
+    sns = boto3.client('sns')
+    topic_arn = 'arn:aws:sns:your-region:your-account-id:your-topic'
+    
+    message = f"The following Network ACLs are unused: {', '.join(unused_acls)}"
+    sns.publish(
+        TopicArn=topic_arn,
+        Message=message,
+        Subject='Unused Network ACLs Detected'
+    )
+
+unused_acls = get_unused_network_acls()
+if unused_acls:
+    notify_unused_acls(unused_acls)
+```
+
+### Summary:
+
+1. **Set Up AWS SDK (Boto3):** Install and configure Boto3.
+2. **Identify Unused Network ACLs:** Write a script to list and identify unused Network ACLs.
+3. **Automate Detection:** Use AWS Lambda and CloudWatch Events to run the script periodically.
+4. **Notify or Log:** Send notifications or log the unused Network ACLs for further action.
+
+By following these steps, you can effectively prevent the presence of unused Network ACLs in your AWS environment using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the VPC Dashboard by selecting "Services" from the top menu, then choosing "VPC" under the "Networking & Content Delivery" category.
+3. In the VPC Dashboard, select "Network ACLs" from the left-hand menu. This will display a list of all Network Access Control Lists (ACLs) associated with your AWS account.
+4. For each Network ACL, check the "Inbound Rules" and "Outbound Rules" tabs. If there are no rules defined, or if the rules are not associated with any subnets, then the Network ACL is unused and should be removed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the resources.
+
+2. Once the AWS CLI is set up, you can list all the security groups in your AWS account using the following command:
+
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].GroupId' --output text
+   ```
+
+   This command will return a list of all security group IDs.
+
+3. For each security group, you can list the associated network ACLs using the following command:
+
+   ```
+   aws ec2 describe-network-acls --filters Name=group-id,Values=<security-group-id> --query 'NetworkAcls[*].NetworkAclId' --output text
+   ```
+
+   Replace `<security-group-id>` with the ID of the security group. This command will return a list of all network ACL IDs associated with the security group.
+
+4. If a network ACL is not associated with any security group, it is unused and should be removed. You can check this by comparing the list of all network ACLs in your AWS account with the list of network ACLs associated with security groups. If a network ACL is in the first list but not in the second, it is unused.
+
+   To list all network ACLs in your AWS account, use the following command:
+
+   ```
+   aws ec2 describe-network-acls --query 'NetworkAcls[*].NetworkAclId' --output text
+   ```
+
+   This command will return a list of all network ACL IDs. Compare this list with the list of network ACLs associated with security groups to find unused network ACLs.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3) in your local environment. Boto3 allows you to directly create, update, and delete AWS services from your Python scripts.
+
+2. Import the necessary modules and create a session using your AWS credentials.
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Create an EC2 resource object using the AWS SDK for Python (Boto3) and retrieve all the security groups.
+
+```python
+ec2_resource = session.resource('ec2')
+
+try:
+    security_groups = ec2_resource.security_groups.all()
+except ClientError as e:
+    print(f"Unexpected error: {e}")
+```
+
+4. Iterate over each security group and check if there are any unused Network ACLs. If there are, print them out.
+
+```python
+for sg in security_groups:
+    if not sg.ip_permissions and not sg.ip_permissions_egress:
+        print(f"Unused Network ACL detected: {sg.group_id}")
+```
+
+This script will print out the IDs of all security groups that have no inbound or outbound rules, which are considered as unused Network ACLs. Please note that you need to replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS credentials.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

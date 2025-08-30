@@ -1,6 +1,249 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the default security group from being publicly accessible in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Sign in to the AWS Management Console.
+   - In the top navigation bar, select "Services" and then choose "EC2" under the "Compute" section.
+
+2. **Access Security Groups:**
+   - In the left-hand navigation pane, under "Network & Security," click on "Security Groups."
+
+3. **Identify the Default Security Group:**
+   - Locate the default security group for your VPC. The default security group typically has a name like "default" and is associated with your VPC ID.
+
+4. **Modify Inbound Rules:**
+   - Select the default security group by clicking on the checkbox next to it.
+   - Click on the "Actions" button and choose "Edit inbound rules."
+   - Ensure that there are no inbound rules that allow traffic from 0.0.0.0/0 (which means all IP addresses). If such rules exist, modify or remove them to restrict access to specific IP addresses or ranges.
+
+By following these steps, you can ensure that the default security group is not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent the default security group from being publicly accessible in AWS using the AWS CLI, you can follow these steps:
+
+1. **Describe the Default Security Group**:
+   First, identify the default security group in your VPC. You can do this by describing the security groups and filtering by the default group.
+
+   ```sh
+   aws ec2 describe-security-groups --filters Name=group-name,Values=default
+   ```
+
+2. **Revoke Inbound Rules**:
+   Remove any inbound rules that allow public access (e.g., 0.0.0.0/0 for IPv4 or ::/0 for IPv6). This command revokes all inbound rules for the specified security group.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <default-security-group-id> --protocol all --port all --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-ingress --group-id <default-security-group-id> --protocol all --port all --cidr ::/0
+   ```
+
+3. **Revoke Outbound Rules**:
+   Similarly, remove any outbound rules that allow public access. This command revokes all outbound rules for the specified security group.
+
+   ```sh
+   aws ec2 revoke-security-group-egress --group-id <default-security-group-id> --protocol all --port all --cidr 0.0.0.0/0
+   aws ec2 revoke-security-group-egress --group-id <default-security-group-id> --protocol all --port all --cidr ::/0
+   ```
+
+4. **Add Specific Rules**:
+   If necessary, add more restrictive rules that only allow access from specific IP ranges or security groups. For example, to allow SSH access only from a specific IP:
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <default-security-group-id> --protocol tcp --port 22 --cidr <your-ip-address>/32
+   ```
+
+By following these steps, you can ensure that the default security group is not publicly accessible, thereby enhancing the security of your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the default security group from being publicly accessible in AWS, Azure, and GCP using Python scripts, you can follow these steps:
+
+### AWS (using Boto3)
+
+1. **Install Boto3**:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Python script to update the default security group**:
+   ```python
+   import boto3
+
+   def update_default_security_group(region):
+       ec2 = boto3.client('ec2', region_name=region)
+       response = ec2.describe_security_groups(
+           Filters=[{'Name': 'group-name', 'Values': ['default']}]
+       )
+       default_sg_id = response['SecurityGroups'][0]['GroupId']
+
+       # Revoke all inbound rules
+       ec2.revoke_security_group_ingress(GroupId=default_sg_id, IpPermissions=response['SecurityGroups'][0]['IpPermissions'])
+
+       # Revoke all outbound rules
+       ec2.revoke_security_group_egress(GroupId=default_sg_id, IpPermissions=response['SecurityGroups'][0]['IpPermissionsEgress'])
+
+       print(f"Updated default security group {default_sg_id} in region {region}")
+
+   update_default_security_group('us-west-2')  # Replace with your region
+   ```
+
+### Azure (using Azure SDK for Python)
+
+1. **Install Azure SDK**:
+   ```bash
+   pip install azure-mgmt-network azure-identity
+   ```
+
+2. **Create a Python script to update the default security group**:
+   ```python
+   from azure.identity import DefaultAzureCredential
+   from azure.mgmt.network import NetworkManagementClient
+
+   subscription_id = 'your_subscription_id'
+   resource_group_name = 'your_resource_group_name'
+   nsg_name = 'default-nsg-name'  # Replace with your default NSG name
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, subscription_id)
+
+   def update_default_nsg():
+       nsg = network_client.network_security_groups.get(resource_group_name, nsg_name)
+
+       # Remove all security rules
+       nsg.security_rules = []
+
+       network_client.network_security_groups.create_or_update(resource_group_name, nsg_name, nsg)
+       print(f"Updated default NSG {nsg_name} in resource group {resource_group_name}")
+
+   update_default_nsg()
+   ```
+
+### GCP (using Google Cloud Python Client Library)
+
+1. **Install Google Cloud Python Client Library**:
+   ```bash
+   pip install google-cloud-compute
+   ```
+
+2. **Create a Python script to update the default firewall rules**:
+   ```python
+   from google.cloud import compute_v1
+
+   def update_default_firewall(project_id):
+       firewall_client = compute_v1.FirewallsClient()
+       firewalls = firewall_client.list(project=project_id)
+
+       for firewall in firewalls:
+           if firewall.name.startswith('default-allow'):
+               firewall_client.delete(project=project_id, firewall=firewall.name)
+               print(f"Deleted firewall rule {firewall.name}")
+
+   update_default_firewall('your_project_id')  # Replace with your project ID
+   ```
+
+These scripts will help you prevent the default security groups from being publicly accessible by removing all existing rules that might allow public access. Make sure to replace placeholders like `your_subscription_id`, `your_resource_group_name`, `default-nsg-name`, and `your_project_id` with your actual values.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under "NETWORK & SECURITY", click on "Security Groups".
+
+3. In the Security Groups page, look for the security group named "default". This is the default security group that is automatically created when you create a new VPC.
+
+4. Click on the "Inbound Rules" tab to view the inbound rules for the default security group. If there are any rules that allow inbound traffic from 0.0.0.0/0 (which represents all IP addresses), then the default security group is publicly accessible.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can start using it to interact with your AWS resources.
+
+2. To list all the security groups in your AWS account, use the following command:
+
+   ```
+   aws ec2 describe-security-groups --query 'SecurityGroups[*].[GroupId,GroupName]' --output text
+   ```
+   This command will return a list of all security groups along with their GroupId and GroupName.
+
+3. To check the inbound rules of a specific security group, use the following command:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]' --output text
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
+
+4. To check if the security group is publicly accessible, look for rules that allow traffic from '0.0.0.0/0' or '::/0'. These CIDR blocks represent all possible IPv4 and IPv6 addresses, respectively. If a security group has an inbound rule that allows traffic from these CIDR blocks, it is publicly accessible.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, you need to install the necessary Python libraries. You will need the boto3 library for AWS, azure-mgmt-network for Azure, and google-cloud-securitycenter for GCP. You can install these libraries using pip:
+
+   ```python
+   pip install boto3 azure-mgmt-network google-cloud-securitycenter
+   ```
+
+2. AWS: Use the boto3 library to check the default security group. Here is a sample script:
+
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+   security_group = ec2.SecurityGroup('default')
+
+   for permission in security_group.ip_permissions:
+       for ip_range in permission['IpRanges']:
+           if ip_range['CidrIp'] == '0.0.0.0/0':
+               print("Default security group is publicly accessible")
+   ```
+
+3. Azure: Use the azure-mgmt-network library to check the default security group. Here is a sample script:
+
+   ```python
+   from azure.mgmt.network import NetworkManagementClient
+   from azure.identity import DefaultAzureCredential
+
+   credential = DefaultAzureCredential()
+   network_client = NetworkManagementClient(credential, '<subscription_id>')
+
+   for sg in network_client.network_security_groups.list_all():
+       if sg.name == 'default':
+           for rule in sg.security_rules:
+               if rule.destination_address_prefix == '*':
+                   print("Default security group is publicly accessible")
+   ```
+
+4. GCP: Use the google-cloud-securitycenter library to check the default security group. Here is a sample script:
+
+   ```python
+   from google.cloud import securitycenter_v1
+
+   client = securitycenter_v1.SecurityCenterClient()
+
+   org_name = client.organization_path('<organization_id>')
+   finding_result_iterator = client.list_findings(org_name, filter_='security_group="default"')
+
+   for finding_result in finding_result_iterator:
+       if finding_result.finding.source_properties['publicly_accessible'] == 'true':
+           print("Default security group is publicly accessible")
+   ```
+   
+Please replace `<subscription_id>` and `<organization_id>` with your actual Azure subscription ID and GCP organization ID respectively.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
