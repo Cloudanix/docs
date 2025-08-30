@@ -23,6 +23,105 @@ CISAWSF, PCI, GDPR, APRA, MAS, NIST4, CISAWS, CBP, SOC2, HIPAA, ISO27001, HITRUS
 ### Triage and Remediation
 
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the CloudWatch console at https://console.aws.amazon.com/cloudwatch/.
+
+2. In the navigation pane, click on "Alarms" and then "Create Alarm".
+
+3. In the "Create Alarm" wizard, select "Select metric". Under the "AWS Namespaces" section, select "CloudTrail" and then "Event count". 
+
+4. Configure the alarm properties. Under "Conditions", set the "Threshold type" to "Static". For "Whenever: CloudTrail Event count", set "is" to "Greater/Equal" and ": than" to "1". Under "Additional configuration", set "Datapoints to alarm" to "1 out of 1". This will trigger the alarm if any single data point is above the threshold. 
+
+Note: This alarm will only trigger if AWS CloudTrail is configured to log console sign-in events and if MFA is not used for sign-in.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. Use the following AWS CLI command to list all the users in your AWS account:
+
+   ```
+   aws iam list-users
+   ```
+
+   This command will return a list of all the users in your AWS account.
+
+3. For each user, you need to check if they have MFA enabled. You can do this by using the following AWS CLI command:
+
+   ```
+   aws iam list-mfa-devices --user-name <username>
+   ```
+
+   Replace `<username>` with the name of the user. This command will return a list of all the MFA devices associated with the user. If the list is empty, it means that the user does not have MFA enabled.
+
+4. To monitor AWS Console Sign In Without MFA, you can use AWS CloudWatch. You can create a CloudWatch alarm that triggers whenever a user signs in without MFA. You can do this by using the following AWS CLI command:
+
+   ```
+   aws cloudwatch put-metric-alarm --alarm-name "SignInWithoutMFA" --metric-name "ConsoleSignInsWithoutMFA" --namespace "AWS/SignIn" --statistic "SampleCount" --period 300 --threshold 1 --comparison-operator "GreaterThanOrEqualToThreshold" --evaluation-periods 1 --alarm-actions <arn-of-sns-topic>
+   ```
+
+   Replace `<arn-of-sns-topic>` with the ARN of the SNS topic where you want to receive the alarm notifications. This command will create a CloudWatch alarm that triggers whenever a user signs in without MFA.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Set up AWS SDK and Boto3 in Python Environment:**
+   First, you need to set up your Python environment with AWS SDK and Boto3. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+   After installing, configure your AWS credentials either by setting up environment variables or by using the AWS CLI.
+
+2. **Import Necessary Libraries and Establish a CloudWatch Client:**
+   Import the necessary libraries and establish a connection to AWS CloudWatch. Here's a basic example:
+   ```python
+   import boto3
+
+   # Create CloudWatch client
+   cloudwatch = boto3.client('cloudwatch')
+   ```
+
+3. **Create a Metric Filter:**
+   You need to create a metric filter in CloudWatch logs that matches the event of a console sign-in without MFA. The filter pattern for this event is `{ $.eventName = "ConsoleLogin" && $.additionalEventData.MFAUsed = "No" }`. Here's how you can create a metric filter using Boto3:
+   ```python
+   response = cloudwatch.put_metric_filter(
+       logGroupName='log_group_name',
+       filterName='ConsoleSignInWithoutMFA',
+       filterPattern='{ $.eventName = "ConsoleLogin" && $.additionalEventData.MFAUsed = "No" }',
+       metricTransformations=[
+           {
+               'metricName': 'ConsoleSignInWithoutMFA',
+               'metricNamespace': 'YourNamespace',
+               'metricValue': '1'
+           },
+       ]
+   )
+   ```
+   Replace `'log_group_name'` with the name of your CloudTrail log group, and `'YourNamespace'` with a namespace for your metric.
+
+4. **Check the Metric Data:**
+   Now, you can check the metric data to detect if there has been a console sign-in without MFA. Here's how you can do it:
+   ```python
+   response = cloudwatch.get_metric_statistics(
+       Namespace='YourNamespace',
+       MetricName='ConsoleSignInWithoutMFA',
+       StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+       EndTime=datetime.datetime.utcnow(),
+       Period=60,
+       Statistics=[
+           'SampleCount',
+       ]
+   )
+   ```
+   This will return the number of console sign-ins without MFA in the last 10 minutes. If the 'SampleCount' is greater than 0, it means there has been a console sign-in without MFA.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
