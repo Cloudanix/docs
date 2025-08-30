@@ -24,6 +24,237 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent having idle Elastic Load Balancers (ELBs) in AWS using the AWS Management Console, follow these steps:
+
+1. **Regular Monitoring:**
+   - Navigate to the **EC2 Dashboard** in the AWS Management Console.
+   - Select **Load Balancers** from the left-hand menu.
+   - Regularly check the **Monitoring** tab for each ELB to review metrics such as `RequestCount` and `HealthyHostCount`. Ensure that the ELB is actively handling traffic and has healthy instances associated with it.
+
+2. **Set Up CloudWatch Alarms:**
+   - Go to the **CloudWatch** service in the AWS Management Console.
+   - Create alarms for key ELB metrics like `RequestCount` and `UnHealthyHostCount`.
+   - Configure these alarms to notify you if the ELB has low or zero traffic over a specified period, indicating potential idleness.
+
+3. **Automate Idle ELB Detection:**
+   - Use AWS Config to create a rule that checks for idle ELBs.
+   - Navigate to the **AWS Config** service.
+   - Create a new rule with the **custom rule** option, specifying conditions that identify idle ELBs (e.g., no traffic for a certain period).
+
+4. **Tagging and Resource Management:**
+   - Implement a tagging strategy for your ELBs to categorize them by environment, application, or owner.
+   - Regularly review and audit these tags to ensure that all ELBs are necessary and actively used.
+   - Use the **Resource Groups** feature to filter and manage ELBs based on tags, making it easier to identify and review potentially idle resources.
+
+By following these steps, you can proactively monitor and manage your ELBs to prevent idle instances from persisting in your AWS environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent having idle Elastic Load Balancers (ELBs) in AWS using the AWS CLI, you can follow these steps:
+
+1. **List All Load Balancers:**
+   First, you need to list all the load balancers in your account to identify which ones are currently active and which ones might be idle.
+   ```sh
+   aws elb describe-load-balancers --query 'LoadBalancerDescriptions[*].LoadBalancerName'
+   ```
+
+2. **Check Load Balancer Metrics:**
+   For each load balancer, check the CloudWatch metrics to determine if they are receiving any traffic. You can use the `get-metric-statistics` command to fetch metrics like `RequestCount`.
+   ```sh
+   aws cloudwatch get-metric-statistics --namespace AWS/ELB --metric-name RequestCount --dimensions Name=LoadBalancerName,Value=<LoadBalancerName> --start-time <StartTime> --end-time <EndTime> --period 3600 --statistics Sum
+   ```
+
+3. **Tagging Load Balancers:**
+   Tag your load balancers with metadata that can help you identify their purpose and usage. This can help in future audits and automated scripts to identify idle resources.
+   ```sh
+   aws elb add-tags --load-balancer-names <LoadBalancerName> --tags Key=Environment,Value=Production Key=Owner,Value=TeamA
+   ```
+
+4. **Automate Monitoring:**
+   Set up a CloudWatch alarm to monitor the `RequestCount` metric for each load balancer. If the `RequestCount` is zero for a prolonged period, trigger an alert or an automated action.
+   ```sh
+   aws cloudwatch put-metric-alarm --alarm-name "IdleELBAlarm-<LoadBalancerName>" --metric-name RequestCount --namespace AWS/ELB --statistic Sum --period 3600 --threshold 1 --comparison-operator LessThanThreshold --dimensions Name=LoadBalancerName,Value=<LoadBalancerName> --evaluation-periods 24 --alarm-actions <SNS_Topic_ARN>
+   ```
+
+By following these steps, you can proactively monitor and manage your ELBs to ensure that no idle load balancers are present in your AWS environment.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent idle Elastic Load Balancers (ELBs) in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to achieve this:
+
+### Step 1: Install Boto3
+First, ensure you have Boto3 installed. You can install it using pip if you haven't already:
+```bash
+pip install boto3
+```
+
+### Step 2: Initialize Boto3 Client
+Initialize the Boto3 client for ELB:
+```python
+import boto3
+
+# Initialize a session using Amazon EC2
+session = boto3.Session(
+    aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+    aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+    region_name='YOUR_AWS_REGION'
+)
+
+# Initialize the ELB client
+elb_client = session.client('elb')
+```
+
+### Step 3: List All ELBs and Check for Idle ELBs
+Fetch all ELBs and check if they are idle (i.e., have no instances attached):
+```python
+def get_idle_elbs(elb_client):
+    idle_elbs = []
+    response = elb_client.describe_load_balancers()
+    
+    for elb in response['LoadBalancerDescriptions']:
+        if not elb['Instances']:
+            idle_elbs.append(elb['LoadBalancerName'])
+    
+    return idle_elbs
+
+idle_elbs = get_idle_elbs(elb_client)
+print(f"Idle ELBs: {idle_elbs}")
+```
+
+### Step 4: Prevent Creation of Idle ELBs
+To prevent the creation of idle ELBs, you can implement a check before creating an ELB to ensure that instances are specified. Here is an example function to create an ELB only if instances are provided:
+```python
+def create_elb_with_instances(elb_client, elb_name, instances, listeners, availability_zones):
+    if not instances:
+        raise ValueError("Cannot create an ELB without instances.")
+    
+    response = elb_client.create_load_balancer(
+        LoadBalancerName=elb_name,
+        Listeners=listeners,
+        AvailabilityZones=availability_zones,
+        Instances=instances
+    )
+    
+    return response
+
+# Example usage
+try:
+    response = create_elb_with_instances(
+        elb_client,
+        elb_name='my-new-elb',
+        instances=[{'InstanceId': 'i-1234567890abcdef0'}],  # Replace with actual instance IDs
+        listeners=[
+            {
+                'Protocol': 'HTTP',
+                'LoadBalancerPort': 80,
+                'InstanceProtocol': 'HTTP',
+                'InstancePort': 80
+            }
+        ],
+        availability_zones=['us-west-2a']
+    )
+    print("ELB created successfully:", response)
+except ValueError as e:
+    print(e)
+```
+
+### Summary
+1. **Install Boto3**: Ensure Boto3 is installed.
+2. **Initialize Boto3 Client**: Set up the Boto3 client for ELB.
+3. **List All ELBs and Check for Idle ELBs**: Identify idle ELBs by checking if they have no instances attached.
+4. **Prevent Creation of Idle ELBs**: Implement a check to ensure instances are specified before creating an ELB.
+
+By following these steps, you can prevent the creation of idle ELBs in AWS using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and open the Amazon EC2 dashboard.
+2. In the navigation pane, under LOAD BALANCING, click on Load Balancers.
+3. You will see a list of all your Load Balancers. For each Load Balancer, check the 'Instances' tab in the bottom panel. If there are no instances associated with the Load Balancer, it is considered idle.
+4. Additionally, you can check the 'Monitoring' tab for each Load Balancer. If there is no traffic or very low traffic over a long period of time, the Load Balancer can be considered idle.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by downloading the appropriate installer from the AWS website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all ELBs: Use the following command to list all the Elastic Load Balancers (ELBs) in your AWS account:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+
+   This command will return a JSON object with details about all your ELBs.
+
+3. Check for idle ELBs: An ELB is considered idle if it has no registered instances or if the instances registered to it are not receiving any traffic. You can check the number of registered instances for each ELB with the following command:
+
+   ```
+   aws elbv2 describe-target-health --load-balancer-arn <load-balancer-arn>
+   ```
+
+   Replace `<load-balancer-arn>` with the ARN of your ELB. This command will return a JSON object with details about the health of the targets (instances) registered to your ELB.
+
+4. Check for traffic: You can check the traffic to your ELB by viewing its CloudWatch metrics. Use the following command to list the metrics for your ELB:
+
+   ```
+   aws cloudwatch get-metric-statistics --namespace AWS/ELB --metric-name RequestCount --dimensions Name=LoadBalancerName,Value=<load-balancer-name> --start-time <start-time> --end-time <end-time> --period 3600 --statistics Sum
+   ```
+
+   Replace `<load-balancer-name>`, `<start-time>`, and `<end-time>` with the name of your ELB and the time period you want to check, respectively. This command will return a JSON object with the sum of the RequestCount metric for each hour in the specified time period. If the sum is 0 for all hours, the ELB is idle.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials. You can use the AWS CLI to configure your credentials.
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+3. Now, create a client for 'elbv2' which is used for ELB operations.
+```python
+client = session.client('elbv2')
+```
+
+4. Now, we will describe all the load balancers and check if any of them have no instances attached. If a load balancer has no instances, it is considered idle.
+```python
+def check_idle_elbs(client):
+    response = client.describe_load_balancers()
+    for lb in response['LoadBalancers']:
+        instances_response = client.describe_target_health(
+            TargetGroupArn=lb['TargetGroupArn']
+        )
+        if not instances_response['TargetHealthDescriptions']:
+            print(f"Idle ELB detected: {lb['LoadBalancerName']}")
+
+check_idle_elbs(client)
+```
+This script will print the names of all idle ELBs. If no output is produced, it means there are no idle ELBs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

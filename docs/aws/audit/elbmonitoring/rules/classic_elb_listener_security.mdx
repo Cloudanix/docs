@@ -23,6 +23,241 @@ HIPAA, NIST, AWSWAF, GDPR
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations using the AWS Management Console, follow these steps:
+
+1. **Configure Security Groups:**
+   - Navigate to the EC2 Dashboard in the AWS Management Console.
+   - Select "Load Balancers" from the left-hand menu.
+   - Choose the ELB you want to configure.
+   - Under the "Description" tab, find the "Security Groups" section and click on the security group linked to your ELB.
+   - Ensure that the security group rules only allow necessary traffic (e.g., HTTPS on port 443) and restrict any insecure protocols (e.g., HTTP on port 80).
+
+2. **Enable HTTPS/SSL:**
+   - In the "Listeners" tab of your selected ELB, ensure that you have an HTTPS listener configured.
+   - If not, click on "Add listener" and select "HTTPS" from the dropdown menu.
+   - Configure the SSL certificate by either selecting an existing certificate from AWS Certificate Manager (ACM) or uploading a new one.
+
+3. **Use Secure Cipher Suites:**
+   - Under the "Listeners" tab, click on the "View/edit rules" link for your HTTPS listener.
+   - Ensure that the SSL policy is set to a secure option, such as "ELBSecurityPolicy-2016-08" or a more recent policy.
+   - Avoid using outdated or less secure policies like "ELBSecurityPolicy-2015-05".
+
+4. **Enable Access Logs:**
+   - Go to the "Attributes" tab of your selected ELB.
+   - In the "Access logs" section, click on "Edit attributes".
+   - Enable access logging and specify an S3 bucket to store the logs.
+   - This will help you monitor and audit access to your ELB, ensuring that any insecure configurations can be quickly identified and addressed.
+
+By following these steps, you can ensure that your ELBs are configured securely, reducing the risk of misconfigurations that could lead to security vulnerabilities.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations using AWS CLI, you can follow these steps:
+
+1. **Ensure HTTPS Listener:**
+   Make sure your ELB has an HTTPS listener to encrypt data in transit.
+
+   ```sh
+   aws elb create-load-balancer-listeners --load-balancer-name <your-load-balancer-name> --listeners "Protocol=HTTPS,LoadBalancerPort=443,InstanceProtocol=HTTP,InstancePort=80,SSLCertificateId=<your-certificate-arn>"
+   ```
+
+2. **Configure Security Groups:**
+   Attach a security group to your ELB that allows only necessary traffic (e.g., HTTPS on port 443).
+
+   ```sh
+   aws elb apply-security-groups-to-load-balancer --load-balancer-name <your-load-balancer-name> --security-groups <your-security-group-id>
+   ```
+
+3. **Enable SSL Policy:**
+   Apply a secure SSL policy to your ELB to ensure strong encryption.
+
+   ```sh
+   aws elb set-load-balancer-policies-of-listener --load-balancer-name <your-load-balancer-name> --load-balancer-port 443 --policy-names <your-ssl-policy-name>
+   ```
+
+4. **Enable Access Logs:**
+   Enable access logging for your ELB to monitor and audit traffic.
+
+   ```sh
+   aws elb modify-load-balancer-attributes --load-balancer-name <your-load-balancer-name> --load-balancer-attributes '{"AccessLog":{"Enabled":true,"S3BucketName":"<your-s3-bucket-name>","EmitInterval":5,"S3BucketPrefix":"<your-prefix>"}}'
+   ```
+
+Replace placeholders like `<your-load-balancer-name>`, `<your-certificate-arn>`, `<your-security-group-id>`, `<your-ssl-policy-name>`, and `<your-s3-bucket-name>` with your actual values. These steps will help ensure your ELB is configured securely.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent Elastic Load Balancers (ELBs) from having insecure configurations in AWS using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps to ensure your ELBs are securely configured:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. If not, you can install it using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Session**:
+   Initialize a Boto3 session to interact with AWS services.
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   elb_client = session.client('elbv2')
+   ```
+
+3. **Check and Update ELB Security Groups**:
+   Ensure that the security groups associated with your ELBs do not allow insecure access (e.g., open to the world on port 80). You can update the security groups to allow only secure access (e.g., HTTPS on port 443).
+   ```python
+   def update_security_groups(elb_arn, secure_group_ids):
+       elb_client.modify_load_balancer_attributes(
+           LoadBalancerArn=elb_arn,
+           Attributes=[
+               {
+                   'Key': 'deletion_protection.enabled',
+                   'Value': 'true'
+               },
+           ]
+       )
+       elb_client.set_security_groups(
+           LoadBalancerArn=elb_arn,
+           SecurityGroups=secure_group_ids
+       )
+
+   # Example usage
+   elb_arn = 'arn:aws:elasticloadbalancing:YOUR_REGION:YOUR_ACCOUNT_ID:loadbalancer/app/YOUR_ELB_NAME/YOUR_ELB_ID'
+   secure_group_ids = ['sg-0123456789abcdef0']  # Replace with your secure security group IDs
+   update_security_groups(elb_arn, secure_group_ids)
+   ```
+
+4. **Ensure HTTPS Listeners**:
+   Ensure that your ELBs have HTTPS listeners configured and that HTTP listeners are either removed or redirected to HTTPS.
+   ```python
+   def ensure_https_listener(elb_arn):
+       listeners = elb_client.describe_listeners(LoadBalancerArn=elb_arn)['Listeners']
+       for listener in listeners:
+           if listener['Protocol'] == 'HTTP':
+               # Redirect HTTP to HTTPS
+               elb_client.modify_listener(
+                   ListenerArn=listener['ListenerArn'],
+                   Port=80,
+                   Protocol='HTTP',
+                   DefaultActions=[
+                       {
+                           'Type': 'redirect',
+                           'RedirectConfig': {
+                               'Protocol': 'HTTPS',
+                               'Port': '443',
+                               'StatusCode': 'HTTP_301'
+                           }
+                       }
+                   ]
+               )
+           elif listener['Protocol'] == 'HTTPS':
+               print(f"HTTPS listener already configured for {elb_arn}")
+
+   # Example usage
+   ensure_https_listener(elb_arn)
+   ```
+
+By following these steps, you can ensure that your ELBs are securely configured using Python scripts. This will help prevent insecure configurations and enhance the security of your AWS environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the EC2 Dashboard by selecting "Services" from the top menu and then selecting "EC2" under the "Compute" category.
+3. In the EC2 Dashboard, under the "Load Balancing" section in the left-hand navigation pane, click on "Load Balancers".
+4. In the Load Balancers page, select the load balancer you want to inspect. In the bottom panel, click on the "Listeners" tab. Here, you can see the protocols and ports configured for your load balancer. If the listeners are configured to use insecure protocols like HTTP or SSL, or insecure ciphers, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start, make sure you have AWS CLI installed and configured on your system. You can install it using pip (Python package installer). The command to install AWS CLI is `pip install awscli`. After installing, you can configure it using `aws configure` command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. **List all ELBs**: Use the following AWS CLI command to list all the Elastic Load Balancers (ELBs) in your account:
+
+    ```
+    aws elbv2 describe-load-balancers
+    ```
+
+    This command will return a JSON output with details of all the ELBs.
+
+3. **Check ELB Configurations**: For each ELB, check the configurations related to security. Specifically, you should check the security groups associated with the ELB and the SSL/TLS certificates (if any). You can use the following commands:
+
+    - To describe the security groups for an ELB:
+
+        ```
+        aws elbv2 describe-security-groups --load-balancer-arn <load-balancer-arn>
+        ```
+
+    - To describe the SSL/TLS certificates for an ELB:
+
+        ```
+        aws elbv2 describe-listener-certificates --listener-arn <listener-arn>
+        ```
+
+    Replace `<load-balancer-arn>` and `<listener-arn>` with the ARN of your ELB and listener respectively.
+
+4. **Analyze the Output**: Analyze the output of the above commands to detect any insecure configurations. For example, if the security group allows unrestricted inbound access, it's a security risk. Similarly, if the SSL/TLS certificate is expired or uses weak encryption, it's also a security risk.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you can start writing your Python script, you need to install the necessary libraries. The Boto3 library is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. Set up AWS credentials: You need to configure your AWS credentials. You can do this by creating the credentials file yourself. By default, its location is at `~/.aws/credentials`. At a minimum, the credentials file should look like this:
+
+   ```python
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+
+3. Write a Python script to check ELB configurations: Now you can write a Python script that uses the Boto3 library to interact with AWS and check the configurations of your Elastic Load Balancers (ELBs). Here's an example script that checks if the ELBs are using HTTPS or SSL:
+
+   ```python
+   import boto3
+
+   def check_elb_config():
+       elb = boto3.client('elbv2')
+       elbs = elb.describe_load_balancers()
+       for elb in elbs['LoadBalancers']:
+           listeners = elb.describe_listeners(LoadBalancerArn=elb['LoadBalancerArn'])
+           for listener in listeners['Listeners']:
+               if listener['Protocol'] != 'HTTPS' and listener['Protocol'] != 'SSL':
+                   print(f"Insecure configuration detected: ELB {elb['LoadBalancerName']} is using {listener['Protocol']}")
+
+   if __name__ == "__main__":
+       check_elb_config()
+   ```
+
+4. Run the script: Finally, you can run the script using your Python interpreter. The script will print out the names of any ELBs that are using insecure protocols:
+
+   ```python
+   python check_elb_config.py
+   ```
+
+This script will help you detect if any of your ELBs are misconfigured to use insecure protocols. However, it's important to note that this is just a basic example. Depending on your specific needs, you might need to check for other types of misconfigurations as well.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,212 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent a Classic Load Balancer from having multiple Availability Zones in Elastic Load Balancer using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the navigation pane, choose "EC2" to go to the EC2 Dashboard.
+
+2. **Access Load Balancers:**
+   - In the EC2 Dashboard, scroll down to the "Load Balancing" section.
+   - Click on "Load Balancers" to view all your load balancers.
+
+3. **Select the Classic Load Balancer:**
+   - From the list of load balancers, select the Classic Load Balancer you want to configure.
+   - Click on the "Description" tab to view its details.
+
+4. **Modify Availability Zones:**
+   - In the "Availability Zones" section, click on the "Edit Availability Zones" button.
+   - Deselect the additional Availability Zones to ensure only one Availability Zone is selected.
+   - Click "Save" to apply the changes.
+
+By following these steps, you can ensure that your Classic Load Balancer is configured to use only a single Availability Zone, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent a Classic Load Balancer from having multiple Availability Zones in AWS using the AWS CLI, you can follow these steps:
+
+1. **Describe the Load Balancer**:
+   First, identify the existing Availability Zones for your Classic Load Balancer.
+   ```sh
+   aws elb describe-load-balancers --load-balancer-names <your-load-balancer-name>
+   ```
+
+2. **Disable Cross-Zone Load Balancing**:
+   Ensure that cross-zone load balancing is disabled to prevent traffic from being distributed across multiple Availability Zones.
+   ```sh
+   aws elb modify-load-balancer-attributes --load-balancer-name <your-load-balancer-name> --load-balancer-attributes "{\"CrossZoneLoadBalancing\":{\"Enabled\":false}}"
+   ```
+
+3. **Detach Unwanted Availability Zones**:
+   Remove the unwanted Availability Zones from your Classic Load Balancer.
+   ```sh
+   aws elb disable-availability-zones-for-load-balancer --load-balancer-name <your-load-balancer-name> --availability-zones <unwanted-availability-zone-1> <unwanted-availability-zone-2>
+   ```
+
+4. **Verify Configuration**:
+   Confirm that the Classic Load Balancer is now only associated with the desired Availability Zone.
+   ```sh
+   aws elb describe-load-balancers --load-balancer-names <your-load-balancer-name>
+   ```
+
+By following these steps, you can ensure that your Classic Load Balancer is configured to operate within a single Availability Zone, thereby preventing the misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent a Classic Load Balancer from having multiple Availability Zones in AWS Elastic Load Balancer using Python scripts, you can use the Boto3 library, which is the AWS SDK for Python. Here are the steps:
+
+1. **Install Boto3 Library**:
+   Ensure you have the Boto3 library installed. You can install it using pip if you haven't already:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Initialize Boto3 Client**:
+   Initialize the Boto3 client for Elastic Load Balancing (ELB).
+   ```python
+   import boto3
+
+   elb_client = boto3.client('elb')
+   ```
+
+3. **Describe Load Balancers**:
+   Retrieve the list of all Classic Load Balancers and their associated Availability Zones.
+   ```python
+   def get_load_balancers():
+       response = elb_client.describe_load_balancers()
+       return response['LoadBalancerDescriptions']
+
+   load_balancers = get_load_balancers()
+   ```
+
+4. **Check and Update Availability Zones**:
+   Check if any Classic Load Balancer has multiple Availability Zones and update it to have only one.
+   ```python
+   def update_availability_zones(load_balancer_name, zones_to_keep):
+       elb_client.disable_availability_zones_for_load_balancer(
+           LoadBalancerName=load_balancer_name,
+           AvailabilityZones=zones_to_keep
+       )
+
+   for lb in load_balancers:
+       lb_name = lb['LoadBalancerName']
+       availability_zones = lb['AvailabilityZones']
+       if len(availability_zones) > 1:
+           # Keep only the first availability zone
+           zones_to_keep = [availability_zones[0]]
+           update_availability_zones(lb_name, zones_to_keep)
+           print(f"Updated {lb_name} to use only {zones_to_keep}")
+   ```
+
+This script will ensure that each Classic Load Balancer is configured to use only one Availability Zone, thus preventing the misconfiguration of having multiple Availability Zones.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+
+2. In the navigation pane, under LOAD BALANCING, choose Load Balancers.
+
+3. Select the Classic Load Balancer you want to inspect.
+
+4. In the bottom pane, select the "Availability Zones" tab. Here, you can see the availability zones that your Classic Load Balancer is configured to use.
+
+5. If more than one availability zone is listed, then your Classic Load Balancer is configured to use multiple availability zones.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to provide your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all Classic Load Balancers: Use the following AWS CLI command to list all the Classic Load Balancers in your account:
+
+   ```
+   aws elb describe-load-balancers
+   ```
+   This command will return a JSON output with details about all your Classic Load Balancers.
+
+3. Check Availability Zones: For each Load Balancer, check the "AvailabilityZones" field in the JSON output. This field contains a list of Availability Zones that the Load Balancer is configured to use.
+
+   ```
+   aws elb describe-load-balancers --query 'LoadBalancerDescriptions[*].[LoadBalancerName,AvailabilityZones]'
+   ```
+   This command will return a list of Load Balancer names along with their respective Availability Zones.
+
+4. Detect Misconfiguration: If a Load Balancer is associated with only one Availability Zone, it is a misconfiguration. You can detect this by checking the length of the "AvailabilityZones" list for each Load Balancer. If the length is 1, it means the Load Balancer is associated with only one Availability Zone.
+</Accordion>
+
+<Accordion title='Using Python'>
+To detect if a Classic Load Balancer has multiple Availability Zones in Elastic Load Balancer using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including ELB. Here are the steps:
+
+1. **Install Boto3**: First, you need to install the Boto3 library in your Python environment. You can do this using pip:
+   ```bash
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials**: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can configure them in several ways, but the simplest is to use the AWS CLI:
+   ```bash
+   aws configure
+   ```
+   Then, input your credentials as they are requested.
+
+3. **Create a Python Script**: Now, you can create a Python script that uses Boto3 to interact with ELB. Here's a simple script that lists all Classic Load Balancers and their Availability Zones:
+
+   ```python
+   import boto3
+
+   def list_load_balancers():
+       elb = boto3.client('elb')
+       response = elb.describe_load_balancers()
+       for lb in response['LoadBalancerDescriptions']:
+           print(f"Load Balancer Name: {lb['LoadBalancerName']}")
+           print(f"Availability Zones: {', '.join(lb['AvailabilityZones'])}")
+
+   if __name__ == "__main__":
+       list_load_balancers()
+   ```
+   This script first creates a client for ELB. Then, it calls the `describe_load_balancers` method, which returns a dictionary containing information about all your Classic Load Balancers. The script then iterates over the 'LoadBalancerDescriptions' in the response, printing the name and Availability Zones of each Load Balancer.
+
+4. **Detect Misconfiguration**: To detect if a Classic Load Balancer is misconfigured to have multiple Availability Zones, you can modify the script to print only those Load Balancers that have more than one Availability Zone:
+
+   ```python
+   import boto3
+
+   def list_load_balancers():
+       elb = boto3.client('elb')
+       response = elb.describe_load_balancers()
+       for lb in response['LoadBalancerDescriptions']:
+           if len(lb['AvailabilityZones']) > 1:
+               print(f"Load Balancer Name: {lb['LoadBalancerName']}")
+               print(f"Availability Zones: {', '.join(lb['AvailabilityZones'])}")
+
+   if __name__ == "__main__":
+       list_load_balancers()
+   ```
+   This script will print the name and Availability Zones of any Load Balancer that is configured with more than one Availability Zone.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

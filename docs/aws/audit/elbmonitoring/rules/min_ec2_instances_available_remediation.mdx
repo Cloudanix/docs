@@ -1,6 +1,259 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent the misconfiguration of having fewer than the minimum number of EC2 instances configured for Elastic Load Balancers (ELBs) in AWS using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EC2 Dashboard:**
+   - Open the AWS Management Console.
+   - In the Services menu, select "EC2" to go to the EC2 Dashboard.
+
+2. **Access Load Balancers:**
+   - In the left-hand navigation pane, under "Load Balancing," click on "Load Balancers."
+   - Select the specific load balancer you want to configure.
+
+3. **Check and Configure Target Groups:**
+   - In the load balancer details, go to the "Listeners" tab.
+   - Under the "Listeners" tab, find the "View/edit rules" link and click on it.
+   - Ensure that the target group associated with the listener has the required minimum number of EC2 instances registered.
+
+4. **Auto Scaling Configuration:**
+   - Navigate to the "Auto Scaling Groups" section in the EC2 Dashboard.
+   - Ensure that the Auto Scaling group associated with your target group is configured with a minimum number of instances that meet your requirements.
+   - Adjust the "Desired Capacity" and "Minimum Capacity" settings to ensure that the Auto Scaling group maintains the required number of instances.
+
+By following these steps, you can ensure that your ELBs are always configured with the minimum number of EC2 instances required for optimal performance and reliability.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To ensure that a minimum number of EC2 instances are configured for Elastic Load Balancers (ELBs) using AWS CLI, follow these steps:
+
+1. **Describe Load Balancers:**
+   First, identify the ELBs in your account to understand which ones need to be checked and potentially updated.
+   ```sh
+   aws elb describe-load-balancers
+   ```
+
+2. **Describe Instances for Each ELB:**
+   For each ELB, list the instances currently registered with it. Replace `<load-balancer-name>` with the name of your ELB.
+   ```sh
+   aws elb describe-instance-health --load-balancer-name <load-balancer-name>
+   ```
+
+3. **Register Instances with ELB:**
+   If the number of instances is below the desired minimum, register additional instances with the ELB. Replace `<load-balancer-name>` with the name of your ELB and `<instance-id>` with the ID of the instance you want to add.
+   ```sh
+   aws elb register-instances-with-load-balancer --load-balancer-name <load-balancer-name> --instances <instance-id>
+   ```
+
+4. **Automate Instance Registration:**
+   To ensure that the minimum number of instances is always maintained, consider using an Auto Scaling Group (ASG) with your ELB. This will automatically manage the number of instances. Create or update an ASG and attach it to your ELB. Replace `<auto-scaling-group-name>`, `<launch-configuration-name>`, and `<load-balancer-name>` with your specific names.
+   ```sh
+   aws autoscaling create-auto-scaling-group --auto-scaling-group-name <auto-scaling-group-name> --launch-configuration-name <launch-configuration-name> --min-size <min-instances> --max-size <max-instances> --load-balancer-names <load-balancer-name>
+   ```
+
+By following these steps, you can ensure that your ELBs always have the minimum required number of EC2 instances registered, thereby maintaining high availability and performance.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent the misconfiguration of having fewer than the minimum number of EC2 instances configured for Elastic Load Balancers (ELBs) in AWS using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK (Boto3) and Authentication:**
+   - Install the Boto3 library if you haven't already.
+   - Configure your AWS credentials.
+
+   ```bash
+   pip install boto3
+   ```
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon EC2
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+
+   # Initialize the ELB and EC2 clients
+   elb_client = session.client('elb')
+   ec2_client = session.client('ec2')
+   ```
+
+2. **Retrieve ELB and Associated Instances:**
+   - Fetch the list of all ELBs and their associated instances.
+
+   ```python
+   def get_elb_instances(elb_client):
+       elbs = elb_client.describe_load_balancers()
+       elb_instances = {}
+       for elb in elbs['LoadBalancerDescriptions']:
+           elb_name = elb['LoadBalancerName']
+           instances = elb['Instances']
+           elb_instances[elb_name] = [instance['InstanceId'] for instance in instances]
+       return elb_instances
+
+   elb_instances = get_elb_instances(elb_client)
+   ```
+
+3. **Check the Number of Instances for Each ELB:**
+   - Define the minimum number of instances required and check if each ELB meets this requirement.
+
+   ```python
+   MIN_INSTANCES = 2  # Define your minimum number of instances
+
+   def check_min_instances(elb_instances, min_instances):
+       for elb_name, instances in elb_instances.items():
+           if len(instances) < min_instances:
+               print(f"ELB {elb_name} has less than {min_instances} instances.")
+               # Here you can add logic to handle the misconfiguration
+               # For example, you can trigger an alert or automatically add instances
+               # This example will just print a message
+           else:
+               print(f"ELB {elb_name} meets the minimum instance requirement.")
+
+   check_min_instances(elb_instances, MIN_INSTANCES)
+   ```
+
+4. **Automate Instance Addition (Optional):**
+   - If you want to automatically add instances to the ELB to meet the minimum requirement, you can implement this logic.
+
+   ```python
+   def add_instances_to_elb(elb_client, ec2_client, elb_name, current_instances, min_instances):
+       # Fetch available instances
+       available_instances = ec2_client.describe_instances(
+           Filters=[{'Name': 'instance-state-name', 'Values': ['running']}]
+       )
+       available_instance_ids = [instance['InstanceId'] for reservation in available_instances['Reservations'] for instance in reservation['Instances']]
+
+       # Determine how many instances to add
+       instances_to_add = min_instances - len(current_instances)
+       if instances_to_add > 0:
+           instances_to_add = available_instance_ids[:instances_to_add]
+           elb_client.register_instances_with_load_balancer(
+               LoadBalancerName=elb_name,
+               Instances=[{'InstanceId': instance_id} for instance_id in instances_to_add]
+           )
+           print(f"Added {len(instances_to_add)} instances to ELB {elb_name}.")
+
+   for elb_name, instances in elb_instances.items():
+       if len(instances) < MIN_INSTANCES:
+           add_instances_to_elb(elb_client, ec2_client, elb_name, instances, MIN_INSTANCES)
+   ```
+
+By following these steps, you can ensure that your ELBs always have the minimum number of EC2 instances configured, thus preventing the misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under LOAD BALANCING, click on Load Balancers.
+3. Select the desired load balancer from the list.
+4. Under the Description tab, look for the Instances field. This will show the number of instances that are currently configured for the selected load balancer.
+5. If the number of instances is less than the minimum required (usually 2 for high availability), then it is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all the Load Balancers: Use the following command to list all the Elastic Load Balancers (ELBs) in your AWS account:
+
+   ```
+   aws elbv2 describe-load-balancers
+   ```
+   This command will return a JSON output with details of all the ELBs.
+
+3. Get the details of the instances attached to each ELB: For each ELB, use the following command to get the details of the instances attached to it:
+
+   ```
+   aws elbv2 describe-target-health --target-group-arn <TargetGroupArn>
+   ```
+   Replace `<TargetGroupArn>` with the ARN of the target group associated with the ELB. This command will return a JSON output with details of all the instances attached to the ELB.
+
+4. Count the number of instances: You can then parse the JSON output to count the number of instances attached to each ELB. If the number of instances is less than the minimum required, then it is a misconfiguration. You can use a Python script to automate this process. Here is a simple example:
+
+   ```python
+   import json
+   import subprocess
+
+   # Run the AWS CLI command to get the details of the instances attached to the ELB
+   result = subprocess.run(['aws', 'elbv2', 'describe-target-health', '--target-group-arn', '<TargetGroupArn>'], stdout=subprocess.PIPE)
+
+   # Parse the JSON output
+   data = json.loads(result.stdout)
+
+   # Count the number of instances
+   num_instances = len(data['TargetHealthDescriptions'])
+
+   # Check if the number of instances is less than the minimum required
+   if num_instances < MIN_NUM_INSTANCES:
+       print('Misconfiguration detected: Number of instances is less than the minimum required')
+   ```
+   Replace `<TargetGroupArn>` with the ARN of the target group associated with the ELB, and `MIN_NUM_INSTANCES` with the minimum number of instances required.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary AWS SDK for Python (Boto3) if you haven't done so already. You can install it using pip:
+```python
+pip install boto3
+```
+
+2. Import the necessary modules and create a session using your AWS credentials. Replace 'your_access_key', 'your_secret_key', and 'your_region' with your actual AWS credentials and the region you want to check.
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='your_access_key',
+    aws_secret_access_key='your_secret_key',
+    region_name='your_region'
+)
+```
+
+3. Use the Boto3 client for ELB (Elastic Load Balancer) to describe the load balancers and get the instances attached to each. The following script will print the number of instances attached to each ELB.
+```python
+elb = session.client('elb')
+
+response = elb.describe_load_balancers()
+
+for load_balancer in response['LoadBalancerDescriptions']:
+    print(f"Load Balancer Name: {load_balancer['LoadBalancerName']}")
+    print(f"Number of Instances: {len(load_balancer['Instances'])}")
+```
+
+4. To check if the minimum number of EC2 instances is configured for each ELB, you can add a condition in the loop. For example, if the minimum number should be 2, you can modify the script like this:
+```python
+for load_balancer in response['LoadBalancerDescriptions']:
+    num_instances = len(load_balancer['Instances'])
+    print(f"Load Balancer Name: {load_balancer['LoadBalancerName']}")
+    print(f"Number of Instances: {num_instances}")
+    if num_instances < 2:
+        print("Misconfiguration Detected: Less than 2 instances configured for this ELB.")
+```
+This script will print a warning message for each ELB that has less than 2 instances configured.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
