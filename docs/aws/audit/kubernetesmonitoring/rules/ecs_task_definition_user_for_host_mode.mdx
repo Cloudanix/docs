@@ -24,6 +24,273 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Tasks with Network Mode Host from having excessive permissions in Kubernetes using the AWS Console, follow these steps:
+
+1. **Review and Limit IAM Roles and Policies:**
+   - Navigate to the IAM service in the AWS Management Console.
+   - Review the IAM roles associated with your ECS tasks.
+   - Ensure that the roles have the least privilege necessary by attaching only the required policies.
+   - Remove any unnecessary permissions from the policies attached to these roles.
+
+2. **Configure Security Groups and Network ACLs:**
+   - Go to the VPC service in the AWS Management Console.
+   - Review the security groups associated with your ECS tasks.
+   - Ensure that the security groups have restrictive inbound and outbound rules, allowing only necessary traffic.
+   - Similarly, review and configure Network ACLs to further restrict traffic at the subnet level.
+
+3. **Use Task Role for ECS Tasks:**
+   - Navigate to the ECS service in the AWS Management Console.
+   - Edit your ECS task definitions to specify an IAM role under the "Task Role" section.
+   - This role should have the minimum permissions required for the task to function, ensuring that tasks do not inherit permissions from the EC2 instance role.
+
+4. **Enable Logging and Monitoring:**
+   - Go to the CloudWatch service in the AWS Management Console.
+   - Set up logging for your ECS tasks to monitor their activities.
+   - Enable CloudTrail to log API calls and monitor for any unusual or unauthorized activities.
+   - Regularly review these logs to ensure that tasks are not performing actions outside their intended scope.
+
+By following these steps, you can ensure that ECS tasks with Network Mode Host have limited permissions, enhancing the security of your Kubernetes environment on AWS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS Tasks with Network Mode Host from having excessive permissions in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Least Privilege IAM Role:**
+   Ensure that the IAM role associated with your ECS tasks has the minimum necessary permissions. Create a new IAM role or modify an existing one to follow the principle of least privilege.
+
+   ```sh
+   aws iam create-role --role-name ECSLeastPrivilegeRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+2. **Attach a Policy with Limited Permissions:**
+   Attach a policy to the IAM role that grants only the necessary permissions for the ECS tasks.
+
+   ```sh
+   aws iam put-role-policy --role-name ECSLeastPrivilegeRole --policy-name ECSLimitedPermissionsPolicy --policy-document file://limited-permissions-policy.json
+   ```
+
+3. **Update ECS Task Definition:**
+   Update your ECS task definition to use the newly created IAM role with limited permissions.
+
+   ```sh
+   aws ecs register-task-definition --family my-task-family --network-mode host --task-role-arn arn:aws:iam::123456789012:role/ECSLeastPrivilegeRole --container-definitions file://container-definitions.json
+   ```
+
+4. **Verify Task Role Association:**
+   Ensure that the ECS tasks are running with the correct IAM role by describing the task definition and checking the `taskRoleArn`.
+
+   ```sh
+   aws ecs describe-task-definition --task-definition my-task-family
+   ```
+
+By following these steps, you can ensure that ECS tasks with network mode host have limited permissions, adhering to the principle of least privilege.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS Tasks with Network Mode Host from having excessive permissions in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Set Up AWS SDK for Python (Boto3)**
+First, ensure you have the AWS SDK for Python (Boto3) installed. You can install it using pip if you haven't already:
+
+```bash
+pip install boto3
+```
+
+### 2. **Create an IAM Role with Limited Permissions**
+Create an IAM role with the necessary but limited permissions for your ECS tasks. This role will be used by your ECS tasks to interact with other AWS services.
+
+```python
+import boto3
+
+iam_client = boto3.client('iam')
+
+role_name = 'LimitedPermissionsRole'
+assume_role_policy_document = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "ecs-tasks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+}
+
+response = iam_client.create_role(
+    RoleName=role_name,
+    AssumeRolePolicyDocument=json.dumps(assume_role_policy_document)
+)
+
+# Attach a policy with limited permissions to the role
+policy_arn = 'arn:aws:iam::aws:policy/AmazonECSTaskExecutionRolePolicy'
+iam_client.attach_role_policy(
+    RoleName=role_name,
+    PolicyArn=policy_arn
+)
+```
+
+### 3. **Configure ECS Task Definition with Limited Permissions Role**
+When defining your ECS task, specify the IAM role created in the previous step. This ensures that the task runs with limited permissions.
+
+```python
+ecs_client = boto3.client('ecs')
+
+task_definition = ecs_client.register_task_definition(
+    family='my-task-family',
+    networkMode='host',
+    containerDefinitions=[
+        {
+            'name': 'my-container',
+            'image': 'my-image',
+            'memory': 512,
+            'cpu': 256,
+            'essential': True,
+            'logConfiguration': {
+                'logDriver': 'awslogs',
+                'options': {
+                    'awslogs-group': '/ecs/my-task',
+                    'awslogs-region': 'us-west-2',
+                    'awslogs-stream-prefix': 'ecs'
+                }
+            }
+        }
+    ],
+    taskRoleArn=response['Role']['Arn'],
+    executionRoleArn=response['Role']['Arn']
+)
+```
+
+### 4. **Deploy the ECS Task in Kubernetes**
+Use the AWS CLI or a Kubernetes manifest to deploy the ECS task in your Kubernetes cluster. Ensure that the task uses the task definition with the limited permissions role.
+
+```python
+import subprocess
+
+# Define the ECS service using the task definition
+subprocess.run([
+    'aws', 'ecs', 'create-service',
+    '--cluster', 'my-cluster',
+    '--service-name', 'my-service',
+    '--task-definition', 'my-task-family',
+    '--desired-count', '1',
+    '--launch-type', 'EC2'
+])
+```
+
+By following these steps, you ensure that your ECS tasks running in Kubernetes with network mode `host` have limited permissions, thereby reducing the risk of misconfigurations and potential security vulnerabilities.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your tasks are running. 
+
+3. Once you've selected the cluster, navigate to the "Tasks" tab. Here, you will see a list of all the tasks running in your cluster.
+
+4. For each task, click on the task to view its details. In the task details, look for the "Network Mode" field. If the Network Mode is set to "host", this means the task is using the host's network stack and not its own. 
+
+5. After confirming the network mode, check the IAM role associated with the task. You can find this under the "Task Execution IAM Role" field. 
+
+6. Navigate to the IAM section of the AWS console and find the role you just identified. Check the permissions attached to this role. If the permissions are too broad or include permissions that the task does not need to function, this is a misconfiguration. 
+
+Remember, tasks running in host network mode have the same networking permissions as the host itself, so it's important to limit the permissions of these tasks to only what they need to function.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS tasks using the following command:
+
+   ```
+   aws ecs list-tasks --cluster <cluster-name>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster. This command will return a list of task ARNs.
+
+3. For each task ARN, describe the task to get its network mode. Use the following command:
+
+   ```
+   aws ecs describe-tasks --cluster <cluster-name> --tasks <task-arn>
+   ```
+
+   Replace `<cluster-name>` with the name of your ECS cluster and `<task-arn>` with the ARN of the task. This command will return a JSON object that includes the task's network mode.
+
+4. Check the "networkMode" field in the returned JSON. If it is set to "host", then the task is using host network mode. This is a potential misconfiguration as tasks with host network mode have the same network access as the host, which can lead to security issues if the task is compromised.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Import the necessary libraries in Python. You will need boto3 for AWS, azure-mgmt-resource for Azure, and google-cloud-resource-manager for GCP. 
+
+```python
+import boto3
+from azure.mgmt.resource import ResourceManagementClient
+from google.cloud import resource_manager
+```
+
+2. For AWS, create a session using your credentials and initialize the ECS client. Then, list all the task definitions and check their network mode. If it's 'host', check the permissions.
+
+```python
+session = boto3.Session(aws_access_key_id='YOUR_ACCESS_KEY',
+                        aws_secret_access_key='YOUR_SECRET_KEY',
+                        region_name='us-west-2')
+ecs_client = session.client('ecs')
+
+def check_task_permissions():
+    response = ecs_client.list_task_definitions()
+    for task in response['taskDefinitionArns']:
+        task_def = ecs_client.describe_task_definition(taskDefinition=task)
+        if task_def['taskDefinition']['networkMode'] == 'host':
+            # Check permissions here
+```
+
+3. For Azure, you need to authenticate and initialize the Kubernetes client. Then, list all the pods and check their network policy. If it's 'hostNetwork', check the permissions.
+
+```python
+credentials = ServicePrincipalCredentials(
+    client_id='YOUR_CLIENT_ID',
+    secret='YOUR_SECRET',
+    tenant='YOUR_TENANT_ID'
+)
+kubernetes_client = KubernetesClient(credentials, 'YOUR_SUBSCRIPTION_ID')
+
+def check_pod_permissions():
+    for pod in kubernetes_client.list_pods():
+        if pod.spec.host_network:
+            # Check permissions here
+```
+
+4. For GCP, you need to authenticate and initialize the Kubernetes Engine client. Then, list all the pods and check their network policy. If it's 'hostNetwork', check the permissions.
+
+```python
+client = resource_manager.Client()
+kubernetes_engine_client = client.kubernetes_engine()
+
+def check_pod_permissions():
+    for pod in kubernetes_engine_client.list_pods():
+        if pod.spec.host_network:
+            # Check permissions here
+```
+
+Please replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', 'YOUR_CLIENT_ID', 'YOUR_SECRET', 'YOUR_TENANT_ID', and 'YOUR_SUBSCRIPTION_ID' with your actual credentials. Also, the 'Check permissions here' comment is where you would add the code to check the permissions of the task or pod. This would depend on your specific requirements and is not included in this example.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

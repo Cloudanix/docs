@@ -1,6 +1,241 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent image vulnerability scanning should be enabled for Amazon ECR in Kubernetes using the AWS console, follow these steps:
+
+1. **Navigate to Amazon ECR:**
+   - Open the AWS Management Console.
+   - In the search bar, type "ECR" and select "Elastic Container Registry" from the dropdown.
+
+2. **Create or Select a Repository:**
+   - If you already have a repository, click on the repository name to open its details.
+   - If you need to create a new repository, click on the "Create repository" button and follow the prompts to set up your repository.
+
+3. **Enable Image Scanning:**
+   - In the repository details page, look for the "Image scanning" section.
+   - Check the box that says "Scan on push" to enable automatic scanning of images when they are pushed to the repository.
+
+4. **Save Changes:**
+   - Click the "Save" button to apply the changes.
+
+By following these steps, you ensure that any new images pushed to your Amazon ECR repository are automatically scanned for vulnerabilities, helping to maintain the security of your Kubernetes deployments.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent image vulnerability scanning misconfigurations for Amazon Elastic Container Registry (ECR) in Kubernetes using AWS CLI, follow these steps:
+
+1. **Enable Image Scanning on Push for ECR Repository:**
+   Ensure that image scanning is enabled when images are pushed to the ECR repository. This can be done by setting the `imageScanningConfiguration` parameter to `true` when creating or updating the repository.
+
+   ```sh
+   aws ecr create-repository --repository-name <your-repository-name> --image-scanning-configuration scanOnPush=true
+   ```
+
+   If the repository already exists, you can update it:
+
+   ```sh
+   aws ecr put-image-scanning-configuration --repository-name <your-repository-name> --image-scanning-configuration scanOnPush=true
+   ```
+
+2. **Set Up a Policy to Enforce Image Scanning:**
+   Create and attach a policy to ensure that all images pushed to the ECR repository are scanned. This can be done by defining an IAM policy that requires the `ecr:PutImageScanningConfiguration` action.
+
+   ```sh
+   aws iam create-policy --policy-name EnforceECRImageScanning --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "ecr:PutImageScanningConfiguration"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }'
+   ```
+
+3. **Attach the Policy to the Relevant IAM Role/User:**
+   Attach the created policy to the IAM role or user that interacts with the ECR repository to ensure they have the necessary permissions to enforce image scanning.
+
+   ```sh
+   aws iam attach-role-policy --role-name <your-role-name> --policy-arn arn:aws:iam::<your-account-id>:policy/EnforceECRImageScanning
+   ```
+
+   Or for a user:
+
+   ```sh
+   aws iam attach-user-policy --user-name <your-user-name> --policy-arn arn:aws:iam::<your-account-id>:policy/EnforceECRImageScanning
+   ```
+
+4. **Automate Scanning with a Lambda Function (Optional):**
+   Optionally, you can create a Lambda function that automatically triggers image scans for existing images in the repository. This can be set up to run periodically using CloudWatch Events.
+
+   ```sh
+   aws lambda create-function --function-name TriggerECRImageScan --runtime python3.8 --role arn:aws:iam::<your-account-id>:role/<your-lambda-role> --handler lambda_function.lambda_handler --zip-file fileb://function.zip
+   ```
+
+   Ensure the Lambda function code includes logic to trigger image scans for existing images.
+
+By following these steps, you can ensure that image vulnerability scanning is enabled and enforced for your Amazon ECR repositories in Kubernetes using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent image vulnerability scanning misconfigurations for Amazon Elastic Container Registry (ECR) in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Install Required Libraries**
+First, ensure you have the necessary libraries installed. You will need `boto3` to interact with AWS services.
+
+```bash
+pip install boto3
+```
+
+### 2. **Set Up AWS Credentials**
+Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+```bash
+aws configure
+```
+
+### 3. **Enable Image Scanning on ECR Repositories**
+Use a Python script to enable image scanning on your ECR repositories. This script will iterate through all your ECR repositories and enable image scanning.
+
+```python
+import boto3
+
+def enable_image_scanning():
+    # Create a session using your AWS credentials
+    session = boto3.Session(
+        aws_access_key_id='YOUR_AWS_ACCESS_KEY',
+        aws_secret_access_key='YOUR_AWS_SECRET_KEY',
+        region_name='YOUR_AWS_REGION'
+    )
+
+    # Create an ECR client
+    ecr_client = session.client('ecr')
+
+    # List all ECR repositories
+    response = ecr_client.describe_repositories()
+    repositories = response['repositories']
+
+    # Enable image scanning for each repository
+    for repo in repositories:
+        repo_name = repo['repositoryName']
+        ecr_client.put_image_scanning_configuration(
+            repositoryName=repo_name,
+            imageScanningConfiguration={
+                'scanOnPush': True
+            }
+        )
+        print(f"Enabled image scanning for repository: {repo_name}")
+
+if __name__ == "__main__":
+    enable_image_scanning()
+```
+
+### 4. **Automate the Script Execution**
+To ensure continuous compliance, automate the execution of the script using a cron job or a scheduled task. This will periodically check and enable image scanning for any new repositories.
+
+#### Example Cron Job (Linux/Mac):
+```bash
+# Open the crontab editor
+crontab -e
+
+# Add the following line to run the script every day at midnight
+0 0 * * * /usr/bin/python3 /path/to/your/script.py
+```
+
+#### Example Scheduled Task (Windows):
+1. Open Task Scheduler.
+2. Create a new task.
+3. Set the trigger to daily at a specific time.
+4. Set the action to start a program and point it to your Python executable and script.
+
+By following these steps, you can ensure that image vulnerability scanning is enabled for all your Amazon ECR repositories, thereby preventing misconfigurations in your Kubernetes environment.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Elastic Container Registry (ECR) service.
+
+2. In the navigation pane, select "Repositories". This will display a list of all your ECR repositories.
+
+3. Select the repository you want to check for Image Vulnerability Scanning. 
+
+4. In the repository details page, check the "Image Scanning" section. If Image Scanning is not enabled, it indicates that Image Vulnerability Scanning is not enabled for the selected Amazon ECR repository.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once installed, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all the repositories in your Amazon ECR: Run the following command to list all the repositories in your Amazon ECR.
+
+   ```
+   aws ecr describe-repositories
+   ```
+
+   This command will return a list of all the repositories in your Amazon ECR.
+
+3. Check the image scanning configuration for each repository: For each repository, you need to check if image scanning is enabled. You can do this by running the following command:
+
+   ```
+   aws ecr describe-repositories --repository-names <repository_name>
+   ```
+
+   Replace `<repository_name>` with the name of your repository. This command will return the details of the specified repository, including the image scanning configuration.
+
+4. Analyze the output: If image scanning is enabled, the `imageScanningConfiguration` field in the output will be set to `true`. If it is not enabled, this field will be set to `false`. If you find any repository with image scanning disabled, it means there is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: You will need the boto3 library, which is the Amazon Web Services (AWS) SDK for Python. This allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Configure your AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to interact with AWS services. You can configure it in several ways, but the simplest is to use the AWS CLI:
+
+```bash
+aws configure
+```
+
+3. Write a Python script to check if Image Vulnerability Scanning is enabled for Amazon ECR:
+
+```python
+import boto3
+
+def check_vulnerability_scanning():
+    client = boto3.client('ecr')
+    response = client.describe_repositories()
+    for repo in response['repositories']:
+        repo_name = repo['repositoryName']
+        repo_detail = client.describe_image_scan_findings(repositoryName=repo_name)
+        if 'imageScanStatus' in repo_detail and repo_detail['imageScanStatus']['status'] == 'COMPLETE':
+            print(f"Image Vulnerability Scanning is enabled for repository: {repo_name}")
+        else:
+            print(f"Image Vulnerability Scanning is NOT enabled for repository: {repo_name}")
+
+check_vulnerability_scanning()
+```
+
+4. Run the Python script: You can run the Python script using any Python environment. The script will print out whether Image Vulnerability Scanning is enabled for each Amazon ECR repository.
+
+Please note that this script assumes that you have the necessary permissions to perform the `describe_repositories` and `describe_image_scan_findings` operations. If you don't, you'll need to adjust your IAM policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,292 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS (Elastic Container Service) from having more than read-only access for containers in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Create a Read-Only IAM Policy:**
+   - Navigate to the IAM (Identity and Access Management) service in the AWS Management Console.
+   - Click on "Policies" in the left-hand menu and then click the "Create policy" button.
+   - Use the visual editor or JSON editor to create a policy that grants read-only access to the necessary ECS resources. For example, you can use the following JSON policy:
+     ```json
+     {
+       "Version": "2012-10-17",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "ecs:Describe*",
+             "ecs:List*"
+           ],
+           "Resource": "*"
+         }
+       ]
+     }
+     ```
+   - Name the policy (e.g., `ECSReadOnlyPolicy`) and save it.
+
+2. **Attach the Policy to an IAM Role:**
+   - Go to the "Roles" section in the IAM console.
+   - Click on the role that your ECS tasks or services are using.
+   - Click the "Attach policies" button and search for the `ECSReadOnlyPolicy` you created.
+   - Select the policy and click the "Attach policy" button.
+
+3. **Update Kubernetes Service Account:**
+   - Ensure that your Kubernetes service account is configured to use the IAM role with the read-only policy. This can be done using the `eksctl` tool or by manually annotating the service account in your Kubernetes cluster.
+   - For example, if using `eksctl`, you can create a service account with the IAM role:
+     ```sh
+     eksctl create iamserviceaccount \
+       --name my-service-account \
+       --namespace default \
+       --cluster my-cluster \
+       --attach-policy-arn arn:aws:iam::123456789012:policy/ECSReadOnlyPolicy \
+       --approve
+     ```
+
+4. **Verify Permissions:**
+   - Ensure that the ECS tasks and services are running with the correct IAM role and that the role only has the read-only policy attached.
+   - You can verify this by checking the IAM role attached to the ECS tasks and services in the ECS console and ensuring that no other policies are granting additional permissions.
+
+By following these steps, you can ensure that your ECS containers have read-only access, thereby preventing any misconfigurations related to excessive permissions.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS (Elastic Container Service) from having more than read-only access for containers in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Read-Only IAM Policy:**
+   First, create an IAM policy that grants read-only access to the necessary ECS resources.
+
+   ```sh
+   aws iam create-policy --policy-name ECSReadOnlyPolicy --policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Action": [
+                   "ecs:List*",
+                   "ecs:Describe*"
+               ],
+               "Resource": "*"
+           }
+       ]
+   }'
+   ```
+
+2. **Create an IAM Role for ECS Tasks:**
+   Create an IAM role that ECS tasks can assume, and attach the read-only policy to this role.
+
+   ```sh
+   aws iam create-role --role-name ECSReadOnlyRole --assume-role-policy-document '{
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "Service": "ecs-tasks.amazonaws.com"
+               },
+               "Action": "sts:AssumeRole"
+           }
+       ]
+   }'
+   ```
+
+3. **Attach the Read-Only Policy to the Role:**
+   Attach the previously created read-only policy to the IAM role.
+
+   ```sh
+   aws iam attach-role-policy --role-name ECSReadOnlyRole --policy-arn arn:aws:iam::aws:policy/ECSReadOnlyPolicy
+   ```
+
+4. **Update ECS Task Definition:**
+   Update your ECS task definition to use the newly created IAM role, ensuring that the containers only have read-only access.
+
+   ```sh
+   aws ecs register-task-definition --family your-task-family --container-definitions '[
+       {
+           "name": "your-container-name",
+           "image": "your-container-image",
+           "essential": true,
+           "memory": 512,
+           "cpu": 256,
+           "logConfiguration": {
+               "logDriver": "awslogs",
+               "options": {
+                   "awslogs-group": "/ecs/your-log-group",
+                   "awslogs-region": "your-region",
+                   "awslogs-stream-prefix": "ecs"
+               }
+           }
+       }
+   ]' --task-role-arn arn:aws:iam::your-account-id:role/ECSReadOnlyRole
+   ```
+
+By following these steps, you ensure that your ECS tasks have only read-only access to the necessary resources, thereby preventing any misconfigurations related to excessive permissions.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS (Elastic Container Service) from having more than read-only access for containers in Kubernetes using Python scripts, you can follow these steps:
+
+### 1. **Set Up Kubernetes Client in Python**
+First, you need to install the Kubernetes client library for Python and set up the client to interact with your Kubernetes cluster.
+
+```python
+from kubernetes import client, config
+
+# Load kube config from default location
+config.load_kube_config()
+
+# Create an API client
+v1 = client.CoreV1Api()
+```
+
+### 2. **Define a Read-Only Role**
+Create a Role that grants read-only access to the necessary resources within the namespace.
+
+```python
+from kubernetes.client import V1PolicyRule, V1Role, V1ObjectMeta
+
+# Define the read-only policy rules
+policy_rules = [
+    V1PolicyRule(
+        api_groups=[""],
+        resources=["pods", "services", "endpoints", "configmaps"],
+        verbs=["get", "list", "watch"]
+    )
+]
+
+# Create the Role object
+read_only_role = V1Role(
+    metadata=V1ObjectMeta(name="read-only-role", namespace="default"),
+    rules=policy_rules
+)
+
+# Apply the Role to the cluster
+rbac_v1 = client.RbacAuthorizationV1Api()
+rbac_v1.create_namespaced_role(namespace="default", body=read_only_role)
+```
+
+### 3. **Create a RoleBinding**
+Bind the Role to a specific ServiceAccount to ensure that the containers only have read-only access.
+
+```python
+from kubernetes.client import V1RoleBinding, V1RoleRef, V1Subject
+
+# Define the RoleBinding
+role_binding = V1RoleBinding(
+    metadata=V1ObjectMeta(name="read-only-rolebinding", namespace="default"),
+    role_ref=V1RoleRef(
+        api_group="rbac.authorization.k8s.io",
+        kind="Role",
+        name="read-only-role"
+    ),
+    subjects=[
+        V1Subject(
+            kind="ServiceAccount",
+            name="default",
+            namespace="default"
+        )
+    ]
+)
+
+# Apply the RoleBinding to the cluster
+rbac_v1.create_namespaced_role_binding(namespace="default", body=role_binding)
+```
+
+### 4. **Verify the Role and RoleBinding**
+Ensure that the Role and RoleBinding are correctly applied and that the ServiceAccount has the intended permissions.
+
+```python
+# List Roles in the namespace
+roles = rbac_v1.list_namespaced_role(namespace="default")
+for role in roles.items:
+    print(f"Role: {role.metadata.name}")
+
+# List RoleBindings in the namespace
+role_bindings = rbac_v1.list_namespaced_role_binding(namespace="default")
+for rb in role_bindings.items:
+    print(f"RoleBinding: {rb.metadata.name}")
+```
+
+By following these steps, you can ensure that your ECS containers in Kubernetes have read-only access, preventing any misconfigurations that could lead to elevated permissions.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) dashboard.
+
+2. In the navigation pane, select "Clusters". This will display a list of all the ECS clusters in your AWS account.
+
+3. Select the cluster you want to inspect and then click on the "Services" tab. This will display a list of all the services running in the selected cluster.
+
+4. For each service, click on the "Task Definitions" tab. This will display a list of all the task definitions associated with the service. Click on the latest revision of the task definition to view its details. In the "Volumes" section, check if the "Readonly" property is set to "true". If it's not, then the containers in the task definition have write access, which is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS task definitions using the following command:
+
+   ```
+   aws ecs list-task-definitions --region your-region-name
+   ```
+
+   Replace "your-region-name" with the name of your AWS region.
+
+3. For each task definition, describe it to get the details. Use the following command:
+
+   ```
+   aws ecs describe-task-definition --task-definition task-definition-arn --region your-region-name
+   ```
+
+   Replace "task-definition-arn" with the ARN of your task definition and "your-region-name" with the name of your AWS region.
+
+4. Check the "readonlyRootFilesystem" parameter in the "containerDefinitions" section of the output. If it's set to false, then the container does not have read-only access. If it's true, then the container has read-only access.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if ECS (Elastic Container Service) has Readonly access for containers in Kubernetes, you can use the Kubernetes Python client. Here are the steps:
+
+1. **Install Kubernetes Python Client:**
+   You can install the Kubernetes Python client using pip:
+   ```
+   pip install kubernetes
+   ```
+2. **Import Required Libraries:**
+   Import the required libraries in your Python script:
+   ```python
+   from kubernetes import client, config
+   ```
+3. **Load Kubernetes Configuration:**
+   Load the Kubernetes configuration. If you are running the script from within a pod, use `load_incluster_config()`, otherwise if running the script from your local machine, use `load_kube_config()`.
+   ```python
+   config.load_kube_config()
+   ```
+4. **Check Readonly Access for Containers:**
+   Iterate over all the pods in the specified namespace and check if the containers have readonly access. If the `securityContext.readOnlyRootFilesystem` is not set to `True`, then the container does not have readonly access.
+   ```python
+   v1 = client.CoreV1Api()
+   pods = v1.list_namespaced_pod("default")
+   for i in pods.items:
+       for j in i.spec.containers:
+           if j.security_context and j.security_context.read_only_root_filesystem:
+               print("Container {} in Pod {} has readonly access".format(j.name, i.metadata.name))
+           else:
+               print("Container {} in Pod {} does not have readonly access".format(j.name, i.metadata.name))
+   ```
+This script will print out the names of the containers and pods that do not have readonly access. You can modify the script to suit your needs, such as checking all namespaces or outputting the results to a file.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

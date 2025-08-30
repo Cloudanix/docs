@@ -23,6 +23,226 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent ECS Tasks from having a network mode other than AWSVPC in Kubernetes using the AWS Management Console, follow these steps:
+
+1. **Navigate to ECS Service:**
+   - Open the AWS Management Console.
+   - In the search bar, type "ECS" and select "Elastic Container Service" from the dropdown.
+
+2. **Create or Update Task Definition:**
+   - In the ECS dashboard, click on "Task Definitions" in the left-hand menu.
+   - Either create a new task definition by clicking "Create new Task Definition" or select an existing task definition to update.
+
+3. **Configure Network Mode:**
+   - In the task definition configuration, locate the "Network Mode" setting.
+   - Select "awsvpc" from the dropdown menu. This ensures that the task will use the AWSVPC network mode, which provides each task with its own elastic network interface (ENI).
+
+4. **Save and Apply:**
+   - Complete the rest of the task definition configuration as needed.
+   - Click "Create" or "Update" to save the task definition with the AWSVPC network mode.
+
+By following these steps, you ensure that your ECS tasks are configured to use the AWSVPC network mode, which is recommended for better network isolation and security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent ECS Tasks from having a network mode other than `awsvpc` in Kubernetes using AWS CLI, you can follow these steps:
+
+1. **Create a Task Definition with `awsvpc` Network Mode:**
+   Ensure that your ECS task definitions specify the `awsvpc` network mode. You can create or update a task definition using the following command:
+   ```sh
+   aws ecs register-task-definition \
+     --family my-task-family \
+     --network-mode awsvpc \
+     --container-definitions file://container-definitions.json
+   ```
+
+2. **Update Existing Task Definitions:**
+   If you have existing task definitions that need to be updated to use the `awsvpc` network mode, you can use the following command:
+   ```sh
+   aws ecs update-service \
+     --cluster my-cluster \
+     --service my-service \
+     --network-configuration "awsvpcConfiguration={subnets=[subnet-12345678],securityGroups=[sg-12345678],assignPublicIp=ENABLED}"
+   ```
+
+3. **Set Default Network Mode for New Task Definitions:**
+   When creating new task definitions, always specify the `awsvpc` network mode by default. This can be done by including the `--network-mode awsvpc` flag in your task definition registration command.
+
+4. **Automate Compliance Checks:**
+   Implement a script or use AWS Config rules to automatically check and enforce that all ECS task definitions use the `awsvpc` network mode. For example, you can use AWS Config to create a custom rule that checks the network mode of ECS task definitions.
+
+By following these steps, you can ensure that your ECS tasks are always configured with the `awsvpc` network mode, thereby preventing misconfigurations.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent ECS Tasks from having a network mode other than `awsvpc` in Kubernetes using Python scripts, you can follow these steps:
+
+1. **Install Required Libraries**:
+   Ensure you have the necessary libraries installed. You will need `boto3` to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Set Up AWS Credentials**:
+   Make sure your AWS credentials are configured. You can set them up using the AWS CLI or by setting environment variables.
+
+   ```bash
+   aws configure
+   ```
+
+3. **Create a Python Script to Enforce `awsvpc` Network Mode**:
+   Write a Python script that checks and enforces the `awsvpc` network mode for ECS tasks.
+
+   ```python
+   import boto3
+
+   # Initialize a session using Amazon ECS
+   client = boto3.client('ecs')
+
+   def enforce_awsvpc_network_mode(cluster_name):
+       # List all task definitions
+       response = client.list_task_definitions()
+       task_definitions = response['taskDefinitionArns']
+
+       for task_definition in task_definitions:
+           # Describe the task definition
+           task_desc = client.describe_task_definition(taskDefinition=task_definition)
+           network_mode = task_desc['taskDefinition']['networkMode']
+
+           # Check if the network mode is not 'awsvpc'
+           if network_mode != 'awsvpc':
+               print(f"Task Definition {task_definition} has network mode {network_mode}. Updating to 'awsvpc'.")
+
+               # Register a new task definition with 'awsvpc' network mode
+               container_definitions = task_desc['taskDefinition']['containerDefinitions']
+               family = task_desc['taskDefinition']['family']
+               task_role_arn = task_desc['taskDefinition']['taskRoleArn']
+               execution_role_arn = task_desc['taskDefinition']['executionRoleArn']
+               requires_compatibilities = task_desc['taskDefinition']['requiresCompatibilities']
+               cpu = task_desc['taskDefinition']['cpu']
+               memory = task_desc['taskDefinition']['memory']
+
+               response = client.register_task_definition(
+                   family=family,
+                   taskRoleArn=task_role_arn,
+                   executionRoleArn=execution_role_arn,
+                   networkMode='awsvpc',
+                   containerDefinitions=container_definitions,
+                   requiresCompatibilities=requires_compatibilities,
+                   cpu=cpu,
+                   memory=memory
+               )
+
+               print(f"Updated Task Definition {task_definition} to use 'awsvpc' network mode.")
+
+   # Replace 'your-cluster-name' with your actual ECS cluster name
+   enforce_awsvpc_network_mode('your-cluster-name')
+   ```
+
+4. **Run the Script**:
+   Execute the script to enforce the `awsvpc` network mode for all ECS task definitions.
+
+   ```bash
+   python enforce_awsvpc_network_mode.py
+   ```
+
+This script will iterate through all ECS task definitions, check their network mode, and update them to use `awsvpc` if they are not already configured to do so.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the ECS (Elastic Container Service) section.
+
+2. In the ECS section, select the cluster where your tasks are running.
+
+3. Once you've selected the cluster, navigate to the "Tasks" tab. Here, you will see a list of all the tasks running in the selected cluster.
+
+4. Click on the task name to view its details. In the "Task Definition" section, look for the "Network Mode". If it's not set to "awsvpc", then it's a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all the ECS task definitions in your account using the following command:
+
+   ```
+   aws ecs list-task-definitions --region your-region-name
+   ```
+
+   Replace "your-region-name" with the name of the AWS region where your ECS tasks are running.
+
+3. For each task definition ARN returned by the above command, you can describe the task definition to get its network mode using the following command:
+
+   ```
+   aws ecs describe-task-definition --task-definition task-definition-arn --region your-region-name
+   ```
+
+   Replace "task-definition-arn" with the ARN of the task definition you want to check, and "your-region-name" with the name of the AWS region where your ECS tasks are running.
+
+4. The above command will return a JSON output. You can check the "networkMode" field in the output. If the "networkMode" is not set to "awsvpc", then the ECS task does not have its network mode set to AWSVPC.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if ECS Tasks have Network Mode set to AWSVPC in Kubernetes using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including ECS. Here are the steps:
+
+1. **Import the necessary libraries and establish a session with AWS:**
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='YOUR_REGION'
+)
+```
+
+2. **Create an ECS client:**
+
+```python
+ecs_client = session.client('ecs')
+```
+
+3. **List all the task definitions:**
+
+```python
+response = ecs_client.list_task_definitions(
+    status='ACTIVE'
+)
+```
+
+4. **Check the network mode of each task definition:**
+
+```python
+for task_definition in response['taskDefinitionArns']:
+    task_def_response = ecs_client.describe_task_definition(
+        taskDefinition=task_definition
+    )
+    network_mode = task_def_response['taskDefinition']['networkMode']
+    if network_mode != 'awsvpc':
+        print(f"Task definition {task_definition} is not using 'awsvpc' network mode.")
+```
+
+This script will print out the ARNs of all task definitions that are not using the 'awsvpc' network mode. Replace 'YOUR_ACCESS_KEY', 'YOUR_SECRET_KEY', and 'YOUR_REGION' with your actual AWS credentials and the region you want to check.
+
+Please note that this script only checks the network mode of active task definitions. If you want to check inactive task definitions as well, you can modify the 'status' parameter in the 'list_task_definitions' method.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

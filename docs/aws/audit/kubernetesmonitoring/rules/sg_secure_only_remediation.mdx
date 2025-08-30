@@ -1,6 +1,264 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent an EKS Cluster from allowing inbound traffic only from Port 443 (HTTPS) using the AWS Management Console, follow these steps:
+
+1. **Navigate to the EKS Cluster:**
+   - Open the AWS Management Console.
+   - Go to the "EKS" service by searching for "EKS" in the search bar.
+   - Select the EKS cluster you want to configure from the list of clusters.
+
+2. **Access Security Groups:**
+   - In the EKS cluster details page, locate the "Networking" section.
+   - Identify the security group(s) associated with your EKS cluster nodes and control plane.
+
+3. **Modify Inbound Rules:**
+   - Go to the "EC2" service by searching for "EC2" in the search bar.
+   - In the EC2 Dashboard, select "Security Groups" from the left-hand menu.
+   - Find and select the security group(s) associated with your EKS cluster.
+   - Click on the "Inbound rules" tab and then click "Edit inbound rules."
+
+4. **Restrict Inbound Traffic:**
+   - Remove any existing inbound rules that allow traffic on ports other than 443.
+   - Add a new rule to allow inbound traffic only on port 443 (HTTPS):
+     - Type: Custom TCP Rule
+     - Protocol: TCP
+     - Port Range: 443
+     - Source: Specify the appropriate source (e.g., 0.0.0.0/0 for all IPs, or a specific IP range).
+
+By following these steps, you can ensure that your EKS cluster only allows inbound traffic on port 443, enhancing the security of your Kubernetes environment.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent an EKS cluster from allowing inbound traffic only from port 443 (HTTPS) using AWS CLI, you need to configure the security group associated with your EKS cluster. Here are the steps:
+
+1. **Identify the Security Group ID:**
+   First, identify the security group associated with your EKS cluster nodes.
+
+   ```sh
+   aws eks describe-cluster --name <your-cluster-name> --query "cluster.resourcesVpcConfig.securityGroupIds" --output text
+   ```
+
+2. **Revoke Existing Inbound Rules:**
+   Revoke any existing inbound rules that allow traffic on ports other than 443.
+
+   ```sh
+   aws ec2 revoke-security-group-ingress --group-id <security-group-id> --protocol tcp --port <port-number> --cidr 0.0.0.0/0
+   ```
+
+   Repeat this command for each port that is not 443.
+
+3. **Allow Inbound Traffic on Port 443:**
+   Add a rule to allow inbound traffic on port 443.
+
+   ```sh
+   aws ec2 authorize-security-group-ingress --group-id <security-group-id> --protocol tcp --port 443 --cidr 0.0.0.0/0
+   ```
+
+4. **Verify the Security Group Rules:**
+   Verify that the security group now only allows inbound traffic on port 443.
+
+   ```sh
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query "SecurityGroups[*].IpPermissions"
+   ```
+
+By following these steps, you ensure that your EKS cluster only allows inbound traffic on port 443, thereby enhancing the security of your cluster.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent an EKS (Elastic Kubernetes Service) cluster from allowing inbound traffic only from port 443 (HTTPS) using Python scripts, you can use the AWS SDK for Python (Boto3) to manage security groups and network policies. Here are the steps:
+
+### Step 1: Install Boto3
+First, ensure you have Boto3 installed. If not, you can install it using pip:
+```bash
+pip install boto3
+```
+
+### Step 2: Configure AWS Credentials
+Make sure your AWS credentials are configured. You can do this by setting up the `~/.aws/credentials` file or by using environment variables.
+
+### Step 3: Create a Python Script to Update Security Groups
+Create a Python script to update the security group associated with your EKS cluster to allow inbound traffic only on port 443.
+
+```python
+import boto3
+
+# Initialize a session using Amazon EKS
+session = boto3.Session(region_name='your-region')
+ec2 = session.client('ec2')
+
+# Replace with your security group ID
+security_group_id = 'your-security-group-id'
+
+# Define the inbound rule for port 443
+inbound_rule = {
+    'IpProtocol': 'tcp',
+    'FromPort': 443,
+    'ToPort': 443,
+    'IpRanges': [{'CidrIp': '0.0.0.0/0'}]
+}
+
+# Revoke all existing inbound rules
+def revoke_all_inbound_rules(security_group_id):
+    response = ec2.describe_security_groups(GroupIds=[security_group_id])
+    for sg in response['SecurityGroups']:
+        for permission in sg['IpPermissions']:
+            ec2.revoke_security_group_ingress(GroupId=security_group_id, IpPermissions=[permission])
+
+# Authorize the new inbound rule
+def authorize_inbound_rule(security_group_id, rule):
+    ec2.authorize_security_group_ingress(GroupId=security_group_id, IpPermissions=[rule])
+
+# Main function
+def main():
+    revoke_all_inbound_rules(security_group_id)
+    authorize_inbound_rule(security_group_id, inbound_rule)
+    print(f"Inbound traffic restricted to port 443 for security group {security_group_id}")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Step 4: Apply Network Policies in Kubernetes
+To further restrict traffic within the Kubernetes cluster, you can apply a NetworkPolicy. This can be done using the Kubernetes Python client.
+
+First, install the Kubernetes client library:
+```bash
+pip install kubernetes
+```
+
+Then, create a Python script to apply the NetworkPolicy:
+
+```python
+from kubernetes import client, config
+
+# Load kube config
+config.load_kube_config()
+
+# Define the NetworkPolicy
+network_policy = client.V1NetworkPolicy(
+    metadata=client.V1ObjectMeta(name="allow-https-only"),
+    spec=client.V1NetworkPolicySpec(
+        pod_selector=client.V1LabelSelector(match_labels={}),
+        policy_types=["Ingress"],
+        ingress=[
+            client.V1NetworkPolicyIngressRule(
+                ports=[client.V1NetworkPolicyPort(port=443, protocol="TCP")]
+            )
+        ]
+    )
+)
+
+# Apply the NetworkPolicy
+v1 = client.NetworkingV1Api()
+namespace = 'default'  # Replace with your namespace
+v1.create_namespaced_network_policy(namespace, network_policy)
+print(f"NetworkPolicy 'allow-https-only' applied in namespace {namespace}")
+```
+
+### Summary
+1. **Install Boto3 and Kubernetes Client**: Ensure you have the necessary Python libraries installed.
+2. **Configure AWS Credentials**: Make sure your AWS credentials are set up.
+3. **Update Security Groups**: Use a Python script to update the security group to allow inbound traffic only on port 443.
+4. **Apply Network Policies**: Use the Kubernetes Python client to apply a NetworkPolicy that restricts traffic to port 443 within the cluster.
+
+By following these steps, you can prevent your EKS cluster from allowing inbound traffic on ports other than 443 using Python scripts.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the Amazon EKS service.
+2. In the left navigation pane, select "Clusters" to view all the existing EKS clusters.
+3. Click on the name of the cluster you want to inspect. This will open the cluster's details page.
+4. In the cluster's details page, under the "Networking" section, check the "Security groups for your nodes". Click on the security group ID to open the security group settings. In the "Inbound rules" tab, verify if there are any rules that allow inbound traffic other than port 443. If there are, it indicates a misconfiguration.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EKS cluster.
+
+2. Once the AWS CLI is installed and configured, you can use the following command to list all the security groups associated with your EKS cluster:
+
+   ```
+   aws eks describe-cluster --name <cluster-name> --query "cluster.resourcesVpcConfig.securityGroupIds"
+   ```
+   Replace `<cluster-name>` with the name of your EKS cluster. This command will return the IDs of the security groups associated with your EKS cluster.
+
+3. Now, you can use the following command to describe the inbound rules of a security group:
+
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id>
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return the inbound rules of the specified security group.
+
+4. Finally, you need to check the output of the previous command. Look for the inbound rules that allow traffic on port 443. If there are any inbound rules that allow traffic on other ports, then the EKS cluster is misconfigured.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries:
+   You will need the boto3 library to interact with AWS services. You can install it using pip:
+   ```
+   pip install boto3
+   ```
+
+2. Set up AWS credentials:
+   You need to configure your AWS credentials to allow your script to interact with your AWS services. You can do this by setting the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables, or by using the AWS CLI's configure command:
+   ```
+   aws configure
+   ```
+
+3. Write a Python script to check the EKS cluster's security group rules:
+   Here is a simple script that lists all the security groups for an EKS cluster and checks if they only allow inbound traffic on port 443:
+
+   ```python
+   import boto3
+
+   # Create a session using your AWS credentials
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+   )
+
+   # Create an EKS client
+   eks = session.client('eks')
+
+   # Get the details of the EKS cluster
+   cluster = eks.describe_cluster(name='your-cluster-name')
+
+   # Get the security group IDs
+   security_group_ids = cluster['cluster']['resourcesVpcConfig']['securityGroupIds']
+
+   # Create an EC2 resource
+   ec2 = session.resource('ec2')
+
+   # Check the inbound rules of each security group
+   for sg_id in security_group_ids:
+       security_group = ec2.SecurityGroup(sg_id)
+       for permission in security_group.ip_permissions:
+           # If there is any rule that allows traffic on a port other than 443, print a warning
+           if permission['FromPort'] != 443 or permission['ToPort'] != 443:
+               print(f'Security group {sg_id} allows traffic on port {permission["FromPort"]}-{permission["ToPort"]}')
+   ```
+
+4. Run the script:
+   You can run the script using the Python interpreter:
+   ```
+   python check_eks_security_group.py
+   ```
+   The script will print a warning for each security group rule that allows traffic on a port other than 443. If no warnings are printed, then all your security groups only allow inbound traffic on port 443.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
