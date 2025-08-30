@@ -23,6 +23,96 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console.
+2. Navigate to the EC2 dashboard by selecting "Services" from the top menu, then selecting "EC2" under the "Compute" category.
+3. In the EC2 dashboard, select "AMIs" from the "Images" section in the left-hand navigation pane.
+4. In the AMIs page, you can see a list of all AMIs available for your account. Check the AMI IDs against your list of blacklisted AMIs. If any of the AMIs in the list match with the blacklisted AMIs, then those are being used in EC2.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the EC2 instances.
+
+2. Once the AWS CLI is set up, you can list all the EC2 instances using the following command:
+
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+   This command will return a list of all the instance IDs.
+
+3. Now, for each instance ID, you can get the AMI ID using the following command:
+
+   ```
+   aws ec2 describe-instances --instance-ids <instance-id> --query 'Reservations[*].Instances[*].[ImageId]' --output text
+   ```
+   Replace `<instance-id>` with the actual instance ID. This command will return the AMI ID of the instance.
+
+4. Finally, you can check if the AMI ID is in your blacklist. This step depends on how you maintain your blacklist. If you have a text file with all the blacklisted AMI IDs, you can use the following command:
+
+   ```
+   grep -Fxq "<ami-id>" blacklist.txt
+   ```
+   Replace `<ami-id>` with the actual AMI ID. If the command returns nothing, the AMI ID is not in the blacklist. If the command returns the AMI ID, it is in the blacklist.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Import necessary libraries and establish a session**: To start with, you need to import the necessary libraries in your Python script. Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of AWS services like Amazon S3, Amazon EC2, etc. Here is how you can do it:
+
+```python
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+# Create a session using your AWS credentials
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    region_name='us-west-2' # or any other region
+)
+```
+
+2. **Get the list of all EC2 instances**: Now, you need to get the list of all EC2 instances in your AWS account. You can do this using the `describe_instances()` function of the EC2 client in Boto3. Here is how you can do it:
+
+```python
+ec2 = session.client('ec2')
+
+try:
+    response = ec2.describe_instances()
+except BotoCoreError as e:
+    print(e)
+```
+
+3. **Check for blacklisted AMIs**: Now, you need to check if any of the EC2 instances are using blacklisted AMIs. You can do this by iterating over the instances and checking their `ImageId` against a list of blacklisted AMIs. Here is how you can do it:
+
+```python
+blacklisted_amis = ['ami-abc123', 'ami-def456'] # replace with your blacklisted AMIs
+
+for reservation in response['Reservations']:
+    for instance in reservation['Instances']:
+        if instance['ImageId'] in blacklisted_amis:
+            print(f"Instance {instance['InstanceId']} is using blacklisted AMI {instance['ImageId']}")
+```
+
+4. **Handle exceptions**: It's a good practice to handle exceptions in your script. You can do this using the `try/except` block. In this case, you should handle `BotoCoreError` and `ClientError`, which are the common exceptions thrown by Boto3. Here is how you can do it:
+
+```python
+try:
+    # your code here
+except BotoCoreError as e:
+    print(e)
+except ClientError as e:
+    print(e)
+```
+
+This script will print the IDs of all EC2 instances that are using blacklisted AMIs.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

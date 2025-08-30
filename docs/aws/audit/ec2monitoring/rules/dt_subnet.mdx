@@ -23,6 +23,94 @@ GDPR
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the VPC Dashboard. 
+
+2. In the left navigation pane, click on 'Subnets' to view all the subnets in your VPC. 
+
+3. Select the data-tier subnet that you want to check. In the 'Description' tab at the bottom, check the 'Route table' field. Click on the Route Table ID to view its details.
+
+4. In the Route Table details page, check the 'Routes' tab. If there is a route that points all traffic (0.0.0.0/0) to a NAT Gateway, then the data-tier subnet is restricted to the VPC NAT Gateway. If not, then the subnet is not properly configured.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Once you have AWS CLI installed and configured, you can proceed to the next steps.
+
+2. List all the VPCs in your AWS account using the following command:
+   ```
+   aws ec2 describe-vpcs
+   ```
+   This command will return a JSON output with details of all the VPCs in your account.
+
+3. Identify the VPC that you want to check for the misconfiguration. Note down the VPC ID.
+
+4. Now, list all the subnets in the identified VPC using the following command:
+   ```
+   aws ec2 describe-subnets --filters "Name=vpc-id,Values=<VPC_ID>"
+   ```
+   Replace `<VPC_ID>` with the ID of the VPC you identified in the previous step. This command will return a JSON output with details of all the subnets in the VPC.
+
+5. Check the route table associated with each subnet. You can do this using the following command:
+   ```
+   aws ec2 describe-route-tables --filters "Name=association.subnet-id,Values=<SUBNET_ID>"
+   ```
+   Replace `<SUBNET_ID>` with the ID of each subnet. This command will return a JSON output with details of the route table associated with the subnet.
+
+6. In the output of the above command, look for the `Routes` section. If there is a route with `DestinationCidrBlock` as `0.0.0.0/0` and `GatewayId` as the ID of a NAT gateway, then the subnet is correctly configured to restrict data-tier subnet connectivity to the VPC NAT Gateway. If not, then there is a misconfiguration.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check if the data-tier subnet connectivity is restricted to VPC NAT Gateway in EC2 using Python scripts, you can use the Boto3 library, which allows you to directly interact with AWS services, including EC2. Here are the steps:
+
+1. **Import the Boto3 library and create an EC2 resource object:**
+
+    ```python
+    import boto3
+    ec2 = boto3.resource('ec2')
+    ```
+
+2. **Get the list of all subnets:**
+
+    ```python
+    subnets = ec2.subnets.all()
+    ```
+
+3. **Iterate over the subnets and check the route tables:**
+
+    For each subnet, you need to check the route table to see if it has a route that points to a NAT Gateway. This can be done by checking the `Routes` attribute of the route table.
+
+    ```python
+    for subnet in subnets:
+        route_table = ec2.RouteTable(subnet.route_table.id)
+        for route in route_table.routes:
+            if 'NatGatewayId' in route:
+                print(f"Subnet {subnet.id} has a route to a NAT Gateway.")
+    ```
+
+4. **Check if the subnet is a data-tier subnet:**
+
+    If a subnet is a data-tier subnet, it should not have a route to a NAT Gateway. You can check this by looking at the tags of the subnet. If the 'Tier' tag is 'Data', then it is a data-tier subnet.
+
+    ```python
+    for subnet in subnets:
+        for tag in subnet.tags:
+            if tag['Key'] == 'Tier' and tag['Value'] == 'Data':
+                route_table = ec2.RouteTable(subnet.route_table.id)
+                for route in route_table.routes:
+                    if 'NatGatewayId' in route:
+                        print(f"Data-tier subnet {subnet.id} has a route to a NAT Gateway.")
+    ```
+
+This script will print out the IDs of all data-tier subnets that have a route to a NAT Gateway, indicating a potential misconfiguration.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

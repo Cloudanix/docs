@@ -1,6 +1,70 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "Elastic Block Store", click on "Snapshots". This will display a list of all snapshots available in your AWS account.
+3. For each snapshot, check the "Tags" column. If a snapshot does not have a tag with the key "Backup", then it means that the Elastic File System (EFS) associated with that snapshot does not have a backup plan.
+4. To confirm, you can click on the snapshot ID to view its details. In the "Description" field, if it says "This snapshot was created by AWS Backup", then it means that the EFS has a backup plan. If not, then it confirms that the EFS does not have a backup plan.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start, you need to install the AWS CLI on your local system. You can do this by downloading the appropriate installer from the AWS CLI website. Once installed, you can configure it by running `aws configure` and providing your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. List all EFS file systems: Use the following command to list all the EFS file systems in your AWS account.
+
+   ```
+   aws efs describe-file-systems --query 'FileSystems[*].[FileSystemId]' --output text
+   ```
+
+   This command will return a list of all EFS file system IDs.
+
+3. Check backup plans: For each EFS file system ID returned by the previous command, you need to check if there is a backup plan associated with it. You can do this by using the following command:
+
+   ```
+   aws backup describe-backup-jobs --by-resource-arn arn:aws:elasticfilesystem:<region>:<account-id>:file-system/<file-system-id> --query 'BackupJobs[*].[BackupJobId]' --output text
+   ```
+
+   Replace `<region>`, `<account-id>`, and `<file-system-id>` with your AWS region, account ID, and the EFS file system ID respectively. This command will return a list of backup job IDs if there is a backup plan associated with the EFS file system.
+
+4. Analyze the results: If the previous command returns a list of backup job IDs, it means that the EFS file system has a backup plan. If it returns nothing, it means that the EFS file system does not have a backup plan. Repeat steps 3 and 4 for each EFS file system ID to check all your EFS file systems.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install the necessary Python libraries: Before you start, ensure that you have the necessary Python libraries installed. You will need the 'boto3' library, which is the Amazon Web Services (AWS) SDK for Python. It allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, and others. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: Boto3 needs your AWS credentials (access key and secret access key) to call AWS services on your behalf. You can pass these credentials into your Python script directly (not recommended for security reasons), or more securely, you can set up your credentials file at ~/.aws/credentials. 
+
+3. Write a Python script to check for EFS backup plans: You can use the 'describe_backup_policy' method provided by the EFS client in boto3. This method returns the backup policy for the specified EFS file system.
+
+```python
+import boto3
+
+def check_efs_backup_policy(file_system_id):
+    efs = boto3.client('efs')
+    response = efs.describe_backup_policy(
+        FileSystemId=file_system_id
+    )
+    return response['BackupPolicy']
+
+file_system_id = 'your-efs-file-system-id'
+backup_policy = check_efs_backup_policy(file_system_id)
+print(backup_policy)
+```
+
+4. Analyze the output: The script will return the backup policy for the specified EFS file system. If the 'Status' field in the output is 'ENABLED', it means that the EFS file system has a backup plan. If it's 'DISABLED', it means that the EFS file system does not have a backup plan.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

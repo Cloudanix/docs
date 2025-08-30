@@ -23,6 +23,98 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select the "Instances" option from the left-hand side menu. This will display a list of all the EC2 instances that are currently running in your AWS environment.
+3. Select the EC2 instance you want to check for the specified applications. Once selected, click on the "Actions" button at the top of the dashboard, then select "Instance Settings", and finally "Get System Log".
+4. The System Log will display all the system events that have occurred since the instance was started. You can search through this log to see if the specified applications have been installed on the instance. If the applications are installed, there should be log entries indicating their installation. If there are no such entries, it's likely that the applications are not installed.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can download it from the official AWS website and configure it using the "aws configure" command. You will be prompted to provide your AWS Access Key ID, Secret Access Key, Default region name, and Default output format.
+
+2. Once the AWS CLI is set up, you can list all your EC2 instances using the following command:
+   ```
+   aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId]' --output text
+   ```
+   This command will return the IDs of all your EC2 instances.
+
+3. To check if a specific application is installed on an instance, you need to connect to the instance. You can do this using the following command:
+   ```
+   ssh -i /path/my-key-pair.pem my-instance-user-name@my-instance-public-dns-name
+   ```
+   Replace "/path/my-key-pair.pem" with the path to your private key file, "my-instance-user-name" with the name of the user account on the instance, and "my-instance-public-dns-name" with the public DNS name of the instance.
+
+4. Once you are connected to the instance, you can check if a specific application is installed by using the appropriate command for the operating system of the instance. For example, on a Linux instance, you can use the following command to check if a specific application is installed:
+   ```
+   dpkg -l | grep 'application-name'
+   ```
+   Replace "application-name" with the name of the application you want to check. If the application is installed, this command will return a list of packages related to the application. If the application is not installed, this command will not return anything.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3):** First, you need to set up AWS SDK (Boto3) for Python. This allows Python to interact with AWS services. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:** Next, you need to configure your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the command line, type the following:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. **Create a Python Script to List EC2 Instances:** Now, you can create a Python script that uses Boto3 to list your EC2 instances. Here's a simple script that does this:
+
+   ```python
+   import boto3
+
+   def list_instances():
+       ec2 = boto3.resource('ec2')
+       for instance in ec2.instances.all():
+           print('ID: {}, State: {}, Type: {}'.format(
+               instance.id, instance.state['Name'], instance.instance_type))
+
+   if __name__ == '__main__':
+       list_instances()
+   ```
+
+4. **Check for Specified Applications:** To check if a specific application is installed on an instance, you can use the AWS Systems Manager Run Command. This allows you to run shell scripts or commands on your instances. Here's an example of how you can do this:
+
+   ```python
+   import boto3
+
+   def check_application(instance_id, application):
+       ssm = boto3.client('ssm')
+       response = ssm.send_command(
+           InstanceIds=[instance_id],
+           DocumentName='AWS-RunShellScript',
+           Parameters={'commands': ['which {}'.format(application)]},
+       )
+       command_id = response['Command']['CommandId']
+       output = ssm.get_command_invocation(
+           CommandId=command_id,
+           InstanceId=instance_id,
+       )
+       return output['StatusDetails'] == 'Success'
+
+   if __name__ == '__main__':
+       print(check_application('your-instance-id', 'your-application'))
+   ```
+
+   This script sends a command to the specified instance to check if the specified application is installed. It does this by using the 'which' command, which returns the path to the application if it's installed, or nothing if it's not. The script then checks the status of the command invocation to determine if the application is installed.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -1,6 +1,98 @@
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, select "Instances" to view all the EC2 instances.
+3. For each instance, check the "Monitoring" tab. This tab provides metrics about CPU utilization, Disk reads and writes, Network packets, etc. 
+4. If the CPU utilization is consistently low (below 20% for example), the instance may be underutilized. Similarly, if the Disk reads/writes and Network packets are low, it could also indicate underutilization.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. **Install and Configure AWS CLI**: Before you can start using AWS CLI, you need to install it on your local machine. You can download it from the official AWS website. After installation, you need to configure it with your AWS account credentials. You can do this by running the command `aws configure` and then entering your Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. **List all EC2 Instances**: Use the AWS CLI command `aws ec2 describe-instances` to list all the EC2 instances in your account. This command will return a JSON output with details about all your instances.
+
+3. **Check CPU Utilization**: To check the CPU utilization of your EC2 instances, you can use the CloudWatch `get-metric-statistics` command. The command will look something like this: 
+
+    ```
+    aws cloudwatch get-metric-statistics --namespace AWS/EC2 --metric-name CPUUtilization --dimensions Name=InstanceId,Value=instance_id --start-time 2021-01-01T00:00:00Z --end-time 2021-01-02T23:59:59Z --period 3600 --statistics Maximum --unit Percent
+    ```
+
+    Replace `instance_id` with the ID of your EC2 instance, and adjust the `start-time` and `end-time` parameters to the period you want to check. This command will return the maximum CPU utilization for each hour in the specified period.
+
+4. **Analyze the Output**: The output of the `get-metric-statistics` command will include a `Datapoints` array with the maximum CPU utilization for each hour. If the CPU utilization is consistently low (e.g., less than 20%), the EC2 instance may be underutilized.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3):
+   You need to install Boto3 in your Python environment. You can do this using pip:
+   ```
+   pip install boto3
+   ```
+   Then, configure your AWS credentials. You can do this by creating the files ~/.aws/credentials and ~/.aws/config:
+   ```
+   [default]
+   aws_access_key_id = YOUR_ACCESS_KEY
+   aws_secret_access_key = YOUR_SECRET_KEY
+   ```
+   ```
+   [default]
+   region=us-east-1
+   ```
+
+2. Use Boto3 to connect to AWS EC2:
+   You can use Boto3 to create an EC2 resource object using the AWS credentials:
+   ```python
+   import boto3
+
+   ec2 = boto3.resource('ec2')
+   ```
+
+3. Retrieve and analyze EC2 instances:
+   You can use the EC2 resource object to retrieve all EC2 instances and analyze their utilization:
+   ```python
+   instances = ec2.instances.all()
+
+   for instance in instances:
+       # Get instance id and type
+       instance_id = instance.id
+       instance_type = instance.instance_type
+
+       # Get CloudWatch metrics for the instance
+       cloudwatch = boto3.client('cloudwatch')
+       metrics = cloudwatch.get_metric_statistics(
+           Namespace='AWS/EC2',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'InstanceId',
+                   'Value': instance_id
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=300,
+           Statistics=['Average']
+       )
+
+       # Check if the instance is underutilized
+       if metrics['Datapoints']:
+           cpu_utilization = metrics['Datapoints'][0]['Average']
+           if cpu_utilization < 20.0:  # You can adjust this threshold as needed
+               print(f"Instance {instance_id} of type {instance_type} is underutilized with CPU utilization of {cpu_utilization}%")
+   ```
+
+4. Regularly run the script:
+   You should regularly run this script to monitor your EC2 instances. You can do this manually, or you can automate it using a cron job or a similar scheduling tool.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 

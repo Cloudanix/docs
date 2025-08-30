@@ -23,6 +23,98 @@ AWSWAF
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the navigation pane, under "INSTANCES", click on "Instances".
+3. Select the EC2 instance that you want to check.
+4. In the bottom panel, click on the "Monitoring" tab.
+5. Here, you can see the "CPU Utilization" metric. If the CPU Utilization is consistently high or at its maximum limit, it indicates that the EC2 instance is reaching its vCPU limit.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can install AWS CLI using pip (Python package manager) by running the command `pip install awscli`. After installation, you can configure it by running `aws configure` and then entering your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+2. List all EC2 instances: Use the AWS CLI command `aws ec2 describe-instances` to list all the EC2 instances in your account. This command will return a JSON output with details of all the instances.
+
+3. Extract instance IDs and their vCPU count: From the output of the previous command, you can extract the instance IDs and their vCPU count using the command `aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId, CpuOptions.CoreCount]' --output text`. This command will return a list of instance IDs along with their vCPU count.
+
+4. Check vCPU limit: Now, for each instance ID, you can check if it has reached its vCPU limit by comparing the vCPU count from the previous step with the vCPU limit of the instance type. You can get the vCPU limit of an instance type from the AWS documentation. If the vCPU count is equal to or greater than the vCPU limit, then the instance has reached its vCPU limit.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. **Setup AWS SDK (Boto3):** First, you need to set up AWS SDK (Boto3) for Python. This allows Python to interact with AWS services. You can install it using pip:
+
+   ```python
+   pip install boto3
+   ```
+
+2. **Configure AWS Credentials:** Next, you need to configure your AWS credentials. You can do this by creating a file at ~/.aws/credentials. At the command line, type the following:
+
+   ```bash
+   aws configure
+   ```
+
+   Then input your AWS Access Key ID, Secret Access Key, Default region name, and Default output format when prompted.
+
+3. **Create a Python Script to Check vCPU Usage:** Now, you can create a Python script that uses Boto3 to check the vCPU usage of your EC2 instances. Here's a basic example:
+
+   ```python
+   import boto3
+
+   # Create a session using your AWS credentials
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='us-west-2'
+   )
+
+   # Create an EC2 resource object using the session
+   ec2_resource = session.resource('ec2')
+
+   # Iterate over all your instances
+   for instance in ec2_resource.instances.all():
+       # Get the instance type
+       instance_type = instance.instance_type
+
+       # Get the vCPU info for the instance type
+       ec2 = session.client('ec2')
+       vcpu_info = ec2.describe_instance_types(InstanceTypes=[instance_type])
+
+       # Get the current vCPU usage
+       cloudwatch = session.client('cloudwatch')
+       vcpu_usage = cloudwatch.get_metric_statistics(
+           Namespace='AWS/EC2',
+           MetricName='CPUUtilization',
+           Dimensions=[
+               {
+                   'Name': 'InstanceId',
+                   'Value': instance.id
+               },
+           ],
+           StartTime=datetime.datetime.utcnow() - datetime.timedelta(seconds=600),
+           EndTime=datetime.datetime.utcnow(),
+           Period=60,
+           Statistics=['Average']
+       )
+
+       # Check if the vCPU usage is at the limit
+       if vcpu_usage['Datapoints']:
+           average_vcpu_usage = vcpu_usage['Datapoints'][0]['Average']
+           vcpu_limit = vcpu_info['InstanceTypes'][0]['VCpuInfo']['DefaultVCpus']
+           if average_vcpu_usage >= vcpu_limit:
+               print(f"Instance {instance.id} is at vCPU limit.")
+   ```
+
+4. **Run the Python Script:** Finally, you can run the Python script. It will print out the IDs of any instances that are at their vCPU limit. If no instances are at their limit, it won't print anything.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 

@@ -23,6 +23,96 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Log in to the AWS Management Console and navigate to the EC2 dashboard.
+2. In the EC2 dashboard, select the 'Instances' option from the left-hand side menu. This will display a list of all the EC2 instances that are currently running.
+3. Select the EC2 instance you want to check for misconfigurations. In the 'Description' tab at the bottom of the page, you can see all the details related to the selected instance.
+4. To check for any unspecified applications, you need to connect to the instance. You can do this by clicking on the 'Connect' button at the top of the page. Once connected, you can use the command line interface to list all the installed applications and check if there are any applications that should not be installed on the instance.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure to configure it with the necessary access keys and region.
+
+2. Once the AWS CLI is set up, you can list all the EC2 instances using the following command:
+   ```
+   aws ec2 describe-instances
+   ```
+   This command will return a JSON output with details about all the EC2 instances.
+
+3. To check the applications installed on an instance, you need to SSH into the instance. You can do this using the following command:
+   ```
+   ssh -i /path/my-key-pair.pem ec2-user@ec2-198-51-100-1.compute-1.amazonaws.com
+   ```
+   Replace "/path/my-key-pair.pem" with the path to your private key file and "ec2-198-51-100-1.compute-1.amazonaws.com" with the public DNS of your EC2 instance.
+
+4. Once you are logged into the instance, you can check the installed applications using the following command:
+   ```
+   dpkg --get-selections
+   ```
+   This command will list all the installed packages on the instance. You can look through this list to check if any unspecified applications are installed.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+After installation, you need to configure it. You can do this by creating a new session using your AWS credentials:
+
+```python
+import boto3
+
+session = boto3.Session(
+    aws_access_key_id='YOUR_ACCESS_KEY',
+    aws_secret_access_key='YOUR_SECRET_KEY',
+    aws_session_token='SESSION_TOKEN',
+)
+```
+
+2. List all EC2 instances: Use the `describe_instances()` function to get information about all instances. This function returns a lot of information about each instance, including the instance ID, instance type, and state.
+
+```python
+ec2 = session.resource('ec2')
+for instance in ec2.instances.all():
+    print(instance.id, instance.instance_type, instance.state)
+```
+
+3. Check for installed applications: To check for installed applications, you can use the `describe_instance_attribute()` function with the `UserData` attribute. This function returns the user data that you specified when you launched the instance. The user data is often used to pass scripts or other automation to run at launch time.
+
+```python
+response = ec2.describe_instance_attribute(
+    InstanceId='INSTANCE_ID',
+    Attribute='userData'
+)
+print('User data:', response['UserData'])
+```
+
+4. Analyze the user data: The user data returned in the previous step is base64-encoded. After decoding it, you can analyze it to check for any scripts or commands that install applications. If the user data contains commands to install applications, then applications are installed on the instance.
+
+```python
+import base64
+
+user_data = response['UserData']
+decoded_user_data = base64.b64decode(user_data).decode('utf-8')
+print('Decoded user data:', decoded_user_data)
+
+if 'apt-get install' in decoded_user_data or 'yum install' in decoded_user_data:
+    print('Applications are installed on the instance.')
+else:
+    print('No applications are installed on the instance.')
+```
+
+Please note that this method only checks for applications installed through the user data at launch time. It does not check for applications installed after the instance has been launched.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>

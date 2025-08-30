@@ -23,6 +23,99 @@ CBP,SEBI
 
 ### Triage and Remediation
 <Tabs>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon EC2 console at https://console.aws.amazon.com/ec2/.
+   
+2. In the navigation pane, choose 'Network & Security', then 'Security Groups'.
+
+3. In the list of security groups, select the security group that you want to check.
+
+4. In the details pane, under the 'Description' tab, check the 'Delete Protection' status. If it's disabled, then the Network Firewall Deletion Protection is not enabled. 
+
+Please note that AWS does not natively support deletion protection for security groups. You would need to implement a custom solution for this, such as using AWS Config to monitor changes and prevent or alert on deletion.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. Install and configure AWS CLI: Before you can start using AWS CLI, you need to install it on your local machine and configure it with your AWS account credentials. You can do this by running the following commands:
+
+   Installation:
+   ```
+   pip install awscli
+   ```
+   Configuration:
+   ```
+   aws configure
+   ```
+   You will be prompted to enter your AWS Access Key ID, Secret Access Key, default region name, and default output format.
+
+2. List all the security groups: Once you have AWS CLI configured, you can list all the security groups in your account by running the following command:
+   ```
+   aws ec2 describe-security-groups --query "SecurityGroups[*].{Name:GroupName,ID:GroupId}"
+   ```
+   This command will return a list of all security groups along with their names and IDs.
+
+3. Check the inbound rules for each security group: For each security group, you can check the inbound rules by running the following command:
+   ```
+   aws ec2 describe-security-groups --group-ids <security-group-id> --query 'SecurityGroups[*].IpPermissions[*]'
+   ```
+   Replace `<security-group-id>` with the ID of the security group you want to check. This command will return a list of all inbound rules for the specified security group.
+
+4. Check for deletion protection: Unfortunately, AWS does not provide a built-in feature to prevent the deletion of EC2 instances or security groups. Therefore, you cannot check for deletion protection using AWS CLI. However, you can implement deletion protection using AWS Identity and Access Management (IAM) by creating a policy that denies the `ec2:DeleteSecurityGroup` action.
+</Accordion>
+
+<Accordion title='Using Python'>
+1. Install and configure AWS SDK for Python (Boto3): Boto3 is the Amazon Web Services (AWS) Software Development Kit (SDK) for Python, which allows Python developers to write software that makes use of services like Amazon S3, Amazon EC2, etc. You can install it using pip:
+
+```python
+pip install boto3
+```
+
+2. Set up AWS credentials: You can set up your AWS credentials in several ways, but the simplest is to use the AWS CLI tool to configure them:
+
+```bash
+aws configure
+```
+
+3. Create a Python script to check Network Firewall Deletion Protection: 
+
+```python
+import boto3
+
+def check_firewall_deletion_protection():
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_network_interfaces()
+    for network_interface in response['NetworkInterfaces']:
+        if 'Association' in network_interface:
+            if 'IpOwnerId' in network_interface['Association']:
+                if network_interface['Association']['IpOwnerId'] == 'amazon':
+                    print(f"Network interface {network_interface['NetworkInterfaceId']} is associated with Amazon and may be a firewall. Checking deletion protection...")
+                    firewall_response = ec2.describe_network_acls(
+                        NetworkAclIds=[network_interface['NetworkInterfaceId']]
+                    )
+                    for network_acl in firewall_response['NetworkAcls']:
+                        if 'Associations' in network_acl:
+                            for association in network_acl['Associations']:
+                                if association['NetworkAclId'] == network_interface['NetworkInterfaceId']:
+                                    if 'NetworkAclAssociationId' in association:
+                                        print(f"Firewall {network_interface['NetworkInterfaceId']} has deletion protection enabled.")
+                                    else:
+                                        print(f"Firewall {network_interface['NetworkInterfaceId']} does not have deletion protection enabled.")
+
+check_firewall_deletion_protection()
+```
+
+4. Run the Python script: You can run the Python script using any Python interpreter. The script will print out the network interfaces that are associated with Amazon (which may be firewalls) and whether they have deletion protection enabled.
+
+Please note that this script assumes that you have the necessary permissions to call the describe_network_interfaces and describe_network_acls operations. If you do not have these permissions, you will need to modify the script or update your IAM policies accordingly.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 ### Remediation
 
