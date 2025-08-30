@@ -23,6 +23,226 @@ CBP
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent SageMaker Notebook Instances from having root access enabled in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to SageMaker in the AWS Console:**
+   - Open the AWS Management Console.
+   - In the search bar, type "SageMaker" and select "Amazon SageMaker" from the list of services.
+
+2. **Access Notebook Instances:**
+   - In the SageMaker dashboard, on the left-hand side, click on "Notebook instances" under the "Notebook" section.
+
+3. **Modify Notebook Instance Settings:**
+   - Select the notebook instance you want to modify.
+   - Click on the "Actions" button and choose "Stop" to stop the instance if it is running.
+   - Once the instance is stopped, click on the instance name to open its details.
+   - Click on the "Edit" button to modify the instance settings.
+
+4. **Disable Root Access:**
+   - In the "Permissions and encryption" section, ensure that the "IAM role" associated with the notebook instance does not have policies that grant root access to DynamoDB.
+   - If necessary, create or attach a more restrictive IAM role that limits permissions appropriately.
+   - Save the changes and restart the notebook instance if needed.
+
+By following these steps, you can ensure that your SageMaker Notebook Instances do not have root access enabled in DynamoDB.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent a SageMaker Notebook Instance from having root access enabled in DynamoDB using AWS CLI, you can follow these steps:
+
+1. **Create an IAM Role without DynamoDB Full Access:**
+   Ensure that the IAM role associated with the SageMaker Notebook Instance does not have policies that grant full access to DynamoDB. You can create a new role or modify an existing one to limit permissions.
+
+   ```sh
+   aws iam create-role --role-name SageMakerLimitedRole --assume-role-policy-document file://trust-policy.json
+   ```
+
+2. **Attach a Policy with Limited DynamoDB Permissions:**
+   Attach a policy to the IAM role that grants only the necessary permissions to DynamoDB, avoiding full access.
+
+   ```sh
+   aws iam put-role-policy --role-name SageMakerLimitedRole --policy-name LimitedDynamoDBAccess --policy-document file://limited-dynamodb-policy.json
+   ```
+
+3. **Update the SageMaker Notebook Instance to Use the New Role:**
+   Update the SageMaker Notebook Instance to use the newly created IAM role with limited permissions.
+
+   ```sh
+   aws sagemaker update-notebook-instance --notebook-instance-name <YourNotebookInstanceName> --role-arn arn:aws:iam::<YourAccountID>:role/SageMakerLimitedRole
+   ```
+
+4. **Verify the Role Assignment:**
+   Ensure that the SageMaker Notebook Instance is now using the IAM role with limited permissions.
+
+   ```sh
+   aws sagemaker describe-notebook-instance --notebook-instance-name <YourNotebookInstanceName>
+   ```
+
+By following these steps, you can prevent the SageMaker Notebook Instance from having root access enabled in DynamoDB using AWS CLI.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent SageMaker Notebook Instances from having root access enabled in DynamoDB using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   - Ensure you have Boto3 installed and configured with the necessary permissions to interact with SageMaker and IAM.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create an IAM Role with Restricted Permissions:**
+   - Create an IAM role that has the necessary permissions for the SageMaker Notebook but does not include root access to DynamoDB.
+
+   ```python
+   import boto3
+
+   iam_client = boto3.client('iam')
+
+   role_name = 'SageMakerRestrictedRole'
+   assume_role_policy_document = {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "Service": "sagemaker.amazonaws.com"
+               },
+               "Action": "sts:AssumeRole"
+           }
+       ]
+   }
+
+   response = iam_client.create_role(
+       RoleName=role_name,
+       AssumeRolePolicyDocument=json.dumps(assume_role_policy_document)
+   )
+
+   policy_arn = 'arn:aws:iam::aws:policy/AmazonSageMakerFullAccess'
+   iam_client.attach_role_policy(
+       RoleName=role_name,
+       PolicyArn=policy_arn
+   )
+
+   # Attach additional policies as needed, but avoid root access to DynamoDB
+   ```
+
+3. **Update SageMaker Notebook Instance to Use the Restricted Role:**
+   - Ensure that your SageMaker Notebook Instances are using the newly created IAM role.
+
+   ```python
+   sagemaker_client = boto3.client('sagemaker')
+
+   notebook_instance_name = 'your-notebook-instance-name'
+
+   response = sagemaker_client.update_notebook_instance(
+       NotebookInstanceName=notebook_instance_name,
+       RoleArn=response['Role']['Arn']
+   )
+   ```
+
+4. **Verify the Configuration:**
+   - Verify that the SageMaker Notebook Instance is using the correct IAM role and does not have root access to DynamoDB.
+
+   ```python
+   response = sagemaker_client.describe_notebook_instance(
+       NotebookInstanceName=notebook_instance_name
+   )
+
+   print(f"Notebook Instance Role ARN: {response['RoleArn']}")
+   ```
+
+By following these steps, you ensure that your SageMaker Notebook Instances are configured with an IAM role that has restricted permissions, preventing root access to DynamoDB.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console and open the Amazon SageMaker console at https://console.aws.amazon.com/sagemaker/.
+
+2. In the left navigation pane, choose "Notebook instances".
+
+3. In the "Notebook instances" list, choose the name of the notebook instance that you want to check.
+
+4. In the "Permissions and encryption" section, check the "Lifecycle configuration" associated with the notebook instance. If the "Lifecycle configuration" script contains "sudo" commands, it means the notebook instance has root access enabled. 
+
+5. Additionally, you can check the IAM role associated with the notebook instance. In the "Permissions and encryption" section, click on the IAM role ARN. This will redirect you to the IAM console. Check the policies attached to the role. If the policies provide full access to DynamoDB or any other AWS services, it means the notebook instance potentially has root access.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Sagemaker service.
+
+2. Once the AWS CLI is set up, you can list all the Sagemaker notebook instances using the following command:
+
+   ```
+   aws sagemaker list-notebook-instances --region your-region
+   ```
+   Replace 'your-region' with the region where your instances are located.
+
+3. After listing the notebook instances, you can describe the properties of each instance using the following command:
+
+   ```
+   aws sagemaker describe-notebook-instance --notebook-instance-name your-notebook-instance-name --region your-region
+   ```
+   Replace 'your-notebook-instance-name' with the name of your notebook instance and 'your-region' with the region where your instances are located.
+
+4. In the output of the above command, look for the "DirectInternetAccess" field. If the value of this field is "Enabled", it means that the notebook instance has root access enabled. If the value is "Disabled", it means that root access is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+To detect if a SageMaker Notebook Instance has root access enabled, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Import the necessary libraries and establish a client connection to AWS SageMaker:**
+
+```python
+import boto3
+
+sagemaker = boto3.client('sagemaker')
+```
+
+2. **List all the SageMaker notebook instances:**
+
+```python
+notebook_instances = sagemaker.list_notebook_instances()
+```
+
+3. **Iterate over the notebook instances and check the `DirectInternetAccess` attribute:**
+
+```python
+for notebook_instance in notebook_instances['NotebookInstances']:
+    if notebook_instance['DirectInternetAccess'] == 'Enabled':
+        print(f"Notebook Instance {notebook_instance['NotebookInstanceName']} has root access enabled.")
+```
+
+4. **Check the Lifecycle configurations for root access:**
+
+```python
+for notebook_instance in notebook_instances['NotebookInstances']:
+    lifecycle_config_name = notebook_instance.get('LifecycleConfigName')
+    if lifecycle_config_name:
+        lifecycle_config = sagemaker.describe_notebook_instance_lifecycle_config(
+            NotebookInstanceLifecycleConfigName=lifecycle_config_name
+        )
+        for script in lifecycle_config['OnStart']:
+            if 'sudo' in script['Content']:
+                print(f"Notebook Instance {notebook_instance['NotebookInstanceName']} has root access enabled in lifecycle configuration.")
+```
+
+Please note that the above scripts only detect if the SageMaker Notebook Instances have root access enabled. It does not provide any remediation steps. Also, the scripts assume that you have the necessary permissions to list and describe the SageMaker notebook instances and their lifecycle configurations.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+
 <Tab title='Remediation'>
 <AccordionGroup>
 <Accordion title='Using Console' defaultOpen='true'>

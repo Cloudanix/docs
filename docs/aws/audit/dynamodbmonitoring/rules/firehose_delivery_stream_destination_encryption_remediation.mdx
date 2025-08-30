@@ -1,6 +1,216 @@
 
 ### Triage and Remediation
 <Tabs>
+
+
+<Tab title='Prevention'>
+### How to Prevent
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+To prevent misconfigurations related to Firehose Delivery Stream Destination Encryption in DynamoDB using the AWS Management Console, follow these steps:
+
+1. **Navigate to Kinesis Firehose:**
+   - Open the AWS Management Console.
+   - In the search bar, type "Kinesis" and select "Kinesis" from the dropdown.
+   - In the Kinesis dashboard, select "Delivery Streams" from the left-hand menu.
+
+2. **Create or Edit Delivery Stream:**
+   - If you are creating a new delivery stream, click on "Create delivery stream."
+   - If you are editing an existing delivery stream, select the delivery stream you want to modify and click on "Edit."
+
+3. **Configure Destination Settings:**
+   - In the delivery stream configuration, navigate to the "Destination" section.
+   - Select "Amazon DynamoDB" as the destination.
+
+4. **Enable Destination Encryption:**
+   - In the "Destination settings," look for the "Server-side encryption" option.
+   - Ensure that the "Enable server-side encryption" checkbox is checked.
+   - Choose the appropriate AWS Key Management Service (KMS) key to use for encryption.
+
+By following these steps, you can ensure that your Firehose Delivery Stream to DynamoDB is properly configured with destination encryption, thereby preventing misconfigurations related to data security.
+</Accordion>
+
+<Accordion title='Using CLI'>
+To prevent misconfigurations related to Firehose Delivery Stream Destination Encryption in DynamoDB using AWS CLI, follow these steps:
+
+1. **Create a KMS Key for Encryption:**
+   Ensure you have a KMS key that will be used for encrypting the data. If you don't have one, create it using the following command:
+   ```sh
+   aws kms create-key --description "KMS key for Firehose Delivery Stream encryption"
+   ```
+
+2. **Enable Server-Side Encryption on the DynamoDB Table:**
+   Ensure that the DynamoDB table has server-side encryption enabled. You can enable it using the following command:
+   ```sh
+   aws dynamodb update-table --table-name <your-table-name> --sse-specification Enabled=true,SSEType=KMS,KMSMasterKeyId=<your-kms-key-id>
+   ```
+
+3. **Create or Update Firehose Delivery Stream with Encryption:**
+   When creating or updating the Firehose Delivery Stream, specify the KMS key for encryption. Use the following command to create a new delivery stream with encryption:
+   ```sh
+   aws firehose create-delivery-stream --delivery-stream-name <your-delivery-stream-name> --delivery-stream-type DirectPut --dynamodb-destination-configuration RoleARN=<your-role-arn>,TableARN=<your-table-arn>,SSESpecification={Enabled=true,KMSMasterKeyId=<your-kms-key-id>}
+   ```
+
+4. **Verify Encryption Configuration:**
+   Verify that the Firehose Delivery Stream is configured with the correct encryption settings using the following command:
+   ```sh
+   aws firehose describe-delivery-stream --delivery-stream-name <your-delivery-stream-name>
+   ```
+
+By following these steps, you can ensure that your Firehose Delivery Stream is properly configured to use encryption when delivering data to DynamoDB.
+</Accordion>
+
+<Accordion title='Using Python'>
+To prevent misconfigurations related to Firehose Delivery Stream Destination Encryption in DynamoDB using Python scripts, you can follow these steps:
+
+1. **Set Up AWS SDK for Python (Boto3):**
+   Ensure you have Boto3 installed and configured with the necessary permissions to interact with AWS services.
+
+   ```bash
+   pip install boto3
+   ```
+
+2. **Create a Boto3 Client for Kinesis Firehose:**
+   Initialize a Boto3 client for Kinesis Firehose to interact with the delivery streams.
+
+   ```python
+   import boto3
+
+   firehose_client = boto3.client('firehose')
+   ```
+
+3. **Check and Enable Encryption for Delivery Stream:**
+   Write a function to check if the delivery stream has encryption enabled. If not, update the delivery stream to enable encryption.
+
+   ```python
+   def enable_delivery_stream_encryption(stream_name, encryption_key_arn):
+       try:
+           response = firehose_client.describe_delivery_stream(
+               DeliveryStreamName=stream_name
+           )
+           delivery_stream = response['DeliveryStreamDescription']
+           if 'DeliveryStreamEncryptionConfiguration' not in delivery_stream or \
+              delivery_stream['DeliveryStreamEncryptionConfiguration']['Status'] != 'ENABLED':
+               firehose_client.start_delivery_stream_encryption(
+                   DeliveryStreamName=stream_name,
+                   DeliveryStreamEncryptionConfigurationInput={
+                       'KeyType': 'CUSTOMER_MANAGED_CMK',
+                       'KeyARN': encryption_key_arn
+                   }
+               )
+               print(f"Encryption enabled for delivery stream: {stream_name}")
+           else:
+               print(f"Delivery stream {stream_name} is already encrypted.")
+       except Exception as e:
+           print(f"Error enabling encryption for delivery stream {stream_name}: {e}")
+
+   # Example usage
+   stream_name = 'your-delivery-stream-name'
+   encryption_key_arn = 'arn:aws:kms:your-region:your-account-id:key/your-key-id'
+   enable_delivery_stream_encryption(stream_name, encryption_key_arn)
+   ```
+
+4. **Automate the Check and Enable Process:**
+   Schedule the script to run periodically using a task scheduler like cron (Linux) or Task Scheduler (Windows) to ensure that any new delivery streams are checked and encrypted automatically.
+
+   ```python
+   import time
+
+   def monitor_and_encrypt_streams():
+       while True:
+           # List all delivery streams
+           response = firehose_client.list_delivery_streams()
+           for stream_name in response['DeliveryStreamNames']:
+               enable_delivery_stream_encryption(stream_name, encryption_key_arn)
+           # Wait for a specified interval before checking again
+           time.sleep(3600)  # Check every hour
+
+   # Start monitoring
+   monitor_and_encrypt_streams()
+   ```
+
+By following these steps, you can ensure that your Firehose Delivery Streams are always encrypted, preventing any misconfigurations related to destination encryption in DynamoDB.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
+<Tab title='Cause'>
+### Check Cause
+<AccordionGroup>
+<Accordion title='Using Console' defaultOpen='true'>
+1. Sign in to the AWS Management Console.
+2. Navigate to the Kinesis service. In the navigation pane, under Data Firehose, choose Delivery streams.
+3. In the list of delivery streams, choose the name of the stream that you want to check.
+4. In the details pane, under Destinations, check the details of the Amazon DynamoDB destination. If Server-side encryption is listed as Disabled, then the data written by the selected Amazon Kinesis Firehose delivery stream to the specified DynamoDB table is not encrypted using AWS KMS.
+</Accordion>
+
+<Accordion title='Using CLI'>
+1. First, you need to install and configure AWS CLI on your local machine. You can do this by following the instructions provided by AWS. Make sure you have the necessary permissions to access the Firehose Delivery Stream and DynamoDB.
+
+2. Once the AWS CLI is set up, you can list all the delivery streams in your account using the following command:
+   ```
+   aws firehose list-delivery-streams
+   ```
+   This command will return a list of all the delivery streams in your account.
+
+3. To check the configuration of a specific delivery stream, use the following command:
+   ```
+   aws firehose describe-delivery-stream --delivery-stream-name <your-delivery-stream-name>
+   ```
+   Replace `<your-delivery-stream-name>` with the name of your delivery stream. This command will return a JSON object that contains the configuration of the delivery stream.
+
+4. To check if the Firehose Delivery Stream Destination Encryption in DynamoDB is enabled, you need to look for the `S3DestinationDescription` or `ExtendedS3DestinationDescription` field in the JSON object. If the `SSEDescription` field under these is present and the `Status` is `ENABLED`, then the encryption is enabled. If the `SSEDescription` field is not present or the `Status` is not `ENABLED`, then the encryption is not enabled.
+</Accordion>
+
+<Accordion title='Using Python'>
+To check Firehose Delivery Stream Destination Encryption in DynamoDB using python scripts, you can use the AWS SDK for Python (Boto3). Here are the steps:
+
+1. **Import the necessary modules and create a session**:
+   You need to import Boto3 and create a session using your AWS credentials.
+
+   ```python
+   import boto3
+
+   session = boto3.Session(
+       aws_access_key_id='YOUR_ACCESS_KEY',
+       aws_secret_access_key='YOUR_SECRET_KEY',
+       region_name='YOUR_REGION'
+   )
+   ```
+
+2. **Create a Firehose client**:
+   Use the session to create a Firehose client.
+
+   ```python
+   firehose = session.client('firehose')
+   ```
+
+3. **List all delivery streams**:
+   Use the `list_delivery_streams` method to get all the delivery streams.
+
+   ```python
+   response = firehose.list_delivery_streams()
+   delivery_streams = response['DeliveryStreamNames']
+   ```
+
+4. **Check the destination encryption**:
+   For each delivery stream, use the `describe_delivery_stream` method to get its details and check if the destination encryption is enabled.
+
+   ```python
+   for stream in delivery_streams:
+       response = firehose.describe_delivery_stream(DeliveryStreamName=stream)
+       destination = response['DeliveryStreamDescription']['Destinations'][0]
+       if 'ExtendedS3DestinationDescription' in destination:
+           encryption = destination['ExtendedS3DestinationDescription']['S3DestinationDescription']['EncryptionConfiguration']
+           if encryption['NoEncryptionConfig'] == 'NoEncryption':
+               print(f"Delivery Stream {stream} has no destination encryption.")
+   ```
+
+This script will print the names of all delivery streams that have no destination encryption. Please replace `'YOUR_ACCESS_KEY'`, `'YOUR_SECRET_KEY'`, and `'YOUR_REGION'` with your actual AWS credentials and region.
+</Accordion>
+
+</AccordionGroup>
+</Tab>
 <Tab title='Remediation'>
 ### Remediation
 
